@@ -110,6 +110,11 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'label': 'Facturation',
         'route': '/invoicing'
       },
+      {
+        'icon': 'notifications_active',
+        'label': 'Alertes',
+        'route': '/alerts-center'
+      },
     ];
 
     return Container(

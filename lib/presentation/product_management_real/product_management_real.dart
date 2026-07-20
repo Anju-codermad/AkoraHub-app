@@ -347,8 +347,8 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                           separatorBuilder: (_, __) => SizedBox(height: 1.h),
                           itemBuilder: (context, index) {
                             final p = _products[index];
-                            final lowStock =
-                                (p['stock_quantity'] ?? 0) <= 5;
+                            final lowStock = (p['stock_quantity'] ?? 0) <=
+                                (p['low_stock_threshold'] ?? 5);
                             return Card(
                               child: Padding(
                                 padding: EdgeInsets.all(3.w),

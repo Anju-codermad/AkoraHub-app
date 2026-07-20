@@ -100,6 +100,7 @@ create table if not exists public.products (
   price_gros numeric not null default 0,
   gros_threshold_qty integer not null default 10, -- seuil qté déclenchant le prix Gros
   stock_quantity numeric not null default 0,
+  low_stock_threshold numeric not null default 5,
   visibility boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
