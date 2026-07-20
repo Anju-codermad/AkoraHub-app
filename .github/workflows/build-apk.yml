@@ -25,7 +25,6 @@ jobs:
       - name: Installer Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.2'
           channel: 'stable'
 
       - name: Créer env.json à partir des secrets GitHub
