@@ -11,10 +11,12 @@ import '../presentation/authentication_screen/authentication_screen.dart';
 import '../presentation/onboarding_flow/onboarding_flow.dart';
 import '../presentation/product_catalog_management/product_catalog_management.dart';
 import '../presentation/product_detail_editor/product_detail_editor.dart';
+import '../presentation/registration_screen/registration_screen.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
   static const String initial = '/';
+  static const String registration = '/registration-screen';
   static const String businessProfileSettings = '/business-profile-settings';
   static const String analyticsDashboard = '/analytics-dashboard';
   static const String businessDashboard = '/business-dashboard';
@@ -42,6 +44,7 @@ class AppRoutes {
     onboardingFlow: (context) => const OnboardingFlow(),
     productCatalogManagement: (context) => const ProductCatalogManagement(),
     productDetailEditor: (context) => const ProductDetailEditor(),
+    registration: (context) => const RegistrationScreen(),
     // TODO: Add your other routes here
   };
 }

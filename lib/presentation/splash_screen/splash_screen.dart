@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_export.dart';
+import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_icon_widget.dart';
 
 /// Splash Screen - Branded app launch experience
@@ -133,9 +135,10 @@ class _SplashScreenState extends State<SplashScreen>
 
   /// Navigate to appropriate screen based on user state
   Future<void> _navigateToNextScreen() async {
-    // TODO: Implement actual authentication check
-    final bool isAuthenticated = false;
-    final bool isNewUser = true;
+    final bool isAuthenticated = SupabaseConfig.isConfigured &&
+        SupabaseConfig.client.auth.currentSession != null;
+
+    final bool isFirstLaunch = await _isFirstLaunch();
 
     await Future.delayed(const Duration(milliseconds: 300));
 
@@ -143,11 +146,23 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (isAuthenticated) {
       Navigator.pushReplacementNamed(context, '/business-dashboard');
-    } else if (isNewUser) {
+    } else if (isFirstLaunch) {
       Navigator.pushReplacementNamed(context, '/onboarding-flow');
     } else {
       Navigator.pushReplacementNamed(context, '/authentication-screen');
     }
+  }
+
+  /// Vérifie (via shared_preferences) si c'est le tout premier lancement
+  /// de l'app, pour n'afficher l'onboarding qu'une seule fois.
+  Future<bool> _isFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('onboarding_seen') ?? false;
+    if (!seen) {
+      await prefs.setBool('onboarding_seen', true);
+      return true;
+    }
+    return false;
   }
 
   /// Retry initialization on error

@@ -36,6 +36,11 @@ dependencies:
   speech_to_text: ^7.3.0
 
   universal_html: ^2.2.4
+
+  # Backend & state management (Phase 1)
+  supabase_flutter: ^2.8.0
+  flutter_riverpod: ^2.6.1
+  uuid: ^4.5.1
 dev_dependencies:
   flutter_test:    # CRITICAL: Required for Flutter project testing - DO NOT REMOVE
     sdk: flutter   # CRITICAL: Required for Flutter project testing - DO NOT REMOVE
@@ -46,6 +51,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
+    - env.json
   # CRITICAL ASSET MANAGEMENT RULES:
   # - DO NOT ADD NEW ASSET DIRECTORIES (assets/svg/, assets/icons/, etc.)
   # - ONLY USE EXISTING AND ITEMS AVAILABLE IN THE DIRECTORIES LISTED ABOVE (assets/, assets/images/)

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
 import '../core/app_export.dart';
+import '../core/supabase/supabase_config.dart';
 import '../widgets/custom_error_widget.dart';
 
 void main() async {
@@ -27,11 +29,16 @@ void main() async {
     return SizedBox.shrink();
   };
 
+  // Connexion à Supabase (base de données, authentification).
+  // Si env.json est absent/incomplet, l'app démarre quand même en mode
+  // "hors-ligne" plutôt que de planter (utile pour du dev sans backend).
+  await SupabaseConfig.initialize();
+
   // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
   Future.wait([
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
   ]).then((value) {
-    runApp(MyApp());
+    runApp(const ProviderScope(child: MyApp()));
   });
 }
 

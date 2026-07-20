@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sizer/sizer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/supabase_config.dart';
 import './widgets/app_logo_widget.dart';
 import './widgets/email_input_widget.dart';
 import './widgets/language_selector_widget.dart';
@@ -27,18 +29,6 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   String? _passwordError;
   bool _isLoading = false;
   bool _rememberMe = false;
-
-  // Mock credentials for testing
-  final Map<String, Map<String, String>> _mockCredentials = {
-    'business_owner': {
-      'email': 'owner@akorafanadiovana.mg',
-      'password': 'Business2024!',
-    },
-    'admin': {
-      'email': 'admin@akorafanadiovana.mg',
-      'password': 'Admin2024!',
-    },
-  };
 
   // Multi-language translations
   final Map<String, Map<String, String>> _translations = {
@@ -172,16 +162,21 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       _isLoading = true;
     });
 
-    // Simulate authentication delay
-    await Future.delayed(const Duration(seconds: 2));
+    String? errorMessage;
 
-    // Check mock credentials
-    bool isValidCredentials = false;
-    for (var credentials in _mockCredentials.values) {
-      if (credentials['email'] == _emailController.text &&
-          credentials['password'] == _passwordController.text) {
-        isValidCredentials = true;
-        break;
+    if (!SupabaseConfig.isConfigured) {
+      errorMessage =
+          'Connexion au serveur indisponible. Vérifiez votre connexion internet.';
+    } else {
+      try {
+        await SupabaseConfig.client.auth.signInWithPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      } on AuthException catch (e) {
+        errorMessage = e.message;
+      } catch (e) {
+        errorMessage = 'Une erreur est survenue. Réessayez.';
       }
     }
 
@@ -191,7 +186,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
     if (!mounted) return;
 
-    if (isValidCredentials) {
+    if (errorMessage == null) {
       // Haptic feedback on success
       HapticFeedback.mediumImpact();
 
@@ -209,24 +204,12 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/business-dashboard');
     } else {
-      // Show error message with mock credentials hint
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_currentTranslations['invalid_credentials']!),
-              const SizedBox(height: 8),
-              const Text(
-                'Test credentials:\nowner@akorafanadiovana.mg / Business2024!',
-                style: TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
+          content: Text(errorMessage),
           backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -263,13 +246,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
   void _handleRegister() {
     HapticFeedback.selectionClick();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Registration screen will be implemented'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    Navigator.pushNamed(context, '/registration-screen');
   }
 
   @override
