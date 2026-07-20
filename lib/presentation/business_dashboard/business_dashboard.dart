@@ -100,6 +100,11 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'label': 'Équipe & rôles',
         'route': '/staff-management'
       },
+      {
+        'icon': 'inventory_2',
+        'label': 'Produits (Gros/Détail)',
+        'route': '/product-management-real'
+      },
     ];
 
     return Container(
