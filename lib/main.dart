@@ -38,7 +38,7 @@ void main() async {
   Future.wait([
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
   ]).then((value) {
-    runApp(const ProviderScope(child: MyApp()));
+    runApp(ProviderScope(child: MyApp()));
   });
 }
 
