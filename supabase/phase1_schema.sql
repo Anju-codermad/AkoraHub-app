@@ -182,6 +182,16 @@ create table if not exists public.invoices (
   created_at timestamptz not null default now()
 );
 
+-- Recherche un profil par email (utilisé pour promouvoir un membre d'équipe).
+-- security definer : nécessaire pour lire auth.users, mais restreint au staff.
+create or replace function public.find_profile_by_email(search_email text)
+returns setof public.profiles as $$
+  select p.* from public.profiles p
+  join auth.users u on u.id = p.id
+  where u.email = search_email
+    and public.current_role_is_staff();
+$$ language sql security definer stable;
+
 -- ============================================================
 -- SÉCURITÉ : activation de RLS sur toutes les tables
 -- ============================================================

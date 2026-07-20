@@ -90,6 +90,16 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'label': 'Add Customer',
         'route': '/customer-management'
       },
+      {
+        'icon': 'business',
+        'label': 'Piliers d\'entreprise',
+        'route': '/business-units-management'
+      },
+      {
+        'icon': 'groups',
+        'label': 'Équipe & rôles',
+        'route': '/staff-management'
+      },
     ];
 
     return Container(

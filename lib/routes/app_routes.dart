@@ -12,11 +12,15 @@ import '../presentation/onboarding_flow/onboarding_flow.dart';
 import '../presentation/product_catalog_management/product_catalog_management.dart';
 import '../presentation/product_detail_editor/product_detail_editor.dart';
 import '../presentation/registration_screen/registration_screen.dart';
+import '../presentation/business_units_management/business_units_management.dart';
+import '../presentation/staff_management/staff_management.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
   static const String initial = '/';
   static const String registration = '/registration-screen';
+  static const String businessUnitsManagement = '/business-units-management';
+  static const String staffManagement = '/staff-management';
   static const String businessProfileSettings = '/business-profile-settings';
   static const String analyticsDashboard = '/analytics-dashboard';
   static const String businessDashboard = '/business-dashboard';
@@ -45,6 +49,8 @@ class AppRoutes {
     productCatalogManagement: (context) => const ProductCatalogManagement(),
     productDetailEditor: (context) => const ProductDetailEditor(),
     registration: (context) => const RegistrationScreen(),
+    businessUnitsManagement: (context) => const BusinessUnitsManagement(),
+    staffManagement: (context) => const StaffManagement(),
     // TODO: Add your other routes here
   };
 }
