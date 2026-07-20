@@ -105,6 +105,11 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'label': 'Produits (Gros/Détail)',
         'route': '/product-management-real'
       },
+      {
+        'icon': 'receipt_long',
+        'label': 'Facturation',
+        'route': '/invoicing'
+      },
     ];
 
     return Container(
