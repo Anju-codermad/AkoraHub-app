@@ -83,12 +83,12 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
       {
         'icon': 'receipt_long',
         'label': 'New Order',
-        'route': '/order-management'
+        'route': '/order-management-real'
       },
       {
         'icon': 'person_add',
         'label': 'Add Customer',
-        'route': '/customer-management'
+        'route': '/customer-management-real'
       },
       {
         'icon': 'business',
@@ -193,9 +193,9 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
                       if (metricType == 'sales') {
                         Navigator.pushNamed(context, '/analytics-dashboard');
                       } else if (metricType == 'orders') {
-                        Navigator.pushNamed(context, '/order-management');
+                        Navigator.pushNamed(context, '/order-management-real');
                       } else if (metricType == 'followers') {
-                        Navigator.pushNamed(context, '/customer-management');
+                        Navigator.pushNamed(context, '/customer-management-real');
                       } else if (metricType == 'messages') {
                         Navigator.pushNamed(context, '/messaging-center');
                       }
@@ -210,7 +210,7 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
                       } else if (actionType == 'create_campaign') {
                         Navigator.pushNamed(context, '/campaign-management');
                       } else if (actionType == 'view_orders') {
-                        Navigator.pushNamed(context, '/order-management');
+                        Navigator.pushNamed(context, '/order-management-real');
                       } else if (actionType == 'customer_messages') {
                         Navigator.pushNamed(context, '/messaging-center');
                       }

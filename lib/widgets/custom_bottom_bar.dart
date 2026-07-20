@@ -76,7 +76,7 @@ class _CustomBottomBarState extends State<CustomBottomBar>
       label: 'Products',
     ),
     CustomBottomBarItem(
-      route: '/customer-management',
+      route: '/customer-management-real',
       icon: Icons.people_outline,
       activeIcon: Icons.people,
       label: 'Customers',
