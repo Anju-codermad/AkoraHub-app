@@ -8,10 +8,12 @@ import '../../../widgets/custom_icon_widget.dart';
 /// Displays business name greeting and notification bell with badge
 class GreetingHeaderWidget extends StatelessWidget {
   final VoidCallback onNotificationTap;
+  final int notificationCount;
 
   const GreetingHeaderWidget({
     super.key,
     required this.onNotificationTap,
+    this.notificationCount = 0,
   });
 
   String _getGreeting() {
@@ -78,31 +80,32 @@ class GreetingHeaderWidget extends StatelessWidget {
                   onPressed: onNotificationTap,
                   tooltip: 'Notifications',
                 ),
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.error,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 18,
-                      minHeight: 18,
-                    ),
-                    child: Text(
-                      '5',
-                      style: TextStyle(
-                        color: theme.colorScheme.onError,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                if (notificationCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.error,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      textAlign: TextAlign.center,
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        '$notificationCount',
+                        style: TextStyle(
+                          color: theme.colorScheme.onError,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ],

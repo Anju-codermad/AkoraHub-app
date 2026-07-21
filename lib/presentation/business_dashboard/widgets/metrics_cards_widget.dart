@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../core/app_export.dart';
+import '../../../core/supabase/supabase_config.dart';
 import '../../../widgets/custom_icon_widget.dart';
 
 /// Metrics Cards Widget
-/// Displays key performance indicators in card format
-class MetricsCardsWidget extends StatelessWidget {
+/// Displays real key performance indicators pulled from Supabase.
+class MetricsCardsWidget extends StatefulWidget {
   final Function(String metricType) onMetricTap;
 
   const MetricsCardsWidget({
@@ -15,41 +16,79 @@ class MetricsCardsWidget extends StatelessWidget {
   });
 
   @override
+  State<MetricsCardsWidget> createState() => _MetricsCardsWidgetState();
+}
+
+class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
+  int _productsCount = 0;
+  int _pendingOrdersCount = 0;
+  int _clientsCount = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMetrics();
+  }
+
+  Future<void> _loadMetrics() async {
+    if (!SupabaseConfig.isConfigured) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    try {
+      final products =
+          await SupabaseConfig.client.from('products').select('id').count();
+      final pendingOrders = await SupabaseConfig.client
+          .from('orders')
+          .select('id')
+          .inFilter('status', ['recue', 'en_preparation', 'expediee']).count();
+      final clients = await SupabaseConfig.client
+          .from('profiles')
+          .select('id')
+          .eq('role', 'client')
+          .count();
+
+      if (!mounted) return;
+      setState(() {
+        _productsCount = products.count;
+        _pendingOrdersCount = pendingOrders.count;
+        _clientsCount = clients.count;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     final metrics = [
       {
-        'type': 'sales',
-        'icon': 'attach_money',
-        'label': 'Today\'s Sales',
-        'value': '\$2,450',
-        'change': '+12.5%',
-        'isPositive': true,
+        'type': 'products',
+        'icon': 'inventory_2',
+        'label': 'Produits',
+        'value': _isLoading ? '—' : '$_productsCount',
       },
       {
         'type': 'orders',
         'icon': 'shopping_bag',
-        'label': 'Pending Orders',
-        'value': '18',
-        'change': '+3',
-        'isPositive': true,
+        'label': 'Commandes en attente',
+        'value': _isLoading ? '—' : '$_pendingOrdersCount',
       },
       {
-        'type': 'followers',
+        'type': 'clients',
         'icon': 'people',
-        'label': 'New Followers',
-        'value': '247',
-        'change': '+15.2%',
-        'isPositive': true,
+        'label': 'Clients inscrits',
+        'value': _isLoading ? '—' : '$_clientsCount',
       },
       {
         'type': 'messages',
         'icon': 'message',
         'label': 'Messages',
-        'value': '12',
-        'change': '5 unread',
-        'isPositive': false,
+        'value': '—',
       },
     ];
 
@@ -59,7 +98,7 @@ class MetricsCardsWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Performance Overview',
+            'Vue d\'ensemble',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -84,8 +123,6 @@ class MetricsCardsWidget extends StatelessWidget {
                 metric['icon'] as String,
                 metric['label'] as String,
                 metric['value'] as String,
-                metric['change'] as String,
-                metric['isPositive'] as bool,
               );
             },
           ),
@@ -101,22 +138,11 @@ class MetricsCardsWidget extends StatelessWidget {
     String icon,
     String label,
     String value,
-    String change,
-    bool isPositive,
   ) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => onMetricTap(type),
-        onLongPress: () {
-          // Show detailed breakdown
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Long press detected for $label'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-        },
+        onTap: () => widget.onMetricTap(type),
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: EdgeInsets.all(3.w),
@@ -179,36 +205,6 @@ class MetricsCardsWidget extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 0.5.h),
-                  Row(
-                    children: [
-                      if (isPositive)
-                        CustomIconWidget(
-                          iconName: 'trending_up',
-                          color: theme.colorScheme.tertiary,
-                          size: 14,
-                        )
-                      else
-                        CustomIconWidget(
-                          iconName: 'info_outline',
-                          color: theme.colorScheme.onSurfaceVariant,
-                          size: 14,
-                        ),
-                      SizedBox(width: 1.w),
-                      Expanded(
-                        child: Text(
-                          change,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: isPositive
-                                ? theme.colorScheme.tertiary
-                                : theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
