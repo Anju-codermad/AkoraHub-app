@@ -32,7 +32,7 @@ class AppLogoWidget extends StatelessWidget {
         ),
         SizedBox(height: 2.h),
         Text(
-          'Akora Fanadiovana',
+          'AkoraHub',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
             color: theme.colorScheme.primary,

@@ -120,7 +120,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Bienvenue chez Akora Fanadiovana',
+                  'Bienvenue sur AkoraHub',
                   style: theme.textTheme.headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w600),
                   textAlign: TextAlign.center,
