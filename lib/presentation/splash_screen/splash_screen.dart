@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_export.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../core/supabase/auth_helpers.dart';
 import '../../widgets/custom_icon_widget.dart';
 
 /// Splash Screen - Branded app launch experience
@@ -145,7 +146,9 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (isAuthenticated) {
-      Navigator.pushReplacementNamed(context, '/business-dashboard');
+      final route = await AuthRouting.homeRouteForCurrentUser();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, route);
     } else if (isFirstLaunch) {
       Navigator.pushReplacementNamed(context, '/onboarding-flow');
     } else {

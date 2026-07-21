@@ -4,6 +4,7 @@ import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import '../../core/supabase/auth_helpers.dart';
 import './widgets/app_logo_widget.dart';
 import './widgets/email_input_widget.dart';
 import './widgets/language_selector_widget.dart';
@@ -199,10 +200,12 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
         ),
       );
 
-      // Navigate to business dashboard
+      // Navigate to the right home screen depending on role
       await Future.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/business-dashboard');
+      final route = await AuthRouting.homeRouteForCurrentUser();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, route);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

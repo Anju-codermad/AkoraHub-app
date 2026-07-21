@@ -244,8 +244,16 @@ create policy "order_items_select_related" on public.order_items
     exists (select 1 from public.orders o where o.id = order_id
             and (o.customer_id = auth.uid() or public.current_role_is_staff()))
   );
+create policy "order_items_insert_own" on public.order_items
+  for insert with check (
+    exists (select 1 from public.orders o where o.id = order_id
+            and (o.customer_id = auth.uid() or public.current_role_is_staff()))
+  );
 create policy "order_items_write_staff" on public.order_items
-  for all using (public.current_role_is_staff()) with check (public.current_role_is_staff());
+  for update using (public.current_role_is_staff())
+  with check (public.current_role_is_staff());
+create policy "order_items_delete_staff" on public.order_items
+  for delete using (public.current_role_is_staff());
 
 -- --- quotes / quote_items : même logique que orders
 create policy "quotes_select_own_or_staff" on public.quotes
@@ -259,8 +267,16 @@ create policy "quote_items_select_related" on public.quote_items
     exists (select 1 from public.quotes q where q.id = quote_id
             and (q.customer_id = auth.uid() or public.current_role_is_staff()))
   );
+create policy "quote_items_insert_own" on public.quote_items
+  for insert with check (
+    exists (select 1 from public.quotes q where q.id = quote_id
+            and (q.customer_id = auth.uid() or public.current_role_is_staff()))
+  );
 create policy "quote_items_write_staff" on public.quote_items
-  for all using (public.current_role_is_staff()) with check (public.current_role_is_staff());
+  for update using (public.current_role_is_staff())
+  with check (public.current_role_is_staff());
+create policy "quote_items_delete_staff" on public.quote_items
+  for delete using (public.current_role_is_staff());
 
 -- --- invoices : client voit les siennes, staff (Comptable/Admin) gère tout
 create policy "invoices_select_own_or_staff" on public.invoices

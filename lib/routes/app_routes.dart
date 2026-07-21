@@ -19,6 +19,7 @@ import '../presentation/invoicing/invoicing_screen.dart';
 import '../presentation/alerts_center/alerts_center.dart';
 import '../presentation/order_management_real/order_management_real.dart';
 import '../presentation/customer_management_real/customer_management_real.dart';
+import '../presentation/client_home/client_home.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
@@ -31,6 +32,7 @@ class AppRoutes {
   static const String alerts = '/alerts-center';
   static const String orderManagementReal = '/order-management-real';
   static const String customerManagementReal = '/customer-management-real';
+  static const String clientHome = '/client-home';
   static const String businessProfileSettings = '/business-profile-settings';
   static const String analyticsDashboard = '/analytics-dashboard';
   static const String businessDashboard = '/business-dashboard';
@@ -66,6 +68,7 @@ class AppRoutes {
     alerts: (context) => const AlertsCenter(),
     orderManagementReal: (context) => const OrderManagementReal(),
     customerManagementReal: (context) => const CustomerManagementReal(),
+    clientHome: (context) => const ClientHome(),
     // TODO: Add your other routes here
   };
 }

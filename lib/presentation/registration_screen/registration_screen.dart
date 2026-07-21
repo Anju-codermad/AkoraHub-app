@@ -85,7 +85,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/business-dashboard');
+      Navigator.pushReplacementNamed(context, '/client-home');
     } on AuthException catch (e) {
       _showError(e.message);
     } catch (e) {
