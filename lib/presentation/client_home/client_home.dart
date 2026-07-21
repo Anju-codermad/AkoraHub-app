@@ -6,6 +6,7 @@ import '../../core/supabase/supabase_config.dart';
 import 'cart_tab.dart';
 import 'catalog_tab.dart';
 import 'orders_tab.dart';
+import 'wall/wall_tab.dart';
 
 /// Espace client : catalogue, panier, commandes, profil.
 /// Point d'entrée pour tout utilisateur avec le rôle "client".
@@ -23,6 +24,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
     'Catalogue',
     'Panier',
     'Mes commandes',
+    'Mur',
     'Profil',
   ];
 
@@ -46,6 +48,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       const CatalogTab(),
       const CartTab(),
       const OrdersTab(),
+      const WallTab(),
       _ProfileTab(onLogout: _handleLogout),
     ];
 
@@ -75,6 +78,11 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: 'Commandes',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.dynamic_feed_outlined),
+            selectedIcon: Icon(Icons.dynamic_feed),
+            label: 'Mur',
           ),
           const NavigationDestination(
             icon: Icon(Icons.person_outline),
