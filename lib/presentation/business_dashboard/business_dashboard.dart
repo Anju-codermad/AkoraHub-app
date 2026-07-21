@@ -73,7 +73,7 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
       {
         'icon': 'add_shopping_cart',
         'label': 'Add Product',
-        'route': '/product-detail-editor'
+        'route': '/product-management-real'
       },
       {
         'icon': 'campaign',
@@ -99,11 +99,6 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'icon': 'groups',
         'label': 'Équipe & rôles',
         'route': '/staff-management'
-      },
-      {
-        'icon': 'inventory_2',
-        'label': 'Produits (Gros/Détail)',
-        'route': '/product-management-real'
       },
       {
         'icon': 'receipt_long',
@@ -206,7 +201,8 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
                     onActionTap: (actionType) {
                       HapticFeedback.selectionClick();
                       if (actionType == 'add_product') {
-                        Navigator.pushNamed(context, '/product-detail-editor');
+                        Navigator.pushNamed(
+                            context, '/product-management-real');
                       } else if (actionType == 'create_campaign') {
                         Navigator.pushNamed(context, '/campaign-management');
                       } else if (actionType == 'view_orders') {
