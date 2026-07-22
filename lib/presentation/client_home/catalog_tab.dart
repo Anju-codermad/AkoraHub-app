@@ -66,6 +66,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     }
   }
 
+  String _iconForUnit(Map<String, dynamic> unit) {
+    final slug = (unit['slug'] ?? '').toString();
+    if (slug.contains('paint')) return 'format_paint';
+    if (slug.contains('formation')) return 'school';
+    return 'cleaning_services';
+  }
+
   List<String> get _categories {
     final relevant = _selectedUnitId == null
         ? _products
@@ -109,15 +116,20 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       onRefresh: _loadData,
       child: CustomScrollView(
         slivers: [
+          // --- Barre de recherche ---
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.all(4.w),
+              padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
               child: TextField(
                 decoration: InputDecoration(
                   hintText: 'Rechercher un produit...',
                   prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.5),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
                   ),
                   isDense: true,
                 ),
@@ -125,46 +137,155 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
           ),
+
+          // --- Bannière d'accroche ---
           SliverToBoxAdapter(
-            child: SizedBox(
-              height: 5.h,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: const Text('Tous les piliers'),
-                      selected: _selectedUnitId == null,
-                      onSelected: (_) => setState(() {
-                        _selectedUnitId = null;
-                        _selectedCategory = 'toutes';
-                      }),
-                    ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.w),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(4.w),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      theme.colorScheme.primary,
+                      theme.colorScheme.primary.withValues(alpha: 0.75),
+                    ],
                   ),
-                  ..._businessUnits.map((u) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(u['name']),
-                          selected: _selectedUnitId == u['id'],
-                          onSelected: (_) => setState(() {
-                            _selectedUnitId = u['id'];
-                            _selectedCategory = 'toutes';
-                          }),
-                        ),
-                      )),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Vos produits,\nen un clic',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: theme.colorScheme.onPrimary,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
+                          ),
+                          SizedBox(height: 0.5.h),
+                          Text(
+                            'Rapide, fiable, adapté à votre activité',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onPrimary
+                                  .withValues(alpha: 0.85),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.local_shipping_outlined,
+                      size: 48,
+                      color: theme.colorScheme.onPrimary.withValues(alpha: 0.85),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // --- Grille des piliers ---
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Nos activités', style: theme.textTheme.titleMedium),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _selectedUnitId = null;
+                      _selectedCategory = 'toutes';
+                    }),
+                    child: const Text('Voir tout'),
+                  ),
                 ],
               ),
             ),
           ),
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: 4.w),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 3.w,
+                mainAxisSpacing: 1.5.h,
+                childAspectRatio: 3.2,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final unit = _businessUnits[index];
+                  final selected = _selectedUnitId == unit['id'];
+                  return Material(
+                    color: selected
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => setState(() {
+                        _selectedUnitId = selected ? null : unit['id'];
+                        _selectedCategory = 'toutes';
+                      }),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 3.w),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                _iconForUnit(unit) == 'format_paint'
+                                    ? Icons.format_paint
+                                    : _iconForUnit(unit) == 'school'
+                                        ? Icons.school
+                                        : Icons.cleaning_services,
+                                color: theme.colorScheme.primary,
+                                size: 20,
+                              ),
+                            ),
+                            SizedBox(width: 2.w),
+                            Expanded(
+                              child: Text(
+                                unit['name'] ?? '',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                childCount: _businessUnits.length,
+              ),
+            ),
+          ),
+
           if (_categories.isNotEmpty)
             SliverToBoxAdapter(
               child: SizedBox(
                 height: 5.h,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -188,13 +309,24 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 ),
               ),
             ),
-          SliverToBoxAdapter(child: SizedBox(height: 1.h)),
+
+          // --- Produits populaires / catalogue ---
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
+              child: Text('Produits', style: theme.textTheme.titleMedium),
+            ),
+          ),
           _filteredProducts.isEmpty
               ? SliverFillRemaining(
-                  child: Center(
-                    child: Text(
-                      'Aucun produit trouvé.',
-                      style: theme.textTheme.bodyMedium,
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6.h),
+                    child: Center(
+                      child: Text(
+                        'Aucun produit trouvé.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
                     ),
                   ),
                 )
@@ -252,6 +384,13 @@ class _ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: theme.colorScheme.outline.withValues(alpha: 0.15),
+        ),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Column(
@@ -295,4 +434,3 @@ class _ProductCard extends StatelessWidget {
     );
   }
 }
-
