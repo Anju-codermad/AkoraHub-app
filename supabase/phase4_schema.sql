@@ -60,6 +60,23 @@ alter table public.order_items
 alter table public.quote_items
   add column if not exists variant_id uuid references public.product_variants(id);
 
+-- ------------------------------------------------------------
+-- 4. PARAMÈTRES ENTREPRISE (profil admin : nom, description, contact...)
+-- ------------------------------------------------------------
+create table if not exists public.company_settings (
+  id integer primary key default 1,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  constraint company_settings_singleton check (id = 1)
+);
+
+alter table public.company_settings enable row level security;
+
+create policy "company_settings_select_staff" on public.company_settings
+  for select using (public.current_role_is_staff());
+create policy "company_settings_write_staff" on public.company_settings
+  for all using (public.current_role_is_staff()) with check (public.current_role_is_staff());
+
 -- ============================================================
 -- SÉCURITÉ
 -- ============================================================

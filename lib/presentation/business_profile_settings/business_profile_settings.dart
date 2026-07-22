@@ -7,7 +7,6 @@ import '../../widgets/custom_icon_widget.dart';
 import './widgets/app_preferences_section.dart';
 import './widgets/business_information_section.dart';
 import './widgets/contact_details_section.dart';
-import './widgets/subscription_section.dart';
 import './widgets/visual_identity_section.dart';
 
 /// Business Profile Settings Screen
@@ -33,40 +32,23 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
   bool _isLoading = false;
   bool _hasUnsavedChanges = false;
 
-  // Mock business data
+  // Données réelles de l'entreprise, chargées depuis Supabase
+  // (structure conservée pour compatibilité avec les widgets existants).
   final Map<String, dynamic> _businessData = {
-    "businessId": "BUS001",
-    "logo":
-        "https://img.rocket.new/generatedImages/rocket_gen_img_1723a3e01-1765201490500.png",
-    "logoSemanticLabel":
-        "Circular logo with blue and gold gradient showing soap bubbles and botanical elements",
-    "companyName": {
-      "fr": "Savonnerie Artisanale Madagascar",
-      "mg": "Savony Malagasy Asa Tanana",
-      "en": "Madagascar Artisan Soap",
-      "ar": "صابون مدغشقر الحرفي"
-    },
-    "description": {
-      "fr":
-          "Fabricant de savons naturels et produits de beauté biologiques depuis 2020",
-      "mg":
-          "Mpamokatra savony voajanahary sy vokatra hatsaran-tarehy biolojika hatramin'ny 2020",
-      "en": "Natural soap and organic beauty products manufacturer since 2020",
-      "ar": "مصنع صابون طبيعي ومنتجات تجميل عضوية منذ 2020"
-    },
-    "category": "soap_manufacturing",
-    "phone": "+261 34 12 345 67",
-    "email": "contact@savonnerie-madagascar.com",
-    "website": "https://savonnerie-madagascar.com",
-    "socialMedia": {
-      "facebook": "savonnerie.madagascar",
-      "instagram": "@savonnerie_mg",
-      "whatsapp": "+261341234567"
-    },
+    "businessId": "",
+    "logo": "",
+    "logoSemanticLabel": "",
+    "companyName": {"fr": "", "mg": "", "en": "", "ar": ""},
+    "description": {"fr": "", "mg": "", "en": "", "ar": ""},
+    "category": "",
+    "phone": "",
+    "email": "",
+    "website": "",
+    "socialMedia": {"facebook": "", "instagram": "", "whatsapp": ""},
     "address": {
-      "street": "Lot II M 25 Bis Ambohimanarina",
-      "city": "Antananarivo",
-      "postalCode": "101",
+      "street": "",
+      "city": "",
+      "postalCode": "",
       "country": "Madagascar",
       "latitude": -18.8792,
       "longitude": 47.5079
@@ -80,17 +62,6 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
       "saturday": {"open": "09:00", "close": "13:00", "closed": false},
       "sunday": {"open": "", "close": "", "closed": true}
     },
-    "subscription": {
-      "plan": "annual",
-      "status": "active",
-      "startDate": "2024-01-15",
-      "endDate": "2025-01-15",
-      "price": "\$60",
-      "productsUsed": 45,
-      "productsLimit": 100,
-      "storageUsed": 2.3,
-      "storageLimit": 5.0
-    },
     "preferences": {
       "language": "fr",
       "notifications": {
@@ -102,16 +73,58 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
       "privacy": {"showPhone": true, "showEmail": true, "showAddress": true}
     },
     "verification": {
-      "status": "verified",
-      "verifiedDate": "2024-02-01",
-      "badge": true
+      "status": "unverified",
+      "verifiedDate": "",
+      "badge": false
     },
     "brandColors": {
-      "primary": "#1B365D",
+      "primary": "#085041",
       "secondary": "#4A90A4",
       "accent": "#E8B931"
     }
   };
+
+  static const List<String> _persistedKeys = [
+    "companyName",
+    "description",
+    "category",
+    "phone",
+    "email",
+    "website",
+    "socialMedia",
+    "address",
+    "brandColors",
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFromSupabase();
+  }
+
+  Future<void> _loadFromSupabase() async {
+    if (!SupabaseConfig.isConfigured) return;
+    try {
+      final data = await SupabaseConfig.client
+          .from('company_settings')
+          .select()
+          .eq('id', 1)
+          .maybeSingle();
+      if (data != null && data['data'] != null) {
+        final saved = Map<String, dynamic>.from(data['data']);
+        setState(() {
+          for (final key in _persistedKeys) {
+            if (saved.containsKey(key)) {
+              _businessData[key] = saved[key];
+            }
+          }
+        });
+      }
+    } catch (_) {
+      // Pas grave si le chargement échoue : l'écran reste utilisable,
+      // les champs restent simplement vides jusqu'à la prochaine sauvegarde.
+    }
+  }
 
   @override
   void dispose() {
@@ -122,19 +135,35 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
   Future<void> _saveChanges() async {
     setState(() => _isLoading = true);
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
+    String? errorMessage;
+    if (!SupabaseConfig.isConfigured) {
+      errorMessage = 'Connexion au serveur indisponible.';
+    } else {
+      try {
+        final Map<String, dynamic> toSave = {
+          for (final key in _persistedKeys) key: _businessData[key],
+        };
+        await SupabaseConfig.client.from('company_settings').upsert({
+          'id': 1,
+          'data': toSave,
+        });
+      } catch (e) {
+        errorMessage = 'Erreur lors de la sauvegarde. Réessayez.';
+      }
+    }
 
     if (mounted) {
       setState(() {
         _isLoading = false;
-        _hasUnsavedChanges = false;
+        if (errorMessage == null) _hasUnsavedChanges = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Profile updated successfully'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          content: Text(errorMessage ?? 'Profil mis à jour avec succès'),
+          backgroundColor: errorMessage != null
+              ? Theme.of(context).colorScheme.error
+              : Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -414,13 +443,6 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                     onChanged: () {
                       setState(() => _hasUnsavedChanges = true);
                     },
-                  ),
-
-                  SizedBox(height: 2.h),
-
-                  // Subscription Section
-                  SubscriptionSection(
-                    businessData: _businessData,
                   ),
 
                   SizedBox(height: 2.h),
