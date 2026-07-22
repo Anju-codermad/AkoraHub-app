@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import 'product_variants_screen.dart';
 
 /// Gestion réelle des produits : tarification Gros/Détail par seuil de
 /// quantité, stock, et lots de production (n° lot, fabrication, DLC).
@@ -393,6 +394,18 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.end,
                                       children: [
+                                        TextButton.icon(
+                                          onPressed: () => Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ProductVariantsScreen(
+                                                      product: p),
+                                            ),
+                                          ),
+                                          icon: const Icon(Icons.tune, size: 18),
+                                          label: const Text('Variantes'),
+                                        ),
                                         TextButton.icon(
                                           onPressed: () => _addBatch(p),
                                           icon: const Icon(Icons.inventory_2_outlined,

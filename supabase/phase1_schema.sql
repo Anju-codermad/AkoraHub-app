@@ -17,12 +17,9 @@ create table if not exists public.business_units (
   created_at timestamptz not null default now()
 );
 
-insert into public.business_units (name, slug)
-values
-  ('Akora Fanadiovana', 'akora-fanadiovana'),
-  ('ARCA PAINTS', 'arca-paints'),
-  ('AkoraFormation', 'akoraformation')
-on conflict (slug) do nothing;
+-- Remarque : aucun pilier n'est pré-créé automatiquement. C'est à l'Admin
+-- de créer chaque pilier lui-même (menu "Piliers d'entreprise"), au moment
+-- où il souhaite y ajouter un catalogue.
 
 -- ------------------------------------------------------------
 -- 2. PROFILS (étend auth.users : admin, équipe, clients)

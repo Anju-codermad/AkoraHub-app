@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../presentation/business_profile_settings/business_profile_settings.dart';
-import '../presentation/analytics_dashboard/analytics_dashboard.dart';
+import '../presentation/analytics_dashboard_real/analytics_dashboard_real.dart';
 import '../presentation/business_dashboard/business_dashboard.dart';
 import '../presentation/campaign_management/campaign_management.dart';
 import '../presentation/splash_screen/splash_screen.dart';
@@ -49,7 +49,7 @@ class AppRoutes {
   static Map<String, WidgetBuilder> routes = {
     initial: (context) => const SplashScreen(),
     businessProfileSettings: (context) => const BusinessProfileSettings(),
-    analyticsDashboard: (context) => const AnalyticsDashboard(),
+    analyticsDashboard: (context) => const AnalyticsDashboardReal(),
     businessDashboard: (context) => const BusinessDashboard(),
     campaignManagement: (context) => const CampaignManagement(),
     splash: (context) => const SplashScreen(),

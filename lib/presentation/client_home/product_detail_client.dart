@@ -18,16 +18,97 @@ class ProductDetailClient extends ConsumerStatefulWidget {
 
 class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
   int _quantity = 1;
+  bool _isLoadingVariants = true;
+  List<Map<String, dynamic>> _variants = [];
+  String? _selectedFormatId;
+  String? _selectedParfumId;
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVariants();
+  }
+
+  Future<void> _loadVariants() async {
+    if (!SupabaseConfig.isConfigured) {
+      setState(() => _isLoadingVariants = false);
+      return;
+    }
+    try {
+      final data = await SupabaseConfig.client
+          .from('product_variants')
+          .select('*, formats(name), parfums(name)')
+          .eq('product_id', widget.product['id']);
+      final variants = List<Map<String, dynamic>>.from(data);
+      setState(() {
+        _variants = variants;
+        if (variants.isNotEmpty) {
+          _selectedFormatId = variants.first['format_id'];
+          _selectedParfumId = variants.first['parfum_id'];
+        }
+        _isLoadingVariants = false;
+      });
+    } catch (_) {
+      setState(() => _isLoadingVariants = false);
+    }
+  }
+
+  List<Map<String, dynamic>> get _availableFormats {
+    final seen = <String>{};
+    final list = <Map<String, dynamic>>[];
+    for (final v in _variants) {
+      final id = v['format_id'] as String?;
+      if (id != null && seen.add(id)) {
+        list.add({'id': id, 'name': v['formats']?['name'] ?? ''});
+      }
+    }
+    return list;
+  }
+
+  List<Map<String, dynamic>> get _availableParfums {
+    final seen = <String>{};
+    final list = <Map<String, dynamic>>[];
+    for (final v in _variants) {
+      if (v['format_id'] != _selectedFormatId) continue;
+      final id = v['parfum_id'] as String?;
+      if (id != null && seen.add(id)) {
+        list.add({'id': id, 'name': v['parfums']?['name'] ?? ''});
+      }
+    }
+    return list;
+  }
+
+  Map<String, dynamic>? get _selectedVariant {
+    for (final v in _variants) {
+      if (v['format_id'] == _selectedFormatId &&
+          v['parfum_id'] == _selectedParfumId) {
+        return v;
+      }
+    }
+    // Repli : le premier variant correspondant au format, peu importe le parfum.
+    for (final v in _variants) {
+      if (v['format_id'] == _selectedFormatId) return v;
+    }
+    return _variants.isNotEmpty ? _variants.first : null;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final p = widget.product;
-    final priceDetail = (p['price_detail'] ?? 0).toDouble();
-    final priceGros = (p['price_gros'] ?? 0).toDouble();
-    final threshold = (p['gros_threshold_qty'] ?? 10) as int;
+    final variant = _selectedVariant;
+    final hasVariants = _variants.isNotEmpty;
+
+    // Repli sur les prix du produit lui-même si aucune variante n'existe.
+    final priceDetail = (variant?['price_detail'] ?? p['price_detail'] ?? 0)
+        .toDouble();
+    final priceGros =
+        (variant?['price_gros'] ?? p['price_gros'] ?? 0).toDouble();
+    final threshold =
+        (variant?['gros_threshold_qty'] ?? p['gros_threshold_qty'] ?? 10)
+            as int;
     final isGros = _quantity >= threshold;
     final unitPrice = isGros ? priceGros : priceDetail;
     final total = unitPrice * _quantity;
@@ -63,6 +144,52 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
               if ((p['description'] ?? '').toString().isNotEmpty)
                 Text(p['description'], style: theme.textTheme.bodyMedium),
               SizedBox(height: 2.h),
+
+              if (_isLoadingVariants)
+                const Center(child: CircularProgressIndicator())
+              else if (hasVariants) ...[
+                Text('Format', style: theme.textTheme.titleSmall),
+                SizedBox(height: 0.5.h),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedFormatId,
+                  decoration: const InputDecoration(isDense: true),
+                  items: _availableFormats
+                      .map((f) => DropdownMenuItem(
+                            value: f['id'] as String,
+                            child: Text(f['name']),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() {
+                    _selectedFormatId = v;
+                    // Réinitialise le parfum si celui choisi n'est plus valide.
+                    final valid = _availableParfums.map((e) => e['id']);
+                    if (!valid.contains(_selectedParfumId)) {
+                      _selectedParfumId =
+                          _availableParfums.isNotEmpty
+                              ? _availableParfums.first['id']
+                              : null;
+                    }
+                  }),
+                ),
+                if (_availableParfums.isNotEmpty) ...[
+                  SizedBox(height: 1.5.h),
+                  Text('Parfum', style: theme.textTheme.titleSmall),
+                  SizedBox(height: 0.5.h),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedParfumId,
+                    decoration: const InputDecoration(isDense: true),
+                    items: _availableParfums
+                        .map((f) => DropdownMenuItem(
+                              value: f['id'] as String,
+                              child: Text(f['name']),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedParfumId = v),
+                  ),
+                ],
+                SizedBox(height: 2.h),
+              ],
+
               Container(
                 padding: EdgeInsets.all(3.w),
                 decoration: BoxDecoration(
@@ -130,9 +257,17 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
+                        final formatName = variant?['formats']?['name'];
+                        final parfumName = variant?['parfums']?['name'];
+                        final label = [
+                          p['name'] ?? '',
+                          if (formatName != null) formatName,
+                          if (parfumName != null) parfumName,
+                        ].join(' - ');
+
                         ref.read(cartProvider.notifier).addItem(CartItem(
-                              productId: p['id'],
-                              name: p['name'] ?? '',
+                              productId: variant?['id'] ?? p['id'],
+                              name: label,
                               priceDetail: priceDetail,
                               priceGros: priceGros,
                               grosThresholdQty: threshold,
@@ -141,8 +276,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content:
-                                Text('${p['name']} ajouté au panier'),
+                            content: Text('$label ajouté au panier'),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
