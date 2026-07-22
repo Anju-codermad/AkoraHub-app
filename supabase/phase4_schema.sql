@@ -98,3 +98,80 @@ create policy "product_variants_select_all" on public.product_variants
   for select using (true);
 create policy "product_variants_write_staff" on public.product_variants
   for all using (public.current_role_is_staff()) with check (public.current_role_is_staff());
+
+create extension if not exists "pgcrypto";
+
+create table if not exists public.formats (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_at timestamptz not null default now()
+);
+
+insert into public.formats (name) values
+  ('100 ml'), ('250 ml'), ('500 ml'), ('1 L'), ('2 L'), ('5 L'),
+  ('10 L'), ('Bidon 20 L'), ('Fût 200 L'),
+  ('Sachet 1 kg'), ('Sachet 5 kg'), ('Carton'), ('Format échantillon')
+on conflict (name) do nothing;
+
+create table if not exists public.parfums (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_at timestamptz not null default now()
+);
+
+insert into public.parfums (name) values
+  ('Sans parfum'), ('Lavande'), ('Citron'), ('Pin'), ('Fleurs'),
+  ('Marin'), ('Rose'), ('Eucalyptus'), ('Menthe fraîche'),
+  ('Vanille'), ('Amande')
+on conflict (name) do nothing;
+
+create table if not exists public.product_variants (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  format_id uuid references public.formats(id),
+  parfum_id uuid references public.parfums(id),
+  price_detail numeric not null default 0,
+  price_gros numeric not null default 0,
+  gros_threshold_qty integer not null default 10,
+  stock_quantity numeric not null default 0,
+  low_stock_threshold numeric not null default 5,
+  created_at timestamptz not null default now(),
+  unique (product_id, format_id, parfum_id)
+);
+
+alter table public.order_items
+  add column if not exists variant_id uuid references public.product_variants(id);
+alter table public.quote_items
+  add column if not exists variant_id uuid references public.product_variants(id);
+
+create table if not exists public.company_settings (
+  id integer primary key default 1,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  constraint company_settings_singleton check (id = 1)
+);
+
+alter table public.formats enable row level security;
+alter table public.parfums enable row level security;
+alter table public.product_variants enable row level security;
+alter table public.company_settings enable row level security;
+
+create policy "formats_select_all" on public.formats
+  for select using (true);
+create policy "formats_write_staff" on public.formats
+  for all using (public.current_role_is_staff()) with check (public.current_role_is_staff());
+
+create policy "parfums_select_all" on public.parfums
+  for select using (true);
+create policy "parfums_write_staff" on public.parfums
+  for all using (public.current_role_is_staff()) with check (public.current_role_is_staff());
+
+create policy "product_variants_select_all" on public.product_variants
+  for select using (true);
+create policy "product_variants_write_staff" on public.product_variants
+  for all using (public.current_role_is_staff()) with check (public.current_role_is_staff());
+
+create policy "company_settings_select_staff" on public.company_settings
+  for select using (public.current_role_is_staff());
+create policy "company_settings_write_staff" on public.company_settings
+  for all using (public.current_role_is_staff()) with check (public.current_role_is_staff());
