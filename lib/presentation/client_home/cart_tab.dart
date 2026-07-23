@@ -63,22 +63,31 @@ class _CartTabState extends ConsumerState<CartTab> {
       // On tente le repli ci-dessous.
     }
 
-    // 2) Repli : géocoder l'adresse texte enregistrée dans le profil.
+    // 2) Repli : coordonnées précises déjà enregistrées dans le profil
+    // (Localisation Niveau 2 — plus fiable qu'un géocodage d'adresse texte).
     if (lat == null && SupabaseConfig.isConfigured) {
       try {
         final userId = SupabaseConfig.client.auth.currentUser?.id;
         if (userId != null) {
           final profile = await SupabaseConfig.client
               .from('profiles')
-              .select('location')
+              .select('latitude, longitude, location')
               .eq('id', userId)
               .single();
-          final locationText = (profile['location'] ?? '').toString();
-          if (locationText.trim().isNotEmpty) {
-            final locations = await locationFromAddress(locationText);
-            if (locations.isNotEmpty) {
-              lat = locations.first.latitude;
-              lon = locations.first.longitude;
+          final savedLat = (profile['latitude'] as num?)?.toDouble();
+          final savedLon = (profile['longitude'] as num?)?.toDouble();
+          if (savedLat != null && savedLon != null) {
+            lat = savedLat;
+            lon = savedLon;
+          } else {
+            // 3) Dernier repli : géocoder l'adresse texte du profil.
+            final locationText = (profile['location'] ?? '').toString();
+            if (locationText.trim().isNotEmpty) {
+              final locations = await locationFromAddress(locationText);
+              if (locations.isNotEmpty) {
+                lat = locations.first.latitude;
+                lon = locations.first.longitude;
+              }
             }
           }
         }
