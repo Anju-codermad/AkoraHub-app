@@ -29,3 +29,6 @@
 
 ## 2026-07-23 10:59 UTC — Claude
 - Docs: documenter la localisation automatique (Niveau 1 fait / Niveau 2 spec pour Backend-Infra) et lister les suggestions d'amélioration côté client (`c921e90`)
+
+## 2026-07-23 11:19 UTC — Claude
+- Client: frais de livraison automatiques (modèle taxi rapide) (`43a9238`)
