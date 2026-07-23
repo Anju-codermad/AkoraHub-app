@@ -47,3 +47,6 @@
 
 ## 2026-07-23 19:34 UTC — Anju-codermad
 - Backend/Infra: set real depot GPS coordinates (Rue Seimad, Antananarivo) (`359f239`)
+
+## 2026-07-23 19:48 UTC — Claude
+- merge: intégrer coordonnées dépôt + confirmation SQL orders (`97b0062`)
