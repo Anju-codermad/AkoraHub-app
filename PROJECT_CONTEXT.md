@@ -130,6 +130,27 @@ progressivement avec un vrai backend Supabase.
   `profile_tab.dart` (`_useCurrentLocation`) et les inclura dans l'appel
   `.update()` du profil — travail déjà préparé côté client, il ne manque
   que les colonnes.
+- **Frais de livraison automatiques** (`client_home/delivery_pricing.dart` +
+  intégration dans `cart_tab.dart`) — modèle "taxi rapide" choisi par
+  l'utilisateur : `frais = max(prise_en_charge + tarif_par_km ×
+  distance_corrigée, minimum)`, avec distance à vol d'oiseau (Haversine)
+  × facteur de correction 1,4 pour approcher la distance routière réelle à
+  Tana. Valeurs actuelles : prise en charge 3000 Ar, tarif 800 Ar/km,
+  **minimum 4000 Ar (confirmé par l'utilisateur)**. Estimation automatique
+  au chargement du panier (GPS live, repli sur géocodage de l'adresse texte
+  du profil si GPS indisponible) ; affichée en Sous-total / Frais de
+  livraison (avec distance) / Total ; incluse dans `orders.delivery_fee` et
+  `orders.delivery_zone` à la commande (colonnes déjà existantes dans le
+  schéma, jusqu'ici inutilisées).
+  **⚠️ Action requise avant mise en production** : `depotLatitude`/
+  `depotLongitude` dans `delivery_pricing.dart` sont un **placeholder**
+  (centre-ville Antananarivo) — l'utilisateur doit fournir les vraies
+  coordonnées du dépôt/entrepôt.
+  **Pour le futur (Backend/Infra, si l'utilisateur le demande)** : rendre
+  ces valeurs modifiables depuis l'Admin sans nouvelle version de l'app, en
+  les déplaçant dans la colonne JSONB de `company_settings` (déjà utilisée
+  par `business_profile_settings`) et en les lisant depuis
+  `delivery_pricing.dart` via Supabase au lieu de constantes en dur.
 
 ### Phase 3 — Social
 - Mur personnel : publications texte + photo (upload vers le bucket Supabase
