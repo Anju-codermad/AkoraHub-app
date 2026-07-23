@@ -44,3 +44,6 @@
 
 ## 2026-07-23 12:58 UTC — Claude
 - Backend/Infra: script SQL géolocalisation orders (latitude/longitude) (`e535417`)
+
+## 2026-07-23 19:34 UTC — Anju-codermad
+- Backend/Infra: set real depot GPS coordinates (Rue Seimad, Antananarivo) (`359f239`)
