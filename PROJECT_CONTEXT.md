@@ -73,6 +73,15 @@ progressivement avec un vrai backend Supabase.
   ligne dans `orders`/`order_items` ou `quotes`/`quote_items`)
 - Suivi de commande à 4 statuts + "Recommander en 1 clic"
   (`client_home/orders_tab.dart`)
+- Profil client réel (`client_home/profile_tab.dart`) — remplace l'ancien
+  écran minimal (email + logout). Affiche nom, société, secteur, téléphone,
+  localisation, avatar (table `profiles`), avec formulaire d'édition en
+  bottom sheet et upload d'avatar vers le bucket Storage `avatars`
+  (policies dans `supabase/phase4_patch_avatars.sql`, à exécuter côté
+  Supabase si pas encore fait). **Reste à faire sur ce même écran** : section
+  "Mes publications" listant les posts du Mur de l'utilisateur, et
+  statistiques personnelles (nb commandes, avis, ancienneté) — voir plan en
+  4 étapes discuté avec l'utilisateur, étapes 3 et 4 pas encore commencées.
 
 ### Phase 3 — Social
 - Mur personnel : publications texte + photo (upload vers le bucket Supabase
