@@ -171,9 +171,37 @@ progressivement avec un vrai backend Supabase.
   (`product_variants` table + `product_management_real/product_variants_screen.dart`
   côté Admin, sélection en 2 menus déroulants côté client dans
   `product_detail_client.dart`)
-- Formats et Parfums sont des **listes de référence pré-remplies** (contrairement
-  aux piliers/sous-catégories qui restent vides par défaut) — extensibles
-  directement depuis les écrans concernés
+- Formats et Parfums sont des **listes de référence pré-remplies** —
+  extensibles directement depuis les écrans concernés
+
+### Phase 6 — Sous-catégories produit
+- Table `categories` (`supabase/phase6_patch_categories.sql`, **script prêt,
+  pas encore exécuté par l'utilisateur**) : même schéma que
+  formats/parfums (liste de référence, RLS select_all/write_staff), mais
+  scopée par pilier (`business_unit_id`) — une catégorie comme "Carrelage &
+  Sols" n'a de sens que pour un pilier donné, contrairement aux formats qui
+  sont partagés entre tous les produits.
+- **8 catégories pré-remplies pour le pilier Akora Fanadiovana** (noms
+  améliorés à partir d'une liste de dossiers fournie par l'utilisateur) :
+  Carrelage & Sols, Cuisine & Vaisselle, Désinfectants & Hygiène, Entretien
+  Véhicules, Lessive & Textile, Sanitaire & Salle de Bain, Soins du Corps &
+  Cosmétiques, Vitres & Surfaces. Le script matche le pilier par
+  `name ilike 'Akora Fanadiovana'` — si le pilier a été créé sous un autre
+  nom exact dans l'app, adapter le `WHERE` avant exécution (le script émet
+  un `RAISE NOTICE` si aucun pilier ne correspond).
+- Côté Admin (`product_management_real.dart`), le champ Catégorie du
+  formulaire produit est passé d'un `TextField` libre à un
+  `DropdownButtonFormField` filtré par le pilier sélectionné + bouton "+"
+  pour ajouter une nouvelle catégorie à la volée (même pattern que
+  Format/Parfum) — évite les fautes de frappe qui créeraient une catégorie
+  fantôme (le filtre côté client catalogue compare le texte exactement).
+  Reste rétro-compatible : le chargement des catégories est fait dans un
+  try/catch qui ne bloque pas le reste de l'écran si la table `categories`
+  n'existe pas encore (migration non exécutée), et un produit dont la
+  catégorie texte ne correspond à aucune entrée de la table reste affichée
+  dans le Dropdown (n'écrase rien). **Reste à faire** : l'utilisateur doit
+  exécuter `phase6_patch_categories.sql` dans Supabase pour que le menu
+  déroulant propose les 8 catégories.
 
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 
