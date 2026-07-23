@@ -67,21 +67,35 @@ progressivement avec un vrai backend Supabase.
   `company_settings` (table singleton avec colonne JSONB)
 
 ### Phase 2 — Catalogue & Commande client
-- Espace client dédié (`client_home/`) avec navigation par onglets :
-  Catalogue, Panier, Commandes, Mur (social), Profil
+- Espace client dédié (`client_home/`) avec navigation par onglets réduite
+  à 3 destinations : **Accueil, Commandes, Profil** (barre du bas custom,
+  `_ClientBottomNav` dans `client_home.dart` — plus le widget `NavigationBar`
+  standard, pour pouvoir sauter l'index Panier). **Panier** n'a plus
+  d'onglet : accessible via une icône (avec badge du nombre d'articles)
+  dans l'en-tête de l'Accueil, à côté de l'icône notifications. **Mur**
+  retiré du menu de navigation — le code (`client_home/wall/wall_tab.dart`)
+  reste dans le repo en vue de son intégration dans le Profil (voir plan
+  profil étape 3 ci-dessous), non supprimé.
 - Catalogue avec navigation Pilier → Catégorie → Recherche
   (`client_home/catalog_tab.dart`) — écran renommé **Accueil** dans la
   navigation (icône maison). En-tête personnalisé (avatar + prénom du
-  client + localisation + icône notifications, cette dernière est un stub
-  visuel sans backend), bannière promo en **carrousel** (3 slides,
+  client + localisation + icônes panier/notifications, cette dernière est
+  un stub visuel sans backend), bannière promo en **carrousel** (3 slides,
   `PageView` + indicateurs), piliers ("Nos activités") affichés en **icônes
   rondes colorées** défilantes horizontalement (remplace l'ancienne grille
-  rectangulaire), cartes produits avec prix mis en avant et bouton **"+"
+  rectangulaire — icônes mappées par mot-clé dans le `slug` du pilier :
+  paint→pinceau, formation→école, chimie/chemical→science,
+  cosmet→spa, insecticide/insect→pest_control, sinon icône générique
+  ménage), cartes produits avec prix mis en avant et bouton **"+"
   vert d'ajout rapide au panier** (utilise les prix de base du produit —
   pour un produit à variantes, ce prix peut différer de la variante
   réellement choisie ; ouvrir la fiche produit reste nécessaire pour un prix
   exact). Design inspiré de deux références visuelles fournies par
   l'utilisateur (grocery app + service app before/after).
+  **Piliers supplémentaires évoqués par l'utilisateur** (à créer par
+  l'Admin via l'écran de gestion des piliers, pas encore créés) : matières
+  premières chimiques, produits cosmétiques, produits insecticides — noms
+  et slugs suggérés en attente de validation utilisateur.
 - Panier multi-produits (`client_home/cart_tab.dart`)
 - Commande directe OU demande de devis (les deux créent respectivement une
   ligne dans `orders`/`order_items` ou `quotes`/`quote_items`)
