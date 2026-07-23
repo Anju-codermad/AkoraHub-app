@@ -130,12 +130,13 @@ progressivement avec un vrai backend Supabase.
   (pré-remplis depuis le profil existant pour ne pas les écraser à une
   simple sauvegarde) et les inclut dans l'appel `.update()` du profil.
   Colonnes équivalentes ajoutées sur `orders`
-  (`supabase/phase5_patch_orders_geolocation.sql`, **script prêt, pas
-  encore exécuté par l'utilisateur**) pour le cas où un client livre à une
-  adresse différente de son profil (nullable, repli sur les coordonnées du
-  profil si absentes) — **reste à faire** : exécuter ce script dans
-  Supabase, puis brancher la capture de latitude/longitude côté commande
-  dans le flux panier/checkout (`cart_tab.dart`), pas encore fait.
+  (`supabase/phase5_patch_orders_geolocation.sql`, **exécuté avec succès par
+  l'utilisateur le 23/07**) pour le cas où un client livre à une adresse
+  différente de son profil (nullable, repli sur les coordonnées du profil
+  si absentes) — **reste à faire** : brancher la capture de
+  latitude/longitude côté commande dans le flux panier/checkout
+  (`cart_tab.dart`), la colonne existe mais n'est pas encore alimentée à la
+  création d'une commande.
 - **Frais de livraison automatiques** (`client_home/delivery_pricing.dart` +
   intégration dans `cart_tab.dart`) — modèle "taxi rapide" choisi par
   l'utilisateur : `frais = max(prise_en_charge + tarif_par_km ×
@@ -148,10 +149,9 @@ progressivement avec un vrai backend Supabase.
   livraison (avec distance) / Total ; incluse dans `orders.delivery_fee` et
   `orders.delivery_zone` à la commande (colonnes déjà existantes dans le
   schéma, jusqu'ici inutilisées).
-  **⚠️ Action requise avant mise en production** : `depotLatitude`/
-  `depotLongitude` dans `delivery_pricing.dart` sont un **placeholder**
-  (centre-ville Antananarivo) — l'utilisateur doit fournir les vraies
-  coordonnées du dépôt/entrepôt.
+  **✅ Coordonnées du dépôt confirmées et appliquées** (23/07) :
+  `depotLatitude`/`depotLongitude` = -18.900360, 47.510128 (Rue Seimad,
+  Antananarivo 101) — le placeholder centre-ville a été remplacé.
   **Pour le futur (Backend/Infra, si l'utilisateur le demande)** : rendre
   ces valeurs modifiables depuis l'Admin sans nouvelle version de l'app, en
   les déplaçant dans la colonne JSONB de `company_settings` (déjà utilisée
