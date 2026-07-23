@@ -41,3 +41,6 @@
 
 ## 2026-07-23 12:52 UTC — Claude
 - Backend/Infra: brancher latitude/longitude GPS dans profile_tab.dart (Localisation Niveau 2) (`e03ec56`)
+
+## 2026-07-23 12:58 UTC — Claude
+- Backend/Infra: script SQL géolocalisation orders (latitude/longitude) (`e535417`)
