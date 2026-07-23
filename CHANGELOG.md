@@ -38,3 +38,6 @@
 
 ## 2026-07-23 12:46 UTC — Claude
 - Backend/Infra: script SQL géolocalisation précise (profiles.latitude/longitude) (`d98d97f`)
+
+## 2026-07-23 12:52 UTC — Claude
+- Backend/Infra: brancher latitude/longitude GPS dans profile_tab.dart (Localisation Niveau 2) (`e03ec56`)
