@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'delivery_pricing.dart';
 
 class CartTab extends ConsumerStatefulWidget {
   const CartTab({super.key});
@@ -17,6 +20,94 @@ class _CartTabState extends ConsumerState<CartTab> {
   bool _isSubmitting = false;
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
+
+  bool _isEstimatingDelivery = false;
+  double? _deliveryFee;
+  double? _deliveryDistanceKm;
+  String? _deliveryError;
+
+  @override
+  void initState() {
+    super.initState();
+    _estimateDelivery();
+  }
+
+  Future<void> _estimateDelivery() async {
+    setState(() {
+      _isEstimatingDelivery = true;
+      _deliveryError = null;
+    });
+
+    double? lat;
+    double? lon;
+
+    // 1) Position GPS actuelle (la plus précise).
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled &&
+          permission != LocationPermission.denied &&
+          permission != LocationPermission.deniedForever) {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+          ),
+        );
+        lat = position.latitude;
+        lon = position.longitude;
+      }
+    } catch (_) {
+      // On tente le repli ci-dessous.
+    }
+
+    // 2) Repli : géocoder l'adresse texte enregistrée dans le profil.
+    if (lat == null && SupabaseConfig.isConfigured) {
+      try {
+        final userId = SupabaseConfig.client.auth.currentUser?.id;
+        if (userId != null) {
+          final profile = await SupabaseConfig.client
+              .from('profiles')
+              .select('location')
+              .eq('id', userId)
+              .single();
+          final locationText = (profile['location'] ?? '').toString();
+          if (locationText.trim().isNotEmpty) {
+            final locations = await locationFromAddress(locationText);
+            if (locations.isNotEmpty) {
+              lat = locations.first.latitude;
+              lon = locations.first.longitude;
+            }
+          }
+        }
+      } catch (_) {
+        // Rien à faire de plus, on affichera l'erreur ci-dessous.
+      }
+    }
+
+    if (!mounted) return;
+
+    if (lat == null || lon == null) {
+      setState(() {
+        _isEstimatingDelivery = false;
+        _deliveryError =
+            'Estimation indisponible (position introuvable). Les frais de livraison seront confirmés par notre équipe.';
+        _deliveryFee = null;
+        _deliveryDistanceKm = null;
+      });
+      return;
+    }
+
+    final correctedKm = DeliveryPricing.correctedDistanceKm(lat, lon);
+    final fee = DeliveryPricing.feeForDistance(correctedKm);
+    setState(() {
+      _isEstimatingDelivery = false;
+      _deliveryDistanceKm = correctedKm;
+      _deliveryFee = fee;
+    });
+  }
 
   String _generateNumber(String prefix) {
     final now = DateTime.now();
@@ -71,7 +162,11 @@ class _CartTabState extends ConsumerState<CartTab> {
             .insert({
               'order_number': orderNumber,
               'customer_id': userId,
-              'total_amount': total,
+              'total_amount': total + (_deliveryFee ?? 0),
+              'delivery_fee': _deliveryFee ?? 0,
+              'delivery_zone': _deliveryDistanceKm != null
+                  ? '≈ ${_deliveryDistanceKm!.toStringAsFixed(1)} km'
+                  : null,
             })
             .select()
             .single();
@@ -200,9 +295,63 @@ class _CartTabState extends ConsumerState<CartTab> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Text('Sous-total', style: theme.textTheme.bodyMedium),
+                  Text(_currency.format(total)),
+                ],
+              ),
+              SizedBox(height: 0.5.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text('Frais de livraison',
+                          style: theme.textTheme.bodyMedium),
+                      if (_deliveryDistanceKm != null) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '(≈ ${_deliveryDistanceKm!.toStringAsFixed(1)} km)',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (_isEstimatingDelivery)
+                    const SizedBox(
+                      height: 14,
+                      width: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else if (_deliveryFee != null)
+                    Text(_currency.format(_deliveryFee))
+                  else
+                    TextButton(
+                      onPressed: _estimateDelivery,
+                      style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 0)),
+                      child: const Text('Réessayer'),
+                    ),
+                ],
+              ),
+              if (_deliveryError != null)
+                Padding(
+                  padding: EdgeInsets.only(top: 0.5.h),
+                  child: Text(
+                    _deliveryError!,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.error),
+                  ),
+                ),
+              const Divider(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Text('Total', style: theme.textTheme.titleMedium),
                   Text(
-                    _currency.format(total),
+                    _currency.format(total + (_deliveryFee ?? 0)),
                     style: theme.textTheme.titleMedium
                         ?.copyWith(color: theme.colorScheme.primary),
                   ),
