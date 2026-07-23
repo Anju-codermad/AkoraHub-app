@@ -8,7 +8,9 @@ import '../../core/supabase/supabase_config.dart';
 import 'product_detail_client.dart';
 
 class CatalogTab extends ConsumerStatefulWidget {
-  const CatalogTab({super.key});
+  final VoidCallback onOpenCart;
+
+  const CatalogTab({super.key, required this.onOpenCart});
 
   @override
   ConsumerState<CatalogTab> createState() => _CatalogTabState();
@@ -121,6 +123,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     final slug = (unit['slug'] ?? '').toString();
     if (slug.contains('paint')) return Icons.format_paint;
     if (slug.contains('formation')) return Icons.school;
+    if (slug.contains('chimie') || slug.contains('chemical')) {
+      return Icons.science_outlined;
+    }
+    if (slug.contains('cosmet')) return Icons.spa_outlined;
+    if (slug.contains('insecticide') || slug.contains('insect')) {
+      return Icons.pest_control_outlined;
+    }
     return Icons.cleaning_services;
   }
 
@@ -173,6 +182,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cartCount = ref.watch(cartProvider).length;
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -240,6 +250,21 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       ],
                     ),
                   ),
+                  Material(
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    shape: const CircleBorder(),
+                    child: Badge(
+                      label: Text('$cartCount'),
+                      isLabelVisible: cartCount > 0,
+                      child: IconButton(
+                        icon: const Icon(Icons.shopping_cart_outlined),
+                        tooltip: 'Panier',
+                        onPressed: widget.onOpenCart,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 2.w),
                   Material(
                     color: theme.colorScheme.surfaceContainerHighest
                         .withValues(alpha: 0.5),
