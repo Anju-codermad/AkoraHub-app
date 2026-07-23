@@ -26,3 +26,6 @@
 
 ## 2026-07-23 10:44 UTC — Claude
 - Client: localisation automatique (Niveau 1) dans le profil (`9210c92`)
+
+## 2026-07-23 10:59 UTC — Claude
+- Docs: documenter la localisation automatique (Niveau 1 fait / Niveau 2 spec pour Backend-Infra) et lister les suggestions d'amélioration côté client (`c921e90`)
