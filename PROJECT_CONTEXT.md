@@ -150,11 +150,27 @@ progressivement avec un vrai backend Supabase.
   toujours créer un nouvel écran propre plutôt que de risquer de casser un
   gros fichier existant, à l'image de ce qui a été fait jusqu'ici.
 
-## 6. Si deux conversations Claude travaillent en parallèle sur ce projet
+## 7. Répartition des missions entre conversations Claude en parallèle
 
-- Toujours faire un `git pull` avant de commencer à modifier des fichiers,
-  pour éviter d'écraser le travail de l'autre conversation
-- Se répartir des fichiers/fonctionnalités clairement distincts plutôt que de
-  toucher aux mêmes écrans en même temps
-- Mettre à jour ce document (section 3 et 4) après toute fonctionnalité
-  significative ajoutée, pour que la prochaine conversation reste à jour
+Pour éviter les conflits, le projet est divisé en deux périmètres clairs :
+
+- **Conversation "Backend/Infra"** : `lib/core/`, `supabase/*.sql`, tous les
+  écrans Admin (`*_real` hors `client_home/`), `.github/workflows/`,
+  paiement, messagerie, notifications, sécurité RLS.
+- **Conversation "Client UX/Design"** : uniquement
+  `lib/presentation/client_home/*` — écrans client, style visuel, mise en
+  page, adaptation des références visuelles fournies par l'utilisateur.
+
+**Règle** : si une conversation doit exceptionnellement toucher au périmètre
+de l'autre, elle doit le dire explicitement à l'utilisateur avant de le
+faire, pour que l'autre conversation soit mise en pause le temps du
+changement.
+
+## 6bis. Comment reprendre le fil (pour toute conversation)
+
+1. `git pull` avant de commencer
+2. Lire ce fichier en entier + les dernières entrées de `CHANGELOG.md`
+3. Travailler uniquement dans son périmètre (section 7)
+4. Mettre à jour ce fichier (sections 3, 4 et 7 si besoin) avant de pousser
+   le dernier commit de la session
+
