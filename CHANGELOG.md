@@ -53,3 +53,6 @@
 
 ## 2026-07-23 20:30 UTC — Claude
 - Backend/Infra: table categories (sous-catégories produit scopées par pilier) + Dropdown Admin (`43d81c9`)
+
+## 2026-07-23 20:56 UTC — Claude
+- docs: retirer mention obsolète sous-catégories (livrées en phase 6) (`c11a05e`)
