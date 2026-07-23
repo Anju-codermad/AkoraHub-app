@@ -50,3 +50,6 @@
 
 ## 2026-07-23 19:48 UTC — Claude
 - merge: intégrer coordonnées dépôt + confirmation SQL orders (`97b0062`)
+
+## 2026-07-23 20:30 UTC — Claude
+- Backend/Infra: table categories (sous-catégories produit scopées par pilier) + Dropdown Admin (`43d81c9`)
