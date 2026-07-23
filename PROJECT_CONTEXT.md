@@ -52,7 +52,11 @@ progressivement avec un vrai backend Supabase.
   `staff_management/` — promotion d'un compte existant par email (pas de
   création de compte "admin" côté client, pour des raisons de sécurité)
 - Produits avec tarification Gros/Détail par seuil de quantité
-  (`product_management_real/`)
+  (`product_management_real/`). **Note** : les anciens écrans fictifs
+  `product_catalog_management/` et `product_detail_editor/` ont été
+  **entièrement supprimés du projet** (20/07) après qu'un bug de navigation
+  y ait mené depuis la barre de navigation du bas — ils n'existent plus,
+  seul `product_management_real/` doit être utilisé/étendu.
 - Stock + lots de production avec DLC (`production_batches`)
 - Facturation PDF (`invoicing/`)
 - Alertes stock bas / DLC proche (`alerts_center/`)
