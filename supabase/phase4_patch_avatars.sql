@@ -10,21 +10,25 @@ on conflict (id) do nothing;
 
 -- Un utilisateur connecté peut uploader/supprimer dans son propre dossier
 -- (nommé avec son propre user id), tout le monde peut lire (bucket public).
+drop policy if exists "avatars_public_read" on storage.objects;
 create policy "avatars_public_read" on storage.objects
   for select using (bucket_id = 'avatars');
 
+drop policy if exists "avatars_owner_upload" on storage.objects;
 create policy "avatars_owner_upload" on storage.objects
   for insert with check (
     bucket_id = 'avatars'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "avatars_owner_update" on storage.objects;
 create policy "avatars_owner_update" on storage.objects
   for update using (
     bucket_id = 'avatars'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "avatars_owner_delete" on storage.objects;
 create policy "avatars_owner_delete" on storage.objects
   for delete using (
     bucket_id = 'avatars'
