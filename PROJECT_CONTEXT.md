@@ -231,9 +231,6 @@ commencée sauf mention contraire :
 
 ## 4. Ce qui N'EST PAS encore fait
 
-- **Sous-catégories structurées** par pilier (actuellement un simple champ
-  texte libre `category` sur chaque produit) — fonctionnalité discutée mais
-  reportée, l'utilisateur doit encore préciser exactement comment il la veut
 - **Messagerie unifiée** client ↔ commercial (prévue dans le cahier des
   charges original, jamais construite)
 - **Notifications push** réelles
