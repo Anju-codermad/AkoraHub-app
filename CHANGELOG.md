@@ -56,3 +56,6 @@
 
 ## 2026-07-23 20:56 UTC — Claude
 - docs: retirer mention obsolète sous-catégories (livrées en phase 6) (`c11a05e`)
+
+## 2026-07-23 21:04 UTC — Claude
+- Merge: résolution conflit coordonnées dépôt (garde la version Rue Seimad, quasi-identique) (`9b1ba36`)
