@@ -22,7 +22,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
   int _currentIndex = 0;
 
   final List<String> _titles = const [
-    'Catalogue',
+    'Accueil',
     'Panier',
     'Mes commandes',
     'Mur',
@@ -54,7 +54,9 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_currentIndex])),
+      appBar: _currentIndex == 0
+          ? null
+          : AppBar(title: Text(_titles[_currentIndex])),
       body: pages[_currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
@@ -62,9 +64,9 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
             setState(() => _currentIndex = index),
         destinations: [
           const NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
-            label: 'Catalogue',
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Accueil',
           ),
           NavigationDestination(
             icon: Badge(

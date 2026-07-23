@@ -25,10 +25,50 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
+  String? _clientName;
+  String? _clientAvatarUrl;
+  String? _clientLocation;
+
+  final PageController _bannerController = PageController();
+  int _bannerIndex = 0;
+
+  final List<_PromoSlide> _promoSlides = const [
+    _PromoSlide(
+      title: 'Vos produits,\nen un clic',
+      subtitle: 'Rapide, fiable, adapté à votre activité',
+      icon: Icons.local_shipping_outlined,
+    ),
+    _PromoSlide(
+      title: 'Tarifs Gros\ndès la 1ère palette',
+      subtitle: 'Remises automatiques à partir du seuil de quantité',
+      icon: Icons.local_offer_outlined,
+    ),
+    _PromoSlide(
+      title: 'Un compte,\ntrois activités',
+      subtitle: 'Hygiène, peinture (ARCA) et formation, au même endroit',
+      icon: Icons.grid_view_rounded,
+    ),
+  ];
+
+  final List<Color> _unitColors = const [
+    Color(0xFF2E7D32),
+    Color(0xFF1565C0),
+    Color(0xFFEF6C00),
+    Color(0xFF6A1B9A),
+    Color(0xFFC62828),
+    Color(0xFF00838F),
+  ];
+
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _bannerController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -44,18 +84,29 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       _error = null;
     });
     try {
-      final units = await SupabaseConfig.client
-          .from('business_units')
-          .select()
-          .eq('active', true);
-      final products = await SupabaseConfig.client
-          .from('products')
-          .select()
-          .eq('visibility', true)
-          .order('name');
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+      final results = await Future.wait([
+        SupabaseConfig.client.from('business_units').select().eq('active', true),
+        SupabaseConfig.client
+            .from('products')
+            .select()
+            .eq('visibility', true)
+            .order('name'),
+        if (userId != null)
+          SupabaseConfig.client
+              .from('profiles')
+              .select('full_name, avatar_url, location')
+              .eq('id', userId)
+              .single(),
+      ]);
+      final profile =
+          userId != null ? results[2] as Map<String, dynamic> : null;
       setState(() {
-        _businessUnits = List<Map<String, dynamic>>.from(units);
-        _products = List<Map<String, dynamic>>.from(products);
+        _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
+        _products = List<Map<String, dynamic>>.from(results[1] as List);
+        _clientName = profile?['full_name'] as String?;
+        _clientAvatarUrl = profile?['avatar_url'] as String?;
+        _clientLocation = profile?['location'] as String?;
         _isLoading = false;
       });
     } catch (e) {
@@ -66,11 +117,11 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     }
   }
 
-  String _iconForUnit(Map<String, dynamic> unit) {
+  IconData _iconForUnit(Map<String, dynamic> unit) {
     final slug = (unit['slug'] ?? '').toString();
-    if (slug.contains('paint')) return 'format_paint';
-    if (slug.contains('formation')) return 'school';
-    return 'cleaning_services';
+    if (slug.contains('paint')) return Icons.format_paint;
+    if (slug.contains('formation')) return Icons.school;
+    return Icons.cleaning_services;
   }
 
   List<String> get _categories {
@@ -101,6 +152,24 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     }).toList();
   }
 
+  void _quickAddToCart(Map<String, dynamic> product) {
+    ref.read(cartProvider.notifier).addItem(
+          CartItem(
+            productId: product['id'],
+            name: product['name'] ?? '',
+            priceDetail: (product['price_detail'] ?? 0).toDouble(),
+            priceGros: (product['price_gros'] ?? 0).toDouble(),
+            grosThresholdQty: (product['gros_threshold_qty'] ?? 10) as int,
+          ),
+        );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${product['name']} ajouté au panier'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -112,14 +181,92 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       return Center(child: Text(_error!));
     }
 
+    final greetingName =
+        (_clientName == null || _clientName!.trim().isEmpty)
+            ? 'Bonjour'
+            : 'Bonjour, ${_clientName!.split(' ').first}';
+
     return RefreshIndicator(
       onRefresh: _loadData,
       child: CustomScrollView(
         slivers: [
-          // --- Barre de recherche ---
+          // --- En-tête personnalisé : avatar, salutation, localisation, notifs ---
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundImage: _clientAvatarUrl != null
+                        ? NetworkImage(_clientAvatarUrl!)
+                        : null,
+                    child: _clientAvatarUrl == null
+                        ? const Icon(Icons.person)
+                        : null,
+                  ),
+                  SizedBox(width: 3.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          greetingName,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (_clientLocation != null &&
+                            _clientLocation!.trim().isNotEmpty)
+                          Row(
+                            children: [
+                              Icon(Icons.location_on_outlined,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurfaceVariant),
+                              const SizedBox(width: 2),
+                              Flexible(
+                                child: Text(
+                                  _clientLocation!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  Material(
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      icon: const Icon(Icons.notifications_none_rounded),
+                      tooltip: 'Notifications',
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text('Notifications bientôt disponibles'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // --- Barre de recherche ---
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 1.h),
               child: TextField(
                 decoration: InputDecoration(
                   hintText: 'Rechercher un produit...',
@@ -138,146 +285,178 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             ),
           ),
 
-          // --- Bannière d'accroche ---
+          // --- Bannière en carrousel ---
           SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4.w),
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(4.w),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.primary.withValues(alpha: 0.75),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            child: SizedBox(
+              height: 16.h,
+              child: PageView.builder(
+                controller: _bannerController,
+                itemCount: _promoSlides.length,
+                onPageChanged: (i) => setState(() => _bannerIndex = i),
+                itemBuilder: (context, index) {
+                  final slide = _promoSlides[index];
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(4.w),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            theme.colorScheme.primary,
+                            theme.colorScheme.primary.withValues(alpha: 0.75),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            'Vos produits,\nen un clic',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              color: theme.colorScheme.onPrimary,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  slide.title,
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    color: theme.colorScheme.onPrimary,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                SizedBox(height: 0.5.h),
+                                Text(
+                                  slide.subtitle,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onPrimary
+                                        .withValues(alpha: 0.85),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          SizedBox(height: 0.5.h),
-                          Text(
-                            'Rapide, fiable, adapté à votre activité',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onPrimary
-                                  .withValues(alpha: 0.85),
-                            ),
+                          Icon(
+                            slide.icon,
+                            size: 48,
+                            color:
+                                theme.colorScheme.onPrimary.withValues(alpha: 0.85),
                           ),
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.local_shipping_outlined,
-                      size: 48,
-                      color: theme.colorScheme.onPrimary.withValues(alpha: 0.85),
+                  );
+                },
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 1.h),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  _promoSlides.length,
+                  (i) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: _bannerIndex == i ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: _bannerIndex == i
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(3),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
 
-          // --- Grille des piliers ---
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Nos activités', style: theme.textTheme.titleMedium),
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _selectedUnitId = null;
-                      _selectedCategory = 'toutes';
-                    }),
-                    child: const Text('Voir tout'),
-                  ),
-                ],
+          // --- Nos activités : icônes rondes colorées ---
+          if (_businessUnits.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Nos activités', style: theme.textTheme.titleMedium),
+                    if (_selectedUnitId != null)
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _selectedUnitId = null;
+                          _selectedCategory = 'toutes';
+                        }),
+                        child: const Text('Voir tout'),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: 4.w),
-            sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 3.w,
-                mainAxisSpacing: 1.5.h,
-                childAspectRatio: 3.2,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final unit = _businessUnits[index];
-                  final selected = _selectedUnitId == unit['id'];
-                  return Material(
-                    color: selected
-                        ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => setState(() {
-                        _selectedUnitId = selected ? null : unit['id'];
-                        _selectedCategory = 'toutes';
-                      }),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 3.w),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary
-                                    .withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 12.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  itemCount: _businessUnits.length,
+                  itemBuilder: (context, index) {
+                    final unit = _businessUnits[index];
+                    final selected = _selectedUnitId == unit['id'];
+                    final color = _unitColors[index % _unitColors.length];
+                    return Padding(
+                      padding: EdgeInsets.only(right: 4.w),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(32),
+                        onTap: () => setState(() {
+                          _selectedUnitId = selected ? null : unit['id'];
+                          _selectedCategory = 'toutes';
+                        }),
+                        child: SizedBox(
+                          width: 18.w,
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 15.w,
+                                height: 15.w,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? color
+                                      : color.withValues(alpha: 0.14),
+                                  shape: BoxShape.circle,
+                                  border: selected
+                                      ? Border.all(color: color, width: 2)
+                                      : null,
+                                ),
+                                child: Icon(
+                                  _iconForUnit(unit),
+                                  color: selected ? Colors.white : color,
+                                  size: 22,
+                                ),
                               ),
-                              child: Icon(
-                                _iconForUnit(unit) == 'format_paint'
-                                    ? Icons.format_paint
-                                    : _iconForUnit(unit) == 'school'
-                                        ? Icons.school
-                                        : Icons.cleaning_services,
-                                color: theme.colorScheme.primary,
-                                size: 20,
-                              ),
-                            ),
-                            SizedBox(width: 2.w),
-                            Expanded(
-                              child: Text(
+                              SizedBox(height: 0.6.h),
+                              Text(
                                 unit['name'] ?? '',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style: theme.textTheme.labelSmall?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
-                                maxLines: 2,
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-                childCount: _businessUnits.length,
+                    );
+                  },
+                ),
               ),
             ),
-          ),
+          ],
 
           if (_categories.isNotEmpty)
             SliverToBoxAdapter(
@@ -355,6 +534,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                               ),
                             );
                           },
+                          onQuickAdd: () => _quickAddToCart(p),
                         );
                       },
                       childCount: _filteredProducts.length,
@@ -368,22 +548,32 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   }
 }
 
+class _PromoSlide {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _PromoSlide(
+      {required this.title, required this.subtitle, required this.icon});
+}
+
 class _ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
   final NumberFormat currency;
   final VoidCallback onTap;
+  final VoidCallback onQuickAdd;
 
   const _ProductCard({
     required this.product,
     required this.currency,
     required this.onTap,
+    required this.onQuickAdd,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final category = (product['category'] ?? '').toString();
-    final description = (product['description'] ?? '').toString();
 
     return Material(
       color: theme.colorScheme.surface,
@@ -417,26 +607,30 @@ class _ProductCard extends StatelessWidget {
                         color: theme.colorScheme.outline,
                       ),
                     ),
+                    if (category.isNotEmpty)
+                      Positioned(
+                        left: 8,
+                        top: 8,
+                        child: _Tag(label: category, theme: theme),
+                      ),
                     Positioned(
                       right: 8,
                       bottom: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.colorScheme.shadow
-                                  .withValues(alpha: 0.15),
-                              blurRadius: 4,
+                      child: Material(
+                        color: theme.colorScheme.primary,
+                        shape: const CircleBorder(),
+                        elevation: 2,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: onQuickAdd,
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.add,
+                              size: 16,
+                              color: theme.colorScheme.onPrimary,
                             ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.north_east,
-                          size: 14,
-                          color: theme.colorScheme.primary,
+                          ),
                         ),
                       ),
                     ),
@@ -444,42 +638,23 @@ class _ProductCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 2),
+                child: Text(
+                  'Dès ${currency.format(product['price_detail'] ?? 0)}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
                 child: Text(
                   product['name'] ?? '',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              if (description.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(
-                    description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    if (category.isNotEmpty)
-                      _Tag(label: category, theme: theme),
-                    _Tag(
-                      label:
-                          'Dès ${currency.format(product['price_detail'] ?? 0)}',
-                      theme: theme,
-                      accent: true,
-                    ),
-                  ],
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -504,7 +679,7 @@ class _Tag extends StatelessWidget {
       decoration: BoxDecoration(
         color: accent
             ? theme.colorScheme.primary.withValues(alpha: 0.12)
-            : theme.colorScheme.surfaceContainerHighest,
+            : theme.colorScheme.surface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
