@@ -70,7 +70,7 @@ class _CustomBottomBarState extends State<CustomBottomBar>
       label: 'Dashboard',
     ),
     CustomBottomBarItem(
-      route: '/product-catalog-management',
+      route: '/product-management-real',
       icon: Icons.inventory_2_outlined,
       activeIcon: Icons.inventory_2,
       label: 'Products',
