@@ -50,5 +50,7 @@
         <key>NSAllowsArbitraryLoads</key>
         <true />
     </dict>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>AkoraHub utilise votre position pour faciliter la saisie de votre adresse de livraison.</string>
 </dict>
 </plist>

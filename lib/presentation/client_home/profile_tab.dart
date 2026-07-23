@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
@@ -213,6 +215,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   String? _clientType;
   File? _newAvatar;
   bool _isSaving = false;
+  bool _isLocating = false;
 
   final Map<String, String> _sectorLabels = const {
     'hotel': 'Hôtel',
@@ -250,6 +253,76 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         source: ImageSource.gallery, imageQuality: 80, maxWidth: 800);
     if (picked != null) {
       setState(() => _newAvatar = File(picked.path));
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Autorisation de localisation refusée. Active-la dans les paramètres du téléphone.'),
+          ),
+        );
+        return;
+      }
+
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Active le GPS/la localisation de ton téléphone puis réessaie.'),
+          ),
+        );
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      String address =
+          '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+      try {
+        final placemarks = await placemarkFromCoordinates(
+            position.latitude, position.longitude);
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          final parts = [
+            p.subLocality,
+            p.locality,
+            p.administrativeArea,
+          ].where((s) => s != null && s.trim().isNotEmpty).toList();
+          if (parts.isNotEmpty) {
+            address = parts.join(', ');
+          }
+        }
+      } catch (_) {
+        // Reverse-géocodage indisponible (ex: hors ligne) — on garde les
+        // coordonnées brutes comme repli, toujours utile pour la livraison.
+      }
+
+      if (!mounted) return;
+      setState(() => _locationController.text = address);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de récupérer ta position.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
     }
   }
 
@@ -362,9 +435,23 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
             SizedBox(height: 1.5.h),
             TextField(
               controller: _locationController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Localisation',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                suffixIcon: _isLocating
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.my_location),
+                        tooltip: 'Utiliser ma position actuelle',
+                        onPressed: _useCurrentLocation,
+                      ),
               ),
             ),
             SizedBox(height: 1.5.h),
