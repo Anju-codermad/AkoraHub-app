@@ -216,6 +216,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   File? _newAvatar;
   bool _isSaving = false;
   bool _isLocating = false;
+  double? _latitude;
+  double? _longitude;
 
   final Map<String, String> _sectorLabels = const {
     'hotel': 'Hôtel',
@@ -235,6 +237,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         TextEditingController(text: widget.profile['phone'] ?? '');
     _locationController =
         TextEditingController(text: widget.profile['location'] ?? '');
+    _latitude = (widget.profile['latitude'] as num?)?.toDouble();
+    _longitude = (widget.profile['longitude'] as num?)?.toDouble();
     _clientType = widget.profile['client_type'] as String?;
   }
 
@@ -315,7 +319,11 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       }
 
       if (!mounted) return;
-      setState(() => _locationController.text = address);
+      setState(() {
+        _locationController.text = address;
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -348,6 +356,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         'company_name': _companyController.text.trim(),
         'phone': _phoneController.text.trim(),
         'location': _locationController.text.trim(),
+        'latitude': _latitude,
+        'longitude': _longitude,
         'client_type': _clientType,
         'avatar_url': avatarUrl,
       }).eq('id', userId);
