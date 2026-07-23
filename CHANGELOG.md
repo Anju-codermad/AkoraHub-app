@@ -23,3 +23,6 @@
 
 ## 2026-07-23 10:27 UTC — Claude
 - Docs: mettre à jour PROJECT_CONTEXT.md (nav 3 onglets, panier en en-tête, mur retiré, piliers évoqués) (`842a815`)
+
+## 2026-07-23 10:44 UTC — Claude
+- Client: localisation automatique (Niveau 1) dans le profil (`9210c92`)
