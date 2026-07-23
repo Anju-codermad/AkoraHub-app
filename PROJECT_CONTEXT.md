@@ -66,13 +66,33 @@ progressivement avec un vrai backend Supabase.
 - Espace client dédié (`client_home/`) avec navigation par onglets :
   Catalogue, Panier, Commandes, Mur (social), Profil
 - Catalogue avec navigation Pilier → Catégorie → Recherche
-  (`client_home/catalog_tab.dart`) — design inspiré de Gojek (bannière +
-  grille de piliers en icônes)
+  (`client_home/catalog_tab.dart`) — écran renommé **Accueil** dans la
+  navigation (icône maison). En-tête personnalisé (avatar + prénom du
+  client + localisation + icône notifications, cette dernière est un stub
+  visuel sans backend), bannière promo en **carrousel** (3 slides,
+  `PageView` + indicateurs), piliers ("Nos activités") affichés en **icônes
+  rondes colorées** défilantes horizontalement (remplace l'ancienne grille
+  rectangulaire), cartes produits avec prix mis en avant et bouton **"+"
+  vert d'ajout rapide au panier** (utilise les prix de base du produit —
+  pour un produit à variantes, ce prix peut différer de la variante
+  réellement choisie ; ouvrir la fiche produit reste nécessaire pour un prix
+  exact). Design inspiré de deux références visuelles fournies par
+  l'utilisateur (grocery app + service app before/after).
 - Panier multi-produits (`client_home/cart_tab.dart`)
 - Commande directe OU demande de devis (les deux créent respectivement une
   ligne dans `orders`/`order_items` ou `quotes`/`quote_items`)
 - Suivi de commande à 4 statuts + "Recommander en 1 clic"
   (`client_home/orders_tab.dart`)
+- Profil client réel (`client_home/profile_tab.dart`) — remplace l'ancien
+  écran minimal (email + logout). Affiche nom, société, secteur, téléphone,
+  localisation, avatar (table `profiles`), avec formulaire d'édition en
+  bottom sheet et upload d'avatar vers le bucket Storage `avatars`
+  (policies dans `supabase/phase4_patch_avatars.sql`, **script exécuté avec
+  succès par l'utilisateur dans Supabase — bucket créé, fonctionnel**).
+  **Reste à faire sur ce même écran** : section
+  "Mes publications" listant les posts du Mur de l'utilisateur, et
+  statistiques personnelles (nb commandes, avis, ancienneté) — voir plan en
+  4 étapes discuté avec l'utilisateur, étapes 3 et 4 pas encore commencées.
 
 ### Phase 3 — Social
 - Mur personnel : publications texte + photo (upload vers le bucket Supabase

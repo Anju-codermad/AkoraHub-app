@@ -6,6 +6,7 @@ import '../../core/supabase/supabase_config.dart';
 import 'cart_tab.dart';
 import 'catalog_tab.dart';
 import 'orders_tab.dart';
+import 'profile_tab.dart';
 import 'wall/wall_tab.dart';
 
 /// Espace client : catalogue, panier, commandes, profil.
@@ -21,7 +22,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
   int _currentIndex = 0;
 
   final List<String> _titles = const [
-    'Catalogue',
+    'Accueil',
     'Panier',
     'Mes commandes',
     'Mur',
@@ -49,11 +50,13 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       const CartTab(),
       const OrdersTab(),
       const WallTab(),
-      _ProfileTab(onLogout: _handleLogout),
+      ProfileTab(onLogout: _handleLogout),
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_currentIndex])),
+      appBar: _currentIndex == 0
+          ? null
+          : AppBar(title: Text(_titles[_currentIndex])),
       body: pages[_currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
@@ -61,9 +64,9 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
             setState(() => _currentIndex = index),
         destinations: [
           const NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
-            label: 'Catalogue',
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Accueil',
           ),
           NavigationDestination(
             icon: Badge(
@@ -95,40 +98,3 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
   }
 }
 
-class _ProfileTab extends StatelessWidget {
-  final VoidCallback onLogout;
-
-  const _ProfileTab({required this.onLogout});
-
-  @override
-  Widget build(BuildContext context) {
-    final user = SupabaseConfig.isConfigured
-        ? SupabaseConfig.client.auth.currentUser
-        : null;
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const SizedBox(height: 16),
-        CircleAvatar(
-          radius: 32,
-          child: Icon(Icons.person, size: 32),
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: Text(
-            user?.email ?? '',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-        ),
-        const SizedBox(height: 32),
-        ListTile(
-          leading: const Icon(Icons.logout, color: Colors.red),
-          title: const Text('Déconnexion',
-              style: TextStyle(color: Colors.red)),
-          onTap: onLogout,
-        ),
-      ],
-    );
-  }
-}
