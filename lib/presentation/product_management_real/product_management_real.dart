@@ -18,6 +18,7 @@ class ProductManagementReal extends StatefulWidget {
 class _ProductManagementRealState extends State<ProductManagementReal> {
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _businessUnits = [];
+  List<Map<String, dynamic>> _categories = [];
   bool _isLoading = true;
   String? _error;
   final _currency = NumberFormat.currency(
@@ -48,9 +49,21 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
           .order('created_at', ascending: false);
       final units =
           await SupabaseConfig.client.from('business_units').select();
+      List<Map<String, dynamic>> categories = [];
+      try {
+        final result = await SupabaseConfig.client
+            .from('categories')
+            .select()
+            .order('name');
+        categories = List<Map<String, dynamic>>.from(result);
+      } catch (_) {
+        // Table `categories` pas encore créée (migration phase6 non
+        // exécutée) : on continue sans bloquer le reste de l'écran.
+      }
       setState(() {
         _products = List<Map<String, dynamic>>.from(products);
         _businessUnits = List<Map<String, dynamic>>.from(units);
+        _categories = categories;
         _isLoading = false;
       });
     } catch (e) {
@@ -61,13 +74,57 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     }
   }
 
+  Future<String?> _addNewCategory(String businessUnitId) async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nouvelle catégorie'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nom de la catégorie'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Ajouter'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return null;
+
+    try {
+      final result = await SupabaseConfig.client
+          .from('categories')
+          .insert({'business_unit_id': businessUnitId, 'name': name})
+          .select()
+          .single();
+      setState(() {
+        _categories = [..._categories, Map<String, dynamic>.from(result)];
+      });
+      return name;
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Erreur — cette catégorie existe peut-être déjà pour ce pilier.')),
+      );
+      return null;
+    }
+  }
+
   Future<void> _showProductDialog({Map<String, dynamic>? product}) async {
     final isEditing = product != null;
     final nameCtrl = TextEditingController(text: product?['name'] ?? '');
     final descCtrl =
         TextEditingController(text: product?['description'] ?? '');
-    final categoryCtrl =
-        TextEditingController(text: product?['category'] ?? '');
     final priceDetailCtrl = TextEditingController(
         text: (product?['price_detail'] ?? '').toString());
     final priceGrosCtrl =
@@ -79,6 +136,13 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
 
     String? selectedUnitId = product?['business_unit_id'] ??
         (_businessUnits.isNotEmpty ? _businessUnits.first['id'] : null);
+
+    // La catégorie est stockée en texte sur `products.category` (compatible
+    // avec les anciens produits créés avant la table `categories`), mais on
+    // la choisit désormais dans un menu déroulant scopé au pilier plutôt que
+    // de la retaper à la main (évite les fautes de frappe qui cassent le
+    // regroupement des filtres côté client).
+    String? selectedCategoryName = product?['category'];
 
     await showDialog(
       context: context,
@@ -101,10 +165,54 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                   decoration: const InputDecoration(labelText: 'Description'),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: categoryCtrl,
-                  decoration: const InputDecoration(labelText: 'Catégorie'),
-                ),
+                Builder(builder: (context) {
+                  final categoriesForUnit = _categories
+                      .where((c) => c['business_unit_id'] == selectedUnitId)
+                      .toList();
+                  // Si la catégorie du produit édité n'existe plus dans la
+                  // liste (pilier changé, catégorie supprimée...), on évite
+                  // de planter le Dropdown en la proposant quand même.
+                  final items = <String>{
+                    ...categoriesForUnit.map((c) => c['name'] as String),
+                    if (selectedCategoryName != null &&
+                        selectedCategoryName!.isNotEmpty)
+                      selectedCategoryName!,
+                  }.toList();
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: selectedCategoryName,
+                          decoration: const InputDecoration(
+                              labelText: 'Catégorie (optionnel)'),
+                          items: items
+                              .map((name) => DropdownMenuItem(
+                                    value: name,
+                                    child: Text(name),
+                                  ))
+                              .toList(),
+                          onChanged: (v) =>
+                              setDialogState(() => selectedCategoryName = v),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        tooltip: 'Ajouter une catégorie',
+                        onPressed: selectedUnitId == null
+                            ? null
+                            : () async {
+                                final name =
+                                    await _addNewCategory(selectedUnitId!);
+                                if (name != null) {
+                                  setDialogState(
+                                      () => selectedCategoryName = name);
+                                }
+                              },
+                      ),
+                    ],
+                  );
+                }),
                 const SizedBox(height: 12),
                 const Text('Pilier d\'entreprise'),
                 const SizedBox(height: 4),
@@ -115,7 +223,10 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                       label: Text(u['name']),
                       selected: selectedUnitId == u['id'],
                       onSelected: (_) {
-                        setDialogState(() => selectedUnitId = u['id']);
+                        setDialogState(() {
+                          selectedUnitId = u['id'];
+                          selectedCategoryName = null;
+                        });
                       },
                     );
                   }).toList(),
@@ -173,7 +284,7 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                 final payload = {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
-                  'category': categoryCtrl.text.trim(),
+                  'category': selectedCategoryName ?? '',
                   'business_unit_id': selectedUnitId,
                   'price_detail':
                       double.tryParse(priceDetailCtrl.text) ?? 0,

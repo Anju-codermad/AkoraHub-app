@@ -130,12 +130,14 @@ progressivement avec un vrai backend Supabase.
   (pré-remplis depuis le profil existant pour ne pas les écraser à une
   simple sauvegarde) et les inclut dans l'appel `.update()` du profil.
   Colonnes équivalentes ajoutées sur `orders`
-  (`supabase/phase5_patch_orders_geolocation.sql`, **script prêt, pas
-  encore exécuté par l'utilisateur**) pour le cas où un client livre à une
-  adresse différente de son profil (nullable, repli sur les coordonnées du
-  profil si absentes) — **reste à faire** : exécuter ce script dans
-  Supabase, puis brancher la capture de latitude/longitude côté commande
-  dans le flux panier/checkout (`cart_tab.dart`), pas encore fait.
+  (`supabase/phase5_patch_orders_geolocation.sql`, **exécuté avec succès par
+  l'utilisateur le 23/07**) pour le cas où un client livre à une adresse
+  différente de son profil (nullable, repli sur les coordonnées du profil
+  si absentes). Côté client, `cart_tab.dart` capture désormais les
+  coordonnées (`_deliveryLat`/`_deliveryLon`, alimentées par
+  `_estimateDelivery` — GPS actuel ou géocodage de l'adresse profil en
+  repli) et les inclut dans l'`insert()` de la commande. **Terminé** :
+  schéma + code client tous les deux en place.
 - **Frais de livraison automatiques** (`client_home/delivery_pricing.dart` +
   intégration dans `cart_tab.dart`) — modèle "taxi rapide" choisi par
   l'utilisateur : `frais = max(prise_en_charge + tarif_par_km ×
@@ -148,10 +150,9 @@ progressivement avec un vrai backend Supabase.
   livraison (avec distance) / Total ; incluse dans `orders.delivery_fee` et
   `orders.delivery_zone` à la commande (colonnes déjà existantes dans le
   schéma, jusqu'ici inutilisées).
-  **⚠️ Action requise avant mise en production** : `depotLatitude`/
-  `depotLongitude` dans `delivery_pricing.dart` sont un **placeholder**
-  (centre-ville Antananarivo) — l'utilisateur doit fournir les vraies
-  coordonnées du dépôt/entrepôt.
+  **✅ Coordonnées du dépôt confirmées et appliquées** (23/07) :
+  `depotLatitude`/`depotLongitude` = -18.900360, 47.510128 (Rue Seimad,
+  Antananarivo 101) — le placeholder centre-ville a été remplacé.
   **Pour le futur (Backend/Infra, si l'utilisateur le demande)** : rendre
   ces valeurs modifiables depuis l'Admin sans nouvelle version de l'app, en
   les déplaçant dans la colonne JSONB de `company_settings` (déjà utilisée
@@ -170,9 +171,37 @@ progressivement avec un vrai backend Supabase.
   (`product_variants` table + `product_management_real/product_variants_screen.dart`
   côté Admin, sélection en 2 menus déroulants côté client dans
   `product_detail_client.dart`)
-- Formats et Parfums sont des **listes de référence pré-remplies** (contrairement
-  aux piliers/sous-catégories qui restent vides par défaut) — extensibles
-  directement depuis les écrans concernés
+- Formats et Parfums sont des **listes de référence pré-remplies** —
+  extensibles directement depuis les écrans concernés
+
+### Phase 6 — Sous-catégories produit
+- Table `categories` (`supabase/phase6_patch_categories.sql`, **script prêt,
+  pas encore exécuté par l'utilisateur**) : même schéma que
+  formats/parfums (liste de référence, RLS select_all/write_staff), mais
+  scopée par pilier (`business_unit_id`) — une catégorie comme "Carrelage &
+  Sols" n'a de sens que pour un pilier donné, contrairement aux formats qui
+  sont partagés entre tous les produits.
+- **8 catégories pré-remplies pour le pilier Akora Fanadiovana** (noms
+  améliorés à partir d'une liste de dossiers fournie par l'utilisateur) :
+  Carrelage & Sols, Cuisine & Vaisselle, Désinfectants & Hygiène, Entretien
+  Véhicules, Lessive & Textile, Sanitaire & Salle de Bain, Soins du Corps &
+  Cosmétiques, Vitres & Surfaces. Le script matche le pilier par
+  `name ilike 'Akora Fanadiovana'` — si le pilier a été créé sous un autre
+  nom exact dans l'app, adapter le `WHERE` avant exécution (le script émet
+  un `RAISE NOTICE` si aucun pilier ne correspond).
+- Côté Admin (`product_management_real.dart`), le champ Catégorie du
+  formulaire produit est passé d'un `TextField` libre à un
+  `DropdownButtonFormField` filtré par le pilier sélectionné + bouton "+"
+  pour ajouter une nouvelle catégorie à la volée (même pattern que
+  Format/Parfum) — évite les fautes de frappe qui créeraient une catégorie
+  fantôme (le filtre côté client catalogue compare le texte exactement).
+  Reste rétro-compatible : le chargement des catégories est fait dans un
+  try/catch qui ne bloque pas le reste de l'écran si la table `categories`
+  n'existe pas encore (migration non exécutée), et un produit dont la
+  catégorie texte ne correspond à aucune entrée de la table reste affichée
+  dans le Dropdown (n'écrase rien). **Reste à faire** : l'utilisateur doit
+  exécuter `phase6_patch_categories.sql` dans Supabase pour que le menu
+  déroulant propose les 8 catégories.
 
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 
@@ -202,9 +231,6 @@ commencée sauf mention contraire :
 
 ## 4. Ce qui N'EST PAS encore fait
 
-- **Sous-catégories structurées** par pilier (actuellement un simple champ
-  texte libre `category` sur chaque produit) — fonctionnalité discutée mais
-  reportée, l'utilisateur doit encore préciser exactement comment il la veut
 - **Messagerie unifiée** client ↔ commercial (prévue dans le cahier des
   charges original, jamais construite)
 - **Notifications push** réelles

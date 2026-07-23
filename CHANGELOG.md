@@ -44,3 +44,15 @@
 
 ## 2026-07-23 12:58 UTC — Claude
 - Backend/Infra: script SQL géolocalisation orders (latitude/longitude) (`e535417`)
+
+## 2026-07-23 19:34 UTC — Anju-codermad
+- Backend/Infra: set real depot GPS coordinates (Rue Seimad, Antananarivo) (`359f239`)
+
+## 2026-07-23 19:48 UTC — Claude
+- merge: intégrer coordonnées dépôt + confirmation SQL orders (`97b0062`)
+
+## 2026-07-23 20:30 UTC — Claude
+- Backend/Infra: table categories (sous-catégories produit scopées par pilier) + Dropdown Admin (`43d81c9`)
+
+## 2026-07-23 20:56 UTC — Claude
+- docs: retirer mention obsolète sous-catégories (livrées en phase 6) (`c11a05e`)
