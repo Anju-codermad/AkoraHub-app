@@ -111,6 +111,25 @@ progressivement avec un vrai backend Supabase.
   "Mes publications" listant les posts du Mur de l'utilisateur, et
   statistiques personnelles (nb commandes, avis, ancienneté) — voir plan en
   4 étapes discuté avec l'utilisateur, étapes 3 et 4 pas encore commencées.
+  **Localisation automatique (Niveau 1 — fait)** : bouton "Utiliser ma
+  position actuelle" dans le formulaire d'édition (icône 📍 dans le champ
+  Localisation). Récupère le GPS (packages `geolocator` + `geocoding`,
+  permissions ajoutées dans `AndroidManifest.xml`/`Info.plist`), reverse-
+  géocode en adresse lisible (quartier, ville, région) et remplit le champ
+  texte `location` existant — aucun changement de schéma. Repli sur les
+  coordonnées brutes si le reverse-géocodage échoue (ex. hors ligne).
+  **Localisation automatique (Niveau 2 — à faire par Backend/Infra)** :
+  pour une livraison vraiment fiable, l'équipe de livraison a besoin d'un
+  point GPS exact, pas seulement d'une adresse texte (peu fiable à
+  Madagascar, adressage souvent imprécis). Spec proposée : ajouter deux
+  colonnes nullable `latitude double precision` et `longitude double
+  precision` sur la table `profiles` (et éventuellement sur `orders` pour
+  une adresse de livraison différente du profil, si besoin exprimé plus
+  tard). Une fois ces colonnes créées, la session Client UX ajoutera la
+  capture de `position.latitude`/`position.longitude` dans
+  `profile_tab.dart` (`_useCurrentLocation`) et les inclura dans l'appel
+  `.update()` du profil — travail déjà préparé côté client, il ne manque
+  que les colonnes.
 
 ### Phase 3 — Social
 - Mur personnel : publications texte + photo (upload vers le bucket Supabase
@@ -127,6 +146,32 @@ progressivement avec un vrai backend Supabase.
 - Formats et Parfums sont des **listes de référence pré-remplies** (contrairement
   aux piliers/sous-catégories qui restent vides par défaut) — extensibles
   directement depuis les écrans concernés
+
+## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
+
+Idées discutées avec l'utilisateur, à prioriser plus tard — aucune n'est
+commencée sauf mention contraire :
+
+- **Favoris** : marquer des produits pour les retrouver rapidement (aucune
+  table ni UI actuellement)
+- **Réapprovisionnement suggéré** : détecter les produits qu'un client
+  recommande régulièrement et le proposer proactivement (étend le
+  "Recommander en 1 clic" déjà existant dans `orders_tab.dart`)
+- **Commande récurrente / abonnement** pour les consommables réguliers
+- **Paiement Mobile Money au checkout** (Mvola/Orange Money/Airtel Money) —
+  voir aussi la piste Papi déjà notée en section 4
+- **Plusieurs adresses de livraison par compte** (pertinent pour un hôtel/
+  hôpital avec plusieurs sites) — actuellement un seul champ `location` par
+  profil
+- **Facture/devis téléchargeable en PDF**
+- **Notifications réelles** (le bouton actuel dans l'en-tête de l'Accueil
+  est un stub visuel sans backend — voir section 4, "Notifications push
+  réelles")
+- **Filtre de recherche avancé** sur le catalogue (prix, disponibilité,
+  pilier) — au-delà des chips de catégorie actuelles
+- **Mode sombre**
+- **Localisation automatique** — Niveau 1 fait, Niveau 2 (coordonnées GPS
+  précises) documenté ci-dessus dans la section Profil
 
 ## 4. Ce qui N'EST PAS encore fait
 
