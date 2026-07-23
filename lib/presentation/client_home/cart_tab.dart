@@ -24,6 +24,8 @@ class _CartTabState extends ConsumerState<CartTab> {
   bool _isEstimatingDelivery = false;
   double? _deliveryFee;
   double? _deliveryDistanceKm;
+  double? _deliveryLat;
+  double? _deliveryLon;
   String? _deliveryError;
 
   @override
@@ -36,6 +38,8 @@ class _CartTabState extends ConsumerState<CartTab> {
     setState(() {
       _isEstimatingDelivery = true;
       _deliveryError = null;
+      _deliveryLat = null;
+      _deliveryLon = null;
     });
 
     double? lat;
@@ -106,6 +110,8 @@ class _CartTabState extends ConsumerState<CartTab> {
       _isEstimatingDelivery = false;
       _deliveryDistanceKm = correctedKm;
       _deliveryFee = fee;
+      _deliveryLat = lat;
+      _deliveryLon = lon;
     });
   }
 
@@ -167,6 +173,8 @@ class _CartTabState extends ConsumerState<CartTab> {
               'delivery_zone': _deliveryDistanceKm != null
                   ? '≈ ${_deliveryDistanceKm!.toStringAsFixed(1)} km'
                   : null,
+              'latitude': _deliveryLat,
+              'longitude': _deliveryLon,
             })
             .select()
             .single();

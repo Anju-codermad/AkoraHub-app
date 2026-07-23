@@ -133,9 +133,13 @@ progressivement avec un vrai backend Supabase.
   (`supabase/phase5_patch_orders_geolocation.sql`, **script prêt, pas
   encore exécuté par l'utilisateur**) pour le cas où un client livre à une
   adresse différente de son profil (nullable, repli sur les coordonnées du
-  profil si absentes) — **reste à faire** : exécuter ce script dans
-  Supabase, puis brancher la capture de latitude/longitude côté commande
-  dans le flux panier/checkout (`cart_tab.dart`), pas encore fait.
+  profil si absentes). Côté client, `cart_tab.dart` capture déjà les
+  coordonnées (`_deliveryLat`/`_deliveryLon`, alimentées par
+  `_estimateDelivery` — GPS actuel ou géocodage de l'adresse profil en
+  repli) et les inclut dans l'`insert()` de la commande. **Reste à faire** :
+  l'utilisateur doit exécuter `phase5_patch_orders_geolocation.sql` dans
+  Supabase — sans ça, `orders.latitude`/`orders.longitude` n'existent pas
+  encore et l'insert échouera.
 - **Frais de livraison automatiques** (`client_home/delivery_pricing.dart` +
   intégration dans `cart_tab.dart`) — modèle "taxi rapide" choisi par
   l'utilisateur : `frais = max(prise_en_charge + tarif_par_km ×
