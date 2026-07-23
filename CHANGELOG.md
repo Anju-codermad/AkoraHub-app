@@ -35,3 +35,6 @@
 
 ## 2026-07-23 11:20 UTC — Claude
 - Merge branch 'main' of https://github.com/Anju-codermad/akora-fanadiovana-app (`74cb8c5`)
+
+## 2026-07-23 12:46 UTC — Claude
+- Backend/Infra: script SQL géolocalisation précise (profiles.latitude/longitude) (`d98d97f`)
