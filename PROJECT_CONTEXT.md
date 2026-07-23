@@ -118,22 +118,24 @@ progressivement avec un vrai backend Supabase.
   géocode en adresse lisible (quartier, ville, région) et remplit le champ
   texte `location` existant — aucun changement de schéma. Repli sur les
   coordonnées brutes si le reverse-géocodage échoue (ex. hors ligne).
-  **Localisation automatique (Niveau 2 — script SQL prêt, en attente
-  d'exécution par l'utilisateur)** : pour une livraison vraiment fiable,
-  l'équipe de livraison a besoin d'un point GPS exact, pas seulement d'une
-  adresse texte (peu fiable à Madagascar, adressage souvent imprécis).
-  Migration prête dans `supabase/phase5_patch_geolocation.sql` : ajoute deux
-  colonnes nullable `latitude double precision` et `longitude double
-  precision` sur `profiles`, avec contraintes de validité (plages
-  -90/90 et -180/180). Aucun changement RLS nécessaire (policies existantes
-  couvrent déjà toutes les colonnes). **Reste à faire** : l'utilisateur
-  exécute le script dans Supabase SQL Editor, puis la session Client UX
-  branche la capture de `position.latitude`/`position.longitude` dans
-  `profile_tab.dart` (`_useCurrentLocation`) et les inclut dans l'appel
-  `.update()` du profil — code client déjà préparé pour ça, il ne manquait
-  que les colonnes. Colonnes équivalentes sur `orders` (adresse de livraison
-  différente du profil) toujours pas ajoutées — à faire seulement si le
-  besoin est exprimé plus tard.
+  **Localisation automatique (Niveau 2 — fait)** : pour une livraison
+  vraiment fiable, l'équipe de livraison a besoin d'un point GPS exact, pas
+  seulement d'une adresse texte (peu fiable à Madagascar, adressage souvent
+  imprécis). Migration exécutée avec succès par l'utilisateur
+  (`supabase/phase5_patch_geolocation.sql`) : colonnes nullable
+  `latitude double precision` et `longitude double precision` sur
+  `profiles`, avec contraintes de validité (plages -90/90 et -180/180).
+  Côté client, `profile_tab.dart` capture `position.latitude`/
+  `position.longitude` dans `_useCurrentLocation`, les stocke en état
+  (pré-remplis depuis le profil existant pour ne pas les écraser à une
+  simple sauvegarde) et les inclut dans l'appel `.update()` du profil.
+  Colonnes équivalentes ajoutées sur `orders`
+  (`supabase/phase5_patch_orders_geolocation.sql`, **script prêt, pas
+  encore exécuté par l'utilisateur**) pour le cas où un client livre à une
+  adresse différente de son profil (nullable, repli sur les coordonnées du
+  profil si absentes) — **reste à faire** : exécuter ce script dans
+  Supabase, puis brancher la capture de latitude/longitude côté commande
+  dans le flux panier/checkout (`cart_tab.dart`), pas encore fait.
 - **Frais de livraison automatiques** (`client_home/delivery_pricing.dart` +
   intégration dans `cart_tab.dart`) — modèle "taxi rapide" choisi par
   l'utilisateur : `frais = max(prise_en_charge + tarif_par_km ×
