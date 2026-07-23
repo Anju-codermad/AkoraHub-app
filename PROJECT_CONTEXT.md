@@ -118,18 +118,22 @@ progressivement avec un vrai backend Supabase.
   géocode en adresse lisible (quartier, ville, région) et remplit le champ
   texte `location` existant — aucun changement de schéma. Repli sur les
   coordonnées brutes si le reverse-géocodage échoue (ex. hors ligne).
-  **Localisation automatique (Niveau 2 — à faire par Backend/Infra)** :
-  pour une livraison vraiment fiable, l'équipe de livraison a besoin d'un
-  point GPS exact, pas seulement d'une adresse texte (peu fiable à
-  Madagascar, adressage souvent imprécis). Spec proposée : ajouter deux
+  **Localisation automatique (Niveau 2 — script SQL prêt, en attente
+  d'exécution par l'utilisateur)** : pour une livraison vraiment fiable,
+  l'équipe de livraison a besoin d'un point GPS exact, pas seulement d'une
+  adresse texte (peu fiable à Madagascar, adressage souvent imprécis).
+  Migration prête dans `supabase/phase5_patch_geolocation.sql` : ajoute deux
   colonnes nullable `latitude double precision` et `longitude double
-  precision` sur la table `profiles` (et éventuellement sur `orders` pour
-  une adresse de livraison différente du profil, si besoin exprimé plus
-  tard). Une fois ces colonnes créées, la session Client UX ajoutera la
-  capture de `position.latitude`/`position.longitude` dans
-  `profile_tab.dart` (`_useCurrentLocation`) et les inclura dans l'appel
-  `.update()` du profil — travail déjà préparé côté client, il ne manque
-  que les colonnes.
+  precision` sur `profiles`, avec contraintes de validité (plages
+  -90/90 et -180/180). Aucun changement RLS nécessaire (policies existantes
+  couvrent déjà toutes les colonnes). **Reste à faire** : l'utilisateur
+  exécute le script dans Supabase SQL Editor, puis la session Client UX
+  branche la capture de `position.latitude`/`position.longitude` dans
+  `profile_tab.dart` (`_useCurrentLocation`) et les inclut dans l'appel
+  `.update()` du profil — code client déjà préparé pour ça, il ne manquait
+  que les colonnes. Colonnes équivalentes sur `orders` (adresse de livraison
+  différente du profil) toujours pas ajoutées — à faire seulement si le
+  besoin est exprimé plus tard.
 - **Frais de livraison automatiques** (`client_home/delivery_pricing.dart` +
   intégration dans `cart_tab.dart`) — modèle "taxi rapide" choisi par
   l'utilisateur : `frais = max(prise_en_charge + tarif_par_km ×
