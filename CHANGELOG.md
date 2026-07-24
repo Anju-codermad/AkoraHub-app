@@ -89,3 +89,6 @@
 
 ## 2026-07-24 05:46 UTC — Claude (Client UX/Design)
 - docs: mettre à jour PROJECT_CONTEXT.md (en-tête AkoraHub + SafeArea, bannière hero Admin, décision sur les menus sociaux) (`3862840`)
+
+## 2026-07-24 05:51 UTC — Claude (Client UX/Design)
+- Intègre le Mur social dans le Profil (Client UX/Design) (`07b843e`)
