@@ -80,3 +80,6 @@
 
 ## 2026-07-24 04:02 UTC — Claude
 - chore: débrancher Campaign Management (factice) des menus + simplifier le splash screen (retirer 4 fausses étapes d'init) (`b3828a4`)
+
+## 2026-07-24 04:32 UTC — Claude
+- feat(Backend/Infra): photos produit (jusqu'à 10) - table product_images + bucket storage + upload Admin + affichage carrousel client (`4d8e589`)
