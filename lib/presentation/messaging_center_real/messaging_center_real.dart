@@ -188,7 +188,9 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
       await SupabaseConfig.client.from('messages').insert({
         'conversation_id': widget.conversationId,
         'sender_id': _myId,
+        'sender_role': 'staff',
         'content': text,
+        'read_by_staff': true,
       });
       await _loadMessages();
     } catch (_) {

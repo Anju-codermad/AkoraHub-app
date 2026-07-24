@@ -4,7 +4,6 @@ import '../presentation/analytics_dashboard_real/analytics_dashboard_real.dart';
 import '../presentation/business_dashboard/business_dashboard.dart';
 import '../presentation/splash_screen/splash_screen.dart';
 import '../presentation/messaging_center_real/messaging_center_real.dart';
-import '../presentation/client_home/messaging/client_chat_screen.dart';
 import '../presentation/authentication_screen/authentication_screen.dart';
 import '../presentation/onboarding_flow/onboarding_flow.dart';
 import '../presentation/registration_screen/registration_screen.dart';
@@ -21,7 +20,6 @@ import '../presentation/client_home/client_home.dart';
 class AppRoutes {
   // TODO: Add your routes here
   static const String initial = '/';
-  static const String clientChat = '/client-chat';
   static const String registration = '/registration-screen';
   static const String businessUnitsManagement = '/business-units-management';
   static const String homeBannersManagement = '/home-banners-management';
@@ -47,7 +45,6 @@ class AppRoutes {
     businessDashboard: (context) => const BusinessDashboard(),
     splash: (context) => const SplashScreen(),
     messagingCenter: (context) => const MessagingCenterReal(),
-    clientChat: (context) => const ClientChatScreen(),
     authentication: (context) => const AuthenticationScreen(),
     onboardingFlow: (context) => const OnboardingFlow(),
     registration: (context) => const RegistrationScreen(),
