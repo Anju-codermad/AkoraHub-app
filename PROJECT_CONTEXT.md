@@ -320,16 +320,41 @@ commencée sauf mention contraire :
   est un stub visuel sans backend — voir section 4, "Notifications push
   réelles")
 - **Renforcement du côté "réseau social" pour les clients** (23/07,
-  discuté avec l'utilisateur) — idées proposées : fil d'activité "Pour
-  vous" (posts du Mur + nouveaux produits + promos), badge de
-  notification sur la cloche, profils clients publics légers consultables
-  depuis le Mur, partage rapide d'un produit/post, tags/mentions de
-  produits dans les posts. **Décision explicite de l'utilisateur : aucun
-  nouvel onglet dans la barre de navigation.** Tout doit se loger dans les
-  3 onglets existants. **Fait (23/07)** : Mur + "Mes publications"
-  intégrés dans l'onglet Profil (voir Phase 3 — Social). **Pas encore
-  commencé** : fil d'activité "Pour vous" sur l'Accueil, badge sur la
-  cloche, profils clients publics, partage rapide, tags/mentions.
+  discuté avec l'utilisateur) — 5 idées proposées, **toutes faites le
+  23/07** (l'utilisateur a demandé de travailler aussi côté Admin en plus
+  du Client pour ce chantier) :
+  1. **Fil d'activité "Pour vous"** sur l'Accueil (`catalog_tab.dart`) :
+     section horizontale mélangeant les 5 dernières publications
+     publiques du Mur et les 5 derniers produits ajoutés, triés par date,
+     masquée si vide/échec de chargement.
+  2. **Badge de notification sur la cloche** : compte les messages non
+     lus du staff (`messages.read_by_client = false`, schéma déjà
+     existant en phase 8) ; tap ouvre une feuille récapitulative avec
+     accès direct à la messagerie. **Correctif associé** :
+     `chat_screen.dart` ne marquait jusque-là JAMAIS les messages du
+     staff comme lus à l'ouverture — sans ce correctif le badge ne
+     serait jamais redescendu à zéro.
+  3. **Profils clients publics légers** : nouvelle vue SQL
+     `public_profiles` (`supabase/phase9_patch_public_profiles.sql`,
+     **utilisateur doit l'exécuter**, id/full_name/company_name/
+     client_type/avatar_url uniquement) + `PublicProfilesRepo` +
+     `PublicProfileScreen` (`client_home/community/`). **Bug réel
+     corrigé au passage** : la RLS de `profiles` limite la lecture à sa
+     propre ligne (`profiles_select_own_or_staff`, phase1), donc le Mur
+     et les commentaires affichaient "Utilisateur" pour TOUT LE MONDE
+     sauf soi-même depuis le début — `wall_tab.dart` utilise désormais
+     la vue publique, auteur cliquable vers son profil.
+  4. **Partage rapide** : package `share_plus` ajouté au `pubspec.yaml`,
+     bouton sur chaque post du Mur et sur la fiche produit.
+  5. **Tags/mentions produit dans les posts** : la colonne
+     `posts.mentioned_product_id` existait déjà côté DB (phase 3) mais
+     n'était pas utilisée côté app — ajout du sélecteur de produit dans
+     le formulaire de publication et du tag cliquable dans les cartes du
+     Mur.
+
+  **Décision explicite de l'utilisateur (rappel)** : aucun nouvel onglet
+  dans la barre de navigation pour tout ce chantier — tout se loge dans
+  Accueil/Profil/le Mur existants.
 - **Filtre de recherche avancé** sur le catalogue (prix, disponibilité,
   pilier) — au-delà des chips de catégorie actuelles
 - **Mode sombre**
@@ -450,8 +475,8 @@ exécuté, seulement discuté :
 ## 5. Conventions et pièges à connaître
 
 - **Toujours vérifier la compilation** après une modification en poussant sur
-  `main` et en consultant `https://github.com/Anju-codermad/akora-fanadiovana-app/actions`
-  via l'API GitHub (`GET /repos/Anju-codermad/akora-fanadiovana-app/actions/runs`)
+  `main` et en consultant `https://github.com/Anju-codermad/AkoraHub-app/actions`
+  via l'API GitHub (`GET /repos/Anju-codermad/AkoraHub-app/actions/runs`)
   — le jeton utilisé doit avoir les permissions Contents (RW), Metadata (R),
   Workflows (RW), Actions (R) pour pouvoir lire les logs/statuts de builds.
 - **RLS (Row Level Security)** est activé sur toutes les tables. La fonction
@@ -471,7 +496,13 @@ exécuté, seulement discuté :
 
 ## 7. Répartition des missions entre conversations Claude en parallèle
 
-Pour éviter les conflits, le projet est divisé en deux périmètres clairs :
+**⚠️ Dépôt renommé (23/07)** : `Anju-codermad/akora-fanadiovana-app` →
+**`Anju-codermad/AkoraHub-app`**. L'ancien nom redirige encore
+automatiquement (GitHub le fait par défaut après un renommage), mais
+utiliser le nouveau nom pour tout nouveau clone/remote/lien.
+
+Pour éviter les conflits, le projet était initialement divisé en deux
+périmètres clairs :
 
 - **Conversation "Backend/Infra"** : `lib/core/`, `supabase/*.sql`, tous les
   écrans Admin (`*_real` hors `client_home/`), `.github/workflows/`,
@@ -480,10 +511,18 @@ Pour éviter les conflits, le projet est divisé en deux périmètres clairs :
   `lib/presentation/client_home/*` — écrans client, style visuel, mise en
   page, adaptation des références visuelles fournies par l'utilisateur.
 
-**Règle** : si une conversation doit exceptionnellement toucher au périmètre
-de l'autre, elle doit le dire explicitement à l'utilisateur avant de le
-faire, pour que l'autre conversation soit mise en pause le temps du
-changement.
+**Élargissement (23/07)** : l'utilisateur a explicitement demandé à la
+conversation "Client UX/Design" de travailler aussi côté Admin, en plus du
+Client — cette conversation n'est donc plus strictement cantonnée à
+`client_home/*`. Elle a par exemple déjà créé un écran Admin
+(`home_banners_management.dart`) avant cet élargissement, avec accord
+implicite de l'utilisateur à ce moment-là.
+
+**Règle qui reste valable** : toute conversation qui touche un fichier
+également modifié par l'autre doit vérifier l'historique Git (fetch avant
+push, tester un merge si des commits distants sont apparus) plutôt que de
+pousser en force — plusieurs fusions automatiques propres ont déjà eu lieu
+ce jour-là sans perte de code des deux côtés.
 
 ## 6bis. Comment reprendre le fil (pour toute conversation)
 
