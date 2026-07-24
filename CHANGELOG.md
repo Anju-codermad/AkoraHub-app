@@ -107,3 +107,6 @@
 
 ## 2026-07-24 08:43 UTC — Anju-codermad
 - Fix: resolve duplicate messaging implementation (adopt shared conversations/messages schema with sender_role, keep single ChatScreen + admin wired to it) (`cf38b48`)
+
+## 2026-07-24 10:06 UTC — Claude
+- Backend/Infra: config de signature release (keystore réel via secrets CI) + build .aab pour Play Store (`7487613`)
