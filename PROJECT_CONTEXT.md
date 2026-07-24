@@ -100,7 +100,14 @@ progressivement avec un vrai backend Supabase.
 - Commande directe OU demande de devis (les deux créent respectivement une
   ligne dans `orders`/`order_items` ou `quotes`/`quote_items`)
 - Suivi de commande à 4 statuts + "Recommander en 1 clic"
-  (`client_home/orders_tab.dart`)
+  (`client_home/orders_tab.dart`). Écran restructuré en 2 sous-onglets
+  (`DefaultTabController`) : **Commandes** (inchangé) et **Devis**
+  (nouveau — "Mes devis"). Les devis existaient déjà en base (table
+  `quotes`, créés depuis le panier via "Demander un devis") mais n'étaient
+  visibles nulle part côté client avant cet ajout. Statut affiché avec
+  badge coloré (en_attente/envoyé/accepté/refusé/expiré) ; bouton
+  "Commander ce devis" (ajoute les articles au panier) si le statut est
+  envoyé ou accepté.
 - Profil client réel (`client_home/profile_tab.dart`) — remplace l'ancien
   écran minimal (email + logout). Affiche nom, société, secteur, téléphone,
   localisation, avatar (table `profiles`), avec formulaire d'édition en
