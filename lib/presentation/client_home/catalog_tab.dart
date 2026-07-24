@@ -5,6 +5,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'chat_screen.dart';
 import 'favorites_provider.dart';
 import 'product_detail_client.dart';
 
@@ -264,6 +265,23 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                         tooltip: 'Panier',
                         onPressed: widget.onOpenCart,
                       ),
+                    ),
+                  ),
+                  SizedBox(width: 2.w),
+                  Material(
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      tooltip: 'Messagerie',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ChatScreen()),
+                        );
+                      },
                     ),
                   ),
                   SizedBox(width: 2.w),

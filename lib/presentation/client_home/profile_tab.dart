@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import 'chat_screen.dart';
 import 'favorites_screen.dart';
 
 /// Profil client : affichage + édition des infos réelles (profiles table),
@@ -200,6 +201,20 @@ class _ProfileTabState extends State<ProfileTab> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const FavoritesScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.chat_bubble_outline),
+                  title: const Text('Messagerie'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ChatScreen(),
                       ),
                     );
                   },
