@@ -28,6 +28,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   String? _selectedUnitId;
   String _selectedCategory = 'toutes';
   String _searchQuery = '';
+  Set<String> _inactiveCategoryNames = {};
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -114,6 +115,23 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       ]);
       final profile =
           userId != null ? results[2] as Map<String, dynamic> : null;
+
+      // Catégories désactivées par l'Admin (préparation d'une gamme pas
+      // encore lancée) : à exclure des filtres du catalogue. Tolérant : si
+      // la migration phase9 (colonne `active`) n'a pas encore été exécutée,
+      // on n'exclut rien plutôt que de casser l'écran.
+      Set<String> inactiveCategoryNames = {};
+      try {
+        final catRows = await SupabaseConfig.client
+            .from('categories')
+            .select('name')
+            .eq('active', false);
+        inactiveCategoryNames = List<Map<String, dynamic>>.from(catRows)
+            .map((c) => c['name'] as String)
+            .toSet();
+      } catch (_) {
+        // Repli silencieux : aucune catégorie exclue.
+      }
 
       // Bannières hero gérées par l'Admin (table home_banners). Chargement
       // séparé et tolérant : si la migration Supabase n'a pas encore été
@@ -220,6 +238,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _promoSlides = loadedSlides;
         _unreadMessagesCount = unreadMessages;
         _activityFeed = activityFeed;
+        _inactiveCategoryNames = inactiveCategoryNames;
         _isLoading = false;
       });
     } catch (e) {
@@ -298,7 +317,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         : _products.where((p) => p['business_unit_id'] == _selectedUnitId);
     final cats = relevant
         .map((p) => (p['category'] ?? '').toString())
-        .where((c) => c.isNotEmpty)
+        .where((c) => c.isNotEmpty && !_inactiveCategoryNames.contains(c))
         .toSet()
         .toList();
     cats.sort();

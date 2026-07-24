@@ -301,6 +301,31 @@ progressivement avec un vrai backend Supabase.
   sélecteur de photos mais l'enregistrement des photos échoue
   silencieusement avec le message ci-dessus, sans bloquer le reste).
 
+### Phase 9 — Activer / désactiver une catégorie (script prêt, pas exécuté)
+- Contexte : les piliers (business_units) avaient déjà un champ `active` +
+  interrupteur côté Admin (écran "Piliers d'entreprise",
+  `business_units_management.dart`) — un pilier désactivé disparaît du
+  catalogue client. L'utilisateur a demandé la même capacité pour les
+  catégories, en prévision de gammes préparées à l'avance (ex:
+  Anti-Nuisibles avec ses 7 sous-catégories) mais pas encore "lancées".
+- `supabase/phase9_patch_categories_active.sql` : ajoute `active boolean
+  default true` sur `categories`.
+- Nouvel écran `category_management.dart`, accessible depuis chaque carte
+  de pilier dans "Piliers d'entreprise" (icône catégorie à côté de
+  l'interrupteur actif/inactif du pilier) : même pattern d'interrupteur
+  par catégorie, renommage, ajout.
+- Le formulaire produit (`product_management_real.dart`) ne propose plus
+  que les catégories actives dans son menu déroulant (la catégorie déjà
+  choisie sur un produit existant reste affichée même si désactivée
+  depuis, pour ne pas casser l'édition).
+- Côté client (`catalog_tab.dart`), les catégories désactivées sont
+  exclues des puces de filtre du catalogue — chargement tolérant (repli
+  silencieux si la migration n'est pas encore exécutée). Une catégorie
+  désactivée ne supprime pas les produits déjà tagués avec elle : ils
+  restent visibles et cherchables, seule la puce de filtre disparaît.
+- **Reste à faire** : exécuter `phase9_patch_categories_active.sql` dans
+  Supabase.
+
 ## 3quater. Nettoyage traces Rocket.new (23/07, fait)
 
 L'utilisateur a demandé une vérification complète des traces de

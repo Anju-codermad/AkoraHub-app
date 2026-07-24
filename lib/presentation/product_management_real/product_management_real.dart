@@ -255,7 +255,9 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                 const SizedBox(height: 8),
                 Builder(builder: (context) {
                   final categoriesForUnit = _categories
-                      .where((c) => c['business_unit_id'] == selectedUnitId)
+                      .where((c) =>
+                          c['business_unit_id'] == selectedUnitId &&
+                          c['active'] != false)
                       .toList();
                   // Si la catégorie du produit édité n'existe plus dans la
                   // liste (pilier changé, catégorie supprimée...), on évite
