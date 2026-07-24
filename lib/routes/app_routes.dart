@@ -4,7 +4,8 @@ import '../presentation/analytics_dashboard_real/analytics_dashboard_real.dart';
 import '../presentation/business_dashboard/business_dashboard.dart';
 import '../presentation/campaign_management/campaign_management.dart';
 import '../presentation/splash_screen/splash_screen.dart';
-import '../presentation/messaging_center/messaging_center.dart';
+import '../presentation/messaging_center_real/messaging_center_real.dart';
+import '../presentation/client_home/messaging/client_chat_screen.dart';
 import '../presentation/customer_management/customer_management.dart';
 import '../presentation/order_management/order_management.dart';
 import '../presentation/authentication_screen/authentication_screen.dart';
@@ -22,6 +23,7 @@ import '../presentation/client_home/client_home.dart';
 class AppRoutes {
   // TODO: Add your routes here
   static const String initial = '/';
+  static const String clientChat = '/client-chat';
   static const String registration = '/registration-screen';
   static const String businessUnitsManagement = '/business-units-management';
   static const String staffManagement = '/staff-management';
@@ -49,7 +51,8 @@ class AppRoutes {
     businessDashboard: (context) => const BusinessDashboard(),
     campaignManagement: (context) => const CampaignManagement(),
     splash: (context) => const SplashScreen(),
-    messagingCenter: (context) => const MessagingCenter(),
+    messagingCenter: (context) => const MessagingCenterReal(),
+    clientChat: (context) => const ClientChatScreen(),
     customerManagement: (context) => const CustomerManagement(),
     orderManagement: (context) => const OrderManagement(),
     authentication: (context) => const AuthenticationScreen(),

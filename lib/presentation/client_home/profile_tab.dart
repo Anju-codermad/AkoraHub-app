@@ -182,6 +182,13 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
           SizedBox(height: 2.h),
           FilledButton.tonalIcon(
+            onPressed: () =>
+                Navigator.pushNamed(context, '/client-chat'),
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: const Text('Messagerie'),
+          ),
+          SizedBox(height: 1.h),
+          FilledButton.tonalIcon(
             onPressed: _openEditSheet,
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Modifier mon profil'),
