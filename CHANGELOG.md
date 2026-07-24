@@ -86,3 +86,6 @@
 
 ## 2026-07-24 05:35 UTC — Claude (Client UX/Design)
 - Merge Backend/Infra (favoris, photos produit, messagerie, etc.) avec les changements Client UX/Design (en-tête AkoraHub, SafeArea, bannière hero Admin) (`0472465`)
+
+## 2026-07-24 05:46 UTC — Claude (Client UX/Design)
+- docs: mettre à jour PROJECT_CONTEXT.md (en-tête AkoraHub + SafeArea, bannière hero Admin, décision sur les menus sociaux) (`3862840`)
