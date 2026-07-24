@@ -77,3 +77,6 @@
 
 ## 2026-07-24 03:56 UTC — Claude
 - chore: supprimer les 3 écrans mock morts (customer/order/analytics non-real), plus jamais routés depuis l'UI (`508325b`)
+
+## 2026-07-24 04:02 UTC — Claude
+- chore: débrancher Campaign Management (factice) des menus + simplifier le splash screen (retirer 4 fausses étapes d'init) (`b3828a4`)
