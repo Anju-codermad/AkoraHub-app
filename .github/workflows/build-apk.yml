@@ -45,7 +45,7 @@ jobs:
           storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=app/akora_release.jks
+          storeFile=akora_release.jks
           EOF
           else
             echo "Pas de clé de production configurée (secrets ANDROID_* absents) — build signé avec la clé debug."
