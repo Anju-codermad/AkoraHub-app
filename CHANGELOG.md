@@ -59,3 +59,6 @@
 
 ## 2026-07-23 21:04 UTC — Claude
 - Merge: résolution conflit coordonnées dépôt (garde la version Rue Seimad, quasi-identique) (`9b1ba36`)
+
+## 2026-07-24 02:30 UTC — Claude
+- Client: écran 'Mes devis' ajouté (sous-onglet dans Commandes) (`780fede`)
