@@ -98,3 +98,6 @@
 
 ## 2026-07-24 07:35 UTC — Claude
 - Merge: résolution conflit en-tête (wordmark AkoraHub + icône messagerie) (`7b9aaa1`)
+
+## 2026-07-24 07:50 UTC — Claude
+- Docs: documenter la messagerie privée + action requise Backend/Infra pour brancher messaging_center.dart (`912ab79`)
