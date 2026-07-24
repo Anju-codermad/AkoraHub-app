@@ -68,3 +68,6 @@
 
 ## 2026-07-24 02:54 UTC — Claude
 - Client: fonctionnalité Favoris (étoile contour vide/pleine) (`d00f3c8`)
+
+## 2026-07-24 03:07 UTC — Claude
+- Docs: documenter la fonctionnalité Favoris (`39f7673`)
