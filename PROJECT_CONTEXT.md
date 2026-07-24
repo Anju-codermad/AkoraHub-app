@@ -327,11 +327,11 @@ positif ignoré : `custom_icon_widget.dart` mappe `'rocket'`/
 `'rocket_launch'` vers les icônes fusée standard de Flutter (aucun
 rapport avec Rocket.new).
 
-**Repéré au passage, pas corrigé (hors sujet de cette demande)** : le
-texte de la 5ᵉ page d'onboarding mentionne "seulement \$5/mois" — prix en
-dollars et modèle d'abonnement qui ne correspond pas au modèle réel de
-l'app (vente de produits, pas de SaaS par abonnement). À signaler à
-l'utilisateur si l'onboarding est retravaillé.
+**Repéré et corrigé au passage** : le texte de la 5ᵉ page d'onboarding
+mentionnait "seulement \$5/mois" — prix en dollars et modèle d'abonnement
+qui ne correspondait pas au modèle réel de l'app (vente de produits, pas
+de SaaS par abonnement). Remplacé par un texte générique sur les outils
+AkoraHub disponibles.
 
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 
