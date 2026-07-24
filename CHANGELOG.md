@@ -134,3 +134,6 @@
 
 ## 2026-07-24 19:17 UTC — Claude (Client UX/Design)
 - Merge: changelog auto-généré (`75cde0c`)
+
+## 2026-07-24 19:36 UTC — Claude
+- docs: ajouter les coordonnées de contact réelles (copie de secours de la politique de confidentialité) (`dc92cb6`)
