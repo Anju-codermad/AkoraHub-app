@@ -92,3 +92,6 @@
 
 ## 2026-07-24 05:51 UTC — Claude (Client UX/Design)
 - Intègre le Mur social dans le Profil (Client UX/Design) (`07b843e`)
+
+## 2026-07-24 05:52 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré + mise à jour PROJECT_CONTEXT.md (`c2003e4`)
