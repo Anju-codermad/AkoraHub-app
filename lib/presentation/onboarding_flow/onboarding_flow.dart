@@ -52,7 +52,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     {
       "title": "Développez Votre Activité",
       "description":
-          "Accédez à tous les outils professionnels pour seulement \$5/mois. Commencez votre transformation digitale aujourd'hui!",
+          "Accédez à tous les outils professionnels d'AkoraHub — catalogue, commandes, livraison et communauté — pour faire grandir votre activité au quotidien.",
       "semanticLabel": "Icône représentant la croissance de l'activité",
       "iconName": "trending_up",
     },
