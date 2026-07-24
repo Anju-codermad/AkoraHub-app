@@ -95,3 +95,6 @@
 
 ## 2026-07-24 05:52 UTC — Claude (Client UX/Design)
 - Merge: changelog auto-généré + mise à jour PROJECT_CONTEXT.md (`c2003e4`)
+
+## 2026-07-24 07:35 UTC — Claude
+- Merge: résolution conflit en-tête (wordmark AkoraHub + icône messagerie) (`7b9aaa1`)
