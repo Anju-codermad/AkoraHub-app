@@ -125,3 +125,6 @@
 
 ## 2026-07-24 19:13 UTC — Claude (Client UX/Design)
 - Nettoyage traces Rocket.new (23/07) (`2987158`)
+
+## 2026-07-24 19:14 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`ec78583`)
