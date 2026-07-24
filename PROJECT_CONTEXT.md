@@ -139,10 +139,10 @@ progressivement avec un vrai backend Supabase.
   bottom sheet et upload d'avatar vers le bucket Storage `avatars`
   (policies dans `supabase/phase4_patch_avatars.sql`, **script exécuté avec
   succès par l'utilisateur dans Supabase — bucket créé, fonctionnel**).
-  **Reste à faire sur ce même écran** : section
-  "Mes publications" listant les posts du Mur de l'utilisateur, et
-  statistiques personnelles (nb commandes, avis, ancienneté) — voir plan en
-  4 étapes discuté avec l'utilisateur, étapes 3 et 4 pas encore commencées.
+  **"Mes publications" fait (23/07)** : entrée de menu ouvrant le Mur
+  pré-filtré sur les posts de l'utilisateur (voir Phase 3 — Social
+  ci-dessous). **Reste à faire** : statistiques personnelles (nb
+  commandes, avis, ancienneté) sur cet écran.
   **Localisation automatique (Niveau 1 — fait)** : bouton "Utiliser ma
   position actuelle" dans le formulaire d'édition (icône 📍 dans le champ
   Localisation). Récupère le GPS (packages `geolocator` + `geocoding`,
@@ -196,6 +196,15 @@ progressivement avec un vrai backend Supabase.
   Storage `wall-photos`), likes, commentaires (`client_home/wall/`)
 - Avis produits avec notation étoiles, affichés sur la fiche produit
 - Filtre du mur par secteur (Hôtel/Hôpital/Entreprise/Particulier)
+- **Intégré dans le Profil (23/07)** : le Mur (`WallTab`) est accessible
+  depuis deux entrées de menu dans `profile_tab.dart` — "Mur — Communauté
+  AkoraHub" (mur complet) et "Mes publications" (mur pré-filtré sur
+  `author_id == utilisateur courant` via le nouveau paramètre
+  `initialOnlyMine`, combiné avec le filtre de secteur existant via un
+  `FilterChip` dédié). `WallTab` a désormais son propre `AppBar` (avant
+  pensé pour vivre dans une barre d'onglets, donc sans en-tête). **Aucun
+  nouvel onglet de navigation créé**, conformément à la décision
+  explicite de l'utilisateur — voir section 3bis.
 
 ### Phase 4 — Variantes produit
 - Chaque produit peut avoir des **variantes** = combinaison Format × Parfum,
@@ -290,17 +299,16 @@ commencée sauf mention contraire :
   est un stub visuel sans backend — voir section 4, "Notifications push
   réelles")
 - **Renforcement du côté "réseau social" pour les clients** (23/07,
-  discuté avec l'utilisateur, **pas commencé**) — idées proposées : fil
-  d'activité "Pour vous" (posts du Mur + nouveaux produits + promos),
-  badge de notification sur la cloche, profils clients publics légers
-  consultables depuis le Mur, partage rapide d'un produit/post,
-  tags/mentions de produits dans les posts. **Décision explicite de
-  l'utilisateur : aucun nouvel onglet dans la barre de navigation.** Tout
-  doit se loger dans les 3 onglets existants — essentiellement dans
-  **Profil** (Mur, "Mes publications", Favoris — cohérent avec le plan en
-  4 étapes déjà noté plus haut) et en contenu additionnel sur **Accueil**
-  (fil d'activité, badge sur l'icône notifications existante) plutôt qu'en
-  écrans séparés.
+  discuté avec l'utilisateur) — idées proposées : fil d'activité "Pour
+  vous" (posts du Mur + nouveaux produits + promos), badge de
+  notification sur la cloche, profils clients publics légers consultables
+  depuis le Mur, partage rapide d'un produit/post, tags/mentions de
+  produits dans les posts. **Décision explicite de l'utilisateur : aucun
+  nouvel onglet dans la barre de navigation.** Tout doit se loger dans les
+  3 onglets existants. **Fait (23/07)** : Mur + "Mes publications"
+  intégrés dans l'onglet Profil (voir Phase 3 — Social). **Pas encore
+  commencé** : fil d'activité "Pour vous" sur l'Accueil, badge sur la
+  cloche, profils clients publics, partage rapide, tags/mentions.
 - **Filtre de recherche avancé** sur le catalogue (prix, disponibilité,
   pilier) — au-delà des chips de catégorie actuelles
 - **Mode sombre**
