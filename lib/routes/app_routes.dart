@@ -11,6 +11,7 @@ import '../presentation/authentication_screen/authentication_screen.dart';
 import '../presentation/onboarding_flow/onboarding_flow.dart';
 import '../presentation/registration_screen/registration_screen.dart';
 import '../presentation/business_units_management/business_units_management.dart';
+import '../presentation/home_banners_management/home_banners_management.dart';
 import '../presentation/staff_management/staff_management.dart';
 import '../presentation/product_management_real/product_management_real.dart';
 import '../presentation/invoicing/invoicing_screen.dart';
@@ -24,6 +25,7 @@ class AppRoutes {
   static const String initial = '/';
   static const String registration = '/registration-screen';
   static const String businessUnitsManagement = '/business-units-management';
+  static const String homeBannersManagement = '/home-banners-management';
   static const String staffManagement = '/staff-management';
   static const String productManagementReal = '/product-management-real';
   static const String invoicing = '/invoicing';
@@ -56,6 +58,7 @@ class AppRoutes {
     onboardingFlow: (context) => const OnboardingFlow(),
     registration: (context) => const RegistrationScreen(),
     businessUnitsManagement: (context) => const BusinessUnitsManagement(),
+    homeBannersManagement: (context) => const HomeBannersManagement(),
     staffManagement: (context) => const StaffManagement(),
     productManagementReal: (context) => const ProductManagementReal(),
     invoicing: (context) => const InvoicingScreen(),

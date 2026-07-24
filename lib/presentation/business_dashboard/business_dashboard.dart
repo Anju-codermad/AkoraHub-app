@@ -96,6 +96,11 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'route': '/business-units-management'
       },
       {
+        'icon': 'add_photo_alternate',
+        'label': 'Bannière hero — Accueil',
+        'route': '/home-banners-management'
+      },
+      {
         'icon': 'groups',
         'label': 'Équipe & rôles',
         'route': '/staff-management'
