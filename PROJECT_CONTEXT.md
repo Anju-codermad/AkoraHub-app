@@ -108,6 +108,16 @@ progressivement avec un vrai backend Supabase.
   badge coloré (en_attente/envoyé/accepté/refusé/expiré) ; bouton
   "Commander ce devis" (ajoute les articles au panier) si le statut est
   envoyé ou accepté.
+- **Favoris** (`client_home/favorites_provider.dart` +
+  `client_home/favorites_screen.dart`) — étoile (contour vide `star_border`
+  si non favori, pleine `star` ambre si favori — style demandé par
+  l'utilisateur) sur les cartes produit de l'Accueil et sur la fiche
+  produit. Nouvelle table `favorites` (`supabase/phase7_patch_favorites.sql`,
+  **à exécuter par l'utilisateur** — sans elle la liste reste vide
+  silencieusement, sans erreur visible). Écran "Mes favoris" accessible
+  depuis le Profil, avec bouton "Tout ajouter" au panier. Provider
+  volontairement placé dans `client_home/` (pas `lib/core/providers/`) pour
+  respecter le périmètre Client UX (section 7).
 - Profil client réel (`client_home/profile_tab.dart`) — remplace l'ancien
   écran minimal (email + logout). Affiche nom, société, secteur, téléphone,
   localisation, avatar (table `profiles`), avec formulaire d'édition en
@@ -215,8 +225,6 @@ progressivement avec un vrai backend Supabase.
 Idées discutées avec l'utilisateur, à prioriser plus tard — aucune n'est
 commencée sauf mention contraire :
 
-- **Favoris** : marquer des produits pour les retrouver rapidement (aucune
-  table ni UI actuellement)
 - **Réapprovisionnement suggéré** : détecter les produits qu'un client
   recommande régulièrement et le proposer proactivement (étend le
   "Recommander en 1 clic" déjà existant dans `orders_tab.dart`)
