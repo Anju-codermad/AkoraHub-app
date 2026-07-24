@@ -104,3 +104,6 @@
 
 ## 2026-07-24 08:17 UTC — Claude
 - Docs: rapport discussion Connexion/Inscription (SMS OTP, vérif anti-fraude) + signalement conflit messagerie dupliquée (`4496849`)
+
+## 2026-07-24 08:43 UTC — Anju-codermad
+- Fix: resolve duplicate messaging implementation (adopt shared conversations/messages schema with sender_role, keep single ChatScreen + admin wired to it) (`cf38b48`)
