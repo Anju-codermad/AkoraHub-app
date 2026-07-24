@@ -87,6 +87,21 @@ class _ChatScreenState extends State<ChatScreen> {
             .order('created_at');
         _isLoading = false;
       });
+
+      // Marque les messages du staff comme lus à l'ouverture — sans quoi le
+      // badge de notification de l'Accueil (voir catalog_tab.dart,
+      // _unreadMessagesCount) ne redescendrait jamais à zéro.
+      try {
+        await SupabaseConfig.client
+            .from('messages')
+            .update({'read_by_client': true})
+            .eq('conversation_id', conversationId)
+            .eq('sender_role', 'staff')
+            .eq('read_by_client', false);
+      } catch (_) {
+        // Non bloquant : la conversation reste utilisable même si le
+        // marquage échoue.
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;

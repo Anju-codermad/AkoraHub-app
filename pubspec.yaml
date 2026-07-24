@@ -43,6 +43,7 @@ dependencies:
   supabase_flutter: ^2.8.0
   flutter_riverpod: ^2.6.1
   uuid: ^4.5.1
+  share_plus: ^10.1.4 # Partage rapide (produit / post du Mur) — 23/07
 dev_dependencies:
   flutter_test:    # CRITICAL: Required for Flutter project testing - DO NOT REMOVE
     sdk: flutter   # CRITICAL: Required for Flutter project testing - DO NOT REMOVE
