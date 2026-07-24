@@ -8,6 +8,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
 import 'favorites_screen.dart';
+import 'wall/wall_tab.dart';
 
 /// Profil client : affichage + édition des infos réelles (profiles table),
 /// changement d'avatar. Étape 1-2 du plan d'amélioration du côté client.
@@ -198,6 +199,36 @@ class _ProfileTabState extends State<ProfileTab> {
           Card(
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.groups_outlined),
+                  title: const Text('Mur — Communauté AkoraHub'),
+                  subtitle:
+                      const Text('Publications, avis, échanges entre clients'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WallTab(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.dynamic_feed_outlined),
+                  title: const Text('Mes publications'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WallTab(initialOnlyMine: true),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.star_border),
                   title: const Text('Mes favoris'),
