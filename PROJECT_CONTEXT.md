@@ -349,6 +349,79 @@ commencée sauf mention contraire :
   Pas encore fait : notifications quand un nouveau message arrive (lié au
   point "Notifications push" ci-dessous), indicateur de messages non lus.
 
+  **⚠️ CONFLIT À RÉSOUDRE — deux systèmes de messagerie construits en
+  parallèle (23/07)** : la session Client UX (celle-ci) a construit
+  indépendamment son propre système avant de découvrir celui ci-dessus :
+  `client_home/chat_screen.dart` + `supabase/phase8_patch_messaging.sql`
+  (tables `conversations`/`messages` avec un schéma différent — colonnes
+  `sender_role`, `is_request`, `read_by_staff`/`read_by_client` au lieu de
+  `read_at`). **C'est ce fichier `chat_screen.dart` qui est actuellement
+  branché dans la navigation client** (icône Accueil + entrée Profil), pas
+  `client_home/messaging/client_chat_screen.dart`. L'utilisateur a déjà
+  exécuté `phase8_patch_messaging.sql` avec succès (confirmé dans la
+  conversation) ; **le statut d'exécution de `phase6_schema.sql` n'est pas
+  confirmé**. Si les deux scripts ont été exécutés, la structure réelle en
+  base dépend de l'ordre d'exécution (le second `create table if not
+  exists` ne fait rien si la table existe déjà), ce qui peut désynchroniser
+  le schéma réel avec l'un des deux écrans Admin/client.
+  **Point important à préserver dans la résolution** : le concept
+  "Demande" (`is_request`) de la version Client UX répond à une exigence
+  explicite de l'utilisateur — les demandes précises d'un client (ex.
+  besoin en gros volume) ne doivent jamais être visibles par les autres
+  clients, contrairement à un post du Mur. Ce n'est pas dans le schéma
+  Backend/Infra actuel.
+  **Reste à faire** : la prochaine conversation (quel que soit son
+  périmètre) doit clarifier avec l'utilisateur quel schéma réel existe en
+  base, choisir un seul système à garder (recommandation : celui déjà
+  branché à un vrai écran Admin, en lui ajoutant la colonne `is_request`
+  manquante), migrer le client sur ce choix, et supprimer les fichiers
+  redondants de l'autre version.
+
+## 3ter. Discussion Connexion/Inscription (23/07, pas encore exécuté)
+
+L'utilisateur veut améliorer les écrans `authentication_screen/` et
+`registration_screen/` — **hors périmètre `client_home/`**, à traiter par
+la session Backend/Infra ou avec accord explicite de pause. Rien n'a été
+exécuté, seulement discuté :
+
+- **Problèmes constatés sur l'écran de connexion actuel** : "Mot de passe
+  oublié ?" et les boutons de connexion sociale (Google/Facebook) sont des
+  maquettes non fonctionnelles (affichent "sera implémenté" au clic) — UX
+  trompeuse à corriger en priorité. 4 langues prévues dont l'arabe (RTL),
+  probablement superflu pour Madagascar. Style visuel pas encore aligné
+  avec le design retravaillé côté client.
+- **Écran d'inscription** : formulaire court et déjà bien pensé (secteur en
+  chips, champs conditionnels) — pas de champ de confirmation du mot de
+  passe ni de bouton afficher/masquer.
+- **Demande explicite de l'utilisateur** : rendre le téléphone **obligatoire**
+  (actuellement optionnel) avec validation de format selon les préfixes
+  réels des opérateurs malgaches (Telma 034/038, Orange 032, Yas ex-Airtel
+  033), pour réduire les faux comptes.
+- **4 niveaux de vérification anti-fraude discutés**, du plus simple au
+  plus robuste : (1) confirmation email native Supabase — gratuit, faible
+  effort ; (2) validation du format téléphone — gratuit, faible effort ;
+  (3) vérification SMS OTP — coût récurrent par SMS, effort moyen
+  (intégration d'un service tiers : Twilio ou un fournisseur régional/
+  local comme l'API SMS Orange Madagascar) ; (4) validation manuelle des
+  comptes pro (Hôtel/Hôpital/Entreprise) par l'équipe avant activation — le
+  texte "compte en attente de vérification" existe déjà dans le code
+  (`authentication_screen.dart`) mais n'a jamais été branché à une vraie
+  logique.
+- **SMS OTP approfondi sur demande** : nécessite une clé API stockée côté
+  serveur (jamais dans l'app) et une fonction serveur pour générer/
+  vérifier les codes — un vrai morceau d'infrastructure, pas juste une
+  table + un écran. Coût par SMS variable selon le pays de destination, à
+  obtenir directement auprès d'un fournisseur avant de s'engager (pas de
+  chiffre garanti à jour pour Madagascar spécifiquement). Piste alternative
+  évoquée : OTP par WhatsApp au lieu de SMS (souvent moins cher chez
+  certains fournisseurs, et l'écran `messaging_center` mock avait déjà un
+  filtre par canal incluant WhatsApp, suggérant que ce canal était prévu
+  dans la vision initiale du projet).
+- **Décision de l'utilisateur** : reporté à plus tard ("on va régler tout
+  ça plus tard"). Priorité recommandée si repris : email + validation
+  format téléphone (gratuits, rapides) avant SMS OTP (coût à budgétiser)
+  ou validation manuelle (friction supplémentaire).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
