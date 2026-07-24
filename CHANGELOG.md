@@ -131,3 +131,6 @@
 
 ## 2026-07-24 19:17 UTC — Claude (Client UX/Design)
 - Onboarding : corrige le texte de la derniere page (prix USD/abonnement inexistant) (`cbf36ea`)
+
+## 2026-07-24 19:17 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`75cde0c`)
