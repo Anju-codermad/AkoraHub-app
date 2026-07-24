@@ -107,3 +107,15 @@
 
 ## 2026-07-24 08:43 UTC — Anju-codermad
 - Fix: resolve duplicate messaging implementation (adopt shared conversations/messages schema with sender_role, keep single ChatScreen + admin wired to it) (`cf38b48`)
+
+## 2026-07-24 10:06 UTC — Claude
+- Backend/Infra: config de signature release (keystore réel via secrets CI) + build .aab pour Play Store (`7487613`)
+
+## 2026-07-24 10:43 UTC — Claude
+- fix: corriger le chemin storeFile dans key.properties (résolu relatif à android/app/, pas android/) (`40d162d`)
+
+## 2026-07-24 11:02 UTC — Claude
+- docs: politique de confidentialité (hébergée via GitHub Pages) pour la fiche Play Store (`2622f04`)
+
+## 2026-07-24 11:53 UTC — Claude (Client UX/Design)
+- docs: documenter les 5 fonctionnalites sociales, le renommage du depot et l elargissement de perimetre (`7100fa9`)

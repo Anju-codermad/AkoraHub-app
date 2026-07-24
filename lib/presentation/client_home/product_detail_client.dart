@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/providers/cart_provider.dart';
@@ -143,6 +144,17 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
       appBar: AppBar(
         title: Text(p['name'] ?? ''),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'Partager',
+            onPressed: () {
+              final price = (p['price_detail'] as num?)?.toDouble() ?? 0;
+              SharePlus.instance.share(ShareParams(
+                text: '${p['name'] ?? 'Ce produit'} — '
+                    '${_currency.format(price)} sur AkoraHub',
+              ));
+            },
+          ),
           IconButton(
             icon: Icon(isFavorite ? Icons.star : Icons.star_border),
             color: isFavorite ? Colors.amber : null,

@@ -6,8 +6,10 @@ import 'package:sizer/sizer.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
+import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
 import 'product_detail_client.dart';
+import 'wall/wall_tab.dart';
 
 class CatalogTab extends ConsumerStatefulWidget {
   final VoidCallback onOpenCart;
@@ -32,6 +34,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   String? _clientName;
   String? _clientAvatarUrl;
   String? _clientLocation;
+  int _unreadMessagesCount = 0;
+  List<_ActivityItem> _activityFeed = [];
 
   final PageController _bannerController = PageController();
   int _bannerIndex = 0;
@@ -136,6 +140,77 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         // Repli silencieux sur _defaultPromoSlides.
       }
 
+      // Badge de notification (cloche) : nombre de messages non lus envoyés
+      // par le staff dans la conversation du client (champ read_by_client,
+      // supabase/phase8_patch_messaging.sql). Tolérant à l'échec : si la
+      // conversation n'existe pas encore ou hors-ligne, le badge reste à 0.
+      int unreadMessages = 0;
+      if (userId != null) {
+        try {
+          final convo = await SupabaseConfig.client
+              .from('conversations')
+              .select('id')
+              .eq('customer_id', userId)
+              .maybeSingle();
+          if (convo != null) {
+            final unread = await SupabaseConfig.client
+                .from('messages')
+                .select('id')
+                .eq('conversation_id', convo['id'])
+                .eq('sender_role', 'staff')
+                .eq('read_by_client', false);
+            unreadMessages = List.from(unread).length;
+          }
+        } catch (_) {
+          // Repli silencieux : badge à 0.
+        }
+      }
+
+      // Fil d'activité "Pour vous" : mélange des dernières publications
+      // publiques du Mur et des derniers produits ajoutés au catalogue,
+      // triés par date. Tolérant à l'échec (n'affecte pas le reste de
+      // l'Accueil si le Mur n'est pas accessible).
+      List<_ActivityItem> activityFeed = [];
+      try {
+        final recentPosts = await SupabaseConfig.client
+            .from('posts')
+            .select()
+            .eq('visibility', 'public')
+            .order('created_at', ascending: false)
+            .limit(5);
+        final postList = List<Map<String, dynamic>>.from(recentPosts);
+        final authorIds = postList
+            .map((p) => p['author_id'] as String?)
+            .whereType<String>()
+            .toSet();
+        final authorProfiles = await PublicProfilesRepo.fetchByIds(authorIds);
+
+        final recentProducts = await SupabaseConfig.client
+            .from('products')
+            .select()
+            .eq('visibility', true)
+            .order('created_at', ascending: false)
+            .limit(5);
+        final productList = List<Map<String, dynamic>>.from(recentProducts);
+
+        activityFeed = [
+          ...postList.map((p) => _ActivityItem.post(
+                p,
+                authorProfiles[p['author_id']],
+                DateTime.tryParse(p['created_at'] ?? '') ?? DateTime.now(),
+              )),
+          ...productList.map((p) => _ActivityItem.product(
+                p,
+                DateTime.tryParse(p['created_at'] ?? '') ?? DateTime.now(),
+              )),
+        ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        if (activityFeed.length > 8) {
+          activityFeed = activityFeed.sublist(0, 8);
+        }
+      } catch (_) {
+        // Repli silencieux : la section "Pour vous" reste vide (masquée).
+      }
+
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
         _products = List<Map<String, dynamic>>.from(results[1] as List);
@@ -143,6 +218,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _clientAvatarUrl = profile?['avatar_url'] as String?;
         _clientLocation = profile?['location'] as String?;
         _promoSlides = loadedSlides;
+        _unreadMessagesCount = unreadMessages;
+        _activityFeed = activityFeed;
         _isLoading = false;
       });
     } catch (e) {
@@ -151,6 +228,54 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _error = 'Impossible de charger le catalogue.';
       });
     }
+  }
+
+  Future<void> _openNotifications() async {
+    await showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(4.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Notifications',
+                  style: Theme.of(context).textTheme.titleMedium),
+              SizedBox(height: 2.h),
+              if (_unreadMessagesCount > 0)
+                ListTile(
+                  leading: const Icon(Icons.chat_bubble_outline),
+                  title: Text(_unreadMessagesCount == 1
+                      ? 'Un nouveau message de notre équipe'
+                      : '$_unreadMessagesCount nouveaux messages de notre équipe'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatScreen()),
+                    );
+                  },
+                )
+              else
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 3.h),
+                  child: Center(
+                    child: Text(
+                      'Aucune nouvelle notification.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    // Au retour (que la messagerie ait été ouverte ou non), on rafraîchit
+    // le compteur — read_by_client aura pu passer à true entre-temps.
+    _loadData();
   }
 
   IconData _iconForUnit(Map<String, dynamic> unit) {
@@ -339,19 +464,15 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             color: theme.colorScheme.surfaceContainerHighest
                                 .withValues(alpha: 0.5),
                             shape: const CircleBorder(),
-                            child: IconButton(
-                              icon: const Icon(
-                                  Icons.notifications_none_rounded),
-                              tooltip: 'Notifications',
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Notifications bientôt disponibles'),
-                                    duration: Duration(seconds: 1),
-                                  ),
-                                );
-                              },
+                            child: Badge(
+                              label: Text('$_unreadMessagesCount'),
+                              isLabelVisible: _unreadMessagesCount > 0,
+                              child: IconButton(
+                                icon: const Icon(
+                                    Icons.notifications_none_rounded),
+                                tooltip: 'Notifications',
+                                onPressed: _openNotifications,
+                              ),
                             ),
                           ),
                         ],
@@ -491,6 +612,159 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
           ),
+
+          // --- "Pour vous" : fil d'activité mélangeant Mur + nouveaux
+          // produits (23/07). Masqué si vide (repli silencieux en cas
+          // d'échec de chargement — voir _loadData). ---
+          if (_activityFeed.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Pour vous', style: theme.textTheme.titleMedium),
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const WallTab()),
+                      ),
+                      child: const Text('Voir le Mur'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 16.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  itemCount: _activityFeed.length,
+                  itemBuilder: (context, index) {
+                    final item = _activityFeed[index];
+                    return Padding(
+                      padding: EdgeInsets.only(right: 3.w),
+                      child: SizedBox(
+                        width: 55.w,
+                        child: Card(
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () {
+                              if (item.isPost) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const WallTab()),
+                                );
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProductDetailClient(
+                                        product: item.product!),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.all(2.5.w),
+                              child: item.isPost
+                                  ? Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.groups_outlined,
+                                                size: 14,
+                                                color: theme
+                                                    .colorScheme.primary),
+                                            SizedBox(width: 1.w),
+                                            Expanded(
+                                              child: Text(
+                                                PublicProfilesRepo
+                                                    .displayName(
+                                                        item.authorProfile),
+                                                style: theme
+                                                    .textTheme.labelSmall
+                                                    ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w600),
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 0.5.h),
+                                        Expanded(
+                                          child: Text(
+                                            (item.post!['content'] ?? '')
+                                                    .toString()
+                                                    .isNotEmpty
+                                                ? item.post!['content']
+                                                : 'Nouvelle publication'
+                                                    ' sur le Mur',
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.bodySmall,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.fiber_new_outlined,
+                                                size: 14,
+                                                color: theme
+                                                    .colorScheme.primary),
+                                            SizedBox(width: 1.w),
+                                            Text('Nouveau produit',
+                                                style: theme
+                                                    .textTheme.labelSmall
+                                                    ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w600)),
+                                          ],
+                                        ),
+                                        SizedBox(height: 0.5.h),
+                                        Text(
+                                          item.product!['name'] ?? '',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodyMedium,
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          _currency.format(
+                                              (item.product!['price_detail']
+                                                      as num?) ??
+                                                  0),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                  color: theme
+                                                      .colorScheme.primary,
+                                                  fontWeight:
+                                                      FontWeight.w700),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
 
           // --- Nos activités : icônes rondes colorées ---
           if (_businessUnits.isNotEmpty) ...[
@@ -680,6 +954,24 @@ class _PromoSlide {
       required this.subtitle,
       this.icon,
       this.imageUrl});
+}
+
+/// Un élément du fil d'activité "Pour vous" de l'Accueil (23/07) : soit une
+/// publication publique du Mur, soit un produit récemment ajouté au
+/// catalogue. Les deux sources sont mélangées et triées par date.
+class _ActivityItem {
+  final Map<String, dynamic>? post;
+  final Map<String, dynamic>? authorProfile;
+  final Map<String, dynamic>? product;
+  final DateTime createdAt;
+
+  _ActivityItem.post(this.post, this.authorProfile, this.createdAt)
+      : product = null;
+  _ActivityItem.product(this.product, this.createdAt)
+      : post = null,
+        authorProfile = null;
+
+  bool get isPost => post != null;
 }
 
 class _ProductCard extends StatelessWidget {
