@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../presentation/business_profile_settings/business_profile_settings.dart';
 import '../presentation/analytics_dashboard_real/analytics_dashboard_real.dart';
 import '../presentation/business_dashboard/business_dashboard.dart';
-import '../presentation/campaign_management/campaign_management.dart';
 import '../presentation/splash_screen/splash_screen.dart';
 import '../presentation/messaging_center_real/messaging_center_real.dart';
 import '../presentation/client_home/messaging/client_chat_screen.dart';
@@ -34,7 +33,6 @@ class AppRoutes {
   static const String businessProfileSettings = '/business-profile-settings';
   static const String analyticsDashboard = '/analytics-dashboard';
   static const String businessDashboard = '/business-dashboard';
-  static const String campaignManagement = '/campaign-management';
   static const String splash = '/splash-screen';
   static const String messagingCenter = '/messaging-center';
   static const String authentication = '/authentication-screen';
@@ -45,7 +43,6 @@ class AppRoutes {
     businessProfileSettings: (context) => const BusinessProfileSettings(),
     analyticsDashboard: (context) => const AnalyticsDashboardReal(),
     businessDashboard: (context) => const BusinessDashboard(),
-    campaignManagement: (context) => const CampaignManagement(),
     splash: (context) => const SplashScreen(),
     messagingCenter: (context) => const MessagingCenterReal(),
     clientChat: (context) => const ClientChatScreen(),

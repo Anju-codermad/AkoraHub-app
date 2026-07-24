@@ -259,6 +259,18 @@ commencée sauf mention contraire :
 
 ## 4. Ce qui N'EST PAS encore fait
 
+- **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
+  suppression des 3 écrans mock morts (customer/order/analytics management
+  non-`_real`, jamais routés depuis l'UI, 4500+ lignes) ; **Campaign
+  Management** débranché des menus (dashboard quick actions + bottom sheet
+  "+") car 100% factice (aucune connexion Supabase, liste codée en dur,
+  SnackBar de succès sans persistance) — le fichier
+  `lib/presentation/campaign_management/` reste dans le repo si besoin de
+  le reconstruire un jour pour de vrai, mais plus aucune route/bouton n'y
+  mène ; **splash screen simplifié** — les 4 fausses étapes d'initialisation
+  (`_checkSubscriptionStatus`, `_loadBusinessProfiles`,
+  `_fetchConfigurations`, `_prepareCachedData`, chacune un `Future.delayed`
+  sans effet réel) supprimées, temps de démarrage ramené de ~4,8s à ~1,5s.
 - **Notifications push** réelles
 - **Mode hors-ligne**
 - **Multi-langue** Français/Malagasy

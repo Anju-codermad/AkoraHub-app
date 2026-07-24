@@ -76,11 +76,6 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'route': '/product-management-real'
       },
       {
-        'icon': 'campaign',
-        'label': 'Create Campaign',
-        'route': '/campaign-management'
-      },
-      {
         'icon': 'receipt_long',
         'label': 'New Order',
         'route': '/order-management-real'
@@ -203,8 +198,6 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
                       if (actionType == 'add_product') {
                         Navigator.pushNamed(
                             context, '/product-management-real');
-                      } else if (actionType == 'create_campaign') {
-                        Navigator.pushNamed(context, '/campaign-management');
                       } else if (actionType == 'view_orders') {
                         Navigator.pushNamed(context, '/order-management-real');
                       } else if (actionType == 'customer_messages') {
