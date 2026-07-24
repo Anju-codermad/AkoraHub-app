@@ -116,3 +116,6 @@
 
 ## 2026-07-24 11:02 UTC — Claude
 - docs: politique de confidentialité (hébergée via GitHub Pages) pour la fiche Play Store (`2622f04`)
+
+## 2026-07-24 11:53 UTC — Claude (Client UX/Design)
+- docs: documenter les 5 fonctionnalites sociales, le renommage du depot et l elargissement de perimetre (`7100fa9`)
