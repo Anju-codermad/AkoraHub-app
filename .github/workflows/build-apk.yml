@@ -37,11 +37,35 @@ jobs:
           }
           EOF
 
+      - name: Reconstruire le keystore de production à partir des secrets
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/akora_release.jks
+            cat > android/key.properties << EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=app/akora_release.jks
+          EOF
+          else
+            echo "Pas de clé de production configurée (secrets ANDROID_* absents) — build signé avec la clé debug."
+          fi
+
       - name: Récupérer les dépendances
         run: flutter pub get
 
-      - name: Compiler l'APK (release)
+      - name: Compiler l'App Bundle (release) — format exigé par Google Play
+        run: flutter build appbundle --release
+
+      - name: Compiler l'APK (release) — pour test/installation directe
         run: flutter build apk --release
+
+      - name: Publier l'App Bundle comme fichier téléchargeable
+        uses: actions/upload-artifact@v4
+        with:
+          name: akora-fanadiovana-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
 
       - name: Publier l'APK comme fichier téléchargeable
         uses: actions/upload-artifact@v4
