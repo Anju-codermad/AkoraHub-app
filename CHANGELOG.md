@@ -65,3 +65,6 @@
 
 ## 2026-07-24 02:45 UTC — Claude
 - Docs: documenter l'écran Mes devis (sous-onglet Commandes/Devis) (`fca8ae9`)
+
+## 2026-07-24 02:54 UTC — Claude
+- Client: fonctionnalité Favoris (étoile contour vide/pleine) (`d00f3c8`)
