@@ -6,14 +6,47 @@ import 'package:sizer/sizer.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 
-class OrdersTab extends ConsumerStatefulWidget {
+/// Écran "Commandes" du client, avec deux sous-onglets : Commandes et Devis
+/// ("Mes devis" — les devis existaient déjà en base, mais n'étaient
+/// visibles nulle part côté client avant cet ajout).
+class OrdersTab extends StatelessWidget {
   const OrdersTab({super.key});
 
   @override
-  ConsumerState<OrdersTab> createState() => _OrdersTabState();
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          TabBar(
+            tabs: const [
+              Tab(text: 'Commandes'),
+              Tab(text: 'Devis'),
+            ],
+            labelColor: Theme.of(context).colorScheme.primary,
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                _OrdersList(),
+                _QuotesList(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _OrdersTabState extends ConsumerState<OrdersTab> {
+class _OrdersList extends ConsumerStatefulWidget {
+  const _OrdersList();
+
+  @override
+  ConsumerState<_OrdersList> createState() => _OrdersListState();
+}
+
+class _OrdersListState extends ConsumerState<_OrdersList> {
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
   String? _error;
@@ -177,6 +210,204 @@ class _OrdersTabState extends ConsumerState<OrdersTab> {
                       label: const Text('Recommander'),
                     ),
                   ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _QuotesList extends ConsumerStatefulWidget {
+  const _QuotesList();
+
+  @override
+  ConsumerState<_QuotesList> createState() => _QuotesListState();
+}
+
+class _QuotesListState extends ConsumerState<_QuotesList> {
+  List<Map<String, dynamic>> _quotes = [];
+  bool _isLoading = true;
+  String? _error;
+  final _currency =
+      NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
+
+  final Map<String, String> _statusLabels = const {
+    'en_attente': 'En attente',
+    'envoye': 'Envoyé',
+    'accepte': 'Accepté',
+    'refuse': 'Refusé',
+    'expire': 'Expiré',
+  };
+
+  Color _statusColor(ThemeData theme, String status) {
+    switch (status) {
+      case 'accepte':
+        return theme.colorScheme.primary;
+      case 'refuse':
+      case 'expire':
+        return theme.colorScheme.error;
+      case 'envoye':
+        return theme.colorScheme.tertiary;
+      default:
+        return theme.colorScheme.outline;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadQuotes();
+  }
+
+  Future<void> _loadQuotes() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (!SupabaseConfig.isConfigured || userId == null) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Connexion indisponible.';
+      });
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final quotes = await SupabaseConfig.client
+          .from('quotes')
+          .select('*, quote_items(*)')
+          .eq('customer_id', userId)
+          .order('created_at', ascending: false);
+      setState(() {
+        _quotes = List<Map<String, dynamic>>.from(quotes);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Impossible de charger vos devis.';
+      });
+    }
+  }
+
+  void _reorder(Map<String, dynamic> quote) {
+    final items = List<Map<String, dynamic>>.from(quote['quote_items'] ?? []);
+    for (final item in items) {
+      ref.read(cartProvider.notifier).addItem(CartItem(
+            productId: item['product_id'] ?? '',
+            name: item['product_name'] ?? '',
+            priceDetail: (item['unit_price'] ?? 0).toDouble(),
+            priceGros: (item['unit_price'] ?? 0).toDouble(),
+            grosThresholdQty: 999999,
+            quantity: (item['quantity'] ?? 1).toInt(),
+          ));
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Articles du devis ajoutés au panier.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(child: Text(_error!));
+    }
+    if (_quotes.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8.w),
+          child: Text(
+            'Aucun devis pour le moment. Depuis votre panier, utilisez '
+            '"Demander un devis" pour en créer un.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadQuotes,
+      child: ListView.separated(
+        padding: EdgeInsets.all(4.w),
+        itemCount: _quotes.length,
+        separatorBuilder: (_, __) => SizedBox(height: 2.h),
+        itemBuilder: (context, index) {
+          final quote = _quotes[index];
+          final status = (quote['status'] ?? 'en_attente').toString();
+          final items =
+              List<Map<String, dynamic>>.from(quote['quote_items'] ?? []);
+          final canReorder = items.isNotEmpty &&
+              (status == 'accepte' || status == 'envoye');
+
+          return Card(
+            child: Padding(
+              padding: EdgeInsets.all(3.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(quote['quote_number'] ?? '',
+                            style: theme.textTheme.titleSmall),
+                      ),
+                      Chip(
+                        label: Text(
+                          _statusLabels[status] ?? status,
+                          style: TextStyle(
+                            color: _statusColor(theme, status),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        backgroundColor:
+                            _statusColor(theme, status).withValues(alpha: 0.12),
+                        side: BorderSide.none,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 0.5.h),
+                  Text(
+                    '${items.length} article${items.length > 1 ? 's' : ''}',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  SizedBox(height: 1.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total', style: theme.textTheme.bodyMedium),
+                      Text(
+                        _currency.format(quote['total_amount'] ?? 0),
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(color: theme.colorScheme.primary),
+                      ),
+                    ],
+                  ),
+                  if (canReorder) ...[
+                    SizedBox(height: 1.h),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => _reorder(quote),
+                        icon: const Icon(Icons.shopping_cart_outlined,
+                            size: 18),
+                        label: const Text('Commander ce devis'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

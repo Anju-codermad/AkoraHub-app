@@ -100,7 +100,24 @@ progressivement avec un vrai backend Supabase.
 - Commande directe OU demande de devis (les deux créent respectivement une
   ligne dans `orders`/`order_items` ou `quotes`/`quote_items`)
 - Suivi de commande à 4 statuts + "Recommander en 1 clic"
-  (`client_home/orders_tab.dart`)
+  (`client_home/orders_tab.dart`). Écran restructuré en 2 sous-onglets
+  (`DefaultTabController`) : **Commandes** (inchangé) et **Devis**
+  (nouveau — "Mes devis"). Les devis existaient déjà en base (table
+  `quotes`, créés depuis le panier via "Demander un devis") mais n'étaient
+  visibles nulle part côté client avant cet ajout. Statut affiché avec
+  badge coloré (en_attente/envoyé/accepté/refusé/expiré) ; bouton
+  "Commander ce devis" (ajoute les articles au panier) si le statut est
+  envoyé ou accepté.
+- **Favoris** (`client_home/favorites_provider.dart` +
+  `client_home/favorites_screen.dart`) — étoile (contour vide `star_border`
+  si non favori, pleine `star` ambre si favori — style demandé par
+  l'utilisateur) sur les cartes produit de l'Accueil et sur la fiche
+  produit. Nouvelle table `favorites` (`supabase/phase7_patch_favorites.sql`,
+  **à exécuter par l'utilisateur** — sans elle la liste reste vide
+  silencieusement, sans erreur visible). Écran "Mes favoris" accessible
+  depuis le Profil, avec bouton "Tout ajouter" au panier. Provider
+  volontairement placé dans `client_home/` (pas `lib/core/providers/`) pour
+  respecter le périmètre Client UX (section 7).
 - Profil client réel (`client_home/profile_tab.dart`) — remplace l'ancien
   écran minimal (email + logout). Affiche nom, société, secteur, téléphone,
   localisation, avatar (table `profiles`), avec formulaire d'édition en
@@ -133,10 +150,11 @@ progressivement avec un vrai backend Supabase.
   (`supabase/phase5_patch_orders_geolocation.sql`, **exécuté avec succès par
   l'utilisateur le 23/07**) pour le cas où un client livre à une adresse
   différente de son profil (nullable, repli sur les coordonnées du profil
-  si absentes) — **reste à faire** : brancher la capture de
-  latitude/longitude côté commande dans le flux panier/checkout
-  (`cart_tab.dart`), la colonne existe mais n'est pas encore alimentée à la
-  création d'une commande.
+  si absentes). Côté client, `cart_tab.dart` capture désormais les
+  coordonnées (`_deliveryLat`/`_deliveryLon`, alimentées par
+  `_estimateDelivery` — GPS actuel ou géocodage de l'adresse profil en
+  repli) et les inclut dans l'`insert()` de la commande. **Terminé** :
+  schéma + code client tous les deux en place.
 - **Frais de livraison automatiques** (`client_home/delivery_pricing.dart` +
   intégration dans `cart_tab.dart`) — modèle "taxi rapide" choisi par
   l'utilisateur : `frais = max(prise_en_charge + tarif_par_km ×
@@ -170,17 +188,43 @@ progressivement avec un vrai backend Supabase.
   (`product_variants` table + `product_management_real/product_variants_screen.dart`
   côté Admin, sélection en 2 menus déroulants côté client dans
   `product_detail_client.dart`)
-- Formats et Parfums sont des **listes de référence pré-remplies** (contrairement
-  aux piliers/sous-catégories qui restent vides par défaut) — extensibles
-  directement depuis les écrans concernés
+- Formats et Parfums sont des **listes de référence pré-remplies** —
+  extensibles directement depuis les écrans concernés
+
+### Phase 6 — Sous-catégories produit
+- Table `categories` (`supabase/phase6_patch_categories.sql`, **script prêt,
+  pas encore exécuté par l'utilisateur**) : même schéma que
+  formats/parfums (liste de référence, RLS select_all/write_staff), mais
+  scopée par pilier (`business_unit_id`) — une catégorie comme "Carrelage &
+  Sols" n'a de sens que pour un pilier donné, contrairement aux formats qui
+  sont partagés entre tous les produits.
+- **8 catégories pré-remplies pour le pilier Akora Fanadiovana** (noms
+  améliorés à partir d'une liste de dossiers fournie par l'utilisateur) :
+  Carrelage & Sols, Cuisine & Vaisselle, Désinfectants & Hygiène, Entretien
+  Véhicules, Lessive & Textile, Sanitaire & Salle de Bain, Soins du Corps &
+  Cosmétiques, Vitres & Surfaces. Le script matche le pilier par
+  `name ilike 'Akora Fanadiovana'` — si le pilier a été créé sous un autre
+  nom exact dans l'app, adapter le `WHERE` avant exécution (le script émet
+  un `RAISE NOTICE` si aucun pilier ne correspond).
+- Côté Admin (`product_management_real.dart`), le champ Catégorie du
+  formulaire produit est passé d'un `TextField` libre à un
+  `DropdownButtonFormField` filtré par le pilier sélectionné + bouton "+"
+  pour ajouter une nouvelle catégorie à la volée (même pattern que
+  Format/Parfum) — évite les fautes de frappe qui créeraient une catégorie
+  fantôme (le filtre côté client catalogue compare le texte exactement).
+  Reste rétro-compatible : le chargement des catégories est fait dans un
+  try/catch qui ne bloque pas le reste de l'écran si la table `categories`
+  n'existe pas encore (migration non exécutée), et un produit dont la
+  catégorie texte ne correspond à aucune entrée de la table reste affichée
+  dans le Dropdown (n'écrase rien). **Reste à faire** : l'utilisateur doit
+  exécuter `phase6_patch_categories.sql` dans Supabase pour que le menu
+  déroulant propose les 8 catégories.
 
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 
 Idées discutées avec l'utilisateur, à prioriser plus tard — aucune n'est
 commencée sauf mention contraire :
 
-- **Favoris** : marquer des produits pour les retrouver rapidement (aucune
-  table ni UI actuellement)
 - **Réapprovisionnement suggéré** : détecter les produits qu'un client
   recommande régulièrement et le proposer proactivement (étend le
   "Recommander en 1 clic" déjà existant dans `orders_tab.dart`)
@@ -202,9 +246,6 @@ commencée sauf mention contraire :
 
 ## 4. Ce qui N'EST PAS encore fait
 
-- **Sous-catégories structurées** par pilier (actuellement un simple champ
-  texte libre `category` sur chaque produit) — fonctionnalité discutée mais
-  reportée, l'utilisateur doit encore préciser exactement comment il la veut
 - **Messagerie unifiée** client ↔ commercial (prévue dans le cahier des
   charges original, jamais construite)
 - **Notifications push** réelles

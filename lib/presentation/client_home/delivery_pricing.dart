@@ -4,7 +4,6 @@ import 'dart:math' as math;
 /// (prise en charge fixe + tarif au km, avec un minimum garanti), comme
 /// discuté avec l'utilisateur.
 ///
-/// IMPORTANT — valeurs actuellement en dur dans le code client :
 /// - `minimum` = 4000 Ar, confirmé par l'utilisateur
 /// - `depotLatitude`/`depotLongitude` = coordonnées réelles du dépôt
 ///   Akora Fanadiovana, Rue Seimad, Antananarivo 101 (confirmées par

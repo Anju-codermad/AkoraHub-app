@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import 'favorites_screen.dart';
 
 /// Profil client : affichage + édition des infos réelles (profiles table),
 /// changement d'avatar. Étape 1-2 du plan d'amélioration du côté client.
@@ -194,6 +195,26 @@ class _ProfileTabState extends State<ProfileTab> {
             label: const Text('Modifier mon profil'),
           ),
           SizedBox(height: 3.h),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.star_border),
+                  title: const Text('Mes favoris'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FavoritesScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 2.h),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Déconnexion', style: TextStyle(color: Colors.red)),
