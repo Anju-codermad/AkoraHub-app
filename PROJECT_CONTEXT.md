@@ -205,6 +205,27 @@ progressivement avec un vrai backend Supabase.
   pensé pour vivre dans une barre d'onglets, donc sans en-tête). **Aucun
   nouvel onglet de navigation créé**, conformément à la décision
   explicite de l'utilisateur — voir section 3bis.
+- **Messagerie privée client ↔ équipe** (`client_home/chat_screen.dart`) —
+  une conversation par client (table `conversations` +`messages`,
+  `supabase/phase8_patch_messaging.sql`), messages en temps réel (stream
+  Supabase realtime). Inclut les **"Demandes"** (ex "Demandes & annonces") :
+  un message avec `is_request=true`, badge visuel distinct, **jamais
+  visible par les autres clients** — répond à la préoccupation explicite de
+  l'utilisateur de ne pas exposer les besoins d'un client aux autres
+  (risque de perte de clientèle). Accessible via une icône 💬 dans l'en-tête
+  de l'Accueil et une entrée dans le Profil.
+  **⚠️ Action requise côté Backend/Infra** : l'écran Admin
+  `lib/presentation/messaging_center/messaging_center.dart` existe déjà
+  mais tourne **entièrement sur des données mock** (conversations
+  inventées). Pour que l'équipe commerciale puisse réellement répondre aux
+  clients, cet écran doit être branché sur les tables `conversations`/
+  `messages` ci-dessus (mêmes noms de colonnes : `sender_role` distingue
+  `'client'`/`'staff'`, `is_request` pour les demandes). Tant que ce n'est
+  pas fait, les messages envoyés par les clients sont bien enregistrés mais
+  invisibles pour l'équipe.
+- **Groupes professionnels** (mentionnés dans les discussions) : mis de
+  côté sur demande explicite de l'utilisateur — réservés aux participants
+  des formations, à traiter plus tard avec le module e-learning.
 
 ### Phase 4 — Variantes produit
 - Chaque produit peut avoir des **variantes** = combinaison Format × Parfum,
