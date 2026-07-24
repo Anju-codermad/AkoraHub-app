@@ -74,3 +74,6 @@
 
 ## 2026-07-24 03:33 UTC — Anju-codermad
 - Merge branch 'main' of https://github.com/Anju-codermad/akora-fanadiovana-app (`b26588c`)
+
+## 2026-07-24 03:56 UTC — Claude
+- chore: supprimer les 3 écrans mock morts (customer/order/analytics non-real), plus jamais routés depuis l'UI (`508325b`)
