@@ -6,8 +6,6 @@ import '../presentation/campaign_management/campaign_management.dart';
 import '../presentation/splash_screen/splash_screen.dart';
 import '../presentation/messaging_center_real/messaging_center_real.dart';
 import '../presentation/client_home/messaging/client_chat_screen.dart';
-import '../presentation/customer_management/customer_management.dart';
-import '../presentation/order_management/order_management.dart';
 import '../presentation/authentication_screen/authentication_screen.dart';
 import '../presentation/onboarding_flow/onboarding_flow.dart';
 import '../presentation/registration_screen/registration_screen.dart';
@@ -39,8 +37,6 @@ class AppRoutes {
   static const String campaignManagement = '/campaign-management';
   static const String splash = '/splash-screen';
   static const String messagingCenter = '/messaging-center';
-  static const String customerManagement = '/customer-management';
-  static const String orderManagement = '/order-management';
   static const String authentication = '/authentication-screen';
   static const String onboardingFlow = '/onboarding-flow';
 
@@ -53,8 +49,6 @@ class AppRoutes {
     splash: (context) => const SplashScreen(),
     messagingCenter: (context) => const MessagingCenterReal(),
     clientChat: (context) => const ClientChatScreen(),
-    customerManagement: (context) => const CustomerManagement(),
-    orderManagement: (context) => const OrderManagement(),
     authentication: (context) => const AuthenticationScreen(),
     onboardingFlow: (context) => const OnboardingFlow(),
     registration: (context) => const RegistrationScreen(),
