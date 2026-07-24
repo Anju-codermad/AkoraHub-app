@@ -58,7 +58,15 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       appBar: _currentIndex == 0
           ? null
           : AppBar(title: Text(_titles[_currentIndex])),
-      body: pages[_currentIndex],
+      // SafeArea(bottom: false) car la barre de navigation du bas gère déjà
+      // sa propre zone de sécurité. Nécessaire notamment pour l'onglet
+      // Accueil (index 0) qui n'a pas d'AppBar et affichait sinon son
+      // en-tête (avatar, nom "AkoraHub", panier, notifications) trop près
+      // de l'heure/batterie/réseau du système.
+      body: SafeArea(
+        bottom: false,
+        child: pages[_currentIndex],
+      ),
       bottomNavigationBar: _ClientBottomNav(
         currentIndex: _currentIndex,
         onSelect: (index) => setState(() => _currentIndex = index),

@@ -169,6 +169,7 @@ class _FavoriteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final imageUrl = (product['image_url'] as String?) ?? '';
 
     return Material(
       color: theme.colorScheme.surface,
@@ -189,17 +190,28 @@ class _FavoriteCard extends StatelessWidget {
               Expanded(
                 child: Stack(
                   children: [
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20)),
+                      child: Container(
+                        width: double.infinity,
+                        height: double.infinity,
                         color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(20)),
-                      ),
-                      child: Icon(
-                        Icons.inventory_2_outlined,
-                        size: 36,
-                        color: theme.colorScheme.outline,
+                        child: imageUrl.isEmpty
+                            ? Icon(
+                                Icons.inventory_2_outlined,
+                                size: 36,
+                                color: theme.colorScheme.outline,
+                              )
+                            : Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stack) => Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 36,
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ),
                       ),
                     ),
                     Positioned(

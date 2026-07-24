@@ -71,3 +71,27 @@
 
 ## 2026-07-24 03:07 UTC — Claude
 - Docs: documenter la fonctionnalité Favoris (`39f7673`)
+
+## 2026-07-24 03:33 UTC — Anju-codermad
+- Merge branch 'main' of https://github.com/Anju-codermad/akora-fanadiovana-app (`b26588c`)
+
+## 2026-07-24 03:56 UTC — Claude
+- chore: supprimer les 3 écrans mock morts (customer/order/analytics non-real), plus jamais routés depuis l'UI (`508325b`)
+
+## 2026-07-24 04:02 UTC — Claude
+- chore: débrancher Campaign Management (factice) des menus + simplifier le splash screen (retirer 4 fausses étapes d'init) (`b3828a4`)
+
+## 2026-07-24 04:32 UTC — Claude
+- feat(Backend/Infra): photos produit (jusqu'à 10) - table product_images + bucket storage + upload Admin + affichage carrousel client (`4d8e589`)
+
+## 2026-07-24 05:35 UTC — Claude (Client UX/Design)
+- Merge Backend/Infra (favoris, photos produit, messagerie, etc.) avec les changements Client UX/Design (en-tête AkoraHub, SafeArea, bannière hero Admin) (`0472465`)
+
+## 2026-07-24 05:46 UTC — Claude (Client UX/Design)
+- docs: mettre à jour PROJECT_CONTEXT.md (en-tête AkoraHub + SafeArea, bannière hero Admin, décision sur les menus sociaux) (`3862840`)
+
+## 2026-07-24 05:51 UTC — Claude (Client UX/Design)
+- Intègre le Mur social dans le Profil (Client UX/Design) (`07b843e`)
+
+## 2026-07-24 05:52 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré + mise à jour PROJECT_CONTEXT.md (`c2003e4`)

@@ -7,9 +7,14 @@ import 'package:sizer/sizer.dart';
 import '../../../core/supabase/supabase_config.dart';
 
 /// Mur social : publications texte + photo, avec likes et commentaires.
-/// Filtrable par secteur (Hôtellerie / Santé / Entreprises / Particuliers).
+/// Filtrable par secteur (Hôtellerie / Santé / Entreprises / Particuliers)
+/// et par "Mes publications". Accessible depuis le Profil (aucun onglet de
+/// navigation dédié — décision utilisateur du 23/07, voir PROJECT_CONTEXT.md
+/// section 3bis).
 class WallTab extends StatefulWidget {
-  const WallTab({super.key});
+  final bool initialOnlyMine;
+
+  const WallTab({super.key, this.initialOnlyMine = false});
 
   @override
   State<WallTab> createState() => _WallTabState();
@@ -20,6 +25,7 @@ class _WallTabState extends State<WallTab> {
   bool _isLoading = true;
   String? _error;
   String _sectorFilter = 'tous';
+  bool _onlyMine = false;
   final Map<String, int> _likeCounts = {};
   final Map<String, bool> _likedByMe = {};
   final Map<String, int> _commentCounts = {};
@@ -38,6 +44,7 @@ class _WallTabState extends State<WallTab> {
   @override
   void initState() {
     super.initState();
+    _onlyMine = widget.initialOnlyMine;
     _loadPosts();
   }
 
@@ -93,11 +100,17 @@ class _WallTabState extends State<WallTab> {
   }
 
   List<Map<String, dynamic>> get _filteredPosts {
-    if (_sectorFilter == 'tous') return _posts;
-    return _posts.where((p) {
-      final author = p['profiles'];
-      return author != null && author['client_type'] == _sectorFilter;
-    }).toList();
+    Iterable<Map<String, dynamic>> result = _posts;
+    if (_sectorFilter != 'tous') {
+      result = result.where((p) {
+        final author = p['profiles'];
+        return author != null && author['client_type'] == _sectorFilter;
+      });
+    }
+    if (_onlyMine) {
+      result = result.where((p) => p['author_id'] == _myId);
+    }
+    return result.toList();
   }
 
   Future<void> _toggleLike(String postId) async {
@@ -160,6 +173,9 @@ class _WallTabState extends State<WallTab> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mur — Communauté AkoraHub'),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createPost,
         icon: const Icon(Icons.add),
@@ -180,6 +196,17 @@ class _WallTabState extends State<WallTab> {
                             scrollDirection: Axis.horizontal,
                             padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
                             children: [
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  avatar: const Icon(Icons.person_outline,
+                                      size: 16),
+                                  label: const Text('Mes publications'),
+                                  selected: _onlyMine,
+                                  onSelected: (v) =>
+                                      setState(() => _onlyMine = v),
+                                ),
+                              ),
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
@@ -203,9 +230,11 @@ class _WallTabState extends State<WallTab> {
                         ),
                       ),
                       if (_filteredPosts.isEmpty)
-                        const SliverFillRemaining(
+                        SliverFillRemaining(
                           child: Center(
-                              child: Text('Aucune publication pour le moment.')),
+                              child: Text(_onlyMine
+                                  ? 'Vous n\'avez encore rien publié.'
+                                  : 'Aucune publication pour le moment.')),
                         )
                       else
                         SliverList(

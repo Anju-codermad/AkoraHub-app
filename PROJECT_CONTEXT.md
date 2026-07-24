@@ -79,23 +79,38 @@ progressivement avec un vrai backend Supabase.
 - Catalogue avec navigation Pilier → Catégorie → Recherche
   (`client_home/catalog_tab.dart`) — écran renommé **Accueil** dans la
   navigation (icône maison). En-tête personnalisé (avatar + prénom du
-  client + localisation + icônes panier/notifications, cette dernière est
-  un stub visuel sans backend), bannière promo en **carrousel** (3 slides,
-  `PageView` + indicateurs), piliers ("Nos activités") affichés en **icônes
-  rondes colorées** défilantes horizontalement (remplace l'ancienne grille
-  rectangulaire — icônes mappées par mot-clé dans le `slug` du pilier :
-  paint→pinceau, formation→école, chimie/chemical→science,
-  cosmet→spa, insecticide/insect→pest_control, sinon icône générique
-  ménage), cartes produits avec prix mis en avant et bouton **"+"
-  vert d'ajout rapide au panier** (utilise les prix de base du produit —
-  pour un produit à variantes, ce prix peut différer de la variante
-  réellement choisie ; ouvrir la fiche produit reste nécessaire pour un prix
-  exact). Design inspiré de deux références visuelles fournies par
-  l'utilisateur (grocery app + service app before/after).
+  client + localisation + libellé **"AkoraHub"** au-dessus des icônes
+  panier/notifications, cette dernière est un stub visuel sans backend) ;
+  le corps du `Scaffold` (`client_home.dart`) est enveloppé dans un
+  `SafeArea(bottom: false)` pour éviter que cet en-tête ne chevauche la
+  barre de statut système (heure/batterie/réseau) — nécessaire car
+  l'onglet Accueil n'a pas d'`AppBar`. Piliers ("Nos activités") affichés
+  en **icônes rondes colorées** défilantes horizontalement (remplace
+  l'ancienne grille rectangulaire — icônes mappées par mot-clé dans le
+  `slug` du pilier : paint→pinceau, formation→école, chimie/chemical→
+  science, cosmet→spa, insecticide/insect→pest_control, sinon icône
+  générique ménage), cartes produits avec prix mis en avant et bouton
+  **"+" vert d'ajout rapide au panier** (utilise les prix de base du
+  produit — pour un produit à variantes, ce prix peut différer de la
+  variante réellement choisie ; ouvrir la fiche produit reste nécessaire
+  pour un prix exact). Design inspiré de deux références visuelles
+  fournies par l'utilisateur (grocery app + service app before/after).
   **Piliers supplémentaires évoqués par l'utilisateur** (à créer par
   l'Admin via l'écran de gestion des piliers, pas encore créés) : matières
   premières chimiques, produits cosmétiques, produits insecticides — noms
   et slugs suggérés en attente de validation utilisateur.
+- **Bannière hero de l'Accueil** (23/07) : la bannière promo en carrousel
+  (`PageView` + indicateurs) n'est plus figée en dur — elle charge
+  désormais les slides actifs depuis la table `home_banners`
+  (`supabase/phase6_patch_home_banners.sql`, **exécuté avec succès par
+  l'utilisateur**), avec repli silencieux sur les 3 slides par défaut si
+  la table est vide. Gestion réservée **strictement à l'Admin** (RLS
+  `current_role_is_admin()`, pas le reste du staff) depuis un nouvel écran
+  `home_banners_management.dart` (titre, sous-titre, photo via
+  `image_picker` + bucket Storage public `home-banners`, réordonnancement,
+  activation/désactivation, suppression) — accessible depuis Tableau de
+  bord Admin → **+** → "Bannière hero — Accueil". Si aucune photo n'est
+  définie sur un slide, le dégradé + icône par défaut est conservé.
 - Panier multi-produits (`client_home/cart_tab.dart`)
 - Commande directe OU demande de devis (les deux créent respectivement une
   ligne dans `orders`/`order_items` ou `quotes`/`quote_items`)
@@ -124,10 +139,10 @@ progressivement avec un vrai backend Supabase.
   bottom sheet et upload d'avatar vers le bucket Storage `avatars`
   (policies dans `supabase/phase4_patch_avatars.sql`, **script exécuté avec
   succès par l'utilisateur dans Supabase — bucket créé, fonctionnel**).
-  **Reste à faire sur ce même écran** : section
-  "Mes publications" listant les posts du Mur de l'utilisateur, et
-  statistiques personnelles (nb commandes, avis, ancienneté) — voir plan en
-  4 étapes discuté avec l'utilisateur, étapes 3 et 4 pas encore commencées.
+  **"Mes publications" fait (23/07)** : entrée de menu ouvrant le Mur
+  pré-filtré sur les posts de l'utilisateur (voir Phase 3 — Social
+  ci-dessous). **Reste à faire** : statistiques personnelles (nb
+  commandes, avis, ancienneté) sur cet écran.
   **Localisation automatique (Niveau 1 — fait)** : bouton "Utiliser ma
   position actuelle" dans le formulaire d'édition (icône 📍 dans le champ
   Localisation). Récupère le GPS (packages `geolocator` + `geocoding`,
@@ -181,6 +196,15 @@ progressivement avec un vrai backend Supabase.
   Storage `wall-photos`), likes, commentaires (`client_home/wall/`)
 - Avis produits avec notation étoiles, affichés sur la fiche produit
 - Filtre du mur par secteur (Hôtel/Hôpital/Entreprise/Particulier)
+- **Intégré dans le Profil (23/07)** : le Mur (`WallTab`) est accessible
+  depuis deux entrées de menu dans `profile_tab.dart` — "Mur — Communauté
+  AkoraHub" (mur complet) et "Mes publications" (mur pré-filtré sur
+  `author_id == utilisateur courant` via le nouveau paramètre
+  `initialOnlyMine`, combiné avec le filtre de secteur existant via un
+  `FilterChip` dédié). `WallTab` a désormais son propre `AppBar` (avant
+  pensé pour vivre dans une barre d'onglets, donc sans en-tête). **Aucun
+  nouvel onglet de navigation créé**, conformément à la décision
+  explicite de l'utilisateur — voir section 3bis.
 
 ### Phase 4 — Variantes produit
 - Chaque produit peut avoir des **variantes** = combinaison Format × Parfum,
@@ -192,8 +216,8 @@ progressivement avec un vrai backend Supabase.
   extensibles directement depuis les écrans concernés
 
 ### Phase 6 — Sous-catégories produit
-- Table `categories` (`supabase/phase6_patch_categories.sql`, **script prêt,
-  pas encore exécuté par l'utilisateur**) : même schéma que
+- Table `categories` (`supabase/phase6_patch_categories.sql`, **exécuté avec
+  succès par l'utilisateur**) : même schéma que
   formats/parfums (liste de référence, RLS select_all/write_staff), mais
   scopée par pilier (`business_unit_id`) — une catégorie comme "Carrelage &
   Sols" n'a de sens que pour un pilier donné, contrairement aux formats qui
@@ -216,9 +240,45 @@ progressivement avec un vrai backend Supabase.
   try/catch qui ne bloque pas le reste de l'écran si la table `categories`
   n'existe pas encore (migration non exécutée), et un produit dont la
   catégorie texte ne correspond à aucune entrée de la table reste affichée
-  dans le Dropdown (n'écrase rien). **Reste à faire** : l'utilisateur doit
-  exécuter `phase6_patch_categories.sql` dans Supabase pour que le menu
-  déroulant propose les 8 catégories.
+  dans le Dropdown (n'écrase rien). **Terminé** : schéma + code Admin en
+  place, 8 catégories confirmées visibles par l'utilisateur.
+
+### Phase 8 — Photos produit (jusqu'à 10 par produit)
+- Table `product_images` + bucket Storage `products`
+  (`supabase/phase8_patch_product_images.sql`, **script prêt, pas encore
+  exécuté par l'utilisateur**) : `products.image_url` existait depuis la
+  Phase 1 mais n'était branché nulle part (ni upload, ni affichage) —
+  l'utilisateur l'a remarqué en testant la saisie de produits. Nouvelle
+  table `product_images` (product_id, image_url, position) pour une
+  galerie ordonnée, RLS select_all/write_staff comme categories/formats.
+  Garde-fou serveur (trigger) : jamais plus de 10 lignes par produit,
+  au-delà de la limite déjà appliquée côté app. Bucket `products` public en
+  lecture, écriture réservée au staff (contrairement au bucket `avatars` où
+  chaque client gère son propre dossier).
+- **Côté Admin** (`product_management_real.dart`) : galerie de miniatures
+  dans le formulaire produit (ajout via `ImagePicker().pickMultiImage` avec
+  limite dynamique = 10 − photos déjà présentes, suppression individuelle
+  via un bouton "x" sur chaque miniature — existantes ou fraîchement
+  choisies). À l'enregistrement : upload des nouvelles vers le bucket
+  `products`, suppression storage best-effort des retirées, réécriture
+  complète de `product_images` avec positions 0..n-1, et
+  `products.image_url` mis à jour pour pointer vers la 1ère photo (sert de
+  couverture catalogue). La gestion des photos est dans un try/catch séparé
+  de celui du produit : si la migration n'est pas encore exécutée, le
+  produit (nom/prix/catégorie) s'enregistre quand même, avec un message
+  "photos non sauvegardées" plutôt qu'une fausse erreur globale.
+- **Côté client** : couverture (`image_url`) affichée dans les cartes
+  produit du catalogue (`catalog_tab.dart`) et des favoris
+  (`favorites_screen.dart`), repli sur l'icône placeholder si absente.
+  Fiche produit (`product_detail_client.dart`) : vrai carrousel
+  (`PageView`) sur la galerie complète (`product_images`) si plusieurs
+  photos, sinon couverture unique, sinon icône — avec indicateurs de
+  pagination (points) si plus d'une photo.
+- **Reste à faire** : l'utilisateur doit exécuter
+  `phase8_patch_product_images.sql` dans Supabase pour que l'upload
+  fonctionne (tant que ce n'est pas fait, le formulaire produit affiche le
+  sélecteur de photos mais l'enregistrement des photos échoue
+  silencieusement avec le message ci-dessus, sans bloquer le reste).
 
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 
@@ -238,16 +298,50 @@ commencée sauf mention contraire :
 - **Notifications réelles** (le bouton actuel dans l'en-tête de l'Accueil
   est un stub visuel sans backend — voir section 4, "Notifications push
   réelles")
+- **Renforcement du côté "réseau social" pour les clients** (23/07,
+  discuté avec l'utilisateur) — idées proposées : fil d'activité "Pour
+  vous" (posts du Mur + nouveaux produits + promos), badge de
+  notification sur la cloche, profils clients publics légers consultables
+  depuis le Mur, partage rapide d'un produit/post, tags/mentions de
+  produits dans les posts. **Décision explicite de l'utilisateur : aucun
+  nouvel onglet dans la barre de navigation.** Tout doit se loger dans les
+  3 onglets existants. **Fait (23/07)** : Mur + "Mes publications"
+  intégrés dans l'onglet Profil (voir Phase 3 — Social). **Pas encore
+  commencé** : fil d'activité "Pour vous" sur l'Accueil, badge sur la
+  cloche, profils clients publics, partage rapide, tags/mentions.
 - **Filtre de recherche avancé** sur le catalogue (prix, disponibilité,
   pilier) — au-delà des chips de catégorie actuelles
 - **Mode sombre**
 - **Localisation automatique** — Niveau 1 fait, Niveau 2 (coordonnées GPS
   précises) documenté ci-dessus dans la section Profil
+- **Messagerie unifiée client ↔ équipe commerciale** (23/07, Backend/Infra) :
+  une seule conversation par client (pas de séparation par pilier, décision
+  utilisateur), tables `conversations`/`messages` avec trigger auto pour
+  `last_message_at`. Écran client : `client_home/messaging/client_chat_screen.dart`
+  (accessible depuis un bouton "Messagerie" dans l'onglet Profil). Écran
+  Admin : `messaging_center_real/` (liste des conversations triées par
+  récence + fil de discussion), déjà branché sur les boutons existants du
+  tableau de bord Admin. **L'ancien écran fictif `messaging_center/`
+  (595 lignes, faux contacts "Sarah Johnson" etc.) a été supprimé
+  entièrement**, comme pour les autres écrans legacy. Script SQL :
+  `supabase/phase6_schema.sql` — **prêt, en attente d'exécution par l'utilisateur**.
+  Pas encore fait : notifications quand un nouveau message arrive (lié au
+  point "Notifications push" ci-dessous), indicateur de messages non lus.
 
 ## 4. Ce qui N'EST PAS encore fait
 
-- **Messagerie unifiée** client ↔ commercial (prévue dans le cahier des
-  charges original, jamais construite)
+- **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
+  suppression des 3 écrans mock morts (customer/order/analytics management
+  non-`_real`, jamais routés depuis l'UI, 4500+ lignes) ; **Campaign
+  Management** débranché des menus (dashboard quick actions + bottom sheet
+  "+") car 100% factice (aucune connexion Supabase, liste codée en dur,
+  SnackBar de succès sans persistance) — le fichier
+  `lib/presentation/campaign_management/` reste dans le repo si besoin de
+  le reconstruire un jour pour de vrai, mais plus aucune route/bouton n'y
+  mène ; **splash screen simplifié** — les 4 fausses étapes d'initialisation
+  (`_checkSubscriptionStatus`, `_loadBusinessProfiles`,
+  `_fetchConfigurations`, `_prepareCachedData`, chacune un `Future.delayed`
+  sans effet réel) supprimées, temps de démarrage ramené de ~4,8s à ~1,5s.
 - **Notifications push** réelles
 - **Mode hors-ligne**
 - **Multi-langue** Français/Malagasy

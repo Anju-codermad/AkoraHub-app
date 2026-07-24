@@ -36,7 +36,10 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   final PageController _bannerController = PageController();
   int _bannerIndex = 0;
 
-  final List<_PromoSlide> _promoSlides = const [
+  // Repli par défaut : utilisé tant que l'Admin n'a créé aucune bannière
+  // dans home_banners (voir supabase/phase6_patch_home_banners.sql et
+  // l'écran Admin home_banners_management.dart).
+  static const List<_PromoSlide> _defaultPromoSlides = [
     _PromoSlide(
       title: 'Vos produits,\nen un clic',
       subtitle: 'Rapide, fiable, adapté à votre activité',
@@ -53,6 +56,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       icon: Icons.grid_view_rounded,
     ),
   ];
+
+  List<_PromoSlide> _promoSlides = _defaultPromoSlides;
 
   final List<Color> _unitColors = const [
     Color(0xFF2E7D32),
@@ -105,12 +110,39 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       ]);
       final profile =
           userId != null ? results[2] as Map<String, dynamic> : null;
+
+      // Bannières hero gérées par l'Admin (table home_banners). Chargement
+      // séparé et tolérant : si la migration Supabase n'a pas encore été
+      // appliquée, ou si aucune bannière n'est active, on garde le
+      // carrousel par défaut plutôt que de casser l'écran d'accueil.
+      List<_PromoSlide> loadedSlides = _defaultPromoSlides;
+      try {
+        final bannerRows = await SupabaseConfig.client
+            .from('home_banners')
+            .select()
+            .eq('active', true)
+            .order('sort_order');
+        final rows = List<Map<String, dynamic>>.from(bannerRows);
+        if (rows.isNotEmpty) {
+          loadedSlides = rows
+              .map((b) => _PromoSlide(
+                    title: (b['title'] ?? '').toString(),
+                    subtitle: (b['subtitle'] ?? '').toString(),
+                    imageUrl: b['image_url'] as String?,
+                  ))
+              .toList();
+        }
+      } catch (_) {
+        // Repli silencieux sur _defaultPromoSlides.
+      }
+
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
         _products = List<Map<String, dynamic>>.from(results[1] as List);
         _clientName = profile?['full_name'] as String?;
         _clientAvatarUrl = profile?['avatar_url'] as String?;
         _clientLocation = profile?['location'] as String?;
+        _promoSlides = loadedSlides;
         _isLoading = false;
       });
     } catch (e) {
@@ -253,55 +285,78 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       ],
                     ),
                   ),
-                  Material(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
-                    shape: const CircleBorder(),
-                    child: Badge(
-                      label: Text('$cartCount'),
-                      isLabelVisible: cartCount > 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.shopping_cart_outlined),
-                        tooltip: 'Panier',
-                        onPressed: widget.onOpenCart,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 2.w),
-                  Material(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      tooltip: 'Messagerie',
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ChatScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                  SizedBox(width: 2.w),
-                  Material(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded),
-                      tooltip: 'Notifications',
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content:
-                                Text('Notifications bientôt disponibles'),
-                            duration: Duration(seconds: 1),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4, bottom: 4),
+                        child: Text(
+                          'AkoraHub',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                            color: theme.colorScheme.primary,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Material(
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            shape: const CircleBorder(),
+                            child: Badge(
+                              label: Text('$cartCount'),
+                              isLabelVisible: cartCount > 0,
+                              child: IconButton(
+                                icon: const Icon(Icons.shopping_cart_outlined),
+                                tooltip: 'Panier',
+                                onPressed: widget.onOpenCart,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 2.w),
+                          Material(
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              icon: const Icon(Icons.chat_bubble_outline),
+                              tooltip: 'Messagerie',
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const ChatScreen()),
+                                );
+                              },
+                            ),
+                          ),
+                          SizedBox(width: 2.w),
+                          Material(
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              icon: const Icon(
+                                  Icons.notifications_none_rounded),
+                              tooltip: 'Notifications',
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Notifications bientôt disponibles'),
+                                    duration: Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -340,20 +395,36 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 onPageChanged: (i) => setState(() => _bannerIndex = i),
                 itemBuilder: (context, index) {
                   final slide = _promoSlides[index];
+                  final hasImage =
+                      slide.imageUrl != null && slide.imageUrl!.isNotEmpty;
                   return Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4.w),
                     child: Container(
                       width: double.infinity,
                       padding: EdgeInsets.all(4.w),
+                      clipBehavior: Clip.antiAlias,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            theme.colorScheme.primary,
-                            theme.colorScheme.primary.withValues(alpha: 0.75),
-                          ],
-                        ),
+                        gradient: hasImage
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  theme.colorScheme.primary,
+                                  theme.colorScheme.primary
+                                      .withValues(alpha: 0.75),
+                                ],
+                              ),
+                        image: hasImage
+                            ? DecorationImage(
+                                image: NetworkImage(slide.imageUrl!),
+                                fit: BoxFit.cover,
+                                colorFilter: ColorFilter.mode(
+                                  Colors.black.withValues(alpha: 0.25),
+                                  BlendMode.darken,
+                                ),
+                              )
+                            : null,
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Row(
@@ -382,12 +453,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                               ],
                             ),
                           ),
-                          Icon(
-                            slide.icon,
-                            size: 48,
-                            color:
-                                theme.colorScheme.onPrimary.withValues(alpha: 0.85),
-                          ),
+                          if (!hasImage && slide.icon != null)
+                            Icon(
+                              slide.icon,
+                              size: 48,
+                              color: theme.colorScheme.onPrimary
+                                  .withValues(alpha: 0.85),
+                            ),
                         ],
                       ),
                     ),
@@ -600,10 +672,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
 class _PromoSlide {
   final String title;
   final String subtitle;
-  final IconData icon;
+  final IconData? icon;
+  final String? imageUrl;
 
   const _PromoSlide(
-      {required this.title, required this.subtitle, required this.icon});
+      {required this.title,
+      required this.subtitle,
+      this.icon,
+      this.imageUrl});
 }
 
 class _ProductCard extends StatelessWidget {
@@ -627,6 +703,7 @@ class _ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final category = (product['category'] ?? '').toString();
+    final imageUrl = (product['image_url'] as String?) ?? '';
 
     return Material(
       color: theme.colorScheme.surface,
@@ -647,17 +724,44 @@ class _ProductCard extends StatelessWidget {
               Expanded(
                 child: Stack(
                   children: [
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20)),
+                      child: Container(
+                        width: double.infinity,
+                        height: double.infinity,
                         color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(20)),
-                      ),
-                      child: Icon(
-                        Icons.inventory_2_outlined,
-                        size: 36,
-                        color: theme.colorScheme.outline,
+                        child: imageUrl.isEmpty
+                            ? Icon(
+                                Icons.inventory_2_outlined,
+                                size: 36,
+                                color: theme.colorScheme.outline,
+                              )
+                            : Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stack) => Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 36,
+                                  color: theme.colorScheme.outline,
+                                ),
+                                loadingBuilder:
+                                    (context, child, progress) =>
+                                        progress == null
+                                            ? child
+                                            : Center(
+                                                child: SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: theme
+                                                        .colorScheme.outline,
+                                                  ),
+                                                ),
+                                              ),
+                              ),
                       ),
                     ),
                     if (category.isNotEmpty)
