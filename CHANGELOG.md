@@ -83,3 +83,6 @@
 
 ## 2026-07-24 04:32 UTC — Claude
 - feat(Backend/Infra): photos produit (jusqu'à 10) - table product_images + bucket storage + upload Admin + affichage carrousel client (`4d8e589`)
+
+## 2026-07-24 05:35 UTC — Claude (Client UX/Design)
+- Merge Backend/Infra (favoris, photos produit, messagerie, etc.) avec les changements Client UX/Design (en-tête AkoraHub, SafeArea, bannière hero Admin) (`0472465`)
