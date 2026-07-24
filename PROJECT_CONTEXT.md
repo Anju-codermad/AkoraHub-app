@@ -192,8 +192,8 @@ progressivement avec un vrai backend Supabase.
   extensibles directement depuis les écrans concernés
 
 ### Phase 6 — Sous-catégories produit
-- Table `categories` (`supabase/phase6_patch_categories.sql`, **script prêt,
-  pas encore exécuté par l'utilisateur**) : même schéma que
+- Table `categories` (`supabase/phase6_patch_categories.sql`, **exécuté avec
+  succès par l'utilisateur**) : même schéma que
   formats/parfums (liste de référence, RLS select_all/write_staff), mais
   scopée par pilier (`business_unit_id`) — une catégorie comme "Carrelage &
   Sols" n'a de sens que pour un pilier donné, contrairement aux formats qui
@@ -216,9 +216,45 @@ progressivement avec un vrai backend Supabase.
   try/catch qui ne bloque pas le reste de l'écran si la table `categories`
   n'existe pas encore (migration non exécutée), et un produit dont la
   catégorie texte ne correspond à aucune entrée de la table reste affichée
-  dans le Dropdown (n'écrase rien). **Reste à faire** : l'utilisateur doit
-  exécuter `phase6_patch_categories.sql` dans Supabase pour que le menu
-  déroulant propose les 8 catégories.
+  dans le Dropdown (n'écrase rien). **Terminé** : schéma + code Admin en
+  place, 8 catégories confirmées visibles par l'utilisateur.
+
+### Phase 8 — Photos produit (jusqu'à 10 par produit)
+- Table `product_images` + bucket Storage `products`
+  (`supabase/phase8_patch_product_images.sql`, **script prêt, pas encore
+  exécuté par l'utilisateur**) : `products.image_url` existait depuis la
+  Phase 1 mais n'était branché nulle part (ni upload, ni affichage) —
+  l'utilisateur l'a remarqué en testant la saisie de produits. Nouvelle
+  table `product_images` (product_id, image_url, position) pour une
+  galerie ordonnée, RLS select_all/write_staff comme categories/formats.
+  Garde-fou serveur (trigger) : jamais plus de 10 lignes par produit,
+  au-delà de la limite déjà appliquée côté app. Bucket `products` public en
+  lecture, écriture réservée au staff (contrairement au bucket `avatars` où
+  chaque client gère son propre dossier).
+- **Côté Admin** (`product_management_real.dart`) : galerie de miniatures
+  dans le formulaire produit (ajout via `ImagePicker().pickMultiImage` avec
+  limite dynamique = 10 − photos déjà présentes, suppression individuelle
+  via un bouton "x" sur chaque miniature — existantes ou fraîchement
+  choisies). À l'enregistrement : upload des nouvelles vers le bucket
+  `products`, suppression storage best-effort des retirées, réécriture
+  complète de `product_images` avec positions 0..n-1, et
+  `products.image_url` mis à jour pour pointer vers la 1ère photo (sert de
+  couverture catalogue). La gestion des photos est dans un try/catch séparé
+  de celui du produit : si la migration n'est pas encore exécutée, le
+  produit (nom/prix/catégorie) s'enregistre quand même, avec un message
+  "photos non sauvegardées" plutôt qu'une fausse erreur globale.
+- **Côté client** : couverture (`image_url`) affichée dans les cartes
+  produit du catalogue (`catalog_tab.dart`) et des favoris
+  (`favorites_screen.dart`), repli sur l'icône placeholder si absente.
+  Fiche produit (`product_detail_client.dart`) : vrai carrousel
+  (`PageView`) sur la galerie complète (`product_images`) si plusieurs
+  photos, sinon couverture unique, sinon icône — avec indicateurs de
+  pagination (points) si plus d'une photo.
+- **Reste à faire** : l'utilisateur doit exécuter
+  `phase8_patch_product_images.sql` dans Supabase pour que l'upload
+  fonctionne (tant que ce n'est pas fait, le formulaire produit affiche le
+  sélecteur de photos mais l'enregistrement des photos échoue
+  silencieusement avec le message ci-dessus, sans bloquer le reste).
 
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 

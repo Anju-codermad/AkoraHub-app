@@ -23,6 +23,8 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
   List<Map<String, dynamic>> _variants = [];
   String? _selectedFormatId;
   String? _selectedParfumId;
+  List<String> _photos = [];
+  int _photoIndex = 0;
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -30,6 +32,27 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
   void initState() {
     super.initState();
     _loadVariants();
+    _loadPhotos();
+  }
+
+  Future<void> _loadPhotos() async {
+    if (!SupabaseConfig.isConfigured) return;
+    try {
+      final data = await SupabaseConfig.client
+          .from('product_images')
+          .select('image_url')
+          .eq('product_id', widget.product['id'])
+          .order('position');
+      final urls = List<Map<String, dynamic>>.from(data)
+          .map((row) => row['image_url'] as String)
+          .toList();
+      if (mounted && urls.isNotEmpty) {
+        setState(() => _photos = urls);
+      }
+    } catch (_) {
+      // Table `product_images` pas encore créée (migration phase8 non
+      // exécutée) : on se rabat sur `image_url` (couverture) ci-dessous.
+    }
   }
 
   Future<void> _loadVariants() async {
@@ -137,16 +160,80 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 20.h,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.inventory_2_outlined,
-                    size: 56, color: theme.colorScheme.outline),
-              ),
+              Builder(builder: (context) {
+                // `_photos` (table product_images) prime si dispo ; sinon
+                // repli sur la couverture unique `image_url` ; sinon icône.
+                final photos = _photos.isNotEmpty
+                    ? _photos
+                    : ((p['image_url'] as String?)?.isNotEmpty == true
+                        ? [p['image_url'] as String]
+                        : <String>[]);
+                if (photos.isEmpty) {
+                  return Container(
+                    height: 20.h,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.inventory_2_outlined,
+                        size: 56, color: theme.colorScheme.outline),
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        height: 20.h,
+                        width: double.infinity,
+                        child: PageView.builder(
+                          itemCount: photos.length,
+                          onPageChanged: (i) =>
+                              setState(() => _photoIndex = i),
+                          itemBuilder: (context, i) => Container(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            child: Image.network(
+                              photos[i],
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stack) => Icon(
+                                Icons.inventory_2_outlined,
+                                size: 56,
+                                color: theme.colorScheme.outline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (photos.length > 1) ...[
+                      SizedBox(height: 1.h),
+                      Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < photos.length; i++)
+                              Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 3),
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: i == _photoIndex
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.outline
+                                          .withValues(alpha: 0.3),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              }),
               SizedBox(height: 2.h),
               Text(p['name'] ?? '', style: theme.textTheme.headlineSmall),
               if ((p['category'] ?? '').toString().isNotEmpty) ...[

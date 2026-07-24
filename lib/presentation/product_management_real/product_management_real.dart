@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
@@ -144,6 +147,27 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     // regroupement des filtres côté client).
     String? selectedCategoryName = product?['category'];
 
+    // Galerie photo (jusqu'à 10). `existingPhotos` = déjà en base (si
+    // édition) ; `newPhotos` = fraîchement sélectionnées, pas encore
+    // uploadées ; `removedExistingIds` = existantes marquées à supprimer.
+    List<Map<String, dynamic>> existingPhotos = [];
+    if (isEditing) {
+      try {
+        final result = await SupabaseConfig.client
+            .from('product_images')
+            .select()
+            .eq('product_id', product['id'])
+            .order('position');
+        existingPhotos = List<Map<String, dynamic>>.from(result);
+      } catch (_) {
+        // Table `product_images` pas encore créée (migration phase8 non
+        // exécutée) : on continue sans bloquer l'édition du produit.
+      }
+    }
+    final List<XFile> newPhotos = [];
+    final removedExistingIds = <String>{};
+
+    if (!mounted) return;
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -164,6 +188,70 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                   maxLines: 2,
                   decoration: const InputDecoration(labelText: 'Description'),
                 ),
+                const SizedBox(height: 12),
+                Text('Photos (jusqu\'à 10, optionnel)',
+                    style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                Builder(builder: (context) {
+                  final keptExisting = existingPhotos
+                      .where((p) => !removedExistingIds.contains(p['id']))
+                      .toList();
+                  final totalCount = keptExisting.length + newPhotos.length;
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final photo in keptExisting)
+                        _PhotoThumb(
+                          image: NetworkImage(photo['image_url'] as String),
+                          onRemove: () => setDialogState(
+                              () => removedExistingIds.add(photo['id'])),
+                        ),
+                      for (var i = 0; i < newPhotos.length; i++)
+                        _PhotoThumb(
+                          image: FileImage(File(newPhotos[i].path)),
+                          onRemove: () =>
+                              setDialogState(() => newPhotos.removeAt(i)),
+                        ),
+                      if (totalCount < 10)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () async {
+                            final remaining = 10 - totalCount;
+                            try {
+                              final picked = await ImagePicker()
+                                  .pickMultiImage(limit: remaining);
+                              if (picked.isEmpty) return;
+                              setDialogState(() {
+                                newPhotos.addAll(
+                                    picked.take(remaining).toList());
+                              });
+                            } catch (_) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Impossible d\'ouvrir la galerie photo.')),
+                              );
+                            }
+                          },
+                          child: Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .outline
+                                      .withValues(alpha: 0.4)),
+                            ),
+                            child: const Icon(Icons.add_a_photo_outlined),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
                 const SizedBox(height: 8),
                 Builder(builder: (context) {
                   final categoriesForUnit = _categories
@@ -295,19 +383,103 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                 };
 
                 try {
+                  String productId;
                   if (isEditing) {
+                    productId = product['id'] as String;
                     await SupabaseConfig.client
                         .from('products')
                         .update(payload)
-                        .eq('id', product['id']);
+                        .eq('id', productId);
                   } else {
-                    await SupabaseConfig.client
+                    final inserted = await SupabaseConfig.client
                         .from('products')
-                        .insert(payload);
+                        .insert(payload)
+                        .select()
+                        .single();
+                    productId = inserted['id'] as String;
                   }
+
+                  // La galerie photo est gérée dans un try/catch séparé :
+                  // si la migration `phase8_patch_product_images.sql` n'a
+                  // pas encore été exécutée (table/bucket absents), le
+                  // produit lui-même doit quand même s'enregistrer plutôt
+                  // que d'afficher une fausse erreur globale.
+                  var photosFailed = false;
+                  if (newPhotos.isNotEmpty || removedExistingIds.isNotEmpty) {
+                    try {
+                      // Upload des nouvelles photos vers le bucket `products`.
+                      final uploadedUrls = <String>[];
+                      for (var i = 0; i < newPhotos.length; i++) {
+                        final file = File(newPhotos[i].path);
+                        final fileName =
+                            '$productId/${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+                        await SupabaseConfig.client.storage
+                            .from('products')
+                            .upload(fileName, file);
+                        uploadedUrls.add(SupabaseConfig.client.storage
+                            .from('products')
+                            .getPublicUrl(fileName));
+                      }
+
+                      // Suppression des fichiers retirés (best-effort).
+                      for (final photo in existingPhotos) {
+                        if (!removedExistingIds.contains(photo['id'])) {
+                          continue;
+                        }
+                        try {
+                          final url = photo['image_url'] as String;
+                          final path = url.split('/products/').last;
+                          await SupabaseConfig.client.storage
+                              .from('products')
+                              .remove([path]);
+                        } catch (_) {}
+                      }
+
+                      // On réécrit la galerie au complet (existantes
+                      // conservées + nouvelles) avec des positions propres
+                      // 0..n-1 — plus simple qu'un update partiel vu le
+                      // petit nombre de lignes (≤10).
+                      await SupabaseConfig.client
+                          .from('product_images')
+                          .delete()
+                          .eq('product_id', productId);
+                      final keptUrls = existingPhotos
+                          .where(
+                              (p) => !removedExistingIds.contains(p['id']))
+                          .map((p) => p['image_url'] as String)
+                          .toList();
+                      final finalUrls = [...keptUrls, ...uploadedUrls];
+                      if (finalUrls.isNotEmpty) {
+                        await SupabaseConfig.client
+                            .from('product_images')
+                            .insert([
+                          for (var i = 0; i < finalUrls.length; i++)
+                            {
+                              'product_id': productId,
+                              'image_url': finalUrls[i],
+                              'position': i,
+                            },
+                        ]);
+                      }
+                      // La 1ère photo sert de couverture pour les vignettes
+                      // catalogue (products.image_url).
+                      await SupabaseConfig.client.from('products').update({
+                        'image_url':
+                            finalUrls.isNotEmpty ? finalUrls.first : null,
+                      }).eq('id', productId);
+                    } catch (_) {
+                      photosFailed = true;
+                    }
+                  }
+
                   if (!mounted) return;
                   Navigator.pop(context);
                   _loadData();
+                  if (photosFailed) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text(
+                            'Produit enregistré, mais les photos n\'ont pas pu être sauvegardées.')));
+                  }
                 } catch (e) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -539,6 +711,49 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                           },
                         ),
                 ),
+    );
+  }
+}
+
+/// Miniature de photo produit avec bouton de suppression, utilisée dans le
+/// formulaire d'ajout/édition (aussi bien pour les photos déjà en base que
+/// pour celles fraîchement sélectionnées, pas encore uploadées).
+class _PhotoThumb extends StatelessWidget {
+  final ImageProvider image;
+  final VoidCallback onRemove;
+
+  const _PhotoThumb({required this.image, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            image: DecorationImage(image: image, fit: BoxFit.cover),
+          ),
+        ),
+        Positioned(
+          top: -6,
+          right: -6,
+          child: Material(
+            color: Colors.black87,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onRemove,
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
