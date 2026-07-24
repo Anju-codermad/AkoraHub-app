@@ -301,6 +301,38 @@ progressivement avec un vrai backend Supabase.
   sélecteur de photos mais l'enregistrement des photos échoue
   silencieusement avec le message ci-dessus, sans bloquer le reste).
 
+## 3quater. Nettoyage traces Rocket.new (23/07, fait)
+
+L'utilisateur a demandé une vérification complète des traces de
+Rocket.new (l'outil qui a généré le scaffold initial du projet — voir
+section 1). Trouvé et corrigé :
+- `web/index.html` : script de tracking `static.rocket.new/rocket-shot.js`
+  retiré (chargeait en direct chez chaque utilisateur de la version web).
+- **Onboarding** (`onboarding_flow.dart` +
+  `widgets/onboarding_page_widget.dart`, premier écran vu par tout
+  nouveau client, vraiment utilisé — voir `splash_screen.dart` qui y
+  redirige) : les 5 pages chargeaient des images externes (4 depuis
+  `img.rocket.new`, 1 depuis Unsplash) — remplacées par une illustration
+  à base d'icône sur fond dégradé, sans dépendance à un CDN externe.
+- `lib/presentation/campaign_management/` **supprimé entièrement** :
+  écran orphelin (aucune route, aucune navigation vers lui nulle part
+  dans le code — vérifié), données 100% fictives en anglais ("Summer
+  Sale 2025", "VIP Customer Exclusive", stats inventées), 2 images
+  `img.rocket.new`. Reliquat de maquette jamais branché à une vraie
+  fonctionnalité.
+
+**Confirmé sans trace** : nom du package (`com.akora_fanadiovana.app`),
+label affiché de l'app ("AkoraHub"), métadonnées Android/iOS. Seul faux
+positif ignoré : `custom_icon_widget.dart` mappe `'rocket'`/
+`'rocket_launch'` vers les icônes fusée standard de Flutter (aucun
+rapport avec Rocket.new).
+
+**Repéré au passage, pas corrigé (hors sujet de cette demande)** : le
+texte de la 5ᵉ page d'onboarding mentionne "seulement \$5/mois" — prix en
+dollars et modèle d'abonnement qui ne correspond pas au modèle réel de
+l'app (vente de produits, pas de SaaS par abonnement). À signaler à
+l'utilisateur si l'onboarding est retravaillé.
+
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 
 Idées discutées avec l'utilisateur, à prioriser plus tard — aucune n'est
