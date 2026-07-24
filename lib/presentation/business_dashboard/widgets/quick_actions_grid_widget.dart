@@ -25,12 +25,6 @@ class QuickActionsGridWidget extends StatelessWidget {
         'color': theme.colorScheme.primary,
       },
       {
-        'type': 'create_campaign',
-        'icon': 'campaign',
-        'label': 'Create Campaign',
-        'color': theme.colorScheme.secondary,
-      },
-      {
         'type': 'view_orders',
         'icon': 'receipt_long',
         'label': 'View Orders',
@@ -60,7 +54,7 @@ class QuickActionsGridWidget extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
+              crossAxisCount: 3,
               crossAxisSpacing: 2.w,
               mainAxisSpacing: 2.h,
               childAspectRatio: 0.85,

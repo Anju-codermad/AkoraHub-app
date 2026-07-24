@@ -44,3 +44,42 @@
 
 ## 2026-07-23 12:58 UTC — Claude
 - Backend/Infra: script SQL géolocalisation orders (latitude/longitude) (`e535417`)
+
+## 2026-07-23 19:34 UTC — Anju-codermad
+- Backend/Infra: set real depot GPS coordinates (Rue Seimad, Antananarivo) (`359f239`)
+
+## 2026-07-23 19:48 UTC — Claude
+- merge: intégrer coordonnées dépôt + confirmation SQL orders (`97b0062`)
+
+## 2026-07-23 20:30 UTC — Claude
+- Backend/Infra: table categories (sous-catégories produit scopées par pilier) + Dropdown Admin (`43d81c9`)
+
+## 2026-07-23 20:56 UTC — Claude
+- docs: retirer mention obsolète sous-catégories (livrées en phase 6) (`c11a05e`)
+
+## 2026-07-23 21:04 UTC — Claude
+- Merge: résolution conflit coordonnées dépôt (garde la version Rue Seimad, quasi-identique) (`9b1ba36`)
+
+## 2026-07-24 02:30 UTC — Claude
+- Client: écran 'Mes devis' ajouté (sous-onglet dans Commandes) (`780fede`)
+
+## 2026-07-24 02:45 UTC — Claude
+- Docs: documenter l'écran Mes devis (sous-onglet Commandes/Devis) (`fca8ae9`)
+
+## 2026-07-24 02:54 UTC — Claude
+- Client: fonctionnalité Favoris (étoile contour vide/pleine) (`d00f3c8`)
+
+## 2026-07-24 03:07 UTC — Claude
+- Docs: documenter la fonctionnalité Favoris (`39f7673`)
+
+## 2026-07-24 03:33 UTC — Anju-codermad
+- Merge branch 'main' of https://github.com/Anju-codermad/akora-fanadiovana-app (`b26588c`)
+
+## 2026-07-24 03:56 UTC — Claude
+- chore: supprimer les 3 écrans mock morts (customer/order/analytics non-real), plus jamais routés depuis l'UI (`508325b`)
+
+## 2026-07-24 04:02 UTC — Claude
+- chore: débrancher Campaign Management (factice) des menus + simplifier le splash screen (retirer 4 fausses étapes d'init) (`b3828a4`)
+
+## 2026-07-24 04:32 UTC — Claude
+- feat(Backend/Infra): photos produit (jusqu'à 10) - table product_images + bucket storage + upload Admin + affichage carrousel client (`4d8e589`)

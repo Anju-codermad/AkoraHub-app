@@ -4,11 +4,10 @@ import 'dart:math' as math;
 /// (prise en charge fixe + tarif au km, avec un minimum garanti), comme
 /// discuté avec l'utilisateur.
 ///
-/// IMPORTANT — valeurs actuellement en dur dans le code client :
 /// - `minimum` = 4000 Ar, confirmé par l'utilisateur
-/// - `depotLatitude`/`depotLongitude` = PLACEHOLDER (centre-ville
-///   Antananarivo). L'utilisateur doit fournir les vraies coordonnées du
-///   dépôt/entrepôt Akora Fanadiovana pour que le calcul soit correct.
+/// - `depotLatitude`/`depotLongitude` = coordonnées réelles du dépôt
+///   Akora Fanadiovana, Rue Seimad, Antananarivo 101 (confirmées par
+///   l'utilisateur le 23/07).
 /// - Pour rendre ces valeurs modifiables depuis l'Admin sans nouvelle
 ///   version de l'app, il faudrait les déplacer dans la colonne JSONB de
 ///   `company_settings` (déjà utilisée par `business_profile_settings`
@@ -16,9 +15,9 @@ import 'dart:math' as math;
 ///   session Backend/Infra dans PROJECT_CONTEXT.md.
 class DeliveryPricing {
   /// Coordonnées du dépôt/entrepôt (point de départ du calcul).
-  /// PLACEHOLDER : à remplacer par les vraies coordonnées.
-  static const double depotLatitude = -18.8792;
-  static const double depotLongitude = 47.5079;
+  /// Rue Seimad, Antananarivo 101.
+  static const double depotLatitude = -18.900360;
+  static const double depotLongitude = 47.510128;
 
   static const double priseEnCharge = 3000; // Ar
   static const double tarifParKm = 800; // Ar/km

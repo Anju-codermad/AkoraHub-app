@@ -5,6 +5,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'favorites_provider.dart';
 import 'product_detail_client.dart';
 
 class CatalogTab extends ConsumerStatefulWidget {
@@ -215,6 +216,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cartCount = ref.watch(cartProvider).length;
+    final favorites = ref.watch(favoritesProvider);
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -622,6 +624,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                         return _ProductCard(
                           product: p,
                           currency: _currency,
+                          isFavorite: favorites.contains(p['id']),
                           onTap: () {
                             Navigator.push(
                               context,
@@ -632,6 +635,9 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             );
                           },
                           onQuickAdd: () => _quickAddToCart(p),
+                          onToggleFavorite: () => ref
+                              .read(favoritesProvider.notifier)
+                              .toggle(p['id']),
                         );
                       },
                       childCount: _filteredProducts.length,
@@ -661,20 +667,25 @@ class _PromoSlide {
 class _ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
   final NumberFormat currency;
+  final bool isFavorite;
   final VoidCallback onTap;
   final VoidCallback onQuickAdd;
+  final VoidCallback onToggleFavorite;
 
   const _ProductCard({
     required this.product,
     required this.currency,
+    required this.isFavorite,
     required this.onTap,
     required this.onQuickAdd,
+    required this.onToggleFavorite,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final category = (product['category'] ?? '').toString();
+    final imageUrl = (product['image_url'] as String?) ?? '';
 
     return Material(
       color: theme.colorScheme.surface,
@@ -695,17 +706,44 @@ class _ProductCard extends StatelessWidget {
               Expanded(
                 child: Stack(
                   children: [
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20)),
+                      child: Container(
+                        width: double.infinity,
+                        height: double.infinity,
                         color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(20)),
-                      ),
-                      child: Icon(
-                        Icons.inventory_2_outlined,
-                        size: 36,
-                        color: theme.colorScheme.outline,
+                        child: imageUrl.isEmpty
+                            ? Icon(
+                                Icons.inventory_2_outlined,
+                                size: 36,
+                                color: theme.colorScheme.outline,
+                              )
+                            : Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stack) => Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 36,
+                                  color: theme.colorScheme.outline,
+                                ),
+                                loadingBuilder:
+                                    (context, child, progress) =>
+                                        progress == null
+                                            ? child
+                                            : Center(
+                                                child: SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: theme
+                                                        .colorScheme.outline,
+                                                  ),
+                                                ),
+                                              ),
+                              ),
                       ),
                     ),
                     if (category.isNotEmpty)
@@ -714,6 +752,29 @@ class _ProductCard extends StatelessWidget {
                         top: 8,
                         child: _Tag(label: category, theme: theme),
                       ),
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Material(
+                        color:
+                            theme.colorScheme.surface.withValues(alpha: 0.85),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: onToggleFavorite,
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              isFavorite ? Icons.star : Icons.star_border,
+                              size: 18,
+                              color: isFavorite
+                                  ? Colors.amber
+                                  : theme.colorScheme.outline,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                     Positioned(
                       right: 8,
                       bottom: 8,

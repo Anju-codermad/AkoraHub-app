@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
@@ -18,6 +21,7 @@ class ProductManagementReal extends StatefulWidget {
 class _ProductManagementRealState extends State<ProductManagementReal> {
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _businessUnits = [];
+  List<Map<String, dynamic>> _categories = [];
   bool _isLoading = true;
   String? _error;
   final _currency = NumberFormat.currency(
@@ -48,9 +52,21 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
           .order('created_at', ascending: false);
       final units =
           await SupabaseConfig.client.from('business_units').select();
+      List<Map<String, dynamic>> categories = [];
+      try {
+        final result = await SupabaseConfig.client
+            .from('categories')
+            .select()
+            .order('name');
+        categories = List<Map<String, dynamic>>.from(result);
+      } catch (_) {
+        // Table `categories` pas encore créée (migration phase6 non
+        // exécutée) : on continue sans bloquer le reste de l'écran.
+      }
       setState(() {
         _products = List<Map<String, dynamic>>.from(products);
         _businessUnits = List<Map<String, dynamic>>.from(units);
+        _categories = categories;
         _isLoading = false;
       });
     } catch (e) {
@@ -61,13 +77,57 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     }
   }
 
+  Future<String?> _addNewCategory(String businessUnitId) async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nouvelle catégorie'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nom de la catégorie'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Ajouter'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return null;
+
+    try {
+      final result = await SupabaseConfig.client
+          .from('categories')
+          .insert({'business_unit_id': businessUnitId, 'name': name})
+          .select()
+          .single();
+      setState(() {
+        _categories = [..._categories, Map<String, dynamic>.from(result)];
+      });
+      return name;
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Erreur — cette catégorie existe peut-être déjà pour ce pilier.')),
+      );
+      return null;
+    }
+  }
+
   Future<void> _showProductDialog({Map<String, dynamic>? product}) async {
     final isEditing = product != null;
     final nameCtrl = TextEditingController(text: product?['name'] ?? '');
     final descCtrl =
         TextEditingController(text: product?['description'] ?? '');
-    final categoryCtrl =
-        TextEditingController(text: product?['category'] ?? '');
     final priceDetailCtrl = TextEditingController(
         text: (product?['price_detail'] ?? '').toString());
     final priceGrosCtrl =
@@ -80,6 +140,34 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     String? selectedUnitId = product?['business_unit_id'] ??
         (_businessUnits.isNotEmpty ? _businessUnits.first['id'] : null);
 
+    // La catégorie est stockée en texte sur `products.category` (compatible
+    // avec les anciens produits créés avant la table `categories`), mais on
+    // la choisit désormais dans un menu déroulant scopé au pilier plutôt que
+    // de la retaper à la main (évite les fautes de frappe qui cassent le
+    // regroupement des filtres côté client).
+    String? selectedCategoryName = product?['category'];
+
+    // Galerie photo (jusqu'à 10). `existingPhotos` = déjà en base (si
+    // édition) ; `newPhotos` = fraîchement sélectionnées, pas encore
+    // uploadées ; `removedExistingIds` = existantes marquées à supprimer.
+    List<Map<String, dynamic>> existingPhotos = [];
+    if (isEditing) {
+      try {
+        final result = await SupabaseConfig.client
+            .from('product_images')
+            .select()
+            .eq('product_id', product['id'])
+            .order('position');
+        existingPhotos = List<Map<String, dynamic>>.from(result);
+      } catch (_) {
+        // Table `product_images` pas encore créée (migration phase8 non
+        // exécutée) : on continue sans bloquer l'édition du produit.
+      }
+    }
+    final List<XFile> newPhotos = [];
+    final removedExistingIds = <String>{};
+
+    if (!mounted) return;
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -100,11 +188,119 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                   maxLines: 2,
                   decoration: const InputDecoration(labelText: 'Description'),
                 ),
+                const SizedBox(height: 12),
+                Text('Photos (jusqu\'à 10, optionnel)',
+                    style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: categoryCtrl,
-                  decoration: const InputDecoration(labelText: 'Catégorie'),
-                ),
+                Builder(builder: (context) {
+                  final keptExisting = existingPhotos
+                      .where((p) => !removedExistingIds.contains(p['id']))
+                      .toList();
+                  final totalCount = keptExisting.length + newPhotos.length;
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final photo in keptExisting)
+                        _PhotoThumb(
+                          image: NetworkImage(photo['image_url'] as String),
+                          onRemove: () => setDialogState(
+                              () => removedExistingIds.add(photo['id'])),
+                        ),
+                      for (var i = 0; i < newPhotos.length; i++)
+                        _PhotoThumb(
+                          image: FileImage(File(newPhotos[i].path)),
+                          onRemove: () =>
+                              setDialogState(() => newPhotos.removeAt(i)),
+                        ),
+                      if (totalCount < 10)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () async {
+                            final remaining = 10 - totalCount;
+                            try {
+                              final picked = await ImagePicker()
+                                  .pickMultiImage(limit: remaining);
+                              if (picked.isEmpty) return;
+                              setDialogState(() {
+                                newPhotos.addAll(
+                                    picked.take(remaining).toList());
+                              });
+                            } catch (_) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Impossible d\'ouvrir la galerie photo.')),
+                              );
+                            }
+                          },
+                          child: Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .outline
+                                      .withValues(alpha: 0.4)),
+                            ),
+                            child: const Icon(Icons.add_a_photo_outlined),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
+                const SizedBox(height: 8),
+                Builder(builder: (context) {
+                  final categoriesForUnit = _categories
+                      .where((c) => c['business_unit_id'] == selectedUnitId)
+                      .toList();
+                  // Si la catégorie du produit édité n'existe plus dans la
+                  // liste (pilier changé, catégorie supprimée...), on évite
+                  // de planter le Dropdown en la proposant quand même.
+                  final items = <String>{
+                    ...categoriesForUnit.map((c) => c['name'] as String),
+                    if (selectedCategoryName != null &&
+                        selectedCategoryName!.isNotEmpty)
+                      selectedCategoryName!,
+                  }.toList();
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: selectedCategoryName,
+                          decoration: const InputDecoration(
+                              labelText: 'Catégorie (optionnel)'),
+                          items: items
+                              .map((name) => DropdownMenuItem(
+                                    value: name,
+                                    child: Text(name),
+                                  ))
+                              .toList(),
+                          onChanged: (v) =>
+                              setDialogState(() => selectedCategoryName = v),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        tooltip: 'Ajouter une catégorie',
+                        onPressed: selectedUnitId == null
+                            ? null
+                            : () async {
+                                final name =
+                                    await _addNewCategory(selectedUnitId!);
+                                if (name != null) {
+                                  setDialogState(
+                                      () => selectedCategoryName = name);
+                                }
+                              },
+                      ),
+                    ],
+                  );
+                }),
                 const SizedBox(height: 12),
                 const Text('Pilier d\'entreprise'),
                 const SizedBox(height: 4),
@@ -115,7 +311,10 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                       label: Text(u['name']),
                       selected: selectedUnitId == u['id'],
                       onSelected: (_) {
-                        setDialogState(() => selectedUnitId = u['id']);
+                        setDialogState(() {
+                          selectedUnitId = u['id'];
+                          selectedCategoryName = null;
+                        });
                       },
                     );
                   }).toList(),
@@ -173,7 +372,7 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                 final payload = {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
-                  'category': categoryCtrl.text.trim(),
+                  'category': selectedCategoryName ?? '',
                   'business_unit_id': selectedUnitId,
                   'price_detail':
                       double.tryParse(priceDetailCtrl.text) ?? 0,
@@ -184,19 +383,103 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                 };
 
                 try {
+                  String productId;
                   if (isEditing) {
+                    productId = product['id'] as String;
                     await SupabaseConfig.client
                         .from('products')
                         .update(payload)
-                        .eq('id', product['id']);
+                        .eq('id', productId);
                   } else {
-                    await SupabaseConfig.client
+                    final inserted = await SupabaseConfig.client
                         .from('products')
-                        .insert(payload);
+                        .insert(payload)
+                        .select()
+                        .single();
+                    productId = inserted['id'] as String;
                   }
+
+                  // La galerie photo est gérée dans un try/catch séparé :
+                  // si la migration `phase8_patch_product_images.sql` n'a
+                  // pas encore été exécutée (table/bucket absents), le
+                  // produit lui-même doit quand même s'enregistrer plutôt
+                  // que d'afficher une fausse erreur globale.
+                  var photosFailed = false;
+                  if (newPhotos.isNotEmpty || removedExistingIds.isNotEmpty) {
+                    try {
+                      // Upload des nouvelles photos vers le bucket `products`.
+                      final uploadedUrls = <String>[];
+                      for (var i = 0; i < newPhotos.length; i++) {
+                        final file = File(newPhotos[i].path);
+                        final fileName =
+                            '$productId/${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+                        await SupabaseConfig.client.storage
+                            .from('products')
+                            .upload(fileName, file);
+                        uploadedUrls.add(SupabaseConfig.client.storage
+                            .from('products')
+                            .getPublicUrl(fileName));
+                      }
+
+                      // Suppression des fichiers retirés (best-effort).
+                      for (final photo in existingPhotos) {
+                        if (!removedExistingIds.contains(photo['id'])) {
+                          continue;
+                        }
+                        try {
+                          final url = photo['image_url'] as String;
+                          final path = url.split('/products/').last;
+                          await SupabaseConfig.client.storage
+                              .from('products')
+                              .remove([path]);
+                        } catch (_) {}
+                      }
+
+                      // On réécrit la galerie au complet (existantes
+                      // conservées + nouvelles) avec des positions propres
+                      // 0..n-1 — plus simple qu'un update partiel vu le
+                      // petit nombre de lignes (≤10).
+                      await SupabaseConfig.client
+                          .from('product_images')
+                          .delete()
+                          .eq('product_id', productId);
+                      final keptUrls = existingPhotos
+                          .where(
+                              (p) => !removedExistingIds.contains(p['id']))
+                          .map((p) => p['image_url'] as String)
+                          .toList();
+                      final finalUrls = [...keptUrls, ...uploadedUrls];
+                      if (finalUrls.isNotEmpty) {
+                        await SupabaseConfig.client
+                            .from('product_images')
+                            .insert([
+                          for (var i = 0; i < finalUrls.length; i++)
+                            {
+                              'product_id': productId,
+                              'image_url': finalUrls[i],
+                              'position': i,
+                            },
+                        ]);
+                      }
+                      // La 1ère photo sert de couverture pour les vignettes
+                      // catalogue (products.image_url).
+                      await SupabaseConfig.client.from('products').update({
+                        'image_url':
+                            finalUrls.isNotEmpty ? finalUrls.first : null,
+                      }).eq('id', productId);
+                    } catch (_) {
+                      photosFailed = true;
+                    }
+                  }
+
                   if (!mounted) return;
                   Navigator.pop(context);
                   _loadData();
+                  if (photosFailed) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text(
+                            'Produit enregistré, mais les photos n\'ont pas pu être sauvegardées.')));
+                  }
                 } catch (e) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -428,6 +711,49 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                           },
                         ),
                 ),
+    );
+  }
+}
+
+/// Miniature de photo produit avec bouton de suppression, utilisée dans le
+/// formulaire d'ajout/édition (aussi bien pour les photos déjà en base que
+/// pour celles fraîchement sélectionnées, pas encore uploadées).
+class _PhotoThumb extends StatelessWidget {
+  final ImageProvider image;
+  final VoidCallback onRemove;
+
+  const _PhotoThumb({required this.image, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            image: DecorationImage(image: image, fit: BoxFit.cover),
+          ),
+        ),
+        Positioned(
+          top: -6,
+          right: -6,
+          child: Material(
+            color: Colors.black87,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onRemove,
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

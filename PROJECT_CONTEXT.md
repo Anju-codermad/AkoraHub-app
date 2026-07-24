@@ -100,7 +100,24 @@ progressivement avec un vrai backend Supabase.
 - Commande directe OU demande de devis (les deux créent respectivement une
   ligne dans `orders`/`order_items` ou `quotes`/`quote_items`)
 - Suivi de commande à 4 statuts + "Recommander en 1 clic"
-  (`client_home/orders_tab.dart`)
+  (`client_home/orders_tab.dart`). Écran restructuré en 2 sous-onglets
+  (`DefaultTabController`) : **Commandes** (inchangé) et **Devis**
+  (nouveau — "Mes devis"). Les devis existaient déjà en base (table
+  `quotes`, créés depuis le panier via "Demander un devis") mais n'étaient
+  visibles nulle part côté client avant cet ajout. Statut affiché avec
+  badge coloré (en_attente/envoyé/accepté/refusé/expiré) ; bouton
+  "Commander ce devis" (ajoute les articles au panier) si le statut est
+  envoyé ou accepté.
+- **Favoris** (`client_home/favorites_provider.dart` +
+  `client_home/favorites_screen.dart`) — étoile (contour vide `star_border`
+  si non favori, pleine `star` ambre si favori — style demandé par
+  l'utilisateur) sur les cartes produit de l'Accueil et sur la fiche
+  produit. Nouvelle table `favorites` (`supabase/phase7_patch_favorites.sql`,
+  **à exécuter par l'utilisateur** — sans elle la liste reste vide
+  silencieusement, sans erreur visible). Écran "Mes favoris" accessible
+  depuis le Profil, avec bouton "Tout ajouter" au panier. Provider
+  volontairement placé dans `client_home/` (pas `lib/core/providers/`) pour
+  respecter le périmètre Client UX (section 7).
 - Profil client réel (`client_home/profile_tab.dart`) — remplace l'ancien
   écran minimal (email + logout). Affiche nom, société, secteur, téléphone,
   localisation, avatar (table `profiles`), avec formulaire d'édition en
@@ -130,12 +147,14 @@ progressivement avec un vrai backend Supabase.
   (pré-remplis depuis le profil existant pour ne pas les écraser à une
   simple sauvegarde) et les inclut dans l'appel `.update()` du profil.
   Colonnes équivalentes ajoutées sur `orders`
-  (`supabase/phase5_patch_orders_geolocation.sql`, **script prêt, pas
-  encore exécuté par l'utilisateur**) pour le cas où un client livre à une
-  adresse différente de son profil (nullable, repli sur les coordonnées du
-  profil si absentes) — **reste à faire** : exécuter ce script dans
-  Supabase, puis brancher la capture de latitude/longitude côté commande
-  dans le flux panier/checkout (`cart_tab.dart`), pas encore fait.
+  (`supabase/phase5_patch_orders_geolocation.sql`, **exécuté avec succès par
+  l'utilisateur le 23/07**) pour le cas où un client livre à une adresse
+  différente de son profil (nullable, repli sur les coordonnées du profil
+  si absentes). Côté client, `cart_tab.dart` capture désormais les
+  coordonnées (`_deliveryLat`/`_deliveryLon`, alimentées par
+  `_estimateDelivery` — GPS actuel ou géocodage de l'adresse profil en
+  repli) et les inclut dans l'`insert()` de la commande. **Terminé** :
+  schéma + code client tous les deux en place.
 - **Frais de livraison automatiques** (`client_home/delivery_pricing.dart` +
   intégration dans `cart_tab.dart`) — modèle "taxi rapide" choisi par
   l'utilisateur : `frais = max(prise_en_charge + tarif_par_km ×
@@ -148,10 +167,9 @@ progressivement avec un vrai backend Supabase.
   livraison (avec distance) / Total ; incluse dans `orders.delivery_fee` et
   `orders.delivery_zone` à la commande (colonnes déjà existantes dans le
   schéma, jusqu'ici inutilisées).
-  **⚠️ Action requise avant mise en production** : `depotLatitude`/
-  `depotLongitude` dans `delivery_pricing.dart` sont un **placeholder**
-  (centre-ville Antananarivo) — l'utilisateur doit fournir les vraies
-  coordonnées du dépôt/entrepôt.
+  **✅ Coordonnées du dépôt confirmées et appliquées** (23/07) :
+  `depotLatitude`/`depotLongitude` = -18.900360, 47.510128 (Rue Seimad,
+  Antananarivo 101) — le placeholder centre-ville a été remplacé.
   **Pour le futur (Backend/Infra, si l'utilisateur le demande)** : rendre
   ces valeurs modifiables depuis l'Admin sans nouvelle version de l'app, en
   les déplaçant dans la colonne JSONB de `company_settings` (déjà utilisée
@@ -170,17 +188,79 @@ progressivement avec un vrai backend Supabase.
   (`product_variants` table + `product_management_real/product_variants_screen.dart`
   côté Admin, sélection en 2 menus déroulants côté client dans
   `product_detail_client.dart`)
-- Formats et Parfums sont des **listes de référence pré-remplies** (contrairement
-  aux piliers/sous-catégories qui restent vides par défaut) — extensibles
-  directement depuis les écrans concernés
+- Formats et Parfums sont des **listes de référence pré-remplies** —
+  extensibles directement depuis les écrans concernés
+
+### Phase 6 — Sous-catégories produit
+- Table `categories` (`supabase/phase6_patch_categories.sql`, **exécuté avec
+  succès par l'utilisateur**) : même schéma que
+  formats/parfums (liste de référence, RLS select_all/write_staff), mais
+  scopée par pilier (`business_unit_id`) — une catégorie comme "Carrelage &
+  Sols" n'a de sens que pour un pilier donné, contrairement aux formats qui
+  sont partagés entre tous les produits.
+- **8 catégories pré-remplies pour le pilier Akora Fanadiovana** (noms
+  améliorés à partir d'une liste de dossiers fournie par l'utilisateur) :
+  Carrelage & Sols, Cuisine & Vaisselle, Désinfectants & Hygiène, Entretien
+  Véhicules, Lessive & Textile, Sanitaire & Salle de Bain, Soins du Corps &
+  Cosmétiques, Vitres & Surfaces. Le script matche le pilier par
+  `name ilike 'Akora Fanadiovana'` — si le pilier a été créé sous un autre
+  nom exact dans l'app, adapter le `WHERE` avant exécution (le script émet
+  un `RAISE NOTICE` si aucun pilier ne correspond).
+- Côté Admin (`product_management_real.dart`), le champ Catégorie du
+  formulaire produit est passé d'un `TextField` libre à un
+  `DropdownButtonFormField` filtré par le pilier sélectionné + bouton "+"
+  pour ajouter une nouvelle catégorie à la volée (même pattern que
+  Format/Parfum) — évite les fautes de frappe qui créeraient une catégorie
+  fantôme (le filtre côté client catalogue compare le texte exactement).
+  Reste rétro-compatible : le chargement des catégories est fait dans un
+  try/catch qui ne bloque pas le reste de l'écran si la table `categories`
+  n'existe pas encore (migration non exécutée), et un produit dont la
+  catégorie texte ne correspond à aucune entrée de la table reste affichée
+  dans le Dropdown (n'écrase rien). **Terminé** : schéma + code Admin en
+  place, 8 catégories confirmées visibles par l'utilisateur.
+
+### Phase 8 — Photos produit (jusqu'à 10 par produit)
+- Table `product_images` + bucket Storage `products`
+  (`supabase/phase8_patch_product_images.sql`, **script prêt, pas encore
+  exécuté par l'utilisateur**) : `products.image_url` existait depuis la
+  Phase 1 mais n'était branché nulle part (ni upload, ni affichage) —
+  l'utilisateur l'a remarqué en testant la saisie de produits. Nouvelle
+  table `product_images` (product_id, image_url, position) pour une
+  galerie ordonnée, RLS select_all/write_staff comme categories/formats.
+  Garde-fou serveur (trigger) : jamais plus de 10 lignes par produit,
+  au-delà de la limite déjà appliquée côté app. Bucket `products` public en
+  lecture, écriture réservée au staff (contrairement au bucket `avatars` où
+  chaque client gère son propre dossier).
+- **Côté Admin** (`product_management_real.dart`) : galerie de miniatures
+  dans le formulaire produit (ajout via `ImagePicker().pickMultiImage` avec
+  limite dynamique = 10 − photos déjà présentes, suppression individuelle
+  via un bouton "x" sur chaque miniature — existantes ou fraîchement
+  choisies). À l'enregistrement : upload des nouvelles vers le bucket
+  `products`, suppression storage best-effort des retirées, réécriture
+  complète de `product_images` avec positions 0..n-1, et
+  `products.image_url` mis à jour pour pointer vers la 1ère photo (sert de
+  couverture catalogue). La gestion des photos est dans un try/catch séparé
+  de celui du produit : si la migration n'est pas encore exécutée, le
+  produit (nom/prix/catégorie) s'enregistre quand même, avec un message
+  "photos non sauvegardées" plutôt qu'une fausse erreur globale.
+- **Côté client** : couverture (`image_url`) affichée dans les cartes
+  produit du catalogue (`catalog_tab.dart`) et des favoris
+  (`favorites_screen.dart`), repli sur l'icône placeholder si absente.
+  Fiche produit (`product_detail_client.dart`) : vrai carrousel
+  (`PageView`) sur la galerie complète (`product_images`) si plusieurs
+  photos, sinon couverture unique, sinon icône — avec indicateurs de
+  pagination (points) si plus d'une photo.
+- **Reste à faire** : l'utilisateur doit exécuter
+  `phase8_patch_product_images.sql` dans Supabase pour que l'upload
+  fonctionne (tant que ce n'est pas fait, le formulaire produit affiche le
+  sélecteur de photos mais l'enregistrement des photos échoue
+  silencieusement avec le message ci-dessus, sans bloquer le reste).
 
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 
 Idées discutées avec l'utilisateur, à prioriser plus tard — aucune n'est
 commencée sauf mention contraire :
 
-- **Favoris** : marquer des produits pour les retrouver rapidement (aucune
-  table ni UI actuellement)
 - **Réapprovisionnement suggéré** : détecter les produits qu'un client
   recommande régulièrement et le proposer proactivement (étend le
   "Recommander en 1 clic" déjà existant dans `orders_tab.dart`)
@@ -199,14 +279,34 @@ commencée sauf mention contraire :
 - **Mode sombre**
 - **Localisation automatique** — Niveau 1 fait, Niveau 2 (coordonnées GPS
   précises) documenté ci-dessus dans la section Profil
+- **Messagerie unifiée client ↔ équipe commerciale** (23/07, Backend/Infra) :
+  une seule conversation par client (pas de séparation par pilier, décision
+  utilisateur), tables `conversations`/`messages` avec trigger auto pour
+  `last_message_at`. Écran client : `client_home/messaging/client_chat_screen.dart`
+  (accessible depuis un bouton "Messagerie" dans l'onglet Profil). Écran
+  Admin : `messaging_center_real/` (liste des conversations triées par
+  récence + fil de discussion), déjà branché sur les boutons existants du
+  tableau de bord Admin. **L'ancien écran fictif `messaging_center/`
+  (595 lignes, faux contacts "Sarah Johnson" etc.) a été supprimé
+  entièrement**, comme pour les autres écrans legacy. Script SQL :
+  `supabase/phase6_schema.sql` — **prêt, en attente d'exécution par l'utilisateur**.
+  Pas encore fait : notifications quand un nouveau message arrive (lié au
+  point "Notifications push" ci-dessous), indicateur de messages non lus.
 
 ## 4. Ce qui N'EST PAS encore fait
 
-- **Sous-catégories structurées** par pilier (actuellement un simple champ
-  texte libre `category` sur chaque produit) — fonctionnalité discutée mais
-  reportée, l'utilisateur doit encore préciser exactement comment il la veut
-- **Messagerie unifiée** client ↔ commercial (prévue dans le cahier des
-  charges original, jamais construite)
+- **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
+  suppression des 3 écrans mock morts (customer/order/analytics management
+  non-`_real`, jamais routés depuis l'UI, 4500+ lignes) ; **Campaign
+  Management** débranché des menus (dashboard quick actions + bottom sheet
+  "+") car 100% factice (aucune connexion Supabase, liste codée en dur,
+  SnackBar de succès sans persistance) — le fichier
+  `lib/presentation/campaign_management/` reste dans le repo si besoin de
+  le reconstruire un jour pour de vrai, mais plus aucune route/bouton n'y
+  mène ; **splash screen simplifié** — les 4 fausses étapes d'initialisation
+  (`_checkSubscriptionStatus`, `_loadBusinessProfiles`,
+  `_fetchConfigurations`, `_prepareCachedData`, chacune un `Future.delayed`
+  sans effet réel) supprimées, temps de démarrage ramené de ~4,8s à ~1,5s.
 - **Notifications push** réelles
 - **Mode hors-ligne**
 - **Multi-langue** Français/Malagasy

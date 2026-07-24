@@ -76,14 +76,8 @@ class _SplashScreenState extends State<SplashScreen>
   /// Initialize app services and determine navigation path
   Future<void> _initializeApp() async {
     try {
-      // Minimum display time for branding
-      await Future.delayed(const Duration(milliseconds: 2500));
-
-      // Simulate initialization tasks
-      await _checkSubscriptionStatus();
-      await _loadBusinessProfiles();
-      await _fetchConfigurations();
-      await _prepareCachedData();
+      // Court affichage du logo (branding), le temps que l'animation se joue
+      await Future.delayed(const Duration(milliseconds: 1200));
 
       if (!mounted) return;
 
@@ -108,30 +102,6 @@ class _SplashScreenState extends State<SplashScreen>
         }
       });
     }
-  }
-
-  /// Check subscription status
-  Future<void> _checkSubscriptionStatus() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    // TODO: Implement actual subscription check
-  }
-
-  /// Load business profiles
-  Future<void> _loadBusinessProfiles() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    // TODO: Implement actual profile loading
-  }
-
-  /// Fetch essential configurations
-  Future<void> _fetchConfigurations() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    // TODO: Implement actual configuration fetch
-  }
-
-  /// Prepare cached data for offline functionality
-  Future<void> _prepareCachedData() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    // TODO: Implement actual cache preparation
   }
 
   /// Navigate to appropriate screen based on user state

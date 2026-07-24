@@ -29,7 +29,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
   final List<String> _titles = const [
     'Accueil',
     'Panier',
-    'Mes commandes',
+    'Commandes',
     'Profil',
   ];
 
