@@ -62,3 +62,6 @@
 
 ## 2026-07-24 02:30 UTC — Claude
 - Client: écran 'Mes devis' ajouté (sous-onglet dans Commandes) (`780fede`)
+
+## 2026-07-24 02:45 UTC — Claude
+- Docs: documenter l'écran Mes devis (sous-onglet Commandes/Devis) (`fca8ae9`)
