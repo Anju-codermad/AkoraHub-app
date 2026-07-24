@@ -113,3 +113,6 @@
 
 ## 2026-07-24 10:43 UTC — Claude
 - fix: corriger le chemin storeFile dans key.properties (résolu relatif à android/app/, pas android/) (`40d162d`)
+
+## 2026-07-24 11:02 UTC — Claude
+- docs: politique de confidentialité (hébergée via GitHub Pages) pour la fiche Play Store (`2622f04`)
