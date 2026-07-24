@@ -5,6 +5,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'favorites_provider.dart';
 
 class ProductDetailClient extends ConsumerStatefulWidget {
   final Map<String, dynamic> product;
@@ -113,8 +114,23 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     final unitPrice = isGros ? priceGros : priceDetail;
     final total = unitPrice * _quantity;
 
+    final isFavorite = ref.watch(favoritesProvider).contains(p['id']);
+
     return Scaffold(
-      appBar: AppBar(title: Text(p['name'] ?? '')),
+      appBar: AppBar(
+        title: Text(p['name'] ?? ''),
+        actions: [
+          IconButton(
+            icon: Icon(isFavorite ? Icons.star : Icons.star_border),
+            color: isFavorite ? Colors.amber : null,
+            tooltip: isFavorite
+                ? 'Retirer des favoris'
+                : 'Ajouter aux favoris',
+            onPressed: () =>
+                ref.read(favoritesProvider.notifier).toggle(p['id']),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.all(4.w),
