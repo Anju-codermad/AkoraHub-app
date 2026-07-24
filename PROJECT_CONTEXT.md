@@ -79,23 +79,38 @@ progressivement avec un vrai backend Supabase.
 - Catalogue avec navigation Pilier → Catégorie → Recherche
   (`client_home/catalog_tab.dart`) — écran renommé **Accueil** dans la
   navigation (icône maison). En-tête personnalisé (avatar + prénom du
-  client + localisation + icônes panier/notifications, cette dernière est
-  un stub visuel sans backend), bannière promo en **carrousel** (3 slides,
-  `PageView` + indicateurs), piliers ("Nos activités") affichés en **icônes
-  rondes colorées** défilantes horizontalement (remplace l'ancienne grille
-  rectangulaire — icônes mappées par mot-clé dans le `slug` du pilier :
-  paint→pinceau, formation→école, chimie/chemical→science,
-  cosmet→spa, insecticide/insect→pest_control, sinon icône générique
-  ménage), cartes produits avec prix mis en avant et bouton **"+"
-  vert d'ajout rapide au panier** (utilise les prix de base du produit —
-  pour un produit à variantes, ce prix peut différer de la variante
-  réellement choisie ; ouvrir la fiche produit reste nécessaire pour un prix
-  exact). Design inspiré de deux références visuelles fournies par
-  l'utilisateur (grocery app + service app before/after).
+  client + localisation + libellé **"AkoraHub"** au-dessus des icônes
+  panier/notifications, cette dernière est un stub visuel sans backend) ;
+  le corps du `Scaffold` (`client_home.dart`) est enveloppé dans un
+  `SafeArea(bottom: false)` pour éviter que cet en-tête ne chevauche la
+  barre de statut système (heure/batterie/réseau) — nécessaire car
+  l'onglet Accueil n'a pas d'`AppBar`. Piliers ("Nos activités") affichés
+  en **icônes rondes colorées** défilantes horizontalement (remplace
+  l'ancienne grille rectangulaire — icônes mappées par mot-clé dans le
+  `slug` du pilier : paint→pinceau, formation→école, chimie/chemical→
+  science, cosmet→spa, insecticide/insect→pest_control, sinon icône
+  générique ménage), cartes produits avec prix mis en avant et bouton
+  **"+" vert d'ajout rapide au panier** (utilise les prix de base du
+  produit — pour un produit à variantes, ce prix peut différer de la
+  variante réellement choisie ; ouvrir la fiche produit reste nécessaire
+  pour un prix exact). Design inspiré de deux références visuelles
+  fournies par l'utilisateur (grocery app + service app before/after).
   **Piliers supplémentaires évoqués par l'utilisateur** (à créer par
   l'Admin via l'écran de gestion des piliers, pas encore créés) : matières
   premières chimiques, produits cosmétiques, produits insecticides — noms
   et slugs suggérés en attente de validation utilisateur.
+- **Bannière hero de l'Accueil** (23/07) : la bannière promo en carrousel
+  (`PageView` + indicateurs) n'est plus figée en dur — elle charge
+  désormais les slides actifs depuis la table `home_banners`
+  (`supabase/phase6_patch_home_banners.sql`, **exécuté avec succès par
+  l'utilisateur**), avec repli silencieux sur les 3 slides par défaut si
+  la table est vide. Gestion réservée **strictement à l'Admin** (RLS
+  `current_role_is_admin()`, pas le reste du staff) depuis un nouvel écran
+  `home_banners_management.dart` (titre, sous-titre, photo via
+  `image_picker` + bucket Storage public `home-banners`, réordonnancement,
+  activation/désactivation, suppression) — accessible depuis Tableau de
+  bord Admin → **+** → "Bannière hero — Accueil". Si aucune photo n'est
+  définie sur un slide, le dégradé + icône par défaut est conservé.
 - Panier multi-produits (`client_home/cart_tab.dart`)
 - Commande directe OU demande de devis (les deux créent respectivement une
   ligne dans `orders`/`order_items` ou `quotes`/`quote_items`)
@@ -274,6 +289,18 @@ commencée sauf mention contraire :
 - **Notifications réelles** (le bouton actuel dans l'en-tête de l'Accueil
   est un stub visuel sans backend — voir section 4, "Notifications push
   réelles")
+- **Renforcement du côté "réseau social" pour les clients** (23/07,
+  discuté avec l'utilisateur, **pas commencé**) — idées proposées : fil
+  d'activité "Pour vous" (posts du Mur + nouveaux produits + promos),
+  badge de notification sur la cloche, profils clients publics légers
+  consultables depuis le Mur, partage rapide d'un produit/post,
+  tags/mentions de produits dans les posts. **Décision explicite de
+  l'utilisateur : aucun nouvel onglet dans la barre de navigation.** Tout
+  doit se loger dans les 3 onglets existants — essentiellement dans
+  **Profil** (Mur, "Mes publications", Favoris — cohérent avec le plan en
+  4 étapes déjà noté plus haut) et en contenu additionnel sur **Accueil**
+  (fil d'activité, badge sur l'icône notifications existante) plutôt qu'en
+  écrans séparés.
 - **Filtre de recherche avancé** sur le catalogue (prix, disponibilité,
   pilier) — au-delà des chips de catégorie actuelles
 - **Mode sombre**
