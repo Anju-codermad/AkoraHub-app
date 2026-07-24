@@ -243,11 +243,22 @@ commencée sauf mention contraire :
 - **Mode sombre**
 - **Localisation automatique** — Niveau 1 fait, Niveau 2 (coordonnées GPS
   précises) documenté ci-dessus dans la section Profil
+- **Messagerie unifiée client ↔ équipe commerciale** (23/07, Backend/Infra) :
+  une seule conversation par client (pas de séparation par pilier, décision
+  utilisateur), tables `conversations`/`messages` avec trigger auto pour
+  `last_message_at`. Écran client : `client_home/messaging/client_chat_screen.dart`
+  (accessible depuis un bouton "Messagerie" dans l'onglet Profil). Écran
+  Admin : `messaging_center_real/` (liste des conversations triées par
+  récence + fil de discussion), déjà branché sur les boutons existants du
+  tableau de bord Admin. **L'ancien écran fictif `messaging_center/`
+  (595 lignes, faux contacts "Sarah Johnson" etc.) a été supprimé
+  entièrement**, comme pour les autres écrans legacy. Script SQL :
+  `supabase/phase6_schema.sql` — **prêt, en attente d'exécution par l'utilisateur**.
+  Pas encore fait : notifications quand un nouveau message arrive (lié au
+  point "Notifications push" ci-dessous), indicateur de messages non lus.
 
 ## 4. Ce qui N'EST PAS encore fait
 
-- **Messagerie unifiée** client ↔ commercial (prévue dans le cahier des
-  charges original, jamais construite)
 - **Notifications push** réelles
 - **Mode hors-ligne**
 - **Multi-langue** Français/Malagasy
