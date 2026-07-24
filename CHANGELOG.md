@@ -101,3 +101,6 @@
 
 ## 2026-07-24 07:50 UTC — Claude
 - Docs: documenter la messagerie privée + action requise Backend/Infra pour brancher messaging_center.dart (`912ab79`)
+
+## 2026-07-24 08:17 UTC — Claude
+- Docs: rapport discussion Connexion/Inscription (SMS OTP, vérif anti-fraude) + signalement conflit messagerie dupliquée (`4496849`)
