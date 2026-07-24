@@ -137,3 +137,6 @@
 
 ## 2026-07-24 19:36 UTC — Claude
 - docs: ajouter les coordonnées de contact réelles (copie de secours de la politique de confidentialité) (`dc92cb6`)
+
+## 2026-07-24 20:35 UTC — Claude
+- feat(Backend/Infra): activer/désactiver les catégories (comme les piliers) - phase9_patch_categories_active.sql + écran category_management.dart (`59f41d4`)
