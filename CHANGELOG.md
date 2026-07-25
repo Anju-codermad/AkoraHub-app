@@ -248,3 +248,6 @@
 
 ## 2026-07-25 19:42 UTC — Claude
 - Inscription: date de naissance (vérif 18+), acceptation des conditions, lien retour connexion (`f37ee03`)
+
+## 2026-07-25 19:57 UTC — Claude
+- Docs: documenter les améliorations de l'écran d'inscription (date de naissance, conditions, lien connexion) (`805831c`)
