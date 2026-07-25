@@ -586,6 +586,57 @@ message si le prix ne convient pas (repasse alors automatiquement le
 devis en statut "En attente" pour signaler au staff qu'une réponse est
 attendue).
 
+## 3octies. Traçabilité QR code (25/07) ✅ FAIT
+
+Suite à la question "quelles suggestions d'amélioration ?", ajout de la
+traçabilité par QR code sur les lots de production (différenciateur fort
+pour hôpitaux/hôtels, vu l'expertise réelle de l'utilisateur sur les
+normes BNM) :
+- Packages `qr_flutter` (génération) + `mobile_scanner` (lecture caméra)
+  ajoutés au `pubspec.yaml`. Permissions caméra ajoutées (Android
+  `CAMERA`, iOS `NSCameraUsageDescription`).
+- **Admin** : `product_management_real/batch_list_screen.dart` — remplace
+  l'ancien comportement du menu "Lot" (qui ajoutait direct un lot sans
+  jamais pouvoir les revoir) par une vraie liste des lots existants du
+  produit, avec bouton QR code par lot (dialogue + partage via
+  `share_plus`). La fonction `_addBatch` a été déplacée depuis
+  `product_management_real.dart` vers ce nouvel écran (FAB "Lot").
+- **Client** : `client_home/product_scanner_screen.dart`, accessible
+  depuis "Scanner un produit" dans le Profil. Scanne le QR code (préfixe
+  `akorahub:batch:` + id du lot, constante `qrBatchPrefix` exportée
+  depuis `batch_list_screen.dart`), affiche le produit, la date de
+  fabrication, la DLC (alerte visuelle rouge si expiré), la catégorie.
+- **⚠️ RLS ouverte en lecture** : `production_batches` était
+  strictement réservée au staff (`batches_staff_only`) depuis la Phase 1
+  — il fallait ouvrir la lecture à tout utilisateur connecté pour que le
+  scan client fonctionne, tout en gardant l'écriture réservée au staff.
+  `supabase/phase13_schema.sql` — **exécuté avec succès par
+  l'utilisateur**.
+
+## 3nonies. Bug de build critique + maintenance (25/07)
+
+En poussant la traçabilité QR, la compilation a échoué (APK **et** AAB) —
+**mais le vrai coupable n'avait aucun rapport avec le QR code** : un
+import manquant pour `RecurringOrdersScreen` dans `cart_tab.dart`
+(fonctionnalité "commandes récurrentes" ajoutée avant la consolidation
+des deux sessions, jamais testée en CI depuis). **Corrigé.**
+
+**Leçon reconfirmée** : toujours attendre la confirmation d'un build vert
+avant d'considérer une fonctionnalité "terminée" — un import manquant
+peut dormir plusieurs commits avant d'être détecté si personne ne
+déclenche de nouvelle compilation entre-temps.
+
+Au passage, mise à jour préventive : Kotlin 2.1.0 → 2.2.20 (le log de
+build avertissait que le support des versions plus anciennes serait
+bientôt supprimé par Flutter).
+
+**Découverte en cours de route** : le pipeline CI (`build-apk.yml`)
+compile désormais aussi un **App Bundle (AAB)** en plus de l'APK, avec
+reconstruction du keystore de production depuis les secrets GitHub — donc
+la préparation technique pour la publication Play Store a déjà avancé
+pendant la consolidation, au-delà de ce qui était documenté en section
+3sexies (à vérifier/détailler dans une prochaine session si besoin).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
