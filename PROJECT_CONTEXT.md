@@ -801,10 +801,15 @@ Détails techniques :
   (pas de CLI utilisée) — voir `functions/send-push-notification/index.ts`
   dans le dépôt pour le code source de référence si besoin de le
   redéployer.
-- **Reste à faire (amélioration future, pas bloquant)** : pas encore de
-  notification sur changement de statut de commande (expédiée/livrée) ni
-  sur réponse "Accepté/Refusé" du client à un devis — même schéma à
-  répliquer sur `orders`/`quotes` si l'utilisateur le demande.
+- **✅ Fait (25/07)** : notifications étendues aux commandes
+  (expédiée/livrée → notifie le client) et aux devis (accepté/refusé par
+  le client → notifie toute l'équipe Admin/Commercial).
+  `supabase/phase18_schema.sql` (**exécuté avec succès**) : triggers
+  `AFTER UPDATE` avec clause `WHEN` sur `orders`/`quotes` — ne se
+  déclenchent que sur un vrai changement vers l'un de ces statuts précis
+  (pas à chaque modification, ex. changer juste le montant d'un devis ne
+  déclenche rien). Edge Function mise à jour et redéployée avec succès
+  pour gérer ces deux nouveaux types de payload.
 
 `google-services.json` reçu de l'utilisateur (projet Firebase
 `akorahub-7ee66`), intégré via secret GitHub
