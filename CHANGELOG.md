@@ -158,3 +158,6 @@
 
 ## 2026-07-25 03:19 UTC — Claude
 - Docs: marquer le réapprovisionnement suggéré comme fait (`d36dbc7`)
+
+## 2026-07-25 03:28 UTC — Claude
+- Docs: plan de lancement (25/07) — checklist adressée à la session Backend/Infra pour caler un calendrier commun de publication le mois prochain (`861f16c`)
