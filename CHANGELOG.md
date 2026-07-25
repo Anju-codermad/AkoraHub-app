@@ -152,3 +152,93 @@
 
 ## 2026-07-25 02:43 UTC — Claude
 - Backend/Infra: script SQL des 3 nouveaux piliers (Matières Premières, Anti-Nuisibles, Matières Premières Peinture) + catégories, créés désactivés (`9dd14ec`)
+
+## 2026-07-25 03:03 UTC — Claude
+- Client: réapprovisionnement suggéré sur l'Accueil (`a1a22f4`)
+
+## 2026-07-25 03:19 UTC — Claude
+- Docs: marquer le réapprovisionnement suggéré comme fait (`d36dbc7`)
+
+## 2026-07-25 03:28 UTC — Claude
+- Docs: plan de lancement (25/07) — checklist adressée à la session Backend/Infra pour caler un calendrier commun de publication le mois prochain (`861f16c`)
+
+## 2026-07-25 03:33 UTC — Anju-codermad
+- Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`8164ad4`)
+
+## 2026-07-25 03:51 UTC — Claude (Client UX/Design)
+- Messagerie Admin : badge non lus + marquage lu + tag Demande (23/07) (`3c5bdee`)
+
+## 2026-07-25 03:52 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`4424197`)
+
+## 2026-07-25 03:56 UTC — Claude (Client UX/Design)
+- docs: marquer les migrations phase9 (categories active) et phase10 (3 nouveaux piliers) comme executees le 25/07 (`0074cb3`)
+
+## 2026-07-25 07:48 UTC — Anju-codermad
+- Backend/Infra: allow staff to manually update order payment status (cash, direct Mobile Money, 30-day invoice) while real gateway pending (`175cc51`)
+
+## 2026-07-25 08:01 UTC — Anju-codermad
+- Backend/Infra: add missing Admin quotes screen (client quote requests were invisible to staff) (`6cfd589`)
+
+## 2026-07-25 08:16 UTC — Anju-codermad
+- Backend/Infra: real quote negotiation thread (client can counter-propose, staff sees full history) instead of one-shot response (`72d9e4a`)
+
+## 2026-07-25 09:07 UTC — Anju-codermad
+- Fix critical bug: prevent duplicate product/batch creation on multi-tap; add missing product delete function; declutter admin product card actions into a menu (`45bbcbc`)
+
+## 2026-07-25 09:13 UTC — Anju-codermad
+- Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`9a25ec2`)
+
+## 2026-07-25 09:25 UTC — Anju-codermad
+- Strengthen product card border/shadow for consistent visual boundaries during image loading (`cf9ed31`)
+
+## 2026-07-25 10:33 UTC — Anju-codermad
+- Feature: dark mode toggle (client Profile + Admin settings), persisted preference (`50590de`)
+
+## 2026-07-25 10:39 UTC — Anju-codermad
+- Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`6593163`)
+
+## 2026-07-25 10:45 UTC — Anju-codermad
+- Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`c607e40`)
+
+## 2026-07-25 11:00 UTC — Anju-codermad
+- Feature: QR code traceability for production batches (Admin generates/shares, client scans to verify authenticity, manufacture date, expiry) (`9da412c`)
+
+## 2026-07-25 11:14 UTC — Anju-codermad
+- Fix critical build error: missing import for RecurringOrdersScreen in cart_tab.dart (broke both APK and AAB builds) (`943c8c3`)
+
+## 2026-07-25 11:19 UTC — Anju-codermad
+- Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`cd7035f`)
+
+## 2026-07-25 11:41 UTC — Anju-codermad
+- Feature: support existing product barcodes (EAN/UPC) alongside QR batch traceability - Admin can scan/enter barcode on product form, client scanner recognizes both (`129a74b`)
+
+## 2026-07-25 12:09 UTC — Anju-codermad
+- Feature 1/4 (Client PDF): real company logo upload/storage + downloadable invoice/quote PDFs with logo for client (orders_tab.dart) (`6f15f85`)
+
+## 2026-07-25 12:22 UTC — Anju-codermad
+- Feature 2/4 (Multi-langue): FR/MG translation system infrastructure + language selector in Profile + apply to bottom nav and main catalog headers (first pass, more screens to come incrementally) (`32c3d93`)
+
+## 2026-07-25 12:40 UTC — Anju-codermad
+- Feature 3/4 (Mode hors-ligne): offline catalog caching (SharedPreferences), offline cart + queued order/quote submission (auto-sync on reconnect), visual offline banner (`08f196e`)
+
+## 2026-07-25 13:08 UTC — Anju-codermad
+- Feature 4/4 (Notifications push) part 1: FCM client-side infrastructure (token registration, foreground handling) - waiting on user's google-services.json before enabling native Android integration (`93a597c`)
+
+## 2026-07-25 13:56 UTC — Anju-codermad
+- Add real AkoraHub app icon (green #085041, cart/A design) across Android, iOS, and web - replaces default Flutter icon (`7ddba81`)
+
+## 2026-07-25 14:07 UTC — Anju-codermad
+- Wire google-services.json into CI (via GitHub secret, base64) + conditionally apply Google Services Gradle plugin - safe fallback if secret absent (`5969403`)
+
+## 2026-07-25 14:09 UTC — Anju-codermad
+- Bump google-services Gradle plugin to 4.5.0 (latest per Firebase setup wizard) (`1956ab6`)
+
+## 2026-07-25 14:12 UTC — Anju-codermad
+- docs: confirm google-services.json received and wired via GitHub secret (`839640d`)
+
+## 2026-07-25 14:40 UTC — Anju-codermad
+- Feature: real push notification sending via Supabase Edge Function + FCM (new message, quote response), triggered by pg_net Postgres trigger (`10385ff`)
+
+## 2026-07-25 16:42 UTC — Anju-codermad
+- Feature: extend push notifications to order shipped/delivered and quote accepted/refused (`26782e2`)

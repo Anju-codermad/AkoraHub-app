@@ -5,6 +5,14 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Notifications push (Firebase). N'applique le plugin que si le fichier
+// existe réellement (généré localement par le développeur ou injecté par
+// le workflow CI depuis le secret GOOGLE_SERVICES_JSON_BASE64) — sinon
+// TOUT le build échouerait avec "File google-services.json is missing".
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+
 import java.util.Properties
 import java.io.FileInputStream
 

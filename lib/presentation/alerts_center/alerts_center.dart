@@ -16,6 +16,7 @@ class AlertsCenter extends StatefulWidget {
 class _AlertsCenterState extends State<AlertsCenter> {
   List<Map<String, dynamic>> _lowStockProducts = [];
   List<Map<String, dynamic>> _expiringBatches = [];
+  List<Map<String, dynamic>> _predictedStockouts = [];
   bool _isLoading = true;
   String? _error;
 
@@ -60,9 +61,46 @@ class _AlertsCenterState extends State<AlertsCenter> {
           .lte('expiry_date', soon)
           .order('expiry_date');
 
+      // Rupture prévue : vitesse de vente réelle des 30 derniers jours
+      // (quantité vendue / produit) comparée au stock actuel. Estimation
+      // simple (moyenne linéaire) — pas une vraie prévision statistique,
+      // mais largement suffisante pour donner une alerte utile à l'Admin.
+      final since =
+          DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+      final recentItems = await SupabaseConfig.client
+          .from('order_items')
+          .select('product_id, quantity, orders!inner(created_at)')
+          .gte('orders.created_at', since);
+
+      final Map<String, num> soldByProduct = {};
+      for (final item in List<Map<String, dynamic>>.from(recentItems)) {
+        final productId = item['product_id'] as String?;
+        if (productId == null) continue;
+        final qty = (item['quantity'] ?? 0) as num;
+        soldByProduct[productId] = (soldByProduct[productId] ?? 0) + qty;
+      }
+
+      final predictedStockouts = <Map<String, dynamic>>[];
+      for (final p in List<Map<String, dynamic>>.from(allProducts)) {
+        final sold = soldByProduct[p['id']];
+        if (sold == null || sold <= 0) continue;
+        final dailyRate = sold / 30;
+        final stock = (p['stock_quantity'] ?? 0) as num;
+        final daysLeft = stock / dailyRate;
+        if (daysLeft <= 14) {
+          predictedStockouts.add({
+            ...p,
+            'days_left': daysLeft.round(),
+          });
+        }
+      }
+      predictedStockouts
+          .sort((a, b) => (a['days_left'] as int).compareTo(b['days_left'] as int));
+
       setState(() {
         _lowStockProducts = lowStock;
         _expiringBatches = List<Map<String, dynamic>>.from(batches);
+        _predictedStockouts = predictedStockouts;
         _isLoading = false;
       });
     } catch (e) {
@@ -76,7 +114,9 @@ class _AlertsCenterState extends State<AlertsCenter> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final totalAlerts = _lowStockProducts.length + _expiringBatches.length;
+    final totalAlerts = _lowStockProducts.length +
+        _expiringBatches.length +
+        _predictedStockouts.length;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Alertes')),
@@ -106,6 +146,37 @@ class _AlertsCenterState extends State<AlertsCenter> {
                       : ListView(
                           padding: EdgeInsets.all(4.w),
                           children: [
+                            if (_predictedStockouts.isNotEmpty) ...[
+                              Text(
+                                  'Rupture prévue (${_predictedStockouts.length})',
+                                  style: theme.textTheme.titleMedium),
+                              SizedBox(height: 0.5.h),
+                              Text(
+                                'Basé sur le rythme de vente des 30 derniers jours.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    color:
+                                        theme.colorScheme.onSurfaceVariant),
+                              ),
+                              SizedBox(height: 1.h),
+                              ..._predictedStockouts.map((p) {
+                                final daysLeft = p['days_left'] as int;
+                                return Card(
+                                  color: theme.colorScheme.tertiaryContainer
+                                      .withValues(alpha: 0.4),
+                                  child: ListTile(
+                                    leading: Icon(Icons.trending_down,
+                                        color: theme.colorScheme.tertiary),
+                                    title: Text(p['name'] ?? ''),
+                                    subtitle: Text(
+                                      daysLeft <= 0
+                                          ? 'Rupture imminente au rythme actuel'
+                                          : 'Stock épuisé dans environ $daysLeft jour${daysLeft > 1 ? 's' : ''} au rythme actuel',
+                                    ),
+                                  ),
+                                );
+                              }),
+                              SizedBox(height: 2.h),
+                            ],
                             if (_lowStockProducts.isNotEmpty) ...[
                               Text('Stock bas (${_lowStockProducts.length})',
                                   style: theme.textTheme.titleMedium),

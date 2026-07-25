@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Écran d'inscription pour les clients (hôtel, hôpital, entreprise, particulier).
@@ -20,6 +21,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _showPassword = false;
 
   String _clientType = 'particulier';
   bool _isLoading = false;
@@ -38,7 +41,31 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  /// Valide un numéro malgache : doit commencer par un préfixe d'opérateur
+  /// réel (Telma 034/038, Orange 032, Yas ex-Airtel 033), avec ou sans le
+  /// +261, et contenir le bon nombre de chiffres.
+  String? _validatePhone(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Le téléphone est obligatoire';
+    }
+    final digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
+    // Normalise en retirant l'indicatif pays (261) s'il est présent.
+    final local = digitsOnly.startsWith('261')
+        ? '0${digitsOnly.substring(3)}'
+        : digitsOnly;
+
+    const validPrefixes = ['032', '033', '034', '038'];
+    final hasValidPrefix =
+        validPrefixes.any((prefix) => local.startsWith(prefix));
+
+    if (!hasValidPrefix || local.length != 10) {
+      return 'Numéro invalide (ex: 034 XX XXX XX)';
+    }
+    return null;
   }
 
   Future<void> _handleRegister() async {
@@ -82,6 +109,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+
+      PushNotificationService.onUserSignedIn();
 
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
@@ -191,19 +220,45 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration:
-                      const InputDecoration(labelText: 'Téléphone (optionnel)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Téléphone',
+                    hintText: '034 XX XXX XX',
+                  ),
+                  validator: _validatePhone,
                 ),
                 SizedBox(height: 2.h),
 
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Mot de passe'),
+                  obscureText: !_showPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Mot de passe',
+                    suffixIcon: IconButton(
+                      icon: Icon(_showPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined),
+                      onPressed: () =>
+                          setState(() => _showPassword = !_showPassword),
+                    ),
+                  ),
                   validator: (v) {
                     if (v == null || v.length < 8) {
                       return 'Au moins 8 caractères';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 2.h),
+
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: !_showPassword,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirmer le mot de passe',
+                  ),
+                  validator: (v) {
+                    if (v != _passwordController.text) {
+                      return 'Les mots de passe ne correspondent pas';
                     }
                     return null;
                   },

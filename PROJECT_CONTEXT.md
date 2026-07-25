@@ -128,8 +128,7 @@ progressivement avec un vrai backend Supabase.
   si non favori, pleine `star` ambre si favori — style demandé par
   l'utilisateur) sur les cartes produit de l'Accueil et sur la fiche
   produit. Nouvelle table `favorites` (`supabase/phase7_patch_favorites.sql`,
-  **à exécuter par l'utilisateur** — sans elle la liste reste vide
-  silencieusement, sans erreur visible). Écran "Mes favoris" accessible
+  **exécuté avec succès par l'utilisateur le 25/07**). Écran "Mes favoris" accessible
   depuis le Profil, avec bouton "Tout ajouter" au panier. Provider
   volontairement placé dans `client_home/` (pas `lib/core/providers/`) pour
   respecter le périmètre Client UX (section 7).
@@ -266,8 +265,8 @@ progressivement avec un vrai backend Supabase.
 
 ### Phase 8 — Photos produit (jusqu'à 10 par produit)
 - Table `product_images` + bucket Storage `products`
-  (`supabase/phase8_patch_product_images.sql`, **script prêt, pas encore
-  exécuté par l'utilisateur**) : `products.image_url` existait depuis la
+  (`supabase/phase8_patch_product_images.sql`, **exécuté avec succès par
+  l'utilisateur le 25/07**) : `products.image_url` existait depuis la
   Phase 1 mais n'était branché nulle part (ni upload, ni affichage) —
   l'utilisateur l'a remarqué en testant la saisie de produits. Nouvelle
   table `product_images` (product_id, image_url, position) pour une
@@ -295,13 +294,10 @@ progressivement avec un vrai backend Supabase.
   (`PageView`) sur la galerie complète (`product_images`) si plusieurs
   photos, sinon couverture unique, sinon icône — avec indicateurs de
   pagination (points) si plus d'une photo.
-- **Reste à faire** : l'utilisateur doit exécuter
-  `phase8_patch_product_images.sql` dans Supabase pour que l'upload
-  fonctionne (tant que ce n'est pas fait, le formulaire produit affiche le
-  sélecteur de photos mais l'enregistrement des photos échoue
-  silencieusement avec le message ci-dessus, sans bloquer le reste).
+- **✅ Fait (25/07)** : script exécuté avec succès, l'upload/affichage des
+  photos produit est maintenant pleinement fonctionnel des deux côtés.
 
-### Phase 9 — Activer / désactiver une catégorie (script prêt, pas exécuté)
+### Phase 9 — Activer / désactiver une catégorie (exécuté avec succès le 25/07)
 - Contexte : les piliers (business_units) avaient déjà un champ `active` +
   interrupteur côté Admin (écran "Piliers d'entreprise",
   `business_units_management.dart`) — un pilier désactivé disparaît du
@@ -323,8 +319,30 @@ progressivement avec un vrai backend Supabase.
   silencieux si la migration n'est pas encore exécutée). Une catégorie
   désactivée ne supprime pas les produits déjà tagués avec elle : ils
   restent visibles et cherchables, seule la puce de filtre disparaît.
-- **Reste à faire** : exécuter `phase9_patch_categories_active.sql` dans
-  Supabase.
+
+### Phase 10 — 3 nouveaux piliers dormants (exécuté avec succès le 25/07)
+- `supabase/phase10_patch_new_business_units.sql` : crée 3 nouveaux
+  piliers **désactivés** (`active = false`, invisibles côté client tant
+  que l'Admin ne les active pas depuis "Piliers d'entreprise") avec leurs
+  catégories par défaut :
+  1. **Matières Premières** (12 catégories : Acides & Bases, Chélatants,
+     Désinfectants, Épaississants, Charges Minérales, Colorants,
+     Conservateurs & Antioxydants, Huiles & Beurres Cosmétiques, Parfums &
+     Additifs, Polymères & Résines, Solvants, Tensioactifs) — remplace
+     l'ancienne idée de catégorie "Agroalimentaire" séparée (un ingrédient
+     alimentaire va dans sa famille chimique, ex. Acides & Bases, avec une
+     note "qualité alimentaire" dans sa description produit).
+  2. **Anti-Nuisibles** (7 catégories : Insecticides Maison/Extérieur,
+     Anti-Fourmis & Cafards, Anti-Moustiques & Mouches, Raticides &
+     Rongeurs, Anti-Puces & Tiques, Produits Agrivet — en prévision d'un
+     projet de revente agricole/vétérinaire).
+  3. **Matières Premières Peinture** (5 catégories : Liants & Résines,
+     Pigments & Colorants, Charges & Additifs, Solvants & Diluants,
+     Siccatifs & Conservateurs) — distinct du pilier ARCA PAINTS existant
+     (qui vend les peintures finies) : ici les intrants pour fabriquer de
+     la peinture.
+- Catégories ajustables librement depuis l'écran de gestion des
+  catégories une fois le pilier activé.
 
 ## 3sexies. Écran "Profil entreprise" Admin réparé (25/07)
 
@@ -434,9 +452,15 @@ AkoraHub disponibles.
 Idées discutées avec l'utilisateur, à prioriser plus tard — aucune n'est
 commencée sauf mention contraire :
 
-- **Réapprovisionnement suggéré** : détecter les produits qu'un client
-  recommande régulièrement et le proposer proactivement (étend le
-  "Recommander en 1 clic" déjà existant dans `orders_tab.dart`)
+- **Réapprovisionnement suggéré** (23/07, **fait**) — section "Vous
+  recommandez souvent" sur l'Accueil (`catalog_tab.dart`, juste après la
+  bannière), calculée dans `_loadData` : produits présents dans au moins 2
+  commandes distinctes du client (`order_items` joint à `orders` filtré par
+  `customer_id`, comptage par `product_id` sur des `order_id` distincts),
+  triés par fréquence décroissante, 5 max. Cartes horizontales réutilisant
+  `_ProductCard` (favoris + ajout rapide déjà intégrés). Masquée si le
+  client n'a pas encore assez d'historique — aucune donnée inventée,
+  tolérante à l'échec comme les autres sections de l'Accueil.
 - **Commande récurrente / abonnement** pour les consommables réguliers
 - **Paiement Mobile Money au checkout** (Mvola/Orange Money/Airtel Money) —
   voir aussi la piste Papi déjà notée en section 4
@@ -464,7 +488,7 @@ commencée sauf mention contraire :
      serait jamais redescendu à zéro.
   3. **Profils clients publics légers** : nouvelle vue SQL
      `public_profiles` (`supabase/phase9_patch_public_profiles.sql`,
-     **utilisateur doit l'exécuter**, id/full_name/company_name/
+     **exécuté avec succès par l'utilisateur le 25/07**), id/full_name/company_name/
      client_type/avatar_url uniquement) + `PublicProfilesRepo` +
      `PublicProfileScreen` (`client_home/community/`). **Bug réel
      corrigé au passage** : la RLS de `profiles` limite la lecture à sa
@@ -510,30 +534,407 @@ commencée sauf mention contraire :
     échouait).
   - Ancien écran fictif `messaging_center/` (595 lignes, faux contacts
     "Sarah Johnson" etc.) **supprimé entièrement**.
-  - **Reste à faire** : notifications à l'arrivée d'un nouveau message,
-    badge de messages non lus (colonnes `read_by_staff`/`read_by_client`
-    déjà présentes mais pas encore exploitées dans l'UI), afficher
-    visuellement le tag "Demande" (`is_request`) dans le fil de discussion
-    Admin.
+  - **Fait (23/07)** : badge de messages non lus dans la liste des
+    conversations (`messaging_center_real.dart`, un aller-retour groupant
+    tous les messages client non lus) ; messages du client marqués lus à
+    l'ouverture du fil (ne l'était pas avant — même correctif que celui
+    déjà fait côté client pour son propre badge) ; tag visuel "Demande"
+    (`is_request`) affiché sur les bulles de message, même style que côté
+    client.
+  - **Reste à faire** : notification (push ou in-app) à l'arrivée d'un
+    nouveau message.
 
-## 3ter. Connexion/Inscription — améliorations demandées (23/07, à traiter par Backend/Infra)
+## 3ter. Connexion/Inscription — améliorations (23/07, Backend/Infra) ✅ FAIT
 
-- **Bugs UX à corriger** : "Mot de passe oublié ?" et connexion sociale
-  (Google/Facebook) sont des maquettes non fonctionnelles ("sera
-  implémenté" au clic) sur `authentication_screen/`.
-- **Téléphone obligatoire** à l'inscription (actuellement optionnel), avec
-  validation des préfixes malgaches réels (Telma 034/038, Orange 032,
-  Yas ex-Airtel 033).
-- **Inscription** : ajouter confirmation du mot de passe + bouton
-  afficher/masquer.
-- **Vérification anti-fraude** : 4 niveaux discutés (email natif Supabase
-  gratuit ; validation format téléphone gratuite ; SMS OTP payant par
-  fournisseur tiers, coût à confirmer pour Madagascar ; validation
-  manuelle des comptes pro par le staff — le texte "en attente de
-  vérification" existe déjà dans `authentication_screen.dart` mais n'est
-  branché à aucune vraie logique). **Décision utilisateur : reporté à plus
-  tard.** Priorité recommandée si repris : email + téléphone (gratuits)
-  avant SMS OTP/validation manuelle.
+- **"Mot de passe oublié ?"** : remplacé par un vrai envoi d'email de
+  réinitialisation via `Supabase.auth.resetPasswordForEmail()` (dialogue
+  de saisie d'email + confirmation d'envoi).
+- **Connexion Google/Facebook** : toujours des boutons non fonctionnels
+  (nécessiteraient la création de comptes développeur Google Cloud/Meta,
+  démarche externe hors périmètre code), mais le message au clic est
+  maintenant honnête ("bientôt disponible") au lieu de laisser croire à
+  une implémentation imminente.
+- **Téléphone rendu obligatoire** à l'inscription, avec validation réelle
+  des préfixes malgaches (Telma 034/038, Orange 032, Yas ex-Airtel 033,
+  tolère le +261).
+- **Confirmation du mot de passe** ajoutée + bouton afficher/masquer sur
+  le champ mot de passe (`registration_screen.dart`).
+- **Vérification anti-fraude** (email/SMS/validation manuelle) : toujours
+  **reporté**, décision utilisateur inchangée.
+
+## 3sexies. Plan de lancement — objectif publication le mois prochain (25/07)
+
+**Message pour la session Backend/Infra** : l'utilisateur veut publier
+AkoraHub le mois prochain et demande qu'on cale un calendrier commun. Voici
+les 4 blocages identifiés (session Client UX) lors d'un état des lieux
+demandé par l'utilisateur — merci de confirmer la faisabilité de chacun
+d'ici la date visée, ou de signaler si l'un d'eux doit repousser le
+lancement.
+
+1. **Écran de connexion — 2 boutons non fonctionnels** (périmètre
+   Backend/Infra, voir section 3ter pour le détail) : "Mot de passe
+   oublié ?" affiche une popup "sera implémenté" au lieu de réinitialiser
+   réellement le mot de passe ; les boutons de connexion sociale
+   Google/Facebook ne font rien non plus. **Recommandation si le temps
+   manque** : au minimum masquer les boutons sociaux non fonctionnels
+   plutôt que les laisser tromper l'utilisateur ; le vrai "mot de passe
+   oublié" (reset email natif Supabase) est prioritaire à corriger.
+2. **Pré-requis techniques Google Play Store** (indépendant du code
+   Flutter) : icône haute résolution (512×512), feature graphic
+   (1024×500), politique de confidentialité (obligatoire — l'app demande
+   géolocalisation + upload de photos), formulaire "Sécurité des données"
+   du Play Store, vérification d'identité du compte développeur (à lancer
+   tôt, le délai de traitement Google n'est pas instantané). Point
+   technique déjà en règle : `compileSdk 36` dans `android/app/build.gradle`
+   respecte déjà l'exigence Google Play 2026 (cible minimale actuelle
+   Android 15/API 35, Android 16/API 36 obligatoire à partir du 31 août
+   2026).
+3. **Mode de paiement réel** — le plus gros morceau ouvert. Actuellement
+   l'app ne prend aucun paiement réel (commande/devis seulement, voir
+   section 4 : piste Papi.mg identifiée mais pas intégrée, statut
+   marchand MVola de l'entreprise non confirmé). **Question à trancher
+   avant tout calendrier** : lance-t-on avec un paiement à la livraison en
+   attendant l'intégration Mobile Money, ou est-ce bloquant pour le
+   lancement ?
+4. **Identité visuelle** : pas de logo graphique custom pour l'icône/
+   splash (seul le nom "AkoraHub" est appliqué actuellement), pas de
+   captures d'écran préparées pour la fiche Play Store.
+
+**Non bloquant, peut sortir après le lancement (v1.1)** : notifications
+push réelles, mode hors-ligne, multi-langue, fidélité par paliers, FDS,
+e-learning, groupes professionnels, mode sombre — voir section 3bis/4 pour
+le détail complet de chaque idée.
+
+## 3septies. Écran Admin des devis manquant (25/07, Backend/Infra) ✅ FAIT
+
+L'utilisateur a testé le parcours client (demande de devis) et n'a rien vu
+apparaître côté Admin — **pas un bug, un écran jamais construit**. Ajout de
+`quotes_management/quotes_management.dart` : liste des devis (filtrable par
+statut), détail des articles demandés, réponse avec montant proposé +
+changement de statut. Bouton "Devis" ajouté au tableau de bord Admin
+(`business_dashboard.dart`), route `/quotes-management`. Au passage, staff
+peut maintenant aussi marquer manuellement le statut de paiement d'une
+commande (espèces/Mobile Money direct/facture 30j) depuis
+`order_management_real.dart`, en attendant l'intégration Papi — décision
+utilisateur : ne pas bloquer le développement des fonctionnalités en
+attendant le dossier marchand.
+
+**Mise à jour (25/07)** : la réponse à un devis n'est plus un aller simple
+(un seul montant figé). Nouvelle table `quote_messages` (fil de
+négociation par devis, schéma `supabase/phase11_schema.sql`, **exécuté
+avec succès**) : le staff propose un montant + message depuis l'écran
+Admin (nouveau `_QuoteThreadScreen`, ouvert en tapant un devis dans
+`quotes_management.dart`), le client voit chaque proposition côté
+`client_home/quote_thread_client.dart` (accessible en tapant une carte de
+devis dans l'onglet Devis de `orders_tab.dart` — léger ajout coordonné,
+juste un `InkWell` autour de la carte existante) et peut **Accepter**/
+**Refuser** directement ou **reproposer un autre montant** avec un
+message si le prix ne convient pas (repasse alors automatiquement le
+devis en statut "En attente" pour signaler au staff qu'une réponse est
+attendue).
+
+## 3octies. Traçabilité QR code (25/07) ✅ FAIT
+
+Suite à la question "quelles suggestions d'amélioration ?", ajout de la
+traçabilité par QR code sur les lots de production (différenciateur fort
+pour hôpitaux/hôtels, vu l'expertise réelle de l'utilisateur sur les
+normes BNM) :
+- Packages `qr_flutter` (génération) + `mobile_scanner` (lecture caméra)
+  ajoutés au `pubspec.yaml`. Permissions caméra ajoutées (Android
+  `CAMERA`, iOS `NSCameraUsageDescription`).
+- **Admin** : `product_management_real/batch_list_screen.dart` — remplace
+  l'ancien comportement du menu "Lot" (qui ajoutait direct un lot sans
+  jamais pouvoir les revoir) par une vraie liste des lots existants du
+  produit, avec bouton QR code par lot (dialogue + partage via
+  `share_plus`). La fonction `_addBatch` a été déplacée depuis
+  `product_management_real.dart` vers ce nouvel écran (FAB "Lot").
+- **Client** : `client_home/product_scanner_screen.dart`, accessible
+  depuis "Scanner un produit" dans le Profil. Scanne le QR code (préfixe
+  `akorahub:batch:` + id du lot, constante `qrBatchPrefix` exportée
+  depuis `batch_list_screen.dart`), affiche le produit, la date de
+  fabrication, la DLC (alerte visuelle rouge si expiré), la catégorie.
+- **⚠️ RLS ouverte en lecture** : `production_batches` était
+  strictement réservée au staff (`batches_staff_only`) depuis la Phase 1
+  — il fallait ouvrir la lecture à tout utilisateur connecté pour que le
+  scan client fonctionne, tout en gardant l'écriture réservée au staff.
+  `supabase/phase13_schema.sql` — **exécuté avec succès par
+  l'utilisateur**.
+
+## 3nonies. Bug de build critique + maintenance (25/07)
+
+En poussant la traçabilité QR, la compilation a échoué (APK **et** AAB) —
+**mais le vrai coupable n'avait aucun rapport avec le QR code** : un
+import manquant pour `RecurringOrdersScreen` dans `cart_tab.dart`
+(fonctionnalité "commandes récurrentes" ajoutée avant la consolidation
+des deux sessions, jamais testée en CI depuis). **Corrigé.**
+
+**Leçon reconfirmée** : toujours attendre la confirmation d'un build vert
+avant d'considérer une fonctionnalité "terminée" — un import manquant
+peut dormir plusieurs commits avant d'être détecté si personne ne
+déclenche de nouvelle compilation entre-temps.
+
+Au passage, mise à jour préventive : Kotlin 2.1.0 → 2.2.20 (le log de
+build avertissait que le support des versions plus anciennes serait
+bientôt supprimé par Flutter).
+
+**Découverte en cours de route** : le pipeline CI (`build-apk.yml`)
+compile désormais aussi un **App Bundle (AAB)** en plus de l'APK, avec
+reconstruction du keystore de production depuis les secrets GitHub — donc
+la préparation technique pour la publication Play Store a déjà avancé
+pendant la consolidation, au-delà de ce qui était documenté en section
+3sexies (à vérifier/détailler dans une prochaine session si besoin).
+
+## 3decies. Support code-barre existant en plus du QR code (25/07) ✅ FAIT
+
+**⚠️ Note de priorité (25/07)** : le QR code par lot (Phase 13) a été
+construit sur initiative de l'assistant (issu d'une liste de suggestions),
+sans demande explicite préalable de l'utilisateur. Une fois interrogé
+directement, **l'utilisateur a confirmé que ce n'est pas prioritaire**
+pour son activité actuellement. Le code reste en place (fonctionnel,
+inoffensif à laisser tel quel) mais **ne pas investir de temps
+supplémentaire dessus** (pas de polish, pas de nouvelles fonctionnalités
+liées au QR) sauf demande explicite future de l'utilisateur. Le
+code-barre (ce paragraphe), lui, reste pertinent puisqu'il découle d'un
+besoin réel signalé par l'utilisateur (ses produits en ont déjà).
+
+L'utilisateur a signalé que tous ses produits finis ont déjà un vrai
+code-barre EAN/UPC imprimé (fabrication) — décision : garder les deux
+systèmes plutôt que de choisir. Le code-barre identifie le **produit**
+(générique), le QR code (Phase 13) identifie un **lot précis** (avec date
+de fabrication et DLC).
+- `products.barcode` (text, nullable, unique si renseigné) —
+  `supabase/phase14_schema.sql`, **exécuté avec succès par
+  l'utilisateur**.
+- Admin (`product_management_real.dart`) : champ "Code-barre" sur le
+  formulaire produit, avec bouton scanner (nouvel écran interne
+  `_BarcodeCaptureScreen`, réutilise `mobile_scanner`).
+- Client (`product_scanner_screen.dart`) : `_onDetect` distingue
+  maintenant les deux cas — préfixe `akorahub:batch:` → recherche dans
+  `production_batches` (affiche fabrication/DLC) ; sinon → recherche dans
+  `products.barcode` (affiche nom/catégorie/description, sans info de
+  lot puisque le code-barre n'est pas lié à un lot précis).
+
+## 3undecies. Factures/devis PDF côté client + logo entreprise réel (25/07) ✅ FAIT
+
+Demande groupée de l'utilisateur (notifications push, hors-ligne,
+multi-langue, PDF client) — 1er des 4 chantiers traité, dans cet ordre
+convenu avec l'utilisateur : PDF client → multi-langue → hors-ligne →
+notifications push (la dernière nécessite un compte Firebase externe,
+traitée en dernier).
+
+- **Bug réel corrigé au passage** : le sélecteur de logo dans "Profil
+  entreprise" (`business_information_section.dart`) contenait un
+  commentaire `// In real implementation, upload image and update
+  businessData` — jamais implémenté, l'image choisie n'était jamais
+  sauvegardée nulle part. Upload réel vers le nouveau bucket Storage
+  `company-logo` (`supabase/phase15_schema.sql`, **exécuté avec succès
+  par l'utilisateur**), URL persistée dans `company_settings` (ajout de
+  `"logo"` à `_persistedKeys` dans `business_profile_settings.dart`).
+- Nouveau `lib/core/pdf/document_pdf_generator.dart` : génère un PDF
+  facture/devis avec logo + nom + adresse + téléphone de l'entreprise
+  (lus dynamiquement depuis `company_settings`), items, total. Logo
+  récupéré via `http.get` (package `http` ajouté au `pubspec.yaml`) et
+  converti en `pw.MemoryImage` — si le logo ne charge pas, le PDF reste
+  généré sans (tolérant à l'échec).
+- Boutons "Facture PDF" / "Devis PDF" ajoutés sur chaque carte dans
+  `client_home/orders_tab.dart` (`_OrdersListState._downloadInvoice` /
+  `_QuotesListState._downloadQuotePdf`), ouverture via
+  `Printing.layoutPdf` (aperçu + partage/impression natif).
+
+## 3duodecies. Multi-langue FR/MG — infrastructure + 1er passage (25/07)
+
+2ᵉ des 4 chantiers demandés (notifications push, hors-ligne, multi-langue,
+PDF client — voir 3undecies pour le 1er). Pas de package `intl`/`.arb`
+(trop lourd à greffer sur un projet déjà avancé de 60+ écrans) : système
+maison par clé de traduction.
+
+- `lib/core/localization/app_translations.dart` : table `_strings`
+  (clé → {fr, mg}), `AppTranslations.t(key, locale)`, `localeProvider`
+  (StateNotifierProvider persistant via SharedPreferences, clé
+  `app_locale`), extension `WidgetRef.tr(key)`.
+- Sélecteur de langue dans Profil (`profile_tab.dart`), dialogue simple
+  Français/Malagasy.
+- **Traduit à ce stade** : barre de navigation du bas
+  (`client_home.dart`, `_ClientBottomNav` converti en `ConsumerWidget`),
+  en-têtes de l'Accueil ("Nos activités", "Pour vous", "Produits"),
+  recherche, filtre "Toutes catégories" (`catalog_tab.dart`).
+- **Reste à faire (gros chantier, incrémental)** : la grande majorité des
+  écrans (panier, fiche produit, commandes/devis, messagerie, favoris,
+  mur, tout l'Admin...) reste uniquement en français codé en dur. Pour
+  continuer : repérer les `Text('...')` littéraux écran par écran, ajouter
+  les clés manquantes dans `_strings`, remplacer par `ref.tr('cle')`
+  (nécessite `ConsumerWidget`/`ConsumerStatefulWidget` — convertir le
+  widget si besoin, comme fait pour `_ClientBottomNav`).
+
+**⚠️ Préférence explicite de l'utilisateur (25/07)** : ne PAS traduire
+plusieurs écrans d'un coup ou par anticipation. Traduire **un seul écran
+à la fois, uniquement sur demande explicite** de l'utilisateur nommant
+l'écran concerné. Le premier passage ci-dessus (nav du bas + en-têtes
+Accueil) a été fait avant cette clarification — ne pas continuer au-delà
+sans qu'on le demande précisément.
+
+## 3terdecies. Mode hors-ligne (25/07) ✅ FAIT
+
+3ᵉ des 4 chantiers (voir 3undecies/3duodecies pour les précédents).
+Portée volontairement réaliste — discutée et validée explicitement avec
+l'utilisateur avant de coder (un mode hors-ligne complet type
+"édition collaborative avec résolution de conflits" serait un chantier
+de plusieurs semaines, hors de portée) :
+- Catalogue consultable hors-ligne (lecture seule)
+- Panier composable hors-ligne (déjà le cas nativement, Riverpod = état
+  local, aucun réseau nécessaire pour ajouter au panier)
+- Commande/devis en file d'attente locale si pas de réseau au moment de
+  valider, **envoi automatique dès le retour de connexion**
+- Bannière visuelle "Mode hors-ligne" quand il n'y a pas de réseau
+- **Hors périmètre, assumé** : Mur, messagerie, devis en négociation
+  restent en ligne uniquement (pas de sens hors-ligne) ; rien côté Admin
+  (généralement utilisé au bureau avec Wi-Fi).
+
+Détails techniques :
+- `lib/core/offline/connectivity_provider.dart` : `connectivityProvider`
+  (StreamProvider basé sur `connectivity_plus`, déjà présent au
+  `pubspec.yaml`) + `isCurrentlyOnline()` pour une vérification ponctuelle.
+- `lib/core/offline/offline_order_queue.dart` : `OfflineOrderQueue`,
+  file d'attente en JSON via `SharedPreferences` (clé
+  `offline_pending_orders`). `enqueue()` pour mettre en attente,
+  `trySync()` pour tenter l'envoi de tout ce qui est en attente (chaque
+  élément réussi est retiré, les échecs restent pour la prochaine
+  tentative).
+- `client_home/cart_tab.dart` (`_submit`) : vérifie `isCurrentlyOnline()`
+  avant de tenter l'appel réseau — si hors-ligne, met directement en
+  file d'attente au lieu d'échouer, vide quand même le panier, message
+  clair à l'utilisateur.
+- `client_home/client_home.dart` : `OfflineOrderQueue.trySync()` appelé
+  à l'ouverture de l'app (`initState`) et à chaque transition hors-ligne
+  → en ligne détectée via `connectivityProvider` (détection par
+  comparaison avec l'état précédent, champ `_wasOnline`) ; bannière
+  orange affichée en haut de l'écran quand `isOnline == false`.
+- `client_home/catalog_tab.dart` (`_loadData`) : catalogue mis en cache
+  (JSON, `SharedPreferences`, clé `offline_catalog_cache`) à chaque
+  chargement réussi ; en cas d'échec réseau, repli automatique sur ce
+  cache avec message indiquant la date des données affichées.
+- **Reste à faire / limites connues** : pas de gestion de conflit (non
+  nécessaire ici, chaque client ne crée que ses propres commandes) ; les
+  photos produit ne sont pas mises en cache (seuls les champs texte/prix
+  le sont — les images restent chargées à la demande via le réseau,
+  échouent silencieusement si hors-ligne, ce qui est un compromis
+  acceptable pour l'instant).
+
+## 3quaterdecies. Notifications push réelles (25/07) ✅ FAIT — bout en bout
+
+**✅ Chaîne complète fonctionnelle** : nouveau message (`messages` ou
+`quote_messages`) → trigger Postgres (`pg_net`) → Edge Function
+`send-push-notification` → API FCM → notification réelle sur l'appareil.
+- Compte de service Firebase (`akorahub-7ee66-firebase-adminsdk-*.json`)
+  stocké **uniquement** comme secret Edge Function
+  `FIREBASE_SERVICE_ACCOUNT` (jamais commité, jamais dans l'app cliente —
+  différent de `google-services.json` qui lui est public/embarqué dans
+  l'app).
+- `WEBHOOK_SECRET` (secret partagé, généré aléatoirement) protège l'URL
+  publique de l'Edge Function contre des appels tiers.
+- `supabase/functions/send-push-notification/index.ts` : signe lui-même
+  un JWT RS256 (Web Crypto API native de Deno, aucune librairie externe)
+  pour échanger le compte de service contre un token d'accès FCM, puis
+  appelle `fcm.googleapis.com/v1/projects/{id}/messages:send`.
+  - Message client → notifie **tout le staff** (Admin/Commercial) ayant
+    un `fcm_token`.
+  - Message staff → notifie le client concerné.
+  - Réponse de devis (staff) → notifie le client, avec le montant proposé
+    dans le corps de la notification si présent.
+- `supabase/phase17_schema.sql` (**exécuté avec succès**) : trigger
+  `AFTER INSERT` sur `messages`/`quote_messages`, appelle l'Edge Function
+  via `net.http_post` (extension `pg_net`).
+- Déployé via Supabase Dashboard → Edge Functions → éditeur navigateur
+  (pas de CLI utilisée) — voir `functions/send-push-notification/index.ts`
+  dans le dépôt pour le code source de référence si besoin de le
+  redéployer.
+- **✅ Fait (25/07)** : notifications étendues aux commandes
+  (expédiée/livrée → notifie le client) et aux devis (accepté/refusé par
+  le client → notifie toute l'équipe Admin/Commercial).
+  `supabase/phase18_schema.sql` (**exécuté avec succès**) : triggers
+  `AFTER UPDATE` avec clause `WHEN` sur `orders`/`quotes` — ne se
+  déclenchent que sur un vrai changement vers l'un de ces statuts précis
+  (pas à chaque modification, ex. changer juste le montant d'un devis ne
+  déclenche rien). Edge Function mise à jour et redéployée avec succès
+  pour gérer ces deux nouveaux types de payload.
+
+`google-services.json` reçu de l'utilisateur (projet Firebase
+`akorahub-7ee66`), intégré via secret GitHub
+`GOOGLE_SERVICES_JSON_BASE64` (jamais commité en clair — voir
+`.github/workflows/build-apk.yml`), plugin Gradle
+`com.google.gms.google-services` (4.5.0) appliqué conditionnellement
+dans `android/app/build.gradle` (uniquement si le fichier existe,
+sécurité contre un build cassé si le secret venait à manquer). Fichier
+gitignoré (`android/app/google-services.json`).
+
+4ᵉ et dernier des chantiers demandés groupés (voir 3undecies/3duodecies/
+3terdecies pour les précédents). Nécessite une action externe de
+l'utilisateur (création d'un projet Firebase, gratuit) — infrastructure
+client posée en attendant le fichier de config.
+
+- Packages ajoutés : `firebase_core`, `firebase_messaging`,
+  `flutter_local_notifications`.
+- `supabase/phase16_schema.sql` : ajoute `profiles.fcm_token` — **statut
+  d'exécution à confirmer par l'utilisateur**.
+- `lib/core/notifications/push_notification_service.dart` :
+  `initialize()` (appelé dans `main.dart` après `SupabaseConfig.initialize()`)
+  demande la permission notifications, enregistre le token FCM de
+  l'appareil dans `profiles.fcm_token`, affiche une notification locale
+  si un message arrive pendant que l'app est ouverte (sinon Android/iOS
+  l'affichent nativement). `onUserSignedIn()` appelé après connexion
+  (`authentication_screen.dart`) et inscription
+  (`registration_screen.dart`) pour ré-associer le token au bon compte.
+  **Tout est protégé par try/catch** : sans `google-services.json`,
+  `Firebase.initializeApp()` échoue silencieusement et l'app continue de
+  fonctionner normalement (juste sans notifications) — aucun risque de
+  casser le reste en attendant.
+- **⚠️ Volontairement PAS FAIT à ce stade** : le plugin Gradle
+  `com.google.gms.google-services` n'a pas été appliqué dans
+  `android/build.gradle`/`android/app/build.gradle` — l'appliquer sans le
+  fichier `google-services.json` présent ferait échouer TOUT build
+  Android ("File google-services.json is missing"). À faire dès réception
+  du fichier de l'utilisateur.
+- **Reste à faire, dans l'ordre** :
+  1. Recevoir `google-services.json` de l'utilisateur (guidé pas à pas :
+     console Firebase → créer projet → ajouter app Android avec le
+     package `com.akora_fanadiovana.app` → télécharger le fichier).
+  2. L'ajouter au dépôt (`android/app/google-services.json`) — probablement
+     comme secret GitHub encodé en base64 décodé pendant le build CI,
+     même pattern que `env.json`/keystore, plutôt que commité en clair.
+  3. Appliquer le plugin Gradle (`android/build.gradle` +
+     `android/app/build.gradle`).
+  4. **L'ENVOI réel des notifications reste un chantier séparé** : le
+     service ci-dessus ne fait qu'ENREGISTRER l'appareil pour recevoir —
+     il faut ensuite un déclencheur côté serveur (Supabase Database
+     Webhook → Edge Function Deno → appel à l'API FCM HTTP v1 avec un
+     compte de service Firebase) pour effectivement notifier un client
+     ("nouveau message", "devis répondu", "commande expédiée"). Ce
+     compte de service (clé privée JSON, différente de
+     `google-services.json`) sera à générer depuis Firebase Console →
+     Paramètres du projet → Comptes de service, une fois l'étape 1-3
+     confirmée fonctionnelle.
+
+## 3quindecies. Icône réelle de l'application (25/07) ✅ FAIT
+
+Logo final (généré via ChatGPT après plusieurs itérations, voir
+historique de conversation) intégré à la place de l'icône Flutter par
+défaut : "A" vert `#085041` en dégradé transformé en chariot, 2 formes
+géométriques (rectangle orange, cylindre bleu marine) à l'intérieur.
+- **Android** : toutes les densités remplacées
+  (`android/app/src/main/res/mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png`).
+  Pas d'icône adaptative (`mipmap-anydpi-v26`) sur ce projet — uniquement
+  des PNG legacy par densité, donc pas de config supplémentaire
+  nécessaire au-delà du remplacement des fichiers.
+- **iOS** : les 15 tailles de `ios/Runner/Assets.xcassets/AppIcon.appiconset/`
+  remplacées (20x20 à 1024x1024).
+- **Web** : `web/favicon.png` + `web/icons/Icon-{192,512}.png` et
+  variantes "maskable" remplacées.
+- `store_assets/play_store_icon_512.png` : version 512×512 conservée à
+  part pour la future fiche Google Play Store (section 3sexies, point 2).
+- Génération faite avec Pillow (redimensionnement direct depuis le PNG
+  1254×1254 fourni par l'utilisateur, `Image.LANCZOS`) — pas de package
+  `flutter_launcher_icons` utilisé (plus simple d'agir directement sur les
+  fichiers pour un remplacement ponctuel).
 
 ## 4. Ce qui N'EST PAS encore fait
 
@@ -557,8 +958,6 @@ commencée sauf mention contraire :
   existe mais son statut "marchand" n'est pas confirmé ; piste retenue :
   Papi, papi.mg, qui unifie MVola/Orange Money/Airtel Money/Visa — voir
   historique de conversation pour le détail des échanges avec ce prestataire)
-- Icône et splash screen personnalisés (nom "AkoraHub" appliqué, mais pas de
-  logo graphique custom pour l'instant)
 
 ## 5. Conventions et pièges à connaître
 
@@ -582,35 +981,37 @@ commencée sauf mention contraire :
   toujours créer un nouvel écran propre plutôt que de risquer de casser un
   gros fichier existant, à l'image de ce qui a été fait jusqu'ici.
 
-## 7. Répartition des missions entre conversations Claude en parallèle
+## 7. Historique de répartition des missions (consolidé le 25/07)
 
 **⚠️ Dépôt renommé (23/07)** : `Anju-codermad/akora-fanadiovana-app` →
 **`Anju-codermad/AkoraHub-app`**. L'ancien nom redirige encore
 automatiquement (GitHub le fait par défaut après un renommage), mais
 utiliser le nouveau nom pour tout nouveau clone/remote/lien.
 
-Pour éviter les conflits, le projet était initialement divisé en deux
-périmètres clairs :
+**Consolidation (25/07)** : l'utilisateur a demandé de reprendre tout le
+travail dans une seule conversation à partir de maintenant, plutôt que de
+continuer à faire avancer deux sessions en parallèle. La répartition
+ci-dessous est conservée à titre d'historique (utile pour comprendre
+pourquoi certains fichiers ont été créés par l'une ou l'autre "session"),
+mais **ne s'applique plus** : toute nouvelle conversation qui reprend ce
+projet a désormais la responsabilité de l'ensemble du dépôt.
 
+Répartition initiale (24-25/07, avant consolidation) :
 - **Conversation "Backend/Infra"** : `lib/core/`, `supabase/*.sql`, tous les
   écrans Admin (`*_real` hors `client_home/`), `.github/workflows/`,
   paiement, messagerie, notifications, sécurité RLS.
-- **Conversation "Client UX/Design"** : uniquement
-  `lib/presentation/client_home/*` — écrans client, style visuel, mise en
-  page, adaptation des références visuelles fournies par l'utilisateur.
+- **Conversation "Client UX/Design"** : `lib/presentation/client_home/*` —
+  écrans client, style visuel, mise en page — élargie en cours de route
+  à des écrans Admin ponctuels (ex. `home_banners_management.dart`) avec
+  accord implicite de l'utilisateur.
 
-**Élargissement (23/07)** : l'utilisateur a explicitement demandé à la
-conversation "Client UX/Design" de travailler aussi côté Admin, en plus du
-Client — cette conversation n'est donc plus strictement cantonnée à
-`client_home/*`. Elle a par exemple déjà créé un écran Admin
-(`home_banners_management.dart`) avant cet élargissement, avec accord
-implicite de l'utilisateur à ce moment-là.
-
-**Règle qui reste valable** : toute conversation qui touche un fichier
-également modifié par l'autre doit vérifier l'historique Git (fetch avant
-push, tester un merge si des commits distants sont apparus) plutôt que de
-pousser en force — plusieurs fusions automatiques propres ont déjà eu lieu
-ce jour-là sans perte de code des deux côtés.
+Plusieurs fusions Git automatiques propres ont eu lieu durant cette
+période (aucune perte de code), et un doublon fonctionnel (deux systèmes
+de messagerie construits indépendamment) a été détecté et résolu — voir
+section 3bis pour le détail. Cette expérience confirme qu'un travail en
+parallèle sur ce projet reste possible si besoin à l'avenir, à condition
+de repasser régulièrement par ce document et de toujours `git pull` avant
+de pousser.
 
 ## 6bis. Comment reprendre le fil (pour toute conversation)
 

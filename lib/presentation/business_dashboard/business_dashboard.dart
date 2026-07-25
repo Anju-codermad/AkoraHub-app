@@ -81,6 +81,11 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'route': '/order-management-real'
       },
       {
+        'icon': 'request_quote',
+        'label': 'Devis',
+        'route': '/quotes-management'
+      },
+      {
         'icon': 'person_add',
         'label': 'Add Customer',
         'route': '/customer-management-real'

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/pdf/document_pdf_generator.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'quote_thread_client.dart';
 
 /// Écran "Commandes" du client, avec deux sous-onglets : Commandes et Devis
 /// ("Mes devis" — les devis existaient déjà en base, mais n'étaient
@@ -102,6 +105,36 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
     const order = ['recue', 'en_preparation', 'expediee', 'livree'];
     final i = order.indexOf(status);
     return i < 0 ? 0 : i;
+  }
+
+  Future<void> _downloadInvoice(Map<String, dynamic> order) async {
+    try {
+      final customer = SupabaseConfig.client.auth.currentUser;
+      Map<String, dynamic>? profile;
+      if (customer != null) {
+        profile = await SupabaseConfig.client
+            .from('profiles')
+            .select()
+            .eq('id', customer.id)
+            .maybeSingle();
+      }
+      final items =
+          List<Map<String, dynamic>>.from(order['order_items'] ?? []);
+      final bytes = await DocumentPdfGenerator.build(
+        documentType: 'Facture',
+        documentNumber: order['order_number'] ?? '',
+        date: DateTime.tryParse(order['created_at'] ?? '') ?? DateTime.now(),
+        customer: profile,
+        items: items,
+        totalAmount: (order['total_amount'] ?? 0).toDouble(),
+      );
+      await Printing.layoutPdf(onLayout: (format) async => bytes);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de la génération du PDF.')),
+      );
+    }
   }
 
   void _reorder(Map<String, dynamic> order) {
@@ -202,13 +235,21 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                       backgroundColor: theme.colorScheme.errorContainer,
                     ),
                   SizedBox(height: 1.h),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () => _reorder(order),
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Recommander'),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _downloadInvoice(order),
+                        icon: const Icon(Icons.picture_as_pdf_outlined,
+                            size: 18),
+                        label: const Text('Facture PDF'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _reorder(order),
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Recommander'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -293,6 +334,36 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
     }
   }
 
+  Future<void> _downloadQuotePdf(Map<String, dynamic> quote) async {
+    try {
+      final customer = SupabaseConfig.client.auth.currentUser;
+      Map<String, dynamic>? profile;
+      if (customer != null) {
+        profile = await SupabaseConfig.client
+            .from('profiles')
+            .select()
+            .eq('id', customer.id)
+            .maybeSingle();
+      }
+      final items =
+          List<Map<String, dynamic>>.from(quote['quote_items'] ?? []);
+      final bytes = await DocumentPdfGenerator.build(
+        documentType: 'Devis',
+        documentNumber: quote['quote_number'] ?? '',
+        date: DateTime.tryParse(quote['created_at'] ?? '') ?? DateTime.now(),
+        customer: profile,
+        items: items,
+        totalAmount: (quote['total_amount'] ?? 0).toDouble(),
+      );
+      await Printing.layoutPdf(onLayout: (format) async => bytes);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de la génération du PDF.')),
+      );
+    }
+  }
+
   void _reorder(Map<String, dynamic> quote) {
     final items = List<Map<String, dynamic>>.from(quote['quote_items'] ?? []);
     for (final item in items) {
@@ -352,7 +423,17 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
               (status == 'accepte' || status == 'envoye');
 
           return Card(
-            child: Padding(
+            child: InkWell(
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuoteThreadClient(quote: quote),
+                  ),
+                );
+                _loadQuotes();
+              },
+              child: Padding(
               padding: EdgeInsets.all(3.w),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,19 +477,27 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
                       ),
                     ],
                   ),
-                  if (canReorder) ...[
-                    SizedBox(height: 1.h),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () => _reorder(quote),
-                        icon: const Icon(Icons.shopping_cart_outlined,
+                  SizedBox(height: 1.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _downloadQuotePdf(quote),
+                        icon: const Icon(Icons.picture_as_pdf_outlined,
                             size: 18),
-                        label: const Text('Commander ce devis'),
+                        label: const Text('Devis PDF'),
                       ),
-                    ),
-                  ],
+                      if (canReorder)
+                        TextButton.icon(
+                          onPressed: () => _reorder(quote),
+                          icon: const Icon(Icons.shopping_cart_outlined,
+                              size: 18),
+                          label: const Text('Commander'),
+                        ),
+                    ],
+                  ),
                 ],
+              ),
               ),
             ),
           );

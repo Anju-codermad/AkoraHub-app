@@ -3,10 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
 import 'product_variants_screen.dart';
+import 'batch_list_screen.dart';
 
 /// Gestion réelle des produits : tarification Gros/Détail par seuil de
 /// quantité, stock, et lots de production (n° lot, fabrication, DLC).
@@ -128,6 +130,8 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     final nameCtrl = TextEditingController(text: product?['name'] ?? '');
     final descCtrl =
         TextEditingController(text: product?['description'] ?? '');
+    final barcodeCtrl =
+        TextEditingController(text: product?['barcode'] ?? '');
     final priceDetailCtrl = TextEditingController(
         text: (product?['price_detail'] ?? '').toString());
     final priceGrosCtrl =
@@ -166,6 +170,7 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     }
     final List<XFile> newPhotos = [];
     final removedExistingIds = <String>{};
+    bool isSaving = false;
 
     if (!mounted) return;
     await showDialog(
@@ -187,6 +192,30 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                   controller: descCtrl,
                   maxLines: 2,
                   decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: barcodeCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Code-barre (EAN/UPC, optionnel)',
+                    helperText:
+                        'Celui deja imprime sur l\'emballage du produit',
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.qr_code_scanner),
+                      tooltip: 'Scanner le code-barre',
+                      onPressed: () async {
+                        final scanned = await Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const _BarcodeCaptureScreen(),
+                          ),
+                        );
+                        if (scanned != null) {
+                          barcodeCtrl.text = scanned;
+                        }
+                      },
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text('Photos (jusqu\'à 10, optionnel)',
@@ -368,12 +397,22 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
               child: const Text('Annuler'),
             ),
             FilledButton(
-              onPressed: () async {
+              onPressed: isSaving
+                  ? null
+                  : () async {
                 if (nameCtrl.text.trim().isEmpty) return;
+                // Verrou anti-double-clic : sans ça, un appui multiple
+                // pendant l'upload des photos (qui peut prendre plusieurs
+                // secondes) créait plusieurs produits identiques.
+                if (isSaving) return;
+                setDialogState(() => isSaving = true);
 
                 final payload = {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
+                  'barcode': barcodeCtrl.text.trim().isEmpty
+                      ? null
+                      : barcodeCtrl.text.trim(),
                   'category': selectedCategoryName ?? '',
                   'business_unit_id': selectedUnitId,
                   'price_detail':
@@ -484,12 +523,19 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                   }
                 } catch (e) {
                   if (!mounted) return;
+                  setDialogState(() => isSaving = false);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Erreur lors de l\'enregistrement.')),
                   );
                 }
               },
-              child: const Text('Enregistrer'),
+              child: isSaving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Enregistrer'),
             ),
           ],
         ),
@@ -497,105 +543,52 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     );
   }
 
-  Future<void> _addBatch(Map<String, dynamic> product) async {
-    final batchNumberCtrl = TextEditingController();
-    final quantityCtrl = TextEditingController();
-    DateTime manufactureDate = DateTime.now();
-    DateTime? expiryDate;
-
-    await showDialog(
+  Future<void> _deleteProduct(Map<String, dynamic> product) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Nouveau lot — ${product['name']}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: batchNumberCtrl,
-                decoration: const InputDecoration(labelText: 'Numéro de lot'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: quantityCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Quantité'),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                    'Fabrication : ${DateFormat('dd/MM/yyyy').format(manufactureDate)}'),
-                trailing: const Icon(Icons.calendar_today, size: 18),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: manufactureDate,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setDialogState(() => manufactureDate = picked);
-                  }
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(expiryDate == null
-                    ? 'DLC (optionnel)'
-                    : 'DLC : ${DateFormat('dd/MM/yyyy').format(expiryDate!)}'),
-                trailing: const Icon(Icons.calendar_today, size: 18),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now().add(const Duration(days: 365)),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setDialogState(() => expiryDate = picked);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                if (batchNumberCtrl.text.trim().isEmpty) return;
-                try {
-                  await SupabaseConfig.client.from('production_batches').insert({
-                    'product_id': product['id'],
-                    'batch_number': batchNumberCtrl.text.trim(),
-                    'manufacture_date':
-                        manufactureDate.toIso8601String().split('T').first,
-                    'expiry_date':
-                        expiryDate?.toIso8601String().split('T').first,
-                    'quantity': double.tryParse(quantityCtrl.text) ?? 0,
-                  });
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Lot enregistré.')),
-                  );
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Erreur lors de l\'enregistrement du lot.')),
-                  );
-                }
-              },
-              child: const Text('Enregistrer'),
-            ),
-          ],
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer ce produit ?'),
+        content: Text(
+          '"${product['name']}" sera définitivement supprimé, ainsi que ses variantes, lots et photos associés. Cette action est irréversible.',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
       ),
     );
+
+    if (confirmed != true) return;
+
+    try {
+      await SupabaseConfig.client
+          .from('products')
+          .delete()
+          .eq('id', product['id']);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Produit supprimé.')),
+      );
+      _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Erreur lors de la suppression (le produit a peut-être déjà des commandes liées).')),
+      );
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -679,30 +672,78 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.end,
                                       children: [
-                                        TextButton.icon(
-                                          onPressed: () => Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ProductVariantsScreen(
-                                                      product: p),
-                                            ),
-                                          ),
-                                          icon: const Icon(Icons.tune, size: 18),
-                                          label: const Text('Variantes'),
-                                        ),
-                                        TextButton.icon(
-                                          onPressed: () => _addBatch(p),
-                                          icon: const Icon(Icons.inventory_2_outlined,
-                                              size: 18),
-                                          label: const Text('Lot'),
-                                        ),
-                                        TextButton.icon(
+                                        FilledButton.tonalIcon(
                                           onPressed: () =>
                                               _showProductDialog(product: p),
                                           icon: const Icon(Icons.edit_outlined,
                                               size: 18),
                                           label: const Text('Modifier'),
+                                        ),
+                                        SizedBox(width: 2.w),
+                                        PopupMenuButton<String>(
+                                          icon: const Icon(Icons.more_vert),
+                                          onSelected: (value) {
+                                            if (value == 'variantes') {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ProductVariantsScreen(
+                                                          product: p),
+                                                ),
+                                              );
+                                            } else if (value == 'lot') {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      BatchListScreen(
+                                                          product: p),
+                                                ),
+                                              );
+                                            } else if (value == 'supprimer') {
+                                              _deleteProduct(p);
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'variantes',
+                                              child: Row(children: [
+                                                Icon(Icons.tune, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Variantes'),
+                                              ]),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'lot',
+                                              child: Row(children: [
+                                                Icon(
+                                                    Icons
+                                                        .inventory_2_outlined,
+                                                    size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Lots & QR code'),
+                                              ]),
+                                            ),
+                                            const PopupMenuDivider(),
+                                            PopupMenuItem(
+                                              value: 'supprimer',
+                                              child: Row(children: [
+                                                Icon(Icons.delete_outline,
+                                                    size: 18,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .error),
+                                                const SizedBox(width: 8),
+                                                Text('Supprimer',
+                                                    style: TextStyle(
+                                                        color: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .error)),
+                                              ]),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -756,6 +797,60 @@ class _PhotoThumb extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Écran plein écran minimal pour scanner un code-barre EAN/UPC et le
+/// renvoyer au formulaire produit (Navigator.pop avec la valeur lue).
+class _BarcodeCaptureScreen extends StatefulWidget {
+  const _BarcodeCaptureScreen();
+
+  @override
+  State<_BarcodeCaptureScreen> createState() => _BarcodeCaptureScreenState();
+}
+
+class _BarcodeCaptureScreenState extends State<_BarcodeCaptureScreen> {
+  bool _handled = false;
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+    final code = capture.barcodes.isNotEmpty
+        ? capture.barcodes.first.rawValue
+        : null;
+    if (code == null || code.isEmpty) return;
+    _handled = true;
+    Navigator.pop(context, code);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scanner le code-barre')),
+      body: Stack(
+        children: [
+          MobileScanner(onDetect: _onDetect),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 24,
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Text(
+                  'Visez le code-barre du produit',
+                  style: TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

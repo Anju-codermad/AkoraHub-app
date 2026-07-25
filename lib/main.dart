@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
 import '../core/app_export.dart';
+import '../core/notifications/push_notification_service.dart';
+import '../core/providers/theme_provider.dart';
 import '../core/supabase/supabase_config.dart';
 import '../widgets/custom_error_widget.dart';
 
@@ -34,6 +36,12 @@ void main() async {
   // "hors-ligne" plutôt que de planter (utile pour du dev sans backend).
   await SupabaseConfig.initialize();
 
+  // Notifications push (Firebase). Tant que google-services.json n'est
+  // pas ajouté au projet Android, Firebase.initializeApp() échoue en
+  // silence (try/catch dans le service) et l'app continue normalement
+  // sans notifications — rien ne casse en attendant.
+  await PushNotificationService.initialize();
+
   // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
   Future.wait([
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
@@ -42,15 +50,16 @@ void main() async {
   });
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     return Sizer(builder: (context, orientation, screenType) {
       return MaterialApp(
         title: 'AkoraHub',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.light,
+        themeMode: themeMode,
         // 🚨 CRITICAL: NEVER REMOVE OR MODIFY
         builder: (context, child) {
           return MediaQuery(

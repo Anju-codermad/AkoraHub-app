@@ -6,6 +6,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../../core/app_export.dart';
 import '../../../core/supabase/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 /// Business Information Section Widget
 ///
@@ -80,11 +81,11 @@ class _BusinessInformationSectionState
       try {
         final fileName =
             'logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        await SupabaseConfig.client.storage
-            .from('company')
-            .upload(fileName, File(image.path));
+        await SupabaseConfig.client.storage.from('company-logo').upload(
+            fileName, File(image.path),
+            fileOptions: const FileOptions(upsert: true));
         final publicUrl = SupabaseConfig.client.storage
-            .from('company')
+            .from('company-logo')
             .getPublicUrl(fileName);
 
         widget.businessData["logo"] = publicUrl;
@@ -104,7 +105,7 @@ class _BusinessInformationSectionState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Le logo n\'a pas pu être envoyé (le bucket Storage "company" existe-t-il ?).'),
+                  'Le logo n\'a pas pu être envoyé (le bucket Storage "company-logo" existe-t-il ?).'),
               backgroundColor: Theme.of(context).colorScheme.error,
               behavior: SnackBarBehavior.floating,
             ),

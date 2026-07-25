@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/localization/app_translations.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
@@ -37,6 +41,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   String? _clientLocation;
   int _unreadMessagesCount = 0;
   List<_ActivityItem> _activityFeed = [];
+  List<Map<String, dynamic>> _reorderSuggestions = [];
 
   final PageController _bannerController = PageController();
   int _bannerIndex = 0;
@@ -229,6 +234,56 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         // Repli silencieux : la section "Pour vous" reste vide (masquée).
       }
 
+      // Réapprovisionnement suggéré : produits commandés dans au moins 2
+      // commandes distinctes par ce client, proposés en premier sur
+      // l'Accueil. Tolérant à l'échec (section masquée si indisponible).
+      List<Map<String, dynamic>> reorderSuggestions = [];
+      if (userId != null) {
+        try {
+          final orderItemRows = await SupabaseConfig.client
+              .from('order_items')
+              .select('product_id, order_id, orders!inner(customer_id)')
+              .eq('orders.customer_id', userId);
+          final itemList = List<Map<String, dynamic>>.from(orderItemRows);
+
+          // Compte le nombre de commandes DISTINCTES contenant chaque
+          // produit (pas le nombre de lignes, pour éviter qu'une grosse
+          // quantité dans une seule commande fausse le classement).
+          final ordersByProduct = <String, Set<String>>{};
+          for (final item in itemList) {
+            final productId = item['product_id'] as String?;
+            final orderId = item['order_id'] as String?;
+            if (productId == null || orderId == null) continue;
+            ordersByProduct.putIfAbsent(productId, () => {}).add(orderId);
+          }
+          final frequentProductIds = ordersByProduct.entries
+              .where((e) => e.value.length >= 2)
+              .toList()
+            ..sort((a, b) => b.value.length.compareTo(a.value.length));
+
+          if (frequentProductIds.isNotEmpty) {
+            final topIds =
+                frequentProductIds.take(5).map((e) => e.key).toList();
+            final productRows = await SupabaseConfig.client
+                .from('products')
+                .select()
+                .inFilter('id', topIds)
+                .eq('visibility', true);
+            final productsById = {
+              for (final p in List<Map<String, dynamic>>.from(productRows))
+                p['id'] as String: p
+            };
+            // Conserve l'ordre de fréquence (le plus recommandé en premier).
+            reorderSuggestions = topIds
+                .map((id) => productsById[id])
+                .whereType<Map<String, dynamic>>()
+                .toList();
+          }
+        } catch (_) {
+          // Repli silencieux : section masquée.
+        }
+      }
+
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
         _products = List<Map<String, dynamic>>.from(results[1] as List);
@@ -238,14 +293,75 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _promoSlides = loadedSlides;
         _unreadMessagesCount = unreadMessages;
         _activityFeed = activityFeed;
+        _reorderSuggestions = reorderSuggestions;
         _inactiveCategoryNames = inactiveCategoryNames;
         _isLoading = false;
       });
+
+      // Sauvegarde locale du catalogue pour consultation hors-ligne — le
+      // panier et les commandes restent utilisables sans réseau grâce à
+      // ce cache, même si le reste (mur, messages, suggestions) ne l'est
+      // pas (moins critique, pas mis en cache).
+      _cacheCatalogOffline();
     } catch (e) {
+      final cached = await _loadCatalogFromCache();
+      if (cached) {
+        setState(() => _isLoading = false);
+      } else {
+        setState(() {
+          _isLoading = false;
+          _error = 'Impossible de charger le catalogue.';
+        });
+      }
+    }
+  }
+
+  static const _offlineCacheKey = 'offline_catalog_cache';
+
+  Future<void> _cacheCatalogOffline() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _offlineCacheKey,
+        jsonEncode({
+          'businessUnits': _businessUnits,
+          'products': _products,
+          'cachedAt': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (_) {
+      // Pas grave si le cache échoue (ex: stockage plein) — l'app reste
+      // utilisable en ligne, juste pas de repli hors-ligne cette fois.
+    }
+  }
+
+  /// Retourne `true` si un catalogue en cache a bien été chargé (hors-ligne).
+  Future<bool> _loadCatalogFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_offlineCacheKey);
+      if (raw == null) return false;
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final cachedAt = DateTime.tryParse(decoded['cachedAt'] ?? '');
       setState(() {
-        _isLoading = false;
-        _error = 'Impossible de charger le catalogue.';
+        _businessUnits =
+            List<Map<String, dynamic>>.from(decoded['businessUnits'] ?? []);
+        _products = List<Map<String, dynamic>>.from(decoded['products'] ?? []);
       });
+      if (mounted && cachedAt != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Hors-ligne — catalogue affiché tel que vu le ${DateFormat('dd/MM à HH:mm').format(cachedAt)}.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      return _products.isNotEmpty || _businessUnits.isNotEmpty;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -509,7 +625,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 1.h),
               child: TextField(
                 decoration: InputDecoration(
-                  hintText: 'Rechercher un produit...',
+                  hintText: ref.tr('search_hint'),
                   prefixIcon: const Icon(Icons.search),
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest
@@ -560,7 +676,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                 image: NetworkImage(slide.imageUrl!),
                                 fit: BoxFit.cover,
                                 colorFilter: ColorFilter.mode(
-                                  Colors.black.withValues(alpha: 0.25),
+                                  Colors.black.withValues(alpha: 0.45),
                                   BlendMode.darken,
                                 ),
                               )
@@ -580,6 +696,15 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                     color: theme.colorScheme.onPrimary,
                                     fontWeight: FontWeight.w700,
                                     height: 1.2,
+                                    shadows: hasImage
+                                        ? const [
+                                            Shadow(
+                                              color: Colors.black54,
+                                              blurRadius: 6,
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ]
+                                        : null,
                                   ),
                                 ),
                                 SizedBox(height: 0.5.h),
@@ -588,6 +713,15 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onPrimary
                                         .withValues(alpha: 0.85),
+                                    shadows: hasImage
+                                        ? const [
+                                            Shadow(
+                                              color: Colors.black54,
+                                              blurRadius: 6,
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ]
+                                        : null,
                                   ),
                                 ),
                               ],
@@ -632,6 +766,57 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             ),
           ),
 
+          // --- Réapprovisionnement suggéré : produits commandés dans au
+          // moins 2 commandes distinctes par ce client (voir _loadData).
+          // Masqué si vide ou si le client n'a pas encore assez d'historique.
+          if (_reorderSuggestions.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
+                child: Text('Vous recommandez souvent',
+                    style: theme.textTheme.titleMedium),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 26.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  itemCount: _reorderSuggestions.length,
+                  itemBuilder: (context, index) {
+                    final p = _reorderSuggestions[index];
+                    return Padding(
+                      padding: EdgeInsets.only(right: 3.w),
+                      child: SizedBox(
+                        width: 38.w,
+                        child: _ProductCard(
+                          product: p,
+                          currency: _currency,
+                          isFavorite:
+                              ref.watch(favoritesProvider).contains(p['id']),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ProductDetailClient(product: p),
+                              ),
+                            );
+                          },
+                          onQuickAdd: () => _quickAddToCart(p),
+                          onToggleFavorite: () => ref
+                              .read(favoritesProvider.notifier)
+                              .toggle(p['id']),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+
           // --- "Pour vous" : fil d'activité mélangeant Mur + nouveaux
           // produits (23/07). Masqué si vide (repli silencieux en cas
           // d'échec de chargement — voir _loadData). ---
@@ -642,7 +827,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Pour vous', style: theme.textTheme.titleMedium),
+                    Text(ref.tr('for_you'), style: theme.textTheme.titleMedium),
                     TextButton(
                       onPressed: () => Navigator.push(
                         context,
@@ -793,7 +978,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Nos activités', style: theme.textTheme.titleMedium),
+                    Text(ref.tr('our_activities'), style: theme.textTheme.titleMedium),
                     if (_selectedUnitId != null)
                       TextButton(
                         onPressed: () => setState(() {
@@ -879,7 +1064,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: const Text('Toutes catégories'),
+                        label: Text(ref.tr('all_categories')),
                         selected: _selectedCategory == 'toutes',
                         onSelected: (_) =>
                             setState(() => _selectedCategory = 'toutes'),
@@ -903,7 +1088,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
-              child: Text('Produits', style: theme.textTheme.titleMedium),
+              child: Text(ref.tr('products'), style: theme.textTheme.titleMedium),
             ),
           ),
           _filteredProducts.isEmpty
@@ -1024,10 +1209,18 @@ class _ProductCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.12),
+              color: theme.colorScheme.outline.withValues(alpha: 0.25),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.shadow.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
