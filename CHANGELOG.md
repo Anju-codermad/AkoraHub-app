@@ -149,3 +149,6 @@
 
 ## 2026-07-25 02:39 UTC — Claude
 - docs: consigner le bug share_plus (version incompatible) et son correctif (`ce2e8d5`)
+
+## 2026-07-25 02:43 UTC — Claude
+- Backend/Infra: script SQL des 3 nouveaux piliers (Matières Premières, Anti-Nuisibles, Matières Premières Peinture) + catégories, créés désactivés (`9dd14ec`)
