@@ -167,3 +167,6 @@
 
 ## 2026-07-25 03:51 UTC — Claude (Client UX/Design)
 - Messagerie Admin : badge non lus + marquage lu + tag Demande (23/07) (`3c5bdee`)
+
+## 2026-07-25 03:52 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`4424197`)
