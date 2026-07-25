@@ -128,8 +128,7 @@ progressivement avec un vrai backend Supabase.
   si non favori, pleine `star` ambre si favori — style demandé par
   l'utilisateur) sur les cartes produit de l'Accueil et sur la fiche
   produit. Nouvelle table `favorites` (`supabase/phase7_patch_favorites.sql`,
-  **à exécuter par l'utilisateur** — sans elle la liste reste vide
-  silencieusement, sans erreur visible). Écran "Mes favoris" accessible
+  **exécuté avec succès par l'utilisateur le 25/07**). Écran "Mes favoris" accessible
   depuis le Profil, avec bouton "Tout ajouter" au panier. Provider
   volontairement placé dans `client_home/` (pas `lib/core/providers/`) pour
   respecter le périmètre Client UX (section 7).
@@ -266,8 +265,8 @@ progressivement avec un vrai backend Supabase.
 
 ### Phase 8 — Photos produit (jusqu'à 10 par produit)
 - Table `product_images` + bucket Storage `products`
-  (`supabase/phase8_patch_product_images.sql`, **script prêt, pas encore
-  exécuté par l'utilisateur**) : `products.image_url` existait depuis la
+  (`supabase/phase8_patch_product_images.sql`, **exécuté avec succès par
+  l'utilisateur le 25/07**) : `products.image_url` existait depuis la
   Phase 1 mais n'était branché nulle part (ni upload, ni affichage) —
   l'utilisateur l'a remarqué en testant la saisie de produits. Nouvelle
   table `product_images` (product_id, image_url, position) pour une
@@ -295,11 +294,8 @@ progressivement avec un vrai backend Supabase.
   (`PageView`) sur la galerie complète (`product_images`) si plusieurs
   photos, sinon couverture unique, sinon icône — avec indicateurs de
   pagination (points) si plus d'une photo.
-- **Reste à faire** : l'utilisateur doit exécuter
-  `phase8_patch_product_images.sql` dans Supabase pour que l'upload
-  fonctionne (tant que ce n'est pas fait, le formulaire produit affiche le
-  sélecteur de photos mais l'enregistrement des photos échoue
-  silencieusement avec le message ci-dessus, sans bloquer le reste).
+- **✅ Fait (25/07)** : script exécuté avec succès, l'upload/affichage des
+  photos produit est maintenant pleinement fonctionnel des deux côtés.
 
 ### Phase 9 — Activer / désactiver une catégorie (exécuté avec succès le 25/07)
 - Contexte : les piliers (business_units) avaient déjà un champ `active` +
@@ -445,7 +441,7 @@ commencée sauf mention contraire :
      serait jamais redescendu à zéro.
   3. **Profils clients publics légers** : nouvelle vue SQL
      `public_profiles` (`supabase/phase9_patch_public_profiles.sql`,
-     **utilisateur doit l'exécuter**, id/full_name/company_name/
+     **exécuté avec succès par l'utilisateur le 25/07**), id/full_name/company_name/
      client_type/avatar_url uniquement) + `PublicProfilesRepo` +
      `PublicProfileScreen` (`client_home/community/`). **Bug réel
      corrigé au passage** : la RLS de `profiles` limite la lecture à sa
