@@ -223,28 +223,80 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$provider login will be implemented with native SDKs'),
+        content: Text(
+            'Connexion $provider bientôt disponible. Utilisez votre email pour l\'instant.'),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  void _handleForgotPassword() {
+  Future<void> _handleForgotPassword() async {
     HapticFeedback.selectionClick();
 
-    showDialog(
+    final controller =
+        TextEditingController(text: _emailController.text.trim());
+
+    final email = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(_currentTranslations['forgot_password']!),
-        content: Text('Password reset functionality will be implemented'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Entrez votre email — nous vous enverrons un lien pour réinitialiser votre mot de passe.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Envoyer'),
           ),
         ],
       ),
     );
+
+    if (email == null || email.isEmpty || !mounted) return;
+
+    if (!SupabaseConfig.isConfigured) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Connexion au serveur indisponible. Réessayez.')),
+      );
+      return;
+    }
+
+    try {
+      await SupabaseConfig.client.auth.resetPasswordForEmail(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Un email a été envoyé à $email avec les instructions de réinitialisation.'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Erreur lors de l\'envoi. Vérifiez l\'adresse email.')),
+      );
+    }
   }
 
   void _handleRegister() {
