@@ -173,3 +173,6 @@
 
 ## 2026-07-25 03:56 UTC — Claude (Client UX/Design)
 - docs: marquer les migrations phase9 (categories active) et phase10 (3 nouveaux piliers) comme executees le 25/07 (`0074cb3`)
+
+## 2026-07-25 07:48 UTC — Anju-codermad
+- Backend/Infra: allow staff to manually update order payment status (cash, direct Mobile Money, 30-day invoice) while real gateway pending (`175cc51`)
