@@ -221,3 +221,6 @@
 
 ## 2026-07-25 12:40 UTC — Anju-codermad
 - Feature 3/4 (Mode hors-ligne): offline catalog caching (SharedPreferences), offline cart + queued order/quote submission (auto-sync on reconnect), visual offline banner (`08f196e`)
+
+## 2026-07-25 13:08 UTC — Anju-codermad
+- Feature 4/4 (Notifications push) part 1: FCM client-side infrastructure (token registration, foreground handling) - waiting on user's google-services.json before enabling native Android integration (`93a597c`)
