@@ -576,6 +576,20 @@ commande (espèces/Mobile Money direct/facture 30j) depuis
 utilisateur : ne pas bloquer le développement des fonctionnalités en
 attendant le dossier marchand.
 
+**Mise à jour (25/07)** : la réponse à un devis n'est plus un aller simple
+(un seul montant figé). Nouvelle table `quote_messages` (fil de
+négociation par devis, schéma `supabase/phase11_schema.sql`, **exécuté
+avec succès**) : le staff propose un montant + message depuis l'écran
+Admin (nouveau `_QuoteThreadScreen`, ouvert en tapant un devis dans
+`quotes_management.dart`), le client voit chaque proposition côté
+`client_home/quote_thread_client.dart` (accessible en tapant une carte de
+devis dans l'onglet Devis de `orders_tab.dart` — léger ajout coordonné,
+juste un `InkWell` autour de la carte existante) et peut **Accepter**/
+**Refuser** directement ou **reproposer un autre montant** avec un
+message si le prix ne convient pas (repasse alors automatiquement le
+devis en statut "En attente" pour signaler au staff qu'une réponse est
+attendue).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
