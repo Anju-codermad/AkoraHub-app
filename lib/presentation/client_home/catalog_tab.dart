@@ -1145,10 +1145,18 @@ class _ProductCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.12),
+              color: theme.colorScheme.outline.withValues(alpha: 0.25),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.shadow.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
