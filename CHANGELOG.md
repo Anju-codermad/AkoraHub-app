@@ -191,3 +191,6 @@
 
 ## 2026-07-25 09:25 UTC — Anju-codermad
 - Strengthen product card border/shadow for consistent visual boundaries during image loading (`cf9ed31`)
+
+## 2026-07-25 10:33 UTC — Anju-codermad
+- Feature: dark mode toggle (client Profile + Admin settings), persisted preference (`50590de`)
