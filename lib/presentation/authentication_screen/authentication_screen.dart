@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../core/supabase/auth_helpers.dart';
 import './widgets/app_logo_widget.dart';
@@ -190,6 +191,11 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     if (errorMessage == null) {
       // Haptic feedback on success
       HapticFeedback.mediumImpact();
+
+      // Associe le token FCM de cet appareil au compte qui vient de se
+      // connecter (sinon les notifications resteraient liées au compte
+      // précédent utilisé sur ce même téléphone, le cas échéant).
+      PushNotificationService.onUserSignedIn();
 
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(

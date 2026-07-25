@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Écran d'inscription pour les clients (hôtel, hôpital, entreprise, particulier).
@@ -108,6 +109,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+
+      PushNotificationService.onUserSignedIn();
 
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;

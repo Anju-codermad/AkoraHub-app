@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
 import '../core/app_export.dart';
+import '../core/notifications/push_notification_service.dart';
 import '../core/providers/theme_provider.dart';
 import '../core/supabase/supabase_config.dart';
 import '../widgets/custom_error_widget.dart';
@@ -34,6 +35,12 @@ void main() async {
   // Si env.json est absent/incomplet, l'app démarre quand même en mode
   // "hors-ligne" plutôt que de planter (utile pour du dev sans backend).
   await SupabaseConfig.initialize();
+
+  // Notifications push (Firebase). Tant que google-services.json n'est
+  // pas ajouté au projet Android, Firebase.initializeApp() échoue en
+  // silence (try/catch dans le service) et l'app continue normalement
+  // sans notifications — rien ne casse en attendant.
+  await PushNotificationService.initialize();
 
   // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
   Future.wait([
