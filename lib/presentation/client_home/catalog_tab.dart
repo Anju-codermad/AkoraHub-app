@@ -37,6 +37,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   String? _clientLocation;
   int _unreadMessagesCount = 0;
   List<_ActivityItem> _activityFeed = [];
+  List<Map<String, dynamic>> _reorderSuggestions = [];
 
   final PageController _bannerController = PageController();
   int _bannerIndex = 0;
@@ -229,6 +230,56 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         // Repli silencieux : la section "Pour vous" reste vide (masquée).
       }
 
+      // Réapprovisionnement suggéré : produits commandés dans au moins 2
+      // commandes distinctes par ce client, proposés en premier sur
+      // l'Accueil. Tolérant à l'échec (section masquée si indisponible).
+      List<Map<String, dynamic>> reorderSuggestions = [];
+      if (userId != null) {
+        try {
+          final orderItemRows = await SupabaseConfig.client
+              .from('order_items')
+              .select('product_id, order_id, orders!inner(customer_id)')
+              .eq('orders.customer_id', userId);
+          final itemList = List<Map<String, dynamic>>.from(orderItemRows);
+
+          // Compte le nombre de commandes DISTINCTES contenant chaque
+          // produit (pas le nombre de lignes, pour éviter qu'une grosse
+          // quantité dans une seule commande fausse le classement).
+          final ordersByProduct = <String, Set<String>>{};
+          for (final item in itemList) {
+            final productId = item['product_id'] as String?;
+            final orderId = item['order_id'] as String?;
+            if (productId == null || orderId == null) continue;
+            ordersByProduct.putIfAbsent(productId, () => {}).add(orderId);
+          }
+          final frequentProductIds = ordersByProduct.entries
+              .where((e) => e.value.length >= 2)
+              .toList()
+            ..sort((a, b) => b.value.length.compareTo(a.value.length));
+
+          if (frequentProductIds.isNotEmpty) {
+            final topIds =
+                frequentProductIds.take(5).map((e) => e.key).toList();
+            final productRows = await SupabaseConfig.client
+                .from('products')
+                .select()
+                .inFilter('id', topIds)
+                .eq('visibility', true);
+            final productsById = {
+              for (final p in List<Map<String, dynamic>>.from(productRows))
+                p['id'] as String: p
+            };
+            // Conserve l'ordre de fréquence (le plus recommandé en premier).
+            reorderSuggestions = topIds
+                .map((id) => productsById[id])
+                .whereType<Map<String, dynamic>>()
+                .toList();
+          }
+        } catch (_) {
+          // Repli silencieux : section masquée.
+        }
+      }
+
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
         _products = List<Map<String, dynamic>>.from(results[1] as List);
@@ -238,6 +289,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _promoSlides = loadedSlides;
         _unreadMessagesCount = unreadMessages;
         _activityFeed = activityFeed;
+        _reorderSuggestions = reorderSuggestions;
         _inactiveCategoryNames = inactiveCategoryNames;
         _isLoading = false;
       });
@@ -631,6 +683,57 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
           ),
+
+          // --- Réapprovisionnement suggéré : produits commandés dans au
+          // moins 2 commandes distinctes par ce client (voir _loadData).
+          // Masqué si vide ou si le client n'a pas encore assez d'historique.
+          if (_reorderSuggestions.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
+                child: Text('Vous recommandez souvent',
+                    style: theme.textTheme.titleMedium),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 26.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  itemCount: _reorderSuggestions.length,
+                  itemBuilder: (context, index) {
+                    final p = _reorderSuggestions[index];
+                    return Padding(
+                      padding: EdgeInsets.only(right: 3.w),
+                      child: SizedBox(
+                        width: 38.w,
+                        child: _ProductCard(
+                          product: p,
+                          currency: _currency,
+                          isFavorite:
+                              ref.watch(favoritesProvider).contains(p['id']),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ProductDetailClient(product: p),
+                              ),
+                            );
+                          },
+                          onQuickAdd: () => _quickAddToCart(p),
+                          onToggleFavorite: () => ref
+                              .read(favoritesProvider.notifier)
+                              .toggle(p['id']),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
 
           // --- "Pour vous" : fil d'activité mélangeant Mur + nouveaux
           // produits (23/07). Masqué si vide (repli silencieux en cas
