@@ -822,6 +822,28 @@ client posée en attendant le fichier de config.
      Paramètres du projet → Comptes de service, une fois l'étape 1-3
      confirmée fonctionnelle.
 
+## 3quindecies. Icône réelle de l'application (25/07) ✅ FAIT
+
+Logo final (généré via ChatGPT après plusieurs itérations, voir
+historique de conversation) intégré à la place de l'icône Flutter par
+défaut : "A" vert `#085041` en dégradé transformé en chariot, 2 formes
+géométriques (rectangle orange, cylindre bleu marine) à l'intérieur.
+- **Android** : toutes les densités remplacées
+  (`android/app/src/main/res/mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png`).
+  Pas d'icône adaptative (`mipmap-anydpi-v26`) sur ce projet — uniquement
+  des PNG legacy par densité, donc pas de config supplémentaire
+  nécessaire au-delà du remplacement des fichiers.
+- **iOS** : les 15 tailles de `ios/Runner/Assets.xcassets/AppIcon.appiconset/`
+  remplacées (20x20 à 1024x1024).
+- **Web** : `web/favicon.png` + `web/icons/Icon-{192,512}.png` et
+  variantes "maskable" remplacées.
+- `store_assets/play_store_icon_512.png` : version 512×512 conservée à
+  part pour la future fiche Google Play Store (section 3sexies, point 2).
+- Génération faite avec Pillow (redimensionnement direct depuis le PNG
+  1254×1254 fourni par l'utilisateur, `Image.LANCZOS`) — pas de package
+  `flutter_launcher_icons` utilisé (plus simple d'agir directement sur les
+  fichiers pour un remplacement ponctuel).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
@@ -844,8 +866,6 @@ client posée en attendant le fichier de config.
   existe mais son statut "marchand" n'est pas confirmé ; piste retenue :
   Papi, papi.mg, qui unifie MVola/Orange Money/Airtel Money/Visa — voir
   historique de conversation pour le détail des échanges avec ce prestataire)
-- Icône et splash screen personnalisés (nom "AkoraHub" appliqué, mais pas de
-  logo graphique custom pour l'instant)
 
 ## 5. Conventions et pièges à connaître
 
