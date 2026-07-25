@@ -612,7 +612,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                 image: NetworkImage(slide.imageUrl!),
                                 fit: BoxFit.cover,
                                 colorFilter: ColorFilter.mode(
-                                  Colors.black.withValues(alpha: 0.25),
+                                  Colors.black.withValues(alpha: 0.45),
                                   BlendMode.darken,
                                 ),
                               )
@@ -632,6 +632,15 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                     color: theme.colorScheme.onPrimary,
                                     fontWeight: FontWeight.w700,
                                     height: 1.2,
+                                    shadows: hasImage
+                                        ? const [
+                                            Shadow(
+                                              color: Colors.black54,
+                                              blurRadius: 6,
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ]
+                                        : null,
                                   ),
                                 ),
                                 SizedBox(height: 0.5.h),
@@ -640,6 +649,15 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onPrimary
                                         .withValues(alpha: 0.85),
+                                    shadows: hasImage
+                                        ? const [
+                                            Shadow(
+                                              color: Colors.black54,
+                                              blurRadius: 6,
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ]
+                                        : null,
                                   ),
                                 ),
                               ],
