@@ -242,3 +242,6 @@
 
 ## 2026-07-25 16:42 UTC — Anju-codermad
 - Feature: extend push notifications to order shipped/delivered and quote accepted/refused (`26782e2`)
+
+## 2026-07-25 18:53 UTC — Claude
+- merge: intégrer les changements distants avant push des correctifs profil entreprise (`7a73420`)
