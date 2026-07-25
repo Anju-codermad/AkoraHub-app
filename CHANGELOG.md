@@ -188,3 +188,6 @@
 
 ## 2026-07-25 09:13 UTC — Anju-codermad
 - Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`9a25ec2`)
+
+## 2026-07-25 09:25 UTC — Anju-codermad
+- Strengthen product card border/shadow for consistent visual boundaries during image loading (`cf9ed31`)
