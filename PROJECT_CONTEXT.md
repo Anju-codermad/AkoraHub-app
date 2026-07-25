@@ -726,6 +726,53 @@ l'écran concerné. Le premier passage ci-dessus (nav du bas + en-têtes
 Accueil) a été fait avant cette clarification — ne pas continuer au-delà
 sans qu'on le demande précisément.
 
+## 3terdecies. Mode hors-ligne (25/07) ✅ FAIT
+
+3ᵉ des 4 chantiers (voir 3undecies/3duodecies pour les précédents).
+Portée volontairement réaliste — discutée et validée explicitement avec
+l'utilisateur avant de coder (un mode hors-ligne complet type
+"édition collaborative avec résolution de conflits" serait un chantier
+de plusieurs semaines, hors de portée) :
+- Catalogue consultable hors-ligne (lecture seule)
+- Panier composable hors-ligne (déjà le cas nativement, Riverpod = état
+  local, aucun réseau nécessaire pour ajouter au panier)
+- Commande/devis en file d'attente locale si pas de réseau au moment de
+  valider, **envoi automatique dès le retour de connexion**
+- Bannière visuelle "Mode hors-ligne" quand il n'y a pas de réseau
+- **Hors périmètre, assumé** : Mur, messagerie, devis en négociation
+  restent en ligne uniquement (pas de sens hors-ligne) ; rien côté Admin
+  (généralement utilisé au bureau avec Wi-Fi).
+
+Détails techniques :
+- `lib/core/offline/connectivity_provider.dart` : `connectivityProvider`
+  (StreamProvider basé sur `connectivity_plus`, déjà présent au
+  `pubspec.yaml`) + `isCurrentlyOnline()` pour une vérification ponctuelle.
+- `lib/core/offline/offline_order_queue.dart` : `OfflineOrderQueue`,
+  file d'attente en JSON via `SharedPreferences` (clé
+  `offline_pending_orders`). `enqueue()` pour mettre en attente,
+  `trySync()` pour tenter l'envoi de tout ce qui est en attente (chaque
+  élément réussi est retiré, les échecs restent pour la prochaine
+  tentative).
+- `client_home/cart_tab.dart` (`_submit`) : vérifie `isCurrentlyOnline()`
+  avant de tenter l'appel réseau — si hors-ligne, met directement en
+  file d'attente au lieu d'échouer, vide quand même le panier, message
+  clair à l'utilisateur.
+- `client_home/client_home.dart` : `OfflineOrderQueue.trySync()` appelé
+  à l'ouverture de l'app (`initState`) et à chaque transition hors-ligne
+  → en ligne détectée via `connectivityProvider` (détection par
+  comparaison avec l'état précédent, champ `_wasOnline`) ; bannière
+  orange affichée en haut de l'écran quand `isOnline == false`.
+- `client_home/catalog_tab.dart` (`_loadData`) : catalogue mis en cache
+  (JSON, `SharedPreferences`, clé `offline_catalog_cache`) à chaque
+  chargement réussi ; en cas d'échec réseau, repli automatique sur ce
+  cache avec message indiquant la date des données affichées.
+- **Reste à faire / limites connues** : pas de gestion de conflit (non
+  nécessaire ici, chaque client ne crée que ses propres commandes) ; les
+  photos produit ne sont pas mises en cache (seuls les champs texte/prix
+  le sont — les images restent chargées à la demande via le réseau,
+  échouent silencieusement si hors-ligne, ce qui est un compromis
+  acceptable pour l'instant).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
