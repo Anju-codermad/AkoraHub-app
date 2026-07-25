@@ -14,6 +14,7 @@ class MessagingCenterReal extends StatefulWidget {
 
 class _MessagingCenterRealState extends State<MessagingCenterReal> {
   List<Map<String, dynamic>> _conversations = [];
+  Map<String, int> _unreadCounts = {};
   bool _isLoading = true;
   String? _error;
 
@@ -40,8 +41,29 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
           .from('conversations')
           .select('*, profiles(full_name, company_name, client_type)')
           .order('last_message_at', ascending: false);
+
+      // Badge de messages non lus par conversation (23/07) : un seul
+      // aller-retour groupant tous les messages client non lus, plutôt
+      // qu'une requête par conversation.
+      Map<String, int> unread = {};
+      try {
+        final unreadMessages = await SupabaseConfig.client
+            .from('messages')
+            .select('conversation_id')
+            .eq('sender_role', 'client')
+            .eq('read_by_staff', false);
+        for (final m in List<Map<String, dynamic>>.from(unreadMessages)) {
+          final convId = m['conversation_id'] as String;
+          unread[convId] = (unread[convId] ?? 0) + 1;
+        }
+      } catch (_) {
+        // Repli silencieux : les badges restent à 0, la liste reste
+        // utilisable.
+      }
+
       setState(() {
         _conversations = List<Map<String, dynamic>>.from(data);
+        _unreadCounts = unread;
         _isLoading = false;
       });
     } catch (e) {
@@ -86,6 +108,7 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
                                     profile['full_name'] ??
                                     'Client')
                                 : 'Client';
+                            final unread = _unreadCounts[c['id']] ?? 0;
                             return ListTile(
                               leading: CircleAvatar(
                                 child: Text(
@@ -94,10 +117,21 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
                                       : '?',
                                 ),
                               ),
-                              title: Text(name),
+                              title: Text(
+                                name,
+                                style: unread > 0
+                                    ? const TextStyle(
+                                        fontWeight: FontWeight.w700)
+                                    : null,
+                              ),
                               subtitle: Text(
                                 'Dernier message : ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(c['last_message_at']))}',
                               ),
+                              trailing: unread > 0
+                                  ? Badge(
+                                      label: Text('$unread'),
+                                    )
+                                  : null,
                               onTap: () async {
                                 await Navigator.push(
                                   context,
@@ -172,6 +206,19 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
               .jumpTo(_scrollController.position.maxScrollExtent);
         }
       });
+
+      // Marque les messages du client comme lus à l'ouverture — sans quoi
+      // le badge de la liste des conversations ne redescendrait jamais.
+      try {
+        await SupabaseConfig.client
+            .from('messages')
+            .update({'read_by_staff': true})
+            .eq('conversation_id', widget.conversationId)
+            .eq('sender_role', 'client')
+            .eq('read_by_staff', false);
+      } catch (_) {
+        // Non bloquant.
+      }
     } catch (_) {
       setState(() => _isLoading = false);
     }
@@ -221,6 +268,7 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
                     itemBuilder: (context, index) {
                       final m = _messages[index];
                       final isMine = m['sender_id'] == _myId;
+                      final isRequest = m['is_request'] == true;
                       return Align(
                         alignment: isMine
                             ? Alignment.centerRight
@@ -238,13 +286,40 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
                                 : theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Text(
-                            m['content'] ?? '',
-                            style: TextStyle(
-                              color: isMine
-                                  ? theme.colorScheme.onPrimary
-                                  : theme.colorScheme.onSurface,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (isRequest)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Chip(
+                                    visualDensity: VisualDensity.compact,
+                                    label: const Text('Demande'),
+                                    labelStyle: theme.textTheme.labelSmall
+                                        ?.copyWith(
+                                      color: isMine
+                                          ? theme.colorScheme.primary
+                                          : theme
+                                              .colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    backgroundColor: isMine
+                                        ? Colors.white
+                                        : theme.colorScheme.surface,
+                                    side: BorderSide.none,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              Text(
+                                m['content'] ?? '',
+                                style: TextStyle(
+                                  color: isMine
+                                      ? theme.colorScheme.onPrimary
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
