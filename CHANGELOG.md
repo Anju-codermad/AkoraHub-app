@@ -236,3 +236,6 @@
 
 ## 2026-07-25 14:12 UTC — Anju-codermad
 - docs: confirm google-services.json received and wired via GitHub secret (`839640d`)
+
+## 2026-07-25 14:40 UTC — Anju-codermad
+- Feature: real push notification sending via Supabase Edge Function + FCM (new message, quote response), triggered by pg_net Postgres trigger (`10385ff`)
