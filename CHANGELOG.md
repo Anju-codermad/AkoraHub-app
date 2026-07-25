@@ -215,3 +215,6 @@
 
 ## 2026-07-25 12:09 UTC — Anju-codermad
 - Feature 1/4 (Client PDF): real company logo upload/storage + downloadable invoice/quote PDFs with logo for client (orders_tab.dart) (`6f15f85`)
+
+## 2026-07-25 12:22 UTC — Anju-codermad
+- Feature 2/4 (Multi-langue): FR/MG translation system infrastructure + language selector in Profile + apply to bottom nav and main catalog headers (first pass, more screens to come incrementally) (`32c3d93`)
