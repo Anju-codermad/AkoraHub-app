@@ -326,6 +326,30 @@ progressivement avec un vrai backend Supabase.
 - **Reste à faire** : exécuter `phase9_patch_categories_active.sql` dans
   Supabase.
 
+## 3quinquies. Bug de build résolu (25/07) : version share_plus incompatible
+
+Après l'ajout de "Réseau social client" (commit 35c3a9e), **tous les builds
+GitHub Actions échouaient** (APK et AAB), du 23/07 au 25/07 — plusieurs
+commits successifs (nettoyage Rocket.new, correctif onboarding, doc) ont
+été poussés par-dessus sans que personne ne remarque que le build était
+cassé depuis le commit du réseau social lui-même.
+
+**Cause** : `pubspec.yaml` fixait `share_plus: ^10.1.4`, mais le code
+utilisait l'API `SharePlus.instance.share(ShareParams(...))`, introduite
+seulement en **share_plus v11+**. En v10.x, cette classe n'existe pas →
+erreur de compilation `The getter 'SharePlus' isn't defined`.
+
+**Correctif** : `share_plus` remonté à `^12.0.2` (dernière version stable
+au moment du correctif). Build APK + AAB confirmés verts après correction.
+
+**Leçon pour les prochaines sessions** : après avoir ajouté un nouveau
+package à `pubspec.yaml`, vérifier que la contrainte de version choisie
+correspond bien à l'API réellement utilisée dans le code (surtout pour un
+package dont l'API a changé entre versions majeures) — et si possible,
+attendre la confirmation d'un build GitHub Actions vert avant d'enchaîner
+plusieurs commits par-dessus, pour repérer une régression tout de suite
+plutôt que plusieurs commits plus tard.
+
 ## 3quater. Nettoyage traces Rocket.new (23/07, fait)
 
 L'utilisateur a demandé une vérification complète des traces de
