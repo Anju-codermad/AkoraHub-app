@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/localization/app_translations.dart';
+import '../../core/offline/connectivity_provider.dart';
+import '../../core/offline/offline_order_queue.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'cart_tab.dart';
 import 'catalog_tab.dart';
@@ -26,6 +28,17 @@ class ClientHome extends ConsumerStatefulWidget {
 class _ClientHomeState extends ConsumerState<ClientHome> {
   // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil
   int _currentIndex = 0;
+  bool? _wasOnline;
+
+  @override
+  void initState() {
+    super.initState();
+    // Tente d'envoyer les commandes/devis en attente dès l'ouverture de
+    // l'app (utile si la connexion est revenue pendant que l'app était
+    // fermée) — le listener de connectivité ci-dessous prend le relais
+    // pour les changements pendant que l'app est ouverte.
+    OfflineOrderQueue.trySync();
+  }
 
   Future<void> _handleLogout() async {
     if (SupabaseConfig.isConfigured) {
@@ -55,6 +68,29 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       ProfileTab(onLogout: _handleLogout),
     ];
 
+    final connectivity = ref.watch(connectivityProvider);
+    final isOnline = connectivity.value ?? true;
+
+    // Dès qu'on repasse en ligne (après avoir été hors-ligne), on tente
+    // d'envoyer automatiquement les commandes/devis en attente.
+    if (_wasOnline == false && isOnline) {
+      OfflineOrderQueue.trySync().then((sentCount) {
+        if (sentCount > 0 && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                sentCount == 1
+                    ? '1 commande en attente a été envoyée.'
+                    : '$sentCount commandes en attente ont été envoyées.',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      });
+    }
+    _wasOnline = isOnline;
+
     return Scaffold(
       appBar: _currentIndex == 0
           ? null
@@ -66,7 +102,30 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       // de l'heure/batterie/réseau du système.
       body: SafeArea(
         bottom: false,
-        child: pages[_currentIndex],
+        child: Column(
+          children: [
+            if (!isOnline)
+              Container(
+                width: double.infinity,
+                color: Colors.orange.shade700,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.cloud_off, color: Colors.white, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'Mode hors-ligne — vos commandes seront envoyées dès le retour du réseau',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(child: pages[_currentIndex]),
+          ],
+        ),
       ),
       bottomNavigationBar: _ClientBottomNav(
         currentIndex: _currentIndex,

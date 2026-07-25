@@ -5,6 +5,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/offline/connectivity_provider.dart';
+import '../../core/offline/offline_order_queue.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'delivery_pricing.dart';
@@ -145,9 +147,83 @@ class _CartTabState extends ConsumerState<CartTab> {
 
     setState(() => _isSubmitting = true);
 
-    try {
-      final total = ref.read(cartProvider.notifier).total;
+    final total = ref.read(cartProvider.notifier).total;
+    final online = await isCurrentlyOnline();
 
+    // Hors-ligne : on ne tente même pas l'appel réseau, on met
+    // directement en file d'attente locale pour un envoi automatique dès
+    // que la connexion revient (voir OfflineOrderQueue.trySync, déclenché
+    // par le listener de connectivité dans client_home.dart).
+    if (!online) {
+      try {
+        if (asQuote) {
+          await OfflineOrderQueue.enqueue(
+            type: 'quote',
+            payload: {
+              'header': {
+                'quote_number': _generateNumber('DEV'),
+                'customer_id': userId,
+                'total_amount': total,
+              },
+              'items': cart
+                  .map((item) => {
+                        'product_id': item.productId,
+                        'product_name': item.name,
+                        'quantity': item.quantity,
+                        'unit_price': item.unitPrice,
+                      })
+                  .toList(),
+            },
+          );
+        } else {
+          await OfflineOrderQueue.enqueue(
+            type: 'order',
+            payload: {
+              'header': {
+                'order_number': _generateNumber('CMD'),
+                'customer_id': userId,
+                'total_amount': total + (_deliveryFee ?? 0),
+                'delivery_fee': _deliveryFee ?? 0,
+                'delivery_zone': _deliveryDistanceKm != null
+                    ? '≈ ${_deliveryDistanceKm!.toStringAsFixed(1)} km'
+                    : null,
+                'latitude': _deliveryLat,
+                'longitude': _deliveryLon,
+              },
+              'items': cart
+                  .map((item) => {
+                        'product_id': item.productId,
+                        'product_name': item.name,
+                        'quantity': item.quantity,
+                        'unit_price': item.unitPrice,
+                        'is_gros_price': item.isGrosPrice,
+                      })
+                  .toList(),
+            },
+          );
+        }
+
+        ref.read(cartProvider.notifier).clear();
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              asQuote
+                  ? 'Pas de connexion — votre demande de devis sera envoyée automatiquement dès que le réseau revient.'
+                  : 'Pas de connexion — votre commande sera envoyée automatiquement dès que le réseau revient.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
+      return;
+    }
+
+    try {
       if (asQuote) {
         final quoteNumber = _generateNumber('DEV');
         final quote = await SupabaseConfig.client

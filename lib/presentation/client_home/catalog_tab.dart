@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/localization/app_translations.dart';
@@ -294,11 +297,71 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _inactiveCategoryNames = inactiveCategoryNames;
         _isLoading = false;
       });
+
+      // Sauvegarde locale du catalogue pour consultation hors-ligne — le
+      // panier et les commandes restent utilisables sans réseau grâce à
+      // ce cache, même si le reste (mur, messages, suggestions) ne l'est
+      // pas (moins critique, pas mis en cache).
+      _cacheCatalogOffline();
     } catch (e) {
+      final cached = await _loadCatalogFromCache();
+      if (cached) {
+        setState(() => _isLoading = false);
+      } else {
+        setState(() {
+          _isLoading = false;
+          _error = 'Impossible de charger le catalogue.';
+        });
+      }
+    }
+  }
+
+  static const _offlineCacheKey = 'offline_catalog_cache';
+
+  Future<void> _cacheCatalogOffline() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _offlineCacheKey,
+        jsonEncode({
+          'businessUnits': _businessUnits,
+          'products': _products,
+          'cachedAt': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (_) {
+      // Pas grave si le cache échoue (ex: stockage plein) — l'app reste
+      // utilisable en ligne, juste pas de repli hors-ligne cette fois.
+    }
+  }
+
+  /// Retourne `true` si un catalogue en cache a bien été chargé (hors-ligne).
+  Future<bool> _loadCatalogFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_offlineCacheKey);
+      if (raw == null) return false;
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final cachedAt = DateTime.tryParse(decoded['cachedAt'] ?? '');
       setState(() {
-        _isLoading = false;
-        _error = 'Impossible de charger le catalogue.';
+        _businessUnits =
+            List<Map<String, dynamic>>.from(decoded['businessUnits'] ?? []);
+        _products = List<Map<String, dynamic>>.from(decoded['products'] ?? []);
       });
+      if (mounted && cachedAt != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Hors-ligne — catalogue affiché tel que vu le ${DateFormat('dd/MM à HH:mm').format(cachedAt)}.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      return _products.isNotEmpty || _businessUnits.isNotEmpty;
+    } catch (_) {
+      return false;
     }
   }
 
