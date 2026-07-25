@@ -140,3 +140,6 @@
 
 ## 2026-07-24 20:35 UTC — Claude
 - feat(Backend/Infra): activer/désactiver les catégories (comme les piliers) - phase9_patch_categories_active.sql + écran category_management.dart (`59f41d4`)
+
+## 2026-07-25 01:59 UTC — Claude
+- debug: compiler APK avant AAB pour isoler l'origine de l'échec de build (`ebbc822`)
