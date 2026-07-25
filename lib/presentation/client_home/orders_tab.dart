@@ -5,6 +5,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'quote_thread_client.dart';
 
 /// Écran "Commandes" du client, avec deux sous-onglets : Commandes et Devis
 /// ("Mes devis" — les devis existaient déjà en base, mais n'étaient
@@ -352,7 +353,17 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
               (status == 'accepte' || status == 'envoye');
 
           return Card(
-            child: Padding(
+            child: InkWell(
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuoteThreadClient(quote: quote),
+                  ),
+                );
+                _loadQuotes();
+              },
+              child: Padding(
               padding: EdgeInsets.all(3.w),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,6 +420,7 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
                     ),
                   ],
                 ],
+              ),
               ),
             ),
           );
