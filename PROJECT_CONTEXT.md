@@ -562,6 +562,20 @@ push réelles, mode hors-ligne, multi-langue, fidélité par paliers, FDS,
 e-learning, groupes professionnels, mode sombre — voir section 3bis/4 pour
 le détail complet de chaque idée.
 
+## 3septies. Écran Admin des devis manquant (25/07, Backend/Infra) ✅ FAIT
+
+L'utilisateur a testé le parcours client (demande de devis) et n'a rien vu
+apparaître côté Admin — **pas un bug, un écran jamais construit**. Ajout de
+`quotes_management/quotes_management.dart` : liste des devis (filtrable par
+statut), détail des articles demandés, réponse avec montant proposé +
+changement de statut. Bouton "Devis" ajouté au tableau de bord Admin
+(`business_dashboard.dart`), route `/quotes-management`. Au passage, staff
+peut maintenant aussi marquer manuellement le statut de paiement d'une
+commande (espèces/Mobile Money direct/facture 30j) depuis
+`order_management_real.dart`, en attendant l'intégration Papi — décision
+utilisateur : ne pas bloquer le développement des fonctionnalités en
+attendant le dossier marchand.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
