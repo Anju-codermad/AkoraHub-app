@@ -183,6 +183,39 @@ Deno.serve(async (req) => {
           : String(record.content ?? "").slice(0, 100) ||
             "Votre devis a été mis à jour";
       }
+    } else if (payload.table === "orders") {
+      // Changement de statut d'une commande (expédiée/livrée) -> notifie
+      // le client concerné. Le trigger SQL ne se déclenche déjà que sur
+      // ces deux statuts précis (voir supabase/phase18_schema.sql), donc
+      // pas besoin de revérifier ici.
+      const statusLabels: Record<string, string> = {
+        expediee: "Votre commande a été expédiée",
+        livree: "Votre commande a été livrée",
+      };
+      const orderNumber = record.order_number ? ` (${record.order_number})` : "";
+      title = "Suivi de commande";
+      body =
+        (statusLabels[record.status as string] ??
+          "Le statut de votre commande a changé") + orderNumber;
+      const customerId = record.customer_id as string | undefined;
+      if (customerId) recipientIds = [customerId];
+    } else if (payload.table === "quotes") {
+      // Le client vient d'accepter/refuser un devis -> notifie toute
+      // l'équipe (Admin/Commercial), pas juste le staff qui avait répondu.
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select("fcm_token")
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      const accepted = record.status === "accepte";
+      title = accepted ? "Devis accepté" : "Devis refusé";
+      body = `Le devis ${record.quote_number ?? ""} a été ${
+        accepted ? "accepté" : "refusé"
+      } par le client.`;
+      for (const s of staff ?? []) {
+        if (s.fcm_token) await sendPush(serviceAccount, s.fcm_token, title, body);
+      }
+      return new Response("ok");
     }
 
     for (const id of recipientIds) {
