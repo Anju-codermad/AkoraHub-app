@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../core/app_export.dart';
+import '../../../core/supabase/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 /// Business Information Section Widget
 ///
@@ -59,15 +63,43 @@ class _BusinessInformationSectionState
       );
 
       if (image != null) {
-        // In real implementation, upload image and update businessData
-        widget.onChanged();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Logo updated successfully'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        if (!SupabaseConfig.isConfigured) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Connexion au serveur indisponible.')),
+            );
+          }
+          return;
+        }
+        try {
+          final fileName =
+              'logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          await SupabaseConfig.client.storage
+              .from('company-logo')
+              .upload(fileName, File(image.path),
+                  fileOptions: const FileOptions(upsert: true));
+          final url = SupabaseConfig.client.storage
+              .from('company-logo')
+              .getPublicUrl(fileName);
+
+          widget.businessData['logo'] = url;
+          widget.onChanged();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Logo mis à jour — pensez à Enregistrer'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Erreur lors de l\'envoi du logo.')),
+            );
+          }
         }
       }
     } catch (e) {

@@ -87,6 +87,7 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
   };
 
   static const List<String> _persistedKeys = [
+    "logo",
     "companyName",
     "description",
     "category",
