@@ -8,6 +8,7 @@ import 'package:sizer/sizer.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'delivery_pricing.dart';
+import 'recurring_orders/recurring_orders_screen.dart';
 
 class CartTab extends ConsumerStatefulWidget {
   const CartTab({super.key});
