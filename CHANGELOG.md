@@ -152,3 +152,6 @@
 
 ## 2026-07-25 02:43 UTC — Claude
 - Backend/Infra: script SQL des 3 nouveaux piliers (Matières Premières, Anti-Nuisibles, Matières Premières Peinture) + catégories, créés désactivés (`9dd14ec`)
+
+## 2026-07-25 03:03 UTC — Claude
+- Client: réapprovisionnement suggéré sur l'Accueil (`a1a22f4`)
