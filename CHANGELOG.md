@@ -164,3 +164,6 @@
 
 ## 2026-07-25 03:33 UTC — Anju-codermad
 - Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`8164ad4`)
+
+## 2026-07-25 03:51 UTC — Claude (Client UX/Design)
+- Messagerie Admin : badge non lus + marquage lu + tag Demande (23/07) (`3c5bdee`)
