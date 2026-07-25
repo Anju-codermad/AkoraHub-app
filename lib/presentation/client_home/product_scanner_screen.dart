@@ -20,11 +20,18 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_isProcessing) return;
     final code = capture.barcodes.firstOrNull?.rawValue;
-    if (code == null || !code.startsWith(qrBatchPrefix)) return;
+    if (code == null || code.isEmpty) return;
 
     setState(() => _isProcessing = true);
-    final batchId = code.substring(qrBatchPrefix.length);
 
+    if (code.startsWith(qrBatchPrefix)) {
+      await _lookupBatch(code.substring(qrBatchPrefix.length));
+    } else {
+      await _lookupBarcode(code);
+    }
+  }
+
+  Future<void> _lookupBatch(String batchId) async {
     try {
       final batch = await SupabaseConfig.client
           .from('production_batches')
@@ -51,13 +58,44 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
     }
   }
 
+  /// Code-barre EAN/UPC classique, déjà imprimé sur l'emballage — identifie
+  /// le PRODUIT (générique), contrairement au QR code qui identifie un lot
+  /// précis avec sa date de fabrication et sa DLC.
+  Future<void> _lookupBarcode(String barcode) async {
+    try {
+      final product = await SupabaseConfig.client
+          .from('products')
+          .select()
+          .eq('barcode', barcode)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      if (product == null) {
+        _showResult(
+          success: false,
+          message: 'Aucun produit AkoraHub ne correspond à ce code-barre.',
+        );
+      } else {
+        _showResult(success: true, product: product);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      _showResult(
+        success: false,
+        message: 'Erreur lors de la vérification. Réessayez.',
+      );
+    }
+  }
+
   void _showResult({
     required bool success,
     Map<String, dynamic>? batch,
+    Map<String, dynamic>? product,
     String? message,
   }) {
     final dateFormat = DateFormat('dd/MM/yyyy');
-    final product = batch?['products'];
+    final batchProduct = batch?['products'];
     final expiry = batch?['expiry_date'] != null
         ? DateTime.tryParse(batch!['expiry_date'])
         : null;
@@ -82,8 +120,8 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
                   : Colors.orange,
             ),
             const SizedBox(height: 12),
-            if (success && product != null) ...[
-              Text(product['name'] ?? '',
+            if (success && batchProduct != null) ...[
+              Text(batchProduct['name'] ?? '',
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               Text('Lot n° ${batch!['batch_number']}'),
@@ -99,13 +137,32 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
                     fontWeight: expired ? FontWeight.bold : null,
                   ),
                 ),
+              if ((batchProduct['category'] ?? '').toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Chip(label: Text(batchProduct['category'])),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                'Produit authentique AkoraHub — traçabilité vérifiée.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.green[700]),
+              ),
+            ] else if (success && product != null) ...[
+              Text(product['name'] ?? '',
+                  style: Theme.of(context).textTheme.titleLarge),
+              if ((product['description'] ?? '').toString().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(product['description']),
+              ],
               if ((product['category'] ?? '').toString().isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Chip(label: Text(product['category'])),
               ],
               const SizedBox(height: 8),
               Text(
-                'Produit authentique AkoraHub — traçabilité vérifiée.',
+                'Produit authentique AkoraHub.',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -152,7 +209,7 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: const Text(
-                  'Visez le QR code sur l\'étiquette du produit',
+                  'Visez le QR code du lot ou le code-barre du produit',
                   style: TextStyle(color: Colors.white, fontSize: 13),
                 ),
               ),

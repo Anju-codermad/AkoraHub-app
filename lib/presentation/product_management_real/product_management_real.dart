@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
@@ -129,6 +130,8 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     final nameCtrl = TextEditingController(text: product?['name'] ?? '');
     final descCtrl =
         TextEditingController(text: product?['description'] ?? '');
+    final barcodeCtrl =
+        TextEditingController(text: product?['barcode'] ?? '');
     final priceDetailCtrl = TextEditingController(
         text: (product?['price_detail'] ?? '').toString());
     final priceGrosCtrl =
@@ -189,6 +192,30 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                   controller: descCtrl,
                   maxLines: 2,
                   decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: barcodeCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Code-barre (EAN/UPC, optionnel)',
+                    helperText:
+                        'Celui deja imprime sur l\'emballage du produit',
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.qr_code_scanner),
+                      tooltip: 'Scanner le code-barre',
+                      onPressed: () async {
+                        final scanned = await Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const _BarcodeCaptureScreen(),
+                          ),
+                        );
+                        if (scanned != null) {
+                          barcodeCtrl.text = scanned;
+                        }
+                      },
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text('Photos (jusqu\'à 10, optionnel)',
@@ -383,6 +410,9 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                 final payload = {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
+                  'barcode': barcodeCtrl.text.trim().isEmpty
+                      ? null
+                      : barcodeCtrl.text.trim(),
                   'category': selectedCategoryName ?? '',
                   'business_unit_id': selectedUnitId,
                   'price_detail':
@@ -767,6 +797,60 @@ class _PhotoThumb extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Écran plein écran minimal pour scanner un code-barre EAN/UPC et le
+/// renvoyer au formulaire produit (Navigator.pop avec la valeur lue).
+class _BarcodeCaptureScreen extends StatefulWidget {
+  const _BarcodeCaptureScreen();
+
+  @override
+  State<_BarcodeCaptureScreen> createState() => _BarcodeCaptureScreenState();
+}
+
+class _BarcodeCaptureScreenState extends State<_BarcodeCaptureScreen> {
+  bool _handled = false;
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+    final code = capture.barcodes.isNotEmpty
+        ? capture.barcodes.first.rawValue
+        : null;
+    if (code == null || code.isEmpty) return;
+    _handled = true;
+    Navigator.pop(context, code);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scanner le code-barre')),
+      body: Stack(
+        children: [
+          MobileScanner(onDetect: _onDetect),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 24,
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Text(
+                  'Visez le code-barre du produit',
+                  style: TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
