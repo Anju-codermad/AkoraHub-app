@@ -230,3 +230,6 @@
 
 ## 2026-07-25 14:07 UTC — Anju-codermad
 - Wire google-services.json into CI (via GitHub secret, base64) + conditionally apply Google Services Gradle plugin - safe fallback if secret absent (`5969403`)
+
+## 2026-07-25 14:09 UTC — Anju-codermad
+- Bump google-services Gradle plugin to 4.5.0 (latest per Firebase setup wizard) (`1956ab6`)
