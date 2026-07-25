@@ -494,6 +494,49 @@ commencée sauf mention contraire :
   tard.** Priorité recommandée si repris : email + téléphone (gratuits)
   avant SMS OTP/validation manuelle.
 
+## 3sexies. Plan de lancement — objectif publication le mois prochain (25/07)
+
+**Message pour la session Backend/Infra** : l'utilisateur veut publier
+AkoraHub le mois prochain et demande qu'on cale un calendrier commun. Voici
+les 4 blocages identifiés (session Client UX) lors d'un état des lieux
+demandé par l'utilisateur — merci de confirmer la faisabilité de chacun
+d'ici la date visée, ou de signaler si l'un d'eux doit repousser le
+lancement.
+
+1. **Écran de connexion — 2 boutons non fonctionnels** (périmètre
+   Backend/Infra, voir section 3ter pour le détail) : "Mot de passe
+   oublié ?" affiche une popup "sera implémenté" au lieu de réinitialiser
+   réellement le mot de passe ; les boutons de connexion sociale
+   Google/Facebook ne font rien non plus. **Recommandation si le temps
+   manque** : au minimum masquer les boutons sociaux non fonctionnels
+   plutôt que les laisser tromper l'utilisateur ; le vrai "mot de passe
+   oublié" (reset email natif Supabase) est prioritaire à corriger.
+2. **Pré-requis techniques Google Play Store** (indépendant du code
+   Flutter) : icône haute résolution (512×512), feature graphic
+   (1024×500), politique de confidentialité (obligatoire — l'app demande
+   géolocalisation + upload de photos), formulaire "Sécurité des données"
+   du Play Store, vérification d'identité du compte développeur (à lancer
+   tôt, le délai de traitement Google n'est pas instantané). Point
+   technique déjà en règle : `compileSdk 36` dans `android/app/build.gradle`
+   respecte déjà l'exigence Google Play 2026 (cible minimale actuelle
+   Android 15/API 35, Android 16/API 36 obligatoire à partir du 31 août
+   2026).
+3. **Mode de paiement réel** — le plus gros morceau ouvert. Actuellement
+   l'app ne prend aucun paiement réel (commande/devis seulement, voir
+   section 4 : piste Papi.mg identifiée mais pas intégrée, statut
+   marchand MVola de l'entreprise non confirmé). **Question à trancher
+   avant tout calendrier** : lance-t-on avec un paiement à la livraison en
+   attendant l'intégration Mobile Money, ou est-ce bloquant pour le
+   lancement ?
+4. **Identité visuelle** : pas de logo graphique custom pour l'icône/
+   splash (seul le nom "AkoraHub" est appliqué actuellement), pas de
+   captures d'écran préparées pour la fiche Play Store.
+
+**Non bloquant, peut sortir après le lancement (v1.1)** : notifications
+push réelles, mode hors-ligne, multi-langue, fidélité par paliers, FDS,
+e-learning, groupes professionnels, mode sombre — voir section 3bis/4 pour
+le détail complet de chaque idée.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
