@@ -387,9 +387,15 @@ AkoraHub disponibles.
 Idées discutées avec l'utilisateur, à prioriser plus tard — aucune n'est
 commencée sauf mention contraire :
 
-- **Réapprovisionnement suggéré** : détecter les produits qu'un client
-  recommande régulièrement et le proposer proactivement (étend le
-  "Recommander en 1 clic" déjà existant dans `orders_tab.dart`)
+- **Réapprovisionnement suggéré** (23/07, **fait**) — section "Vous
+  recommandez souvent" sur l'Accueil (`catalog_tab.dart`, juste après la
+  bannière), calculée dans `_loadData` : produits présents dans au moins 2
+  commandes distinctes du client (`order_items` joint à `orders` filtré par
+  `customer_id`, comptage par `product_id` sur des `order_id` distincts),
+  triés par fréquence décroissante, 5 max. Cartes horizontales réutilisant
+  `_ProductCard` (favoris + ajout rapide déjà intégrés). Masquée si le
+  client n'a pas encore assez d'historique — aucune donnée inventée,
+  tolérante à l'échec comme les autres sections de l'Accueil.
 - **Commande récurrente / abonnement** pour les consommables réguliers
 - **Paiement Mobile Money au checkout** (Mvola/Orange Money/Airtel Money) —
   voir aussi la piste Papi déjà notée en section 4
