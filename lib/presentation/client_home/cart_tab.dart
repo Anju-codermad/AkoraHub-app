@@ -375,6 +375,22 @@ class _CartTabState extends ConsumerState<CartTab> {
                 ],
               ),
               SizedBox(height: 1.5.h),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RecurringOrdersScreen(
+                          cartItemsForNew: cart,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.autorenew, size: 18),
+                  label: const Text('Configurer comme commande récurrente'),
+                ),
+              ),
               Row(
                 children: [
                   Expanded(

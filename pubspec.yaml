@@ -31,6 +31,8 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.14.2
   image_picker: ^1.0.4
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^5.2.3
   camera: ^0.10.5+5
   permission_handler: ^11.1.0
   geolocator: ^13.0.1

@@ -7,6 +7,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
 import 'product_variants_screen.dart';
+import 'batch_list_screen.dart';
 
 /// Gestion réelle des produits : tarification Gros/Détail par seuil de
 /// quantité, stock, et lots de production (n° lot, fabrication, DLC).
@@ -558,117 +559,6 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     }
   }
 
-  Future<void> _addBatch(Map<String, dynamic> product) async {
-    final batchNumberCtrl = TextEditingController();
-    final quantityCtrl = TextEditingController();
-    DateTime manufactureDate = DateTime.now();
-    DateTime? expiryDate;
-    bool isSavingBatch = false;
-
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Nouveau lot — ${product['name']}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: batchNumberCtrl,
-                decoration: const InputDecoration(labelText: 'Numéro de lot'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: quantityCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Quantité'),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                    'Fabrication : ${DateFormat('dd/MM/yyyy').format(manufactureDate)}'),
-                trailing: const Icon(Icons.calendar_today, size: 18),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: manufactureDate,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setDialogState(() => manufactureDate = picked);
-                  }
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(expiryDate == null
-                    ? 'DLC (optionnel)'
-                    : 'DLC : ${DateFormat('dd/MM/yyyy').format(expiryDate!)}'),
-                trailing: const Icon(Icons.calendar_today, size: 18),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now().add(const Duration(days: 365)),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setDialogState(() => expiryDate = picked);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
-            ),
-            FilledButton(
-              onPressed: isSavingBatch
-                  ? null
-                  : () async {
-                if (batchNumberCtrl.text.trim().isEmpty) return;
-                if (isSavingBatch) return;
-                setDialogState(() => isSavingBatch = true);
-                try {
-                  await SupabaseConfig.client.from('production_batches').insert({
-                    'product_id': product['id'],
-                    'batch_number': batchNumberCtrl.text.trim(),
-                    'manufacture_date':
-                        manufactureDate.toIso8601String().split('T').first,
-                    'expiry_date':
-                        expiryDate?.toIso8601String().split('T').first,
-                    'quantity': double.tryParse(quantityCtrl.text) ?? 0,
-                  });
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Lot enregistré.')),
-                  );
-                } catch (e) {
-                  if (!mounted) return;
-                  setDialogState(() => isSavingBatch = false);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Erreur lors de l\'enregistrement du lot.')),
-                  );
-                }
-              },
-              child: isSavingBatch
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Enregistrer'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -773,7 +663,14 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                                                 ),
                                               );
                                             } else if (value == 'lot') {
-                                              _addBatch(p);
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      BatchListScreen(
+                                                          product: p),
+                                                ),
+                                              );
                                             } else if (value == 'supprimer') {
                                               _deleteProduct(p);
                                             }
@@ -795,7 +692,7 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                                                         .inventory_2_outlined,
                                                     size: 18),
                                                 SizedBox(width: 8),
-                                                Text('Ajouter un lot'),
+                                                Text('Lots & QR code'),
                                               ]),
                                             ),
                                             const PopupMenuDivider(),

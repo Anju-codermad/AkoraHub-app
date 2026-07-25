@@ -12,6 +12,7 @@ import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
 import 'favorites_screen.dart';
 import 'loyalty/loyalty_screen.dart';
+import 'recurring_orders/recurring_orders_screen.dart';
 import 'wall/wall_tab.dart';
 
 /// Profil client : affichage + édition des infos réelles (profiles table),
@@ -241,6 +242,20 @@ class _ProfileTabState extends State<ProfileTab> {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.autorenew),
+                  title: const Text('Commandes récurrentes'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RecurringOrdersScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.emoji_events_outlined),
                   title: const Text('Fidélité'),
                   trailing: const Icon(Icons.chevron_right),
@@ -265,6 +280,17 @@ class _ProfileTabState extends State<ProfileTab> {
                         builder: (_) => const ChatScreen(),
                       ),
                     );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.qr_code_scanner),
+                  title: const Text('Scanner un produit'),
+                  subtitle:
+                      const Text('Vérifier la traçabilité d\'un lot'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/product-scanner');
                   },
                 ),
               ],
