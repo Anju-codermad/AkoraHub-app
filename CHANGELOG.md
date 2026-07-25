@@ -143,3 +143,6 @@
 
 ## 2026-07-25 01:59 UTC — Claude
 - debug: compiler APK avant AAB pour isoler l'origine de l'échec de build (`ebbc822`)
+
+## 2026-07-25 02:22 UTC — Claude
+- fix: share_plus ^10.1.4 -> ^12.0.2 (le code utilise l'API SharePlus.instance.share/ShareParams introduite en v11+) (`2b80853`)
