@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/localization/app_translations.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
@@ -561,7 +562,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 1.h),
               child: TextField(
                 decoration: InputDecoration(
-                  hintText: 'Rechercher un produit...',
+                  hintText: ref.tr('search_hint'),
                   prefixIcon: const Icon(Icons.search),
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest
@@ -763,7 +764,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Pour vous', style: theme.textTheme.titleMedium),
+                    Text(ref.tr('for_you'), style: theme.textTheme.titleMedium),
                     TextButton(
                       onPressed: () => Navigator.push(
                         context,
@@ -914,7 +915,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Nos activités', style: theme.textTheme.titleMedium),
+                    Text(ref.tr('our_activities'), style: theme.textTheme.titleMedium),
                     if (_selectedUnitId != null)
                       TextButton(
                         onPressed: () => setState(() {
@@ -1000,7 +1001,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: const Text('Toutes catégories'),
+                        label: Text(ref.tr('all_categories')),
                         selected: _selectedCategory == 'toutes',
                         onSelected: (_) =>
                             setState(() => _selectedCategory = 'toutes'),
@@ -1024,7 +1025,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
-              child: Text('Produits', style: theme.textTheme.titleMedium),
+              child: Text(ref.tr('products'), style: theme.textTheme.titleMedium),
             ),
           ),
           _filteredProducts.isEmpty

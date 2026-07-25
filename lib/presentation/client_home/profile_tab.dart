@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/localization/app_translations.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
@@ -283,6 +284,47 @@ class _ProfileTabState extends State<ProfileTab> {
                   },
                 ),
                 const Divider(height: 1),
+                const Divider(height: 1),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final locale = ref.watch(localeProvider);
+                    return ListTile(
+                      leading: const Icon(Icons.language_outlined),
+                      title: const Text('Langue / Fiteny'),
+                      trailing: Text(
+                        locale == 'fr' ? 'Français' : 'Malagasy',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      onTap: () async {
+                        final selected = await showDialog<String>(
+                          context: context,
+                          builder: (context) => SimpleDialog(
+                            title: const Text('Choisir la langue'),
+                            children: [
+                              SimpleDialogOption(
+                                onPressed: () => Navigator.pop(context, 'fr'),
+                                child: const Row(children: [
+                                  Text('🇫🇷 '),
+                                  Text('Français'),
+                                ]),
+                              ),
+                              SimpleDialogOption(
+                                onPressed: () => Navigator.pop(context, 'mg'),
+                                child: const Row(children: [
+                                  Text('🇲🇬 '),
+                                  Text('Malagasy'),
+                                ]),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (selected != null) {
+                          ref.read(localeProvider.notifier).setLocale(selected);
+                        }
+                      },
+                    );
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.qr_code_scanner),
                   title: const Text('Scanner un produit'),

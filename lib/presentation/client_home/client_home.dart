@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/localization/app_translations.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'cart_tab.dart';
 import 'catalog_tab.dart';
@@ -26,13 +27,6 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
   // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil
   int _currentIndex = 0;
 
-  final List<String> _titles = const [
-    'Accueil',
-    'Panier',
-    'Commandes',
-    'Profil',
-  ];
-
   Future<void> _handleLogout() async {
     if (SupabaseConfig.isConfigured) {
       await SupabaseConfig.client.auth.signOut();
@@ -47,6 +41,13 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
 
   @override
   Widget build(BuildContext context) {
+    final locale = ref.watch(localeProvider);
+    final titles = [
+      AppTranslations.t('nav_home', locale),
+      AppTranslations.t('nav_cart', locale),
+      AppTranslations.t('nav_orders', locale),
+      AppTranslations.t('nav_profile', locale),
+    ];
     final pages = [
       CatalogTab(onOpenCart: () => setState(() => _currentIndex = 1)),
       const CartTab(),
@@ -57,7 +58,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
     return Scaffold(
       appBar: _currentIndex == 0
           ? null
-          : AppBar(title: Text(_titles[_currentIndex])),
+          : AppBar(title: Text(titles[_currentIndex])),
       // SafeArea(bottom: false) car la barre de navigation du bas gère déjà
       // sa propre zone de sécurité. Nécessaire notamment pour l'onglet
       // Accueil (index 0) qui n'a pas d'AppBar et affichait sinon son
@@ -91,35 +92,37 @@ class _NavItem {
 
 /// Barre de navigation du bas à 3 destinations (Accueil, Commandes, Profil).
 /// Le Panier n'y figure pas : on y accède depuis l'en-tête de l'Accueil.
-class _ClientBottomNav extends StatelessWidget {
+class _ClientBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onSelect;
 
   const _ClientBottomNav({required this.currentIndex, required this.onSelect});
 
-  static const _items = [
-    _NavItem(
-      pageIndex: 0,
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home,
-      label: 'Accueil',
-    ),
-    _NavItem(
-      pageIndex: 2,
-      icon: Icons.receipt_long_outlined,
-      selectedIcon: Icons.receipt_long,
-      label: 'Commandes',
-    ),
-    _NavItem(
-      pageIndex: 3,
-      icon: Icons.person_outline,
-      selectedIcon: Icons.person,
-      label: 'Profil',
-    ),
-  ];
+  List<_NavItem> _items(String locale) => [
+        _NavItem(
+          pageIndex: 0,
+          icon: Icons.home_outlined,
+          selectedIcon: Icons.home,
+          label: AppTranslations.t('nav_home', locale),
+        ),
+        _NavItem(
+          pageIndex: 2,
+          icon: Icons.receipt_long_outlined,
+          selectedIcon: Icons.receipt_long,
+          label: AppTranslations.t('nav_orders', locale),
+        ),
+        _NavItem(
+          pageIndex: 3,
+          icon: Icons.person_outline,
+          selectedIcon: Icons.person,
+          label: AppTranslations.t('nav_profile', locale),
+        ),
+      ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
+    final items = _items(locale);
     final theme = Theme.of(context);
     return SafeArea(
       top: false,
@@ -136,7 +139,7 @@ class _ClientBottomNav extends StatelessWidget {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: _items.map((item) {
+          children: items.map((item) {
             final selected = currentIndex == item.pageIndex;
             final color = selected
                 ? theme.colorScheme.primary
