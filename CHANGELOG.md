@@ -203,3 +203,6 @@
 
 ## 2026-07-25 11:00 UTC — Anju-codermad
 - Feature: QR code traceability for production batches (Admin generates/shares, client scans to verify authenticity, manufacture date, expiry) (`9da412c`)
+
+## 2026-07-25 11:14 UTC — Anju-codermad
+- Fix critical build error: missing import for RecurringOrdersScreen in cart_tab.dart (broke both APK and AAB builds) (`943c8c3`)
