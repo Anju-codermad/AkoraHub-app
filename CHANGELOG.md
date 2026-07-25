@@ -200,3 +200,6 @@
 
 ## 2026-07-25 10:45 UTC — Anju-codermad
 - Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`c607e40`)
+
+## 2026-07-25 11:00 UTC — Anju-codermad
+- Feature: QR code traceability for production batches (Admin generates/shares, client scans to verify authenticity, manufacture date, expiry) (`9da412c`)
