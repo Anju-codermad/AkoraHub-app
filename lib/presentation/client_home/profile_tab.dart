@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/providers/theme_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
 import 'favorites_screen.dart';
@@ -254,6 +256,21 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           SizedBox(height: 2.h),
+          Consumer(
+            builder: (context, ref, _) {
+              final themeMode = ref.watch(themeModeProvider);
+              return SwitchListTile(
+                secondary: const Icon(Icons.dark_mode_outlined),
+                title: const Text('Mode sombre'),
+                value: themeMode == ThemeMode.dark,
+                onChanged: (value) {
+                  ref.read(themeModeProvider.notifier).setThemeMode(
+                      value ? ThemeMode.dark : ThemeMode.light);
+                },
+              );
+            },
+          ),
+          SizedBox(height: 1.h),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Déconnexion', style: TextStyle(color: Colors.red)),

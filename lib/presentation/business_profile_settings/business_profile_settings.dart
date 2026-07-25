@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/app_export.dart';
+import '../../core/providers/theme_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_icon_widget.dart';
 import './widgets/app_preferences_section.dart';
@@ -443,6 +445,25 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                     onChanged: () {
                       setState(() => _hasUnsavedChanges = true);
                     },
+                  ),
+
+                  SizedBox(height: 2.h),
+
+                  Card(
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final themeMode = ref.watch(themeModeProvider);
+                        return SwitchListTile(
+                          secondary: const Icon(Icons.dark_mode_outlined),
+                          title: const Text('Mode sombre'),
+                          value: themeMode == ThemeMode.dark,
+                          onChanged: (value) {
+                            ref.read(themeModeProvider.notifier).setThemeMode(
+                                value ? ThemeMode.dark : ThemeMode.light);
+                          },
+                        );
+                      },
+                    ),
                   ),
 
                   SizedBox(height: 2.h),
