@@ -639,6 +639,17 @@ pendant la consolidation, au-delà de ce qui était documenté en section
 
 ## 3decies. Support code-barre existant en plus du QR code (25/07) ✅ FAIT
 
+**⚠️ Note de priorité (25/07)** : le QR code par lot (Phase 13) a été
+construit sur initiative de l'assistant (issu d'une liste de suggestions),
+sans demande explicite préalable de l'utilisateur. Une fois interrogé
+directement, **l'utilisateur a confirmé que ce n'est pas prioritaire**
+pour son activité actuellement. Le code reste en place (fonctionnel,
+inoffensif à laisser tel quel) mais **ne pas investir de temps
+supplémentaire dessus** (pas de polish, pas de nouvelles fonctionnalités
+liées au QR) sauf demande explicite future de l'utilisateur. Le
+code-barre (ce paragraphe), lui, reste pertinent puisqu'il découle d'un
+besoin réel signalé par l'utilisateur (ses produits en ont déjà).
+
 L'utilisateur a signalé que tous ses produits finis ont déjà un vrai
 code-barre EAN/UPC imprimé (fabrication) — décision : garder les deux
 systèmes plutôt que de choisir. Le code-barre identifie le **produit**
