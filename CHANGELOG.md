@@ -224,3 +224,6 @@
 
 ## 2026-07-25 13:08 UTC — Anju-codermad
 - Feature 4/4 (Notifications push) part 1: FCM client-side infrastructure (token registration, foreground handling) - waiting on user's google-services.json before enabling native Android integration (`93a597c`)
+
+## 2026-07-25 13:56 UTC — Anju-codermad
+- Add real AkoraHub app icon (green #085041, cart/A design) across Android, iOS, and web - replaces default Flutter icon (`7ddba81`)
