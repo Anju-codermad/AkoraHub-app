@@ -667,6 +667,33 @@ de fabrication et DLC).
   `products.barcode` (affiche nom/catégorie/description, sans info de
   lot puisque le code-barre n'est pas lié à un lot précis).
 
+## 3undecies. Factures/devis PDF côté client + logo entreprise réel (25/07) ✅ FAIT
+
+Demande groupée de l'utilisateur (notifications push, hors-ligne,
+multi-langue, PDF client) — 1er des 4 chantiers traité, dans cet ordre
+convenu avec l'utilisateur : PDF client → multi-langue → hors-ligne →
+notifications push (la dernière nécessite un compte Firebase externe,
+traitée en dernier).
+
+- **Bug réel corrigé au passage** : le sélecteur de logo dans "Profil
+  entreprise" (`business_information_section.dart`) contenait un
+  commentaire `// In real implementation, upload image and update
+  businessData` — jamais implémenté, l'image choisie n'était jamais
+  sauvegardée nulle part. Upload réel vers le nouveau bucket Storage
+  `company-logo` (`supabase/phase15_schema.sql`, **exécuté avec succès
+  par l'utilisateur**), URL persistée dans `company_settings` (ajout de
+  `"logo"` à `_persistedKeys` dans `business_profile_settings.dart`).
+- Nouveau `lib/core/pdf/document_pdf_generator.dart` : génère un PDF
+  facture/devis avec logo + nom + adresse + téléphone de l'entreprise
+  (lus dynamiquement depuis `company_settings`), items, total. Logo
+  récupéré via `http.get` (package `http` ajouté au `pubspec.yaml`) et
+  converti en `pw.MemoryImage` — si le logo ne charge pas, le PDF reste
+  généré sans (tolérant à l'échec).
+- Boutons "Facture PDF" / "Devis PDF" ajoutés sur chaque carte dans
+  `client_home/orders_tab.dart` (`_OrdersListState._downloadInvoice` /
+  `_QuotesListState._downloadQuotePdf`), ouverture via
+  `Printing.layoutPdf` (aperçu + partage/impression natif).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
