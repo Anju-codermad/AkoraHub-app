@@ -233,3 +233,6 @@
 
 ## 2026-07-25 14:09 UTC — Anju-codermad
 - Bump google-services Gradle plugin to 4.5.0 (latest per Firebase setup wizard) (`1956ab6`)
+
+## 2026-07-25 14:12 UTC — Anju-codermad
+- docs: confirm google-services.json received and wired via GitHub secret (`839640d`)
