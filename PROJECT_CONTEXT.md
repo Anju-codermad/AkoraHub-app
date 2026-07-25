@@ -773,16 +773,41 @@ Détails techniques :
   échouent silencieusement si hors-ligne, ce qui est un compromis
   acceptable pour l'instant).
 
-## 3quaterdecies. Notifications push réelles (25/07) — Firebase connecté, envoi côté serveur restant
+## 3quaterdecies. Notifications push réelles (25/07) ✅ FAIT — bout en bout
 
-**Confirmé (25/07)** : build CI vert (APK + AAB) avec le vrai
-`google-services.json` de l'utilisateur — le token de l'appareil
-s'enregistre désormais réellement dans `profiles.fcm_token` à la
-connexion. **Reste uniquement le déclenchement serveur de l'envoi** (voir
-détail ci-dessous).
+**✅ Chaîne complète fonctionnelle** : nouveau message (`messages` ou
+`quote_messages`) → trigger Postgres (`pg_net`) → Edge Function
+`send-push-notification` → API FCM → notification réelle sur l'appareil.
+- Compte de service Firebase (`akorahub-7ee66-firebase-adminsdk-*.json`)
+  stocké **uniquement** comme secret Edge Function
+  `FIREBASE_SERVICE_ACCOUNT` (jamais commité, jamais dans l'app cliente —
+  différent de `google-services.json` qui lui est public/embarqué dans
+  l'app).
+- `WEBHOOK_SECRET` (secret partagé, généré aléatoirement) protège l'URL
+  publique de l'Edge Function contre des appels tiers.
+- `supabase/functions/send-push-notification/index.ts` : signe lui-même
+  un JWT RS256 (Web Crypto API native de Deno, aucune librairie externe)
+  pour échanger le compte de service contre un token d'accès FCM, puis
+  appelle `fcm.googleapis.com/v1/projects/{id}/messages:send`.
+  - Message client → notifie **tout le staff** (Admin/Commercial) ayant
+    un `fcm_token`.
+  - Message staff → notifie le client concerné.
+  - Réponse de devis (staff) → notifie le client, avec le montant proposé
+    dans le corps de la notification si présent.
+- `supabase/phase17_schema.sql` (**exécuté avec succès**) : trigger
+  `AFTER INSERT` sur `messages`/`quote_messages`, appelle l'Edge Function
+  via `net.http_post` (extension `pg_net`).
+- Déployé via Supabase Dashboard → Edge Functions → éditeur navigateur
+  (pas de CLI utilisée) — voir `functions/send-push-notification/index.ts`
+  dans le dépôt pour le code source de référence si besoin de le
+  redéployer.
+- **Reste à faire (amélioration future, pas bloquant)** : pas encore de
+  notification sur changement de statut de commande (expédiée/livrée) ni
+  sur réponse "Accepté/Refusé" du client à un devis — même schéma à
+  répliquer sur `orders`/`quotes` si l'utilisateur le demande.
 
-**Mise à jour** : `google-services.json` reçu de l'utilisateur (projet
-Firebase `akorahub-7ee66`), intégré via secret GitHub
+`google-services.json` reçu de l'utilisateur (projet Firebase
+`akorahub-7ee66`), intégré via secret GitHub
 `GOOGLE_SERVICES_JSON_BASE64` (jamais commité en clair — voir
 `.github/workflows/build-apk.yml`), plugin Gradle
 `com.google.gms.google-services` (4.5.0) appliqué conditionnellement
