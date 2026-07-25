@@ -239,3 +239,6 @@
 
 ## 2026-07-25 14:40 UTC — Anju-codermad
 - Feature: real push notification sending via Supabase Edge Function + FCM (new message, quote response), triggered by pg_net Postgres trigger (`10385ff`)
+
+## 2026-07-25 16:42 UTC — Anju-codermad
+- Feature: extend push notifications to order shipped/delivered and quote accepted/refused (`26782e2`)
