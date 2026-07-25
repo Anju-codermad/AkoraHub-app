@@ -37,6 +37,14 @@ jobs:
           }
           EOF
 
+      - name: Reconstruire google-services.json (Firebase) à partir du secret
+        run: |
+          if [ -n "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" ]; then
+            echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > android/app/google-services.json
+          else
+            echo "Pas de secret GOOGLE_SERVICES_JSON_BASE64 configuré — les notifications push ne fonctionneront pas dans ce build."
+          fi
+
       - name: Reconstruire le keystore de production à partir des secrets
         run: |
           if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
