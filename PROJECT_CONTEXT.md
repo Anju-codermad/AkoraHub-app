@@ -694,6 +694,38 @@ traitée en dernier).
   `_QuotesListState._downloadQuotePdf`), ouverture via
   `Printing.layoutPdf` (aperçu + partage/impression natif).
 
+## 3duodecies. Multi-langue FR/MG — infrastructure + 1er passage (25/07)
+
+2ᵉ des 4 chantiers demandés (notifications push, hors-ligne, multi-langue,
+PDF client — voir 3undecies pour le 1er). Pas de package `intl`/`.arb`
+(trop lourd à greffer sur un projet déjà avancé de 60+ écrans) : système
+maison par clé de traduction.
+
+- `lib/core/localization/app_translations.dart` : table `_strings`
+  (clé → {fr, mg}), `AppTranslations.t(key, locale)`, `localeProvider`
+  (StateNotifierProvider persistant via SharedPreferences, clé
+  `app_locale`), extension `WidgetRef.tr(key)`.
+- Sélecteur de langue dans Profil (`profile_tab.dart`), dialogue simple
+  Français/Malagasy.
+- **Traduit à ce stade** : barre de navigation du bas
+  (`client_home.dart`, `_ClientBottomNav` converti en `ConsumerWidget`),
+  en-têtes de l'Accueil ("Nos activités", "Pour vous", "Produits"),
+  recherche, filtre "Toutes catégories" (`catalog_tab.dart`).
+- **Reste à faire (gros chantier, incrémental)** : la grande majorité des
+  écrans (panier, fiche produit, commandes/devis, messagerie, favoris,
+  mur, tout l'Admin...) reste uniquement en français codé en dur. Pour
+  continuer : repérer les `Text('...')` littéraux écran par écran, ajouter
+  les clés manquantes dans `_strings`, remplacer par `ref.tr('cle')`
+  (nécessite `ConsumerWidget`/`ConsumerStatefulWidget` — convertir le
+  widget si besoin, comme fait pour `_ClientBottomNav`).
+
+**⚠️ Préférence explicite de l'utilisateur (25/07)** : ne PAS traduire
+plusieurs écrans d'un coup ou par anticipation. Traduire **un seul écran
+à la fois, uniquement sur demande explicite** de l'utilisateur nommant
+l'écran concerné. Le premier passage ci-dessus (nav du bas + en-têtes
+Accueil) a été fait avant cette clarification — ne pas continuer au-delà
+sans qu'on le demande précisément.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
