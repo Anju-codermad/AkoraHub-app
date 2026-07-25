@@ -93,7 +93,9 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
     "website",
     "socialMedia",
     "address",
+    "operatingHours",
     "brandColors",
+    "logo",
   ];
 
   @override

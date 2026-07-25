@@ -326,6 +326,53 @@ progressivement avec un vrai backend Supabase.
 - **Reste à faire** : exécuter `phase9_patch_categories_active.sql` dans
   Supabase.
 
+## 3sexies. Écran "Profil entreprise" Admin réparé (25/07)
+
+L'utilisateur a signalé que cet écran "ne fonctionne pas". Audit du code :
+**aucun champ ne persistait réellement ses modifications**, sur les deux
+fichiers `business_information_section.dart` et
+`contact_details_section.dart` — un bug systémique du scaffold initial
+jamais corrigé : chaque `TextFormField` utilisait `onChanged: (value) =>
+widget.onChanged()`, qui prévient juste le parent qu'"il y a un
+changement" (pour activer le bouton Enregistrer) SANS jamais écrire
+`value` dans `widget.businessData`. Résultat : taper dans un champ semble
+fonctionner, "Enregistrer" affiche même un succès, mais les anciennes
+valeurs (vides) sont réenregistrées à chaque fois.
+
+**Champs corrigés (écrivent maintenant vraiment dans `businessData`)** :
+téléphone, email, site web, Facebook/Instagram/WhatsApp, adresse
+(rue/ville/code postal/pays), nom d'entreprise et description (par
+langue), catégorie d'activité.
+
+**Bugs additionnels trouvés et corrigés au passage** :
+- Les champs nom/description utilisaient `initialValue` sans `key` :
+  changer d'onglet de langue (FR/MG/EN/AR) n'actualisait pas le texte
+  affiché. Ajout de `key: ValueKey('champ_$_selectedLanguage')` pour
+  forcer Flutter à recréer le champ à chaque changement de langue.
+- Le Dropdown de catégorie utilisait `value:` (pas `initialValue:`) avec
+  une valeur par défaut `""` qui ne correspond à aucun item de la liste →
+  plantage `assert` au premier chargement de l'écran (tant que la
+  catégorie n'a jamais été choisie). Passé en `initialValue:` avec repli
+  sur `null` + `hint:` si la valeur ne correspond à aucun item.
+- Interrupteur "jour fermé" (horaires d'ouverture) ne faisait rien non
+  plus (même bug). `operatingHours` n'était même pas dans
+  `_persistedKeys` du parent — ajouté.
+- **Logo d'entreprise** : le bouton "changer le logo" ouvrait bien la
+  galerie/caméra, mais un commentaire `// In real implementation, upload
+  image and update businessData` révélait que la photo choisie n'était
+  jamais uploadée ni sauvegardée. Ajout d'un vrai upload vers un nouveau
+  bucket Storage `company` (`supabase/phase11_patch_company_logo_bucket.sql`,
+  **script prêt, pas encore exécuté** — public en lecture, écriture
+  réservée au staff, même pattern que `products`/`avatars`), avec
+  indicateur de chargement pendant l'envoi. `logo` ajouté à
+  `_persistedKeys`.
+
+**Non touché dans cette passe** : tous les textes de cet écran restent en
+anglais ("Company Name", "Business Category"...) — signalé à l'utilisateur
+comme amélioration possible, pas encore demandée. Le fichier
+`subscription_section.dart` (407 lignes) existe dans le dossier mais
+n'est importé nulle part — code mort, jamais affiché, pas touché.
+
 ## 3quinquies. Bug de build résolu (25/07) : version share_plus incompatible
 
 Après l'ajout de "Réseau social client" (commit 35c3a9e), **tous les builds
