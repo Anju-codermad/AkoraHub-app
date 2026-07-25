@@ -773,7 +773,16 @@ Détails techniques :
   échouent silencieusement si hors-ligne, ce qui est un compromis
   acceptable pour l'instant).
 
-## 3quaterdecies. Notifications push réelles (25/07) — EN COURS
+## 3quaterdecies. Notifications push réelles (25/07) — Firebase connecté, envoi côté serveur restant
+
+**Mise à jour** : `google-services.json` reçu de l'utilisateur (projet
+Firebase `akorahub-7ee66`), intégré via secret GitHub
+`GOOGLE_SERVICES_JSON_BASE64` (jamais commité en clair — voir
+`.github/workflows/build-apk.yml`), plugin Gradle
+`com.google.gms.google-services` (4.5.0) appliqué conditionnellement
+dans `android/app/build.gradle` (uniquement si le fichier existe,
+sécurité contre un build cassé si le secret venait à manquer). Fichier
+gitignoré (`android/app/google-services.json`).
 
 4ᵉ et dernier des chantiers demandés groupés (voir 3undecies/3duodecies/
 3terdecies pour les précédents). Nécessite une action externe de
