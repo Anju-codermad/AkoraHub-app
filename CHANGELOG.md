@@ -155,3 +155,6 @@
 
 ## 2026-07-25 03:03 UTC — Claude
 - Client: réapprovisionnement suggéré sur l'Accueil (`a1a22f4`)
+
+## 2026-07-25 03:19 UTC — Claude
+- Docs: marquer le réapprovisionnement suggéré comme fait (`d36dbc7`)
