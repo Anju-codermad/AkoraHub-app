@@ -775,6 +775,12 @@ Détails techniques :
 
 ## 3quaterdecies. Notifications push réelles (25/07) — Firebase connecté, envoi côté serveur restant
 
+**Confirmé (25/07)** : build CI vert (APK + AAB) avec le vrai
+`google-services.json` de l'utilisateur — le token de l'appareil
+s'enregistre désormais réellement dans `profiles.fcm_token` à la
+connexion. **Reste uniquement le déclenchement serveur de l'envoi** (voir
+détail ci-dessous).
+
 **Mise à jour** : `google-services.json` reçu de l'utilisateur (projet
 Firebase `akorahub-7ee66`), intégré via secret GitHub
 `GOOGLE_SERVICES_JSON_BASE64` (jamais commité en clair — voir
