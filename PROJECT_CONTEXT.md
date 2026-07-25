@@ -469,11 +469,15 @@ commencée sauf mention contraire :
     échouait).
   - Ancien écran fictif `messaging_center/` (595 lignes, faux contacts
     "Sarah Johnson" etc.) **supprimé entièrement**.
-  - **Reste à faire** : notifications à l'arrivée d'un nouveau message,
-    badge de messages non lus (colonnes `read_by_staff`/`read_by_client`
-    déjà présentes mais pas encore exploitées dans l'UI), afficher
-    visuellement le tag "Demande" (`is_request`) dans le fil de discussion
-    Admin.
+  - **Fait (23/07)** : badge de messages non lus dans la liste des
+    conversations (`messaging_center_real.dart`, un aller-retour groupant
+    tous les messages client non lus) ; messages du client marqués lus à
+    l'ouverture du fil (ne l'était pas avant — même correctif que celui
+    déjà fait côté client pour son propre badge) ; tag visuel "Demande"
+    (`is_request`) affiché sur les bulles de message, même style que côté
+    client.
+  - **Reste à faire** : notification (push ou in-app) à l'arrivée d'un
+    nouveau message.
 
 ## 3ter. Connexion/Inscription — améliorations demandées (23/07, à traiter par Backend/Infra)
 
