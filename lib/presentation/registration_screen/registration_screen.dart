@@ -23,6 +23,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _showPassword = false;
+  DateTime? _birthDate;
+  bool _acceptedTerms = false;
 
   String _clientType = 'particulier';
   bool _isLoading = false;
@@ -68,8 +70,50 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return null;
   }
 
+  /// Vérifie que la date de naissance correspond à un âge d'au moins 18
+  /// ans — l'app vend des produits chimiques/insecticides, une
+  /// vérification d'âge minimale est raisonnable pour la création de
+  /// compte.
+  String? _validateBirthDate() {
+    if (_birthDate == null) return 'La date de naissance est obligatoire';
+    final now = DateTime.now();
+    var age = now.year - _birthDate!.year;
+    final hasHadBirthdayThisYear = (now.month > _birthDate!.month) ||
+        (now.month == _birthDate!.month && now.day >= _birthDate!.day);
+    if (!hasHadBirthdayThisYear) age--;
+    if (age < 18) return 'Vous devez avoir au moins 18 ans';
+    return null;
+  }
+
+  Future<void> _pickBirthDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 25, now.month, now.day),
+      firstDate: DateTime(now.year - 100),
+      lastDate: now,
+      helpText: 'Date de naissance',
+    );
+    if (picked != null) {
+      setState(() => _birthDate = picked);
+    }
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final birthDateError = _validateBirthDate();
+    if (birthDateError != null) {
+      _showError(birthDateError);
+      return;
+    }
+    if (!_acceptedTerms) {
+      _showError('Vous devez accepter les conditions d\'utilisation');
+      return;
+    }
 
     if (!SupabaseConfig.isConfigured) {
       _showError('Connexion au serveur indisponible. Réessayez plus tard.');
@@ -97,6 +141,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           'phone': _phoneController.text.trim().isEmpty
               ? null
               : _phoneController.text.trim(),
+          'birth_date': _birthDate?.toIso8601String().split('T').first,
         }).eq('id', userId);
       }
 
@@ -228,6 +273,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
                 SizedBox(height: 2.h),
 
+                InkWell(
+                  onTap: _pickBirthDate,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date de naissance',
+                      suffixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                    child: Text(
+                      _birthDate == null
+                          ? 'Sélectionner une date'
+                          : _formatDate(_birthDate!),
+                      style: _birthDate == null
+                          ? TextStyle(color: theme.colorScheme.onSurfaceVariant)
+                          : null,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 2.h),
+
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_showPassword,
@@ -263,7 +327,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     return null;
                   },
                 ),
-                SizedBox(height: 3.h),
+                SizedBox(height: 1.h),
+
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: _acceptedTerms,
+                      onChanged: (v) =>
+                          setState(() => _acceptedTerms = v ?? false),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 1.5.h),
+                        child: Text(
+                          'J\'accepte les conditions d\'utilisation et la '
+                          'politique de confidentialité d\'AkoraHub',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 2.h),
 
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleRegister,
@@ -283,6 +369,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       : const Text('Créer mon compte'),
                 ),
                 SizedBox(height: 2.h),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Déjà un compte ? Se connecter'),
+                ),
               ],
             ),
           ),
