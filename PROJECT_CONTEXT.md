@@ -637,6 +637,25 @@ la préparation technique pour la publication Play Store a déjà avancé
 pendant la consolidation, au-delà de ce qui était documenté en section
 3sexies (à vérifier/détailler dans une prochaine session si besoin).
 
+## 3decies. Support code-barre existant en plus du QR code (25/07) ✅ FAIT
+
+L'utilisateur a signalé que tous ses produits finis ont déjà un vrai
+code-barre EAN/UPC imprimé (fabrication) — décision : garder les deux
+systèmes plutôt que de choisir. Le code-barre identifie le **produit**
+(générique), le QR code (Phase 13) identifie un **lot précis** (avec date
+de fabrication et DLC).
+- `products.barcode` (text, nullable, unique si renseigné) —
+  `supabase/phase14_schema.sql`, **exécuté avec succès par
+  l'utilisateur**.
+- Admin (`product_management_real.dart`) : champ "Code-barre" sur le
+  formulaire produit, avec bouton scanner (nouvel écran interne
+  `_BarcodeCaptureScreen`, réutilise `mobile_scanner`).
+- Client (`product_scanner_screen.dart`) : `_onDetect` distingue
+  maintenant les deux cas — préfixe `akorahub:batch:` → recherche dans
+  `production_batches` (affiche fabrication/DLC) ; sinon → recherche dans
+  `products.barcode` (affiche nom/catégorie/description, sans info de
+  lot puisque le code-barre n'est pas lié à un lot précis).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
