@@ -936,6 +936,31 @@ géométriques (rectangle orange, cylindre bleu marine) à l'intérieur.
   `flutter_launcher_icons` utilisé (plus simple d'agir directement sur les
   fichiers pour un remplacement ponctuel).
 
+## 3sexdecies. Inscription : date de naissance, conditions, lien connexion (25/07) ✅ FAIT
+
+Suite à une demande de l'utilisateur de vérifier les informations
+manquantes du formulaire d'inscription (`registration_screen.dart`) :
+
+- **Date de naissance** : nouveau champ avec sélecteur natif
+  (`showDatePicker`), obligatoire, avec vérification d'âge minimum 18 ans
+  (`_validateBirthDate`) — justifié par la vente de produits chimiques/
+  insecticides sur la plateforme. Stockée dans une nouvelle colonne
+  `profiles.birth_date` (`supabase/phase19_patch_birth_date.sql`, **prêt,
+  en attente d'exécution par l'utilisateur**).
+- **Case "J'accepte les conditions d'utilisation et la politique de
+  confidentialité"** : obligatoire pour créer un compte. **La page de
+  politique de confidentialité elle-même reste à écrire/héberger** (voir
+  plan de lancement, section 3sexies, point 2 — bloquant pour la
+  publication Play Store).
+- **Lien "Déjà un compte ? Se connecter"** sous le bouton d'inscription
+  (`Navigator.pop`) — auparavant seul le bouton retour de l'AppBar
+  permettait ce chemin.
+
+**Note pour la suite** : l'utilisateur a envoyé par erreur une capture
+d'écran de l'étape 6 du tutoriel de création de token GitHub (sans lien
+avec l'inscription) en même temps que cette demande — probablement une
+pièce jointe laissée par mégarde, sans conséquence sur le travail effectué.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
