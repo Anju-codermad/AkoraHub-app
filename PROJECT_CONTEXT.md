@@ -773,6 +773,55 @@ Détails techniques :
   échouent silencieusement si hors-ligne, ce qui est un compromis
   acceptable pour l'instant).
 
+## 3quaterdecies. Notifications push réelles (25/07) — EN COURS
+
+4ᵉ et dernier des chantiers demandés groupés (voir 3undecies/3duodecies/
+3terdecies pour les précédents). Nécessite une action externe de
+l'utilisateur (création d'un projet Firebase, gratuit) — infrastructure
+client posée en attendant le fichier de config.
+
+- Packages ajoutés : `firebase_core`, `firebase_messaging`,
+  `flutter_local_notifications`.
+- `supabase/phase16_schema.sql` : ajoute `profiles.fcm_token` — **statut
+  d'exécution à confirmer par l'utilisateur**.
+- `lib/core/notifications/push_notification_service.dart` :
+  `initialize()` (appelé dans `main.dart` après `SupabaseConfig.initialize()`)
+  demande la permission notifications, enregistre le token FCM de
+  l'appareil dans `profiles.fcm_token`, affiche une notification locale
+  si un message arrive pendant que l'app est ouverte (sinon Android/iOS
+  l'affichent nativement). `onUserSignedIn()` appelé après connexion
+  (`authentication_screen.dart`) et inscription
+  (`registration_screen.dart`) pour ré-associer le token au bon compte.
+  **Tout est protégé par try/catch** : sans `google-services.json`,
+  `Firebase.initializeApp()` échoue silencieusement et l'app continue de
+  fonctionner normalement (juste sans notifications) — aucun risque de
+  casser le reste en attendant.
+- **⚠️ Volontairement PAS FAIT à ce stade** : le plugin Gradle
+  `com.google.gms.google-services` n'a pas été appliqué dans
+  `android/build.gradle`/`android/app/build.gradle` — l'appliquer sans le
+  fichier `google-services.json` présent ferait échouer TOUT build
+  Android ("File google-services.json is missing"). À faire dès réception
+  du fichier de l'utilisateur.
+- **Reste à faire, dans l'ordre** :
+  1. Recevoir `google-services.json` de l'utilisateur (guidé pas à pas :
+     console Firebase → créer projet → ajouter app Android avec le
+     package `com.akora_fanadiovana.app` → télécharger le fichier).
+  2. L'ajouter au dépôt (`android/app/google-services.json`) — probablement
+     comme secret GitHub encodé en base64 décodé pendant le build CI,
+     même pattern que `env.json`/keystore, plutôt que commité en clair.
+  3. Appliquer le plugin Gradle (`android/build.gradle` +
+     `android/app/build.gradle`).
+  4. **L'ENVOI réel des notifications reste un chantier séparé** : le
+     service ci-dessus ne fait qu'ENREGISTRER l'appareil pour recevoir —
+     il faut ensuite un déclencheur côté serveur (Supabase Database
+     Webhook → Edge Function Deno → appel à l'API FCM HTTP v1 avec un
+     compte de service Firebase) pour effectivement notifier un client
+     ("nouveau message", "devis répondu", "commande expédiée"). Ce
+     compte de service (clé privée JSON, différente de
+     `google-services.json`) sera à générer depuis Firebase Console →
+     Paramètres du projet → Comptes de service, une fois l'étape 1-3
+     confirmée fonctionnelle.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
