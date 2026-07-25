@@ -501,24 +501,23 @@ commencée sauf mention contraire :
   - **Reste à faire** : notification (push ou in-app) à l'arrivée d'un
     nouveau message.
 
-## 3ter. Connexion/Inscription — améliorations demandées (23/07, à traiter par Backend/Infra)
+## 3ter. Connexion/Inscription — améliorations (23/07, Backend/Infra) ✅ FAIT
 
-- **Bugs UX à corriger** : "Mot de passe oublié ?" et connexion sociale
-  (Google/Facebook) sont des maquettes non fonctionnelles ("sera
-  implémenté" au clic) sur `authentication_screen/`.
-- **Téléphone obligatoire** à l'inscription (actuellement optionnel), avec
-  validation des préfixes malgaches réels (Telma 034/038, Orange 032,
-  Yas ex-Airtel 033).
-- **Inscription** : ajouter confirmation du mot de passe + bouton
-  afficher/masquer.
-- **Vérification anti-fraude** : 4 niveaux discutés (email natif Supabase
-  gratuit ; validation format téléphone gratuite ; SMS OTP payant par
-  fournisseur tiers, coût à confirmer pour Madagascar ; validation
-  manuelle des comptes pro par le staff — le texte "en attente de
-  vérification" existe déjà dans `authentication_screen.dart` mais n'est
-  branché à aucune vraie logique). **Décision utilisateur : reporté à plus
-  tard.** Priorité recommandée si repris : email + téléphone (gratuits)
-  avant SMS OTP/validation manuelle.
+- **"Mot de passe oublié ?"** : remplacé par un vrai envoi d'email de
+  réinitialisation via `Supabase.auth.resetPasswordForEmail()` (dialogue
+  de saisie d'email + confirmation d'envoi).
+- **Connexion Google/Facebook** : toujours des boutons non fonctionnels
+  (nécessiteraient la création de comptes développeur Google Cloud/Meta,
+  démarche externe hors périmètre code), mais le message au clic est
+  maintenant honnête ("bientôt disponible") au lieu de laisser croire à
+  une implémentation imminente.
+- **Téléphone rendu obligatoire** à l'inscription, avec validation réelle
+  des préfixes malgaches (Telma 034/038, Orange 032, Yas ex-Airtel 033,
+  tolère le +261).
+- **Confirmation du mot de passe** ajoutée + bouton afficher/masquer sur
+  le champ mot de passe (`registration_screen.dart`).
+- **Vérification anti-fraude** (email/SMS/validation manuelle) : toujours
+  **reporté**, décision utilisateur inchangée.
 
 ## 3sexies. Plan de lancement — objectif publication le mois prochain (25/07)
 
