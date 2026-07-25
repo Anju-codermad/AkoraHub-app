@@ -179,3 +179,6 @@
 
 ## 2026-07-25 08:01 UTC — Anju-codermad
 - Backend/Infra: add missing Admin quotes screen (client quote requests were invisible to staff) (`6cfd589`)
+
+## 2026-07-25 08:16 UTC — Anju-codermad
+- Backend/Infra: real quote negotiation thread (client can counter-propose, staff sees full history) instead of one-shot response (`72d9e4a`)
