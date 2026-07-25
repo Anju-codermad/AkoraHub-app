@@ -637,35 +637,37 @@ attendue).
   toujours créer un nouvel écran propre plutôt que de risquer de casser un
   gros fichier existant, à l'image de ce qui a été fait jusqu'ici.
 
-## 7. Répartition des missions entre conversations Claude en parallèle
+## 7. Historique de répartition des missions (consolidé le 25/07)
 
 **⚠️ Dépôt renommé (23/07)** : `Anju-codermad/akora-fanadiovana-app` →
 **`Anju-codermad/AkoraHub-app`**. L'ancien nom redirige encore
 automatiquement (GitHub le fait par défaut après un renommage), mais
 utiliser le nouveau nom pour tout nouveau clone/remote/lien.
 
-Pour éviter les conflits, le projet était initialement divisé en deux
-périmètres clairs :
+**Consolidation (25/07)** : l'utilisateur a demandé de reprendre tout le
+travail dans une seule conversation à partir de maintenant, plutôt que de
+continuer à faire avancer deux sessions en parallèle. La répartition
+ci-dessous est conservée à titre d'historique (utile pour comprendre
+pourquoi certains fichiers ont été créés par l'une ou l'autre "session"),
+mais **ne s'applique plus** : toute nouvelle conversation qui reprend ce
+projet a désormais la responsabilité de l'ensemble du dépôt.
 
+Répartition initiale (24-25/07, avant consolidation) :
 - **Conversation "Backend/Infra"** : `lib/core/`, `supabase/*.sql`, tous les
   écrans Admin (`*_real` hors `client_home/`), `.github/workflows/`,
   paiement, messagerie, notifications, sécurité RLS.
-- **Conversation "Client UX/Design"** : uniquement
-  `lib/presentation/client_home/*` — écrans client, style visuel, mise en
-  page, adaptation des références visuelles fournies par l'utilisateur.
+- **Conversation "Client UX/Design"** : `lib/presentation/client_home/*` —
+  écrans client, style visuel, mise en page — élargie en cours de route
+  à des écrans Admin ponctuels (ex. `home_banners_management.dart`) avec
+  accord implicite de l'utilisateur.
 
-**Élargissement (23/07)** : l'utilisateur a explicitement demandé à la
-conversation "Client UX/Design" de travailler aussi côté Admin, en plus du
-Client — cette conversation n'est donc plus strictement cantonnée à
-`client_home/*`. Elle a par exemple déjà créé un écran Admin
-(`home_banners_management.dart`) avant cet élargissement, avec accord
-implicite de l'utilisateur à ce moment-là.
-
-**Règle qui reste valable** : toute conversation qui touche un fichier
-également modifié par l'autre doit vérifier l'historique Git (fetch avant
-push, tester un merge si des commits distants sont apparus) plutôt que de
-pousser en force — plusieurs fusions automatiques propres ont déjà eu lieu
-ce jour-là sans perte de code des deux côtés.
+Plusieurs fusions Git automatiques propres ont eu lieu durant cette
+période (aucune perte de code), et un doublon fonctionnel (deux systèmes
+de messagerie construits indépendamment) a été détecté et résolu — voir
+section 3bis pour le détail. Cette expérience confirme qu'un travail en
+parallèle sur ce projet reste possible si besoin à l'avenir, à condition
+de repasser régulièrement par ce document et de toujours `git pull` avant
+de pousser.
 
 ## 6bis. Comment reprendre le fil (pour toute conversation)
 
