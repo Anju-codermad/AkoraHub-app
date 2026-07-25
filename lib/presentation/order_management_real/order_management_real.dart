@@ -29,6 +29,13 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     'annulee': 'Annulée',
   };
 
+  final Map<String, String> _paymentStatusLabels = const {
+    'en_attente': 'En attente',
+    'acompte_verse': 'Acompte versé',
+    'paye': 'Payée',
+    'facture_30j': 'Facturée (30j)',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -65,23 +72,46 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   }
 
   Future<void> _updateStatus(Map<String, dynamic> order) async {
-    String selected = order['status'] ?? 'recue';
+    String selectedStatus = order['status'] ?? 'recue';
+    String selectedPayment = order['payment_status'] ?? 'en_attente';
 
-    final result = await showDialog<String>(
+    final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text('Commande ${order['order_number']}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: _statusLabels.entries.map((entry) {
-              return RadioListTile<String>(
-                value: entry.key,
-                groupValue: selected,
-                title: Text(entry.value),
-                onChanged: (v) => setDialogState(() => selected = v!),
-              );
-            }).toList(),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Statut de la commande',
+                    style: Theme.of(context).textTheme.labelLarge),
+                ..._statusLabels.entries.map((entry) {
+                  return RadioListTile<String>(
+                    value: entry.key,
+                    groupValue: selectedStatus,
+                    dense: true,
+                    title: Text(entry.value),
+                    onChanged: (v) =>
+                        setDialogState(() => selectedStatus = v!),
+                  );
+                }),
+                const Divider(),
+                Text('Statut du paiement',
+                    style: Theme.of(context).textTheme.labelLarge),
+                ..._paymentStatusLabels.entries.map((entry) {
+                  return RadioListTile<String>(
+                    value: entry.key,
+                    groupValue: selectedPayment,
+                    dense: true,
+                    title: Text(entry.value),
+                    onChanged: (v) =>
+                        setDialogState(() => selectedPayment = v!),
+                  );
+                }),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -89,7 +119,10 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
               child: const Text('Annuler'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, selected),
+              onPressed: () => Navigator.pop(context, {
+                'status': selectedStatus,
+                'payment_status': selectedPayment,
+              }),
               child: const Text('Mettre à jour'),
             ),
           ],
@@ -102,7 +135,8 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     try {
       await SupabaseConfig.client
           .from('orders')
-          .update({'status': result}).eq('id', order['id']);
+          .update(result)
+          .eq('id', order['id']);
       _loadOrders();
     } catch (_) {
       if (!mounted) return;
@@ -127,6 +161,19 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
         return Colors.orange;
       case 'annulee':
         return theme.colorScheme.error;
+      default:
+        return theme.colorScheme.outline;
+    }
+  }
+
+  Color _paymentColor(String paymentStatus, ThemeData theme) {
+    switch (paymentStatus) {
+      case 'paye':
+        return Colors.green;
+      case 'acompte_verse':
+        return Colors.orange;
+      case 'facture_30j':
+        return Colors.blue;
       default:
         return theme.colorScheme.outline;
     }
@@ -188,6 +235,8 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                 itemBuilder: (context, index) {
                                   final order = _filteredOrders[index];
                                   final status = order['status'] ?? 'recue';
+                                  final paymentStatus =
+                                      order['payment_status'] ?? 'en_attente';
                                   final customer = order['profiles'];
                                   final customerName = customer != null
                                       ? (customer['company_name'] ??
@@ -201,16 +250,46 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                       subtitle: Text(
                                         '$customerName · ${_currency.format(order['total_amount'] ?? 0)}',
                                       ),
-                                      trailing: Chip(
-                                        label: Text(
-                                          _statusLabels[status] ?? status,
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.white),
-                                        ),
-                                        backgroundColor:
-                                            _statusColor(status, theme),
-                                        visualDensity: VisualDensity.compact,
+                                      trailing: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Chip(
+                                            label: Text(
+                                              _statusLabels[status] ?? status,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.white),
+                                            ),
+                                            backgroundColor:
+                                                _statusColor(status, theme),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Chip(
+                                            label: Text(
+                                              _paymentStatusLabels[
+                                                      paymentStatus] ??
+                                                  paymentStatus,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.white),
+                                            ),
+                                            backgroundColor: _paymentColor(
+                                                paymentStatus, theme),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                          ),
+                                        ],
                                       ),
                                       onTap: () => _updateStatus(order),
                                     ),
