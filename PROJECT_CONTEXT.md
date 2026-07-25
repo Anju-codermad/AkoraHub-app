@@ -301,7 +301,7 @@ progressivement avec un vrai backend Supabase.
   sélecteur de photos mais l'enregistrement des photos échoue
   silencieusement avec le message ci-dessus, sans bloquer le reste).
 
-### Phase 9 — Activer / désactiver une catégorie (script prêt, pas exécuté)
+### Phase 9 — Activer / désactiver une catégorie (exécuté avec succès le 25/07)
 - Contexte : les piliers (business_units) avaient déjà un champ `active` +
   interrupteur côté Admin (écran "Piliers d'entreprise",
   `business_units_management.dart`) — un pilier désactivé disparaît du
@@ -323,8 +323,30 @@ progressivement avec un vrai backend Supabase.
   silencieux si la migration n'est pas encore exécutée). Une catégorie
   désactivée ne supprime pas les produits déjà tagués avec elle : ils
   restent visibles et cherchables, seule la puce de filtre disparaît.
-- **Reste à faire** : exécuter `phase9_patch_categories_active.sql` dans
-  Supabase.
+
+### Phase 10 — 3 nouveaux piliers dormants (exécuté avec succès le 25/07)
+- `supabase/phase10_patch_new_business_units.sql` : crée 3 nouveaux
+  piliers **désactivés** (`active = false`, invisibles côté client tant
+  que l'Admin ne les active pas depuis "Piliers d'entreprise") avec leurs
+  catégories par défaut :
+  1. **Matières Premières** (12 catégories : Acides & Bases, Chélatants,
+     Désinfectants, Épaississants, Charges Minérales, Colorants,
+     Conservateurs & Antioxydants, Huiles & Beurres Cosmétiques, Parfums &
+     Additifs, Polymères & Résines, Solvants, Tensioactifs) — remplace
+     l'ancienne idée de catégorie "Agroalimentaire" séparée (un ingrédient
+     alimentaire va dans sa famille chimique, ex. Acides & Bases, avec une
+     note "qualité alimentaire" dans sa description produit).
+  2. **Anti-Nuisibles** (7 catégories : Insecticides Maison/Extérieur,
+     Anti-Fourmis & Cafards, Anti-Moustiques & Mouches, Raticides &
+     Rongeurs, Anti-Puces & Tiques, Produits Agrivet — en prévision d'un
+     projet de revente agricole/vétérinaire).
+  3. **Matières Premières Peinture** (5 catégories : Liants & Résines,
+     Pigments & Colorants, Charges & Additifs, Solvants & Diluants,
+     Siccatifs & Conservateurs) — distinct du pilier ARCA PAINTS existant
+     (qui vend les peintures finies) : ici les intrants pour fabriquer de
+     la peinture.
+- Catégories ajustables librement depuis l'écran de gestion des
+  catégories une fois le pilier activé.
 
 ## 3quinquies. Bug de build résolu (25/07) : version share_plus incompatible
 
