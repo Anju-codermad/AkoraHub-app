@@ -176,3 +176,6 @@
 
 ## 2026-07-25 07:48 UTC — Anju-codermad
 - Backend/Infra: allow staff to manually update order payment status (cash, direct Mobile Money, 30-day invoice) while real gateway pending (`175cc51`)
+
+## 2026-07-25 08:01 UTC — Anju-codermad
+- Backend/Infra: add missing Admin quotes screen (client quote requests were invisible to staff) (`6cfd589`)
