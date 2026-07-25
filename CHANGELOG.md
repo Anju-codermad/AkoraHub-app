@@ -245,3 +245,6 @@
 
 ## 2026-07-25 18:53 UTC — Claude
 - merge: intégrer les changements distants avant push des correctifs profil entreprise (`7a73420`)
+
+## 2026-07-25 19:42 UTC — Claude
+- Inscription: date de naissance (vérif 18+), acceptation des conditions, lien retour connexion (`f37ee03`)
