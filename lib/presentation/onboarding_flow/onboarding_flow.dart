@@ -25,50 +25,35 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       "title": "Créez Votre Profil d'Entreprise",
       "description":
           "Configurez votre identité visuelle avec logo, photos et informations complètes pour attirer vos clients.",
-      "image":
-          "https://img.rocket.new/generatedImages/rocket_gen_img_106bae3e7-1764692735970.png",
-      "semanticLabel":
-          "Business professional working on laptop with colorful charts and graphs displayed on screen in modern office setting",
+      "semanticLabel": "Icône représentant la gestion du profil d'entreprise",
       "iconName": "business",
     },
     {
       "title": "Gérez Votre Catalogue Produits",
       "description":
           "Ajoutez vos produits avec photos, vidéos et descriptions détaillées. Organisez facilement votre inventaire.",
-      "image":
-          "https://images.unsplash.com/photo-1634217620030-403525c4b9de",
-      "semanticLabel":
-          "Organized product display with cosmetic bottles and soap bars arranged on white shelves with natural lighting",
+      "semanticLabel": "Icône représentant la gestion du catalogue produits",
       "iconName": "inventory_2",
     },
     {
       "title": "Engagez Vos Clients",
       "description":
           "Communiquez directement via WhatsApp, suivez les prospects et gérez les rendez-vous en un seul endroit.",
-      "image":
-          "https://img.rocket.new/generatedImages/rocket_gen_img_1478bcc45-1764651525877.png",
-      "semanticLabel":
-          "Diverse business team having friendly discussion around table with laptops and coffee cups in bright office",
+      "semanticLabel": "Icône représentant l'engagement client",
       "iconName": "people",
     },
     {
       "title": "Analysez Vos Performances",
       "description":
           "Suivez vos ventes, conversions et statistiques en temps réel avec des rapports détaillés exportables.",
-      "image":
-          "https://img.rocket.new/generatedImages/rocket_gen_img_162e1bb75-1764659449969.png",
-      "semanticLabel":
-          "Business analytics dashboard showing colorful line graphs and pie charts on computer screen with financial data",
+      "semanticLabel": "Icône représentant l'analyse des performances",
       "iconName": "analytics",
     },
     {
       "title": "Développez Votre Activité",
       "description":
-          "Accédez à tous les outils professionnels pour seulement \$5/mois. Commencez votre transformation digitale aujourd'hui!",
-      "image":
-          "https://img.rocket.new/generatedImages/rocket_gen_img_1866913a1-1764761103515.png",
-      "semanticLabel":
-          "Successful business growth concept with upward trending arrow and people celebrating achievement in modern workspace",
+          "Accédez à tous les outils professionnels d'AkoraHub — catalogue, commandes, livraison et communauté — pour faire grandir votre activité au quotidien.",
+      "semanticLabel": "Icône représentant la croissance de l'activité",
       "iconName": "trending_up",
     },
   ];

@@ -25,39 +25,37 @@ class OnboardingPageWidget extends StatelessWidget {
           children: [
             SizedBox(height: 2.h),
 
-            // Feature icon
-            Container(
-              width: 20.w,
-              height: 20.w,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(
-                child: CustomIconWidget(
-                  iconName: pageData["iconName"] as String,
-                  size: 10.w,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
-
-            SizedBox(height: 3.h),
-
-            // Main illustration
+            // Illustration : icône unique sur fond dégradé (remplace les
+            // anciennes images externes img.rocket.new — supprimées le
+            // 23/07 pour ne plus dépendre d'un CDN tiers dans le premier
+            // écran vu par chaque nouvel utilisateur). Aucun réseau
+            // requis, aucune image cassée possible.
             Container(
               constraints: BoxConstraints(
                 maxHeight: 35.h,
                 maxWidth: 90.w,
               ),
-              child: ClipRRect(
+              width: 90.w,
+              height: 35.h,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    theme.colorScheme.primary.withValues(alpha: 0.15),
+                    theme.colorScheme.primary.withValues(alpha: 0.05),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(16),
-                child: CustomImageWidget(
-                  imageUrl: pageData["image"] as String,
-                  width: 90.w,
-                  height: 35.h,
-                  fit: BoxFit.cover,
-                  semanticLabel: pageData["semanticLabel"] as String,
+              ),
+              child: Center(
+                child: Semantics(
+                  label: pageData["semanticLabel"] as String?,
+                  child: CustomIconWidget(
+                    iconName: pageData["iconName"] as String,
+                    size: 22.w,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
               ),
             ),

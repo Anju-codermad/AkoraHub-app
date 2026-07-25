@@ -3,6 +3,7 @@ import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import 'category_management.dart';
 
 /// Gestion des piliers d'entreprise (Akora Fanadiovana, ARCA PAINTS,
 /// AkoraFormation, et tout pilier futur). Réservé au staff (RLS côté serveur).
@@ -201,6 +202,22 @@ class _BusinessUnitsManagementState extends State<BusinessUnitsManagement> {
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                          Icons.category_outlined),
+                                      tooltip: 'Gérer les catégories',
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              CategoryManagement(
+                                            businessUnitId: unit['id'],
+                                            businessUnitName:
+                                                unit['name'] ?? '',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                     Switch(
                                       value: active,
                                       onChanged: (_) => _toggleActive(unit),

@@ -301,14 +301,101 @@ progressivement avec un vrai backend Supabase.
   sélecteur de photos mais l'enregistrement des photos échoue
   silencieusement avec le message ci-dessus, sans bloquer le reste).
 
+### Phase 9 — Activer / désactiver une catégorie (script prêt, pas exécuté)
+- Contexte : les piliers (business_units) avaient déjà un champ `active` +
+  interrupteur côté Admin (écran "Piliers d'entreprise",
+  `business_units_management.dart`) — un pilier désactivé disparaît du
+  catalogue client. L'utilisateur a demandé la même capacité pour les
+  catégories, en prévision de gammes préparées à l'avance (ex:
+  Anti-Nuisibles avec ses 7 sous-catégories) mais pas encore "lancées".
+- `supabase/phase9_patch_categories_active.sql` : ajoute `active boolean
+  default true` sur `categories`.
+- Nouvel écran `category_management.dart`, accessible depuis chaque carte
+  de pilier dans "Piliers d'entreprise" (icône catégorie à côté de
+  l'interrupteur actif/inactif du pilier) : même pattern d'interrupteur
+  par catégorie, renommage, ajout.
+- Le formulaire produit (`product_management_real.dart`) ne propose plus
+  que les catégories actives dans son menu déroulant (la catégorie déjà
+  choisie sur un produit existant reste affichée même si désactivée
+  depuis, pour ne pas casser l'édition).
+- Côté client (`catalog_tab.dart`), les catégories désactivées sont
+  exclues des puces de filtre du catalogue — chargement tolérant (repli
+  silencieux si la migration n'est pas encore exécutée). Une catégorie
+  désactivée ne supprime pas les produits déjà tagués avec elle : ils
+  restent visibles et cherchables, seule la puce de filtre disparaît.
+- **Reste à faire** : exécuter `phase9_patch_categories_active.sql` dans
+  Supabase.
+
+## 3quinquies. Bug de build résolu (25/07) : version share_plus incompatible
+
+Après l'ajout de "Réseau social client" (commit 35c3a9e), **tous les builds
+GitHub Actions échouaient** (APK et AAB), du 23/07 au 25/07 — plusieurs
+commits successifs (nettoyage Rocket.new, correctif onboarding, doc) ont
+été poussés par-dessus sans que personne ne remarque que le build était
+cassé depuis le commit du réseau social lui-même.
+
+**Cause** : `pubspec.yaml` fixait `share_plus: ^10.1.4`, mais le code
+utilisait l'API `SharePlus.instance.share(ShareParams(...))`, introduite
+seulement en **share_plus v11+**. En v10.x, cette classe n'existe pas →
+erreur de compilation `The getter 'SharePlus' isn't defined`.
+
+**Correctif** : `share_plus` remonté à `^12.0.2` (dernière version stable
+au moment du correctif). Build APK + AAB confirmés verts après correction.
+
+**Leçon pour les prochaines sessions** : après avoir ajouté un nouveau
+package à `pubspec.yaml`, vérifier que la contrainte de version choisie
+correspond bien à l'API réellement utilisée dans le code (surtout pour un
+package dont l'API a changé entre versions majeures) — et si possible,
+attendre la confirmation d'un build GitHub Actions vert avant d'enchaîner
+plusieurs commits par-dessus, pour repérer une régression tout de suite
+plutôt que plusieurs commits plus tard.
+
+## 3quater. Nettoyage traces Rocket.new (23/07, fait)
+
+L'utilisateur a demandé une vérification complète des traces de
+Rocket.new (l'outil qui a généré le scaffold initial du projet — voir
+section 1). Trouvé et corrigé :
+- `web/index.html` : script de tracking `static.rocket.new/rocket-shot.js`
+  retiré (chargeait en direct chez chaque utilisateur de la version web).
+- **Onboarding** (`onboarding_flow.dart` +
+  `widgets/onboarding_page_widget.dart`, premier écran vu par tout
+  nouveau client, vraiment utilisé — voir `splash_screen.dart` qui y
+  redirige) : les 5 pages chargeaient des images externes (4 depuis
+  `img.rocket.new`, 1 depuis Unsplash) — remplacées par une illustration
+  à base d'icône sur fond dégradé, sans dépendance à un CDN externe.
+- `lib/presentation/campaign_management/` **supprimé entièrement** :
+  écran orphelin (aucune route, aucune navigation vers lui nulle part
+  dans le code — vérifié), données 100% fictives en anglais ("Summer
+  Sale 2025", "VIP Customer Exclusive", stats inventées), 2 images
+  `img.rocket.new`. Reliquat de maquette jamais branché à une vraie
+  fonctionnalité.
+
+**Confirmé sans trace** : nom du package (`com.akora_fanadiovana.app`),
+label affiché de l'app ("AkoraHub"), métadonnées Android/iOS. Seul faux
+positif ignoré : `custom_icon_widget.dart` mappe `'rocket'`/
+`'rocket_launch'` vers les icônes fusée standard de Flutter (aucun
+rapport avec Rocket.new).
+
+**Repéré et corrigé au passage** : le texte de la 5ᵉ page d'onboarding
+mentionnait "seulement \$5/mois" — prix en dollars et modèle d'abonnement
+qui ne correspondait pas au modèle réel de l'app (vente de produits, pas
+de SaaS par abonnement). Remplacé par un texte générique sur les outils
+AkoraHub disponibles.
+
 ## 3bis. Suggestions d'amélioration côté client (évoquées, pas encore décidées)
 
 Idées discutées avec l'utilisateur, à prioriser plus tard — aucune n'est
 commencée sauf mention contraire :
 
-- **Réapprovisionnement suggéré** : détecter les produits qu'un client
-  recommande régulièrement et le proposer proactivement (étend le
-  "Recommander en 1 clic" déjà existant dans `orders_tab.dart`)
+- **Réapprovisionnement suggéré** (23/07, **fait**) — section "Vous
+  recommandez souvent" sur l'Accueil (`catalog_tab.dart`, juste après la
+  bannière), calculée dans `_loadData` : produits présents dans au moins 2
+  commandes distinctes du client (`order_items` joint à `orders` filtré par
+  `customer_id`, comptage par `product_id` sur des `order_id` distincts),
+  triés par fréquence décroissante, 5 max. Cartes horizontales réutilisant
+  `_ProductCard` (favoris + ajout rapide déjà intégrés). Masquée si le
+  client n'a pas encore assez d'historique — aucune donnée inventée,
+  tolérante à l'échec comme les autres sections de l'Accueil.
 - **Commande récurrente / abonnement** pour les consommables réguliers
 - **Paiement Mobile Money au checkout** (Mvola/Orange Money/Airtel Money) —
   voir aussi la piste Papi déjà notée en section 4
@@ -406,6 +493,49 @@ commencée sauf mention contraire :
   branché à aucune vraie logique). **Décision utilisateur : reporté à plus
   tard.** Priorité recommandée si repris : email + téléphone (gratuits)
   avant SMS OTP/validation manuelle.
+
+## 3sexies. Plan de lancement — objectif publication le mois prochain (25/07)
+
+**Message pour la session Backend/Infra** : l'utilisateur veut publier
+AkoraHub le mois prochain et demande qu'on cale un calendrier commun. Voici
+les 4 blocages identifiés (session Client UX) lors d'un état des lieux
+demandé par l'utilisateur — merci de confirmer la faisabilité de chacun
+d'ici la date visée, ou de signaler si l'un d'eux doit repousser le
+lancement.
+
+1. **Écran de connexion — 2 boutons non fonctionnels** (périmètre
+   Backend/Infra, voir section 3ter pour le détail) : "Mot de passe
+   oublié ?" affiche une popup "sera implémenté" au lieu de réinitialiser
+   réellement le mot de passe ; les boutons de connexion sociale
+   Google/Facebook ne font rien non plus. **Recommandation si le temps
+   manque** : au minimum masquer les boutons sociaux non fonctionnels
+   plutôt que les laisser tromper l'utilisateur ; le vrai "mot de passe
+   oublié" (reset email natif Supabase) est prioritaire à corriger.
+2. **Pré-requis techniques Google Play Store** (indépendant du code
+   Flutter) : icône haute résolution (512×512), feature graphic
+   (1024×500), politique de confidentialité (obligatoire — l'app demande
+   géolocalisation + upload de photos), formulaire "Sécurité des données"
+   du Play Store, vérification d'identité du compte développeur (à lancer
+   tôt, le délai de traitement Google n'est pas instantané). Point
+   technique déjà en règle : `compileSdk 36` dans `android/app/build.gradle`
+   respecte déjà l'exigence Google Play 2026 (cible minimale actuelle
+   Android 15/API 35, Android 16/API 36 obligatoire à partir du 31 août
+   2026).
+3. **Mode de paiement réel** — le plus gros morceau ouvert. Actuellement
+   l'app ne prend aucun paiement réel (commande/devis seulement, voir
+   section 4 : piste Papi.mg identifiée mais pas intégrée, statut
+   marchand MVola de l'entreprise non confirmé). **Question à trancher
+   avant tout calendrier** : lance-t-on avec un paiement à la livraison en
+   attendant l'intégration Mobile Money, ou est-ce bloquant pour le
+   lancement ?
+4. **Identité visuelle** : pas de logo graphique custom pour l'icône/
+   splash (seul le nom "AkoraHub" est appliqué actuellement), pas de
+   captures d'écran préparées pour la fiche Play Store.
+
+**Non bloquant, peut sortir après le lancement (v1.1)** : notifications
+push réelles, mode hors-ligne, multi-langue, fidélité par paliers, FDS,
+e-learning, groupes professionnels, mode sombre — voir section 3bis/4 pour
+le détail complet de chaque idée.
 
 ## 4. Ce qui N'EST PAS encore fait
 

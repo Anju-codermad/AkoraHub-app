@@ -119,3 +119,45 @@
 
 ## 2026-07-24 11:53 UTC — Claude (Client UX/Design)
 - docs: documenter les 5 fonctionnalites sociales, le renommage du depot et l elargissement de perimetre (`7100fa9`)
+
+## 2026-07-24 18:42 UTC — Anju-codermad
+- Merge branch 'main' of https://github.com/Anju-codermad/akora-fanadiovana-app (`c63b049`)
+
+## 2026-07-24 19:13 UTC — Claude (Client UX/Design)
+- Nettoyage traces Rocket.new (23/07) (`2987158`)
+
+## 2026-07-24 19:14 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`ec78583`)
+
+## 2026-07-24 19:17 UTC — Claude (Client UX/Design)
+- Onboarding : corrige le texte de la derniere page (prix USD/abonnement inexistant) (`cbf36ea`)
+
+## 2026-07-24 19:17 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`75cde0c`)
+
+## 2026-07-24 19:36 UTC — Claude
+- docs: ajouter les coordonnées de contact réelles (copie de secours de la politique de confidentialité) (`dc92cb6`)
+
+## 2026-07-24 20:35 UTC — Claude
+- feat(Backend/Infra): activer/désactiver les catégories (comme les piliers) - phase9_patch_categories_active.sql + écran category_management.dart (`59f41d4`)
+
+## 2026-07-25 01:59 UTC — Claude
+- debug: compiler APK avant AAB pour isoler l'origine de l'échec de build (`ebbc822`)
+
+## 2026-07-25 02:22 UTC — Claude
+- fix: share_plus ^10.1.4 -> ^12.0.2 (le code utilise l'API SharePlus.instance.share/ShareParams introduite en v11+) (`2b80853`)
+
+## 2026-07-25 02:39 UTC — Claude
+- docs: consigner le bug share_plus (version incompatible) et son correctif (`ce2e8d5`)
+
+## 2026-07-25 02:43 UTC — Claude
+- Backend/Infra: script SQL des 3 nouveaux piliers (Matières Premières, Anti-Nuisibles, Matières Premières Peinture) + catégories, créés désactivés (`9dd14ec`)
+
+## 2026-07-25 03:03 UTC — Claude
+- Client: réapprovisionnement suggéré sur l'Accueil (`a1a22f4`)
+
+## 2026-07-25 03:19 UTC — Claude
+- Docs: marquer le réapprovisionnement suggéré comme fait (`d36dbc7`)
+
+## 2026-07-25 03:28 UTC — Claude
+- Docs: plan de lancement (25/07) — checklist adressée à la session Backend/Infra pour caler un calendrier commun de publication le mois prochain (`861f16c`)
