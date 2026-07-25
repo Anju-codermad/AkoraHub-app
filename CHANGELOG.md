@@ -251,3 +251,6 @@
 
 ## 2026-07-25 19:57 UTC — Claude
 - Docs: documenter les améliorations de l'écran d'inscription (date de naissance, conditions, lien connexion) (`805831c`)
+
+## 2026-07-25 20:05 UTC — Claude
+- Connexion: sélecteur de comptes récents façon Facebook (pré-remplit l'email, sans stocker de mot de passe) (`8e58142`)
