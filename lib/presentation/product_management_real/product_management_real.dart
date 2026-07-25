@@ -166,6 +166,7 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     }
     final List<XFile> newPhotos = [];
     final removedExistingIds = <String>{};
+    bool isSaving = false;
 
     if (!mounted) return;
     await showDialog(
@@ -368,8 +369,15 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
               child: const Text('Annuler'),
             ),
             FilledButton(
-              onPressed: () async {
+              onPressed: isSaving
+                  ? null
+                  : () async {
                 if (nameCtrl.text.trim().isEmpty) return;
+                // Verrou anti-double-clic : sans ça, un appui multiple
+                // pendant l'upload des photos (qui peut prendre plusieurs
+                // secondes) créait plusieurs produits identiques.
+                if (isSaving) return;
+                setDialogState(() => isSaving = true);
 
                 final payload = {
                   'name': nameCtrl.text.trim(),
@@ -484,12 +492,19 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                   }
                 } catch (e) {
                   if (!mounted) return;
+                  setDialogState(() => isSaving = false);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Erreur lors de l\'enregistrement.')),
                   );
                 }
               },
-              child: const Text('Enregistrer'),
+              child: isSaving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Enregistrer'),
             ),
           ],
         ),
@@ -497,11 +512,58 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     );
   }
 
+  Future<void> _deleteProduct(Map<String, dynamic> product) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer ce produit ?'),
+        content: Text(
+          '"${product['name']}" sera définitivement supprimé, ainsi que ses variantes, lots et photos associés. Cette action est irréversible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await SupabaseConfig.client
+          .from('products')
+          .delete()
+          .eq('id', product['id']);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Produit supprimé.')),
+      );
+      _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Erreur lors de la suppression (le produit a peut-être déjà des commandes liées).')),
+      );
+    }
+  }
+
   Future<void> _addBatch(Map<String, dynamic> product) async {
     final batchNumberCtrl = TextEditingController();
     final quantityCtrl = TextEditingController();
     DateTime manufactureDate = DateTime.now();
     DateTime? expiryDate;
+    bool isSavingBatch = false;
 
     await showDialog(
       context: context,
@@ -565,8 +627,12 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
               child: const Text('Annuler'),
             ),
             FilledButton(
-              onPressed: () async {
+              onPressed: isSavingBatch
+                  ? null
+                  : () async {
                 if (batchNumberCtrl.text.trim().isEmpty) return;
+                if (isSavingBatch) return;
+                setDialogState(() => isSavingBatch = true);
                 try {
                   await SupabaseConfig.client.from('production_batches').insert({
                     'product_id': product['id'],
@@ -584,12 +650,19 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                   );
                 } catch (e) {
                   if (!mounted) return;
+                  setDialogState(() => isSavingBatch = false);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Erreur lors de l\'enregistrement du lot.')),
                   );
                 }
               },
-              child: const Text('Enregistrer'),
+              child: isSavingBatch
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Enregistrer'),
             ),
           ],
         ),
@@ -679,30 +752,71 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.end,
                                       children: [
-                                        TextButton.icon(
-                                          onPressed: () => Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ProductVariantsScreen(
-                                                      product: p),
-                                            ),
-                                          ),
-                                          icon: const Icon(Icons.tune, size: 18),
-                                          label: const Text('Variantes'),
-                                        ),
-                                        TextButton.icon(
-                                          onPressed: () => _addBatch(p),
-                                          icon: const Icon(Icons.inventory_2_outlined,
-                                              size: 18),
-                                          label: const Text('Lot'),
-                                        ),
-                                        TextButton.icon(
+                                        FilledButton.tonalIcon(
                                           onPressed: () =>
                                               _showProductDialog(product: p),
                                           icon: const Icon(Icons.edit_outlined,
                                               size: 18),
                                           label: const Text('Modifier'),
+                                        ),
+                                        SizedBox(width: 2.w),
+                                        PopupMenuButton<String>(
+                                          icon: const Icon(Icons.more_vert),
+                                          onSelected: (value) {
+                                            if (value == 'variantes') {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ProductVariantsScreen(
+                                                          product: p),
+                                                ),
+                                              );
+                                            } else if (value == 'lot') {
+                                              _addBatch(p);
+                                            } else if (value == 'supprimer') {
+                                              _deleteProduct(p);
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'variantes',
+                                              child: Row(children: [
+                                                Icon(Icons.tune, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Variantes'),
+                                              ]),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'lot',
+                                              child: Row(children: [
+                                                Icon(
+                                                    Icons
+                                                        .inventory_2_outlined,
+                                                    size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Ajouter un lot'),
+                                              ]),
+                                            ),
+                                            const PopupMenuDivider(),
+                                            PopupMenuItem(
+                                              value: 'supprimer',
+                                              child: Row(children: [
+                                                Icon(Icons.delete_outline,
+                                                    size: 18,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .error),
+                                                const SizedBox(width: 8),
+                                                Text('Supprimer',
+                                                    style: TextStyle(
+                                                        color: Theme.of(
+                                                                context)
+                                                            .colorScheme
+                                                            .error)),
+                                              ]),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
