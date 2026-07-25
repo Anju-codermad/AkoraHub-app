@@ -212,3 +212,6 @@
 
 ## 2026-07-25 11:41 UTC — Anju-codermad
 - Feature: support existing product barcodes (EAN/UPC) alongside QR batch traceability - Admin can scan/enter barcode on product form, client scanner recognizes both (`129a74b`)
+
+## 2026-07-25 12:09 UTC — Anju-codermad
+- Feature 1/4 (Client PDF): real company logo upload/storage + downloadable invoice/quote PDFs with logo for client (orders_tab.dart) (`6f15f85`)
