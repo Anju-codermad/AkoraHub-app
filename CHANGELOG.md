@@ -170,3 +170,6 @@
 
 ## 2026-07-25 03:52 UTC — Claude (Client UX/Design)
 - Merge: changelog auto-généré (`4424197`)
+
+## 2026-07-25 03:56 UTC — Claude (Client UX/Design)
+- docs: marquer les migrations phase9 (categories active) et phase10 (3 nouveaux piliers) comme executees le 25/07 (`0074cb3`)
