@@ -218,3 +218,6 @@
 
 ## 2026-07-25 12:22 UTC — Anju-codermad
 - Feature 2/4 (Multi-langue): FR/MG translation system infrastructure + language selector in Profile + apply to bottom nav and main catalog headers (first pass, more screens to come incrementally) (`32c3d93`)
+
+## 2026-07-25 12:40 UTC — Anju-codermad
+- Feature 3/4 (Mode hors-ligne): offline catalog caching (SharedPreferences), offline cart + queued order/quote submission (auto-sync on reconnect), visual offline banner (`08f196e`)
