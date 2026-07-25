@@ -209,3 +209,6 @@
 
 ## 2026-07-25 11:19 UTC — Anju-codermad
 - Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`cd7035f`)
+
+## 2026-07-25 11:41 UTC — Anju-codermad
+- Feature: support existing product barcodes (EAN/UPC) alongside QR batch traceability - Admin can scan/enter barcode on product form, client scanner recognizes both (`129a74b`)
