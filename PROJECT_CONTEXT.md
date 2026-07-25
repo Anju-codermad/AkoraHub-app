@@ -462,7 +462,6 @@ commencée sauf mention contraire :
   Accueil/Profil/le Mur existants.
 - **Filtre de recherche avancé** sur le catalogue (prix, disponibilité,
   pilier) — au-delà des chips de catégorie actuelles
-- **Mode sombre**
 - **Localisation automatique** — Niveau 1 fait, Niveau 2 (coordonnées GPS
   précises) documenté ci-dessus dans la section Profil
 - **Messagerie unifiée client ↔ équipe commerciale** (23/07) : une seule
@@ -553,10 +552,12 @@ lancement.
    splash (seul le nom "AkoraHub" est appliqué actuellement), pas de
    captures d'écran préparées pour la fiche Play Store.
 
-**Non bloquant, peut sortir après le lancement (v1.1)** : notifications
-push réelles, mode hors-ligne, multi-langue, fidélité par paliers, FDS,
-e-learning, groupes professionnels, mode sombre — voir section 3bis/4 pour
-le détail complet de chaque idée.
+**Non bloquant, peut sortir après le lancement (v1.1)** : FDS, e-learning,
+groupes professionnels — voir section 3bis/4 pour le détail. **Mise à
+jour** : notifications push, mode hors-ligne, fidélité par paliers et mode
+sombre sont désormais ✅ **faits** (voir sections dédiées) ; seul le
+multi-langue reste un chantier en cours (infrastructure posée, traduction
+écran par écran restante, voir 3duodecies).
 
 ## 3septies. Écran Admin des devis manquant (25/07, Backend/Infra) ✅ FAIT
 
@@ -923,6 +924,53 @@ Complétée aujourd'hui avec de vrais avantages par palier.
 - **Reste ouvert, si l'utilisateur le demande plus tard** : avantages
   additionnels par palier (remise produit, accès prioritaire au support,
   etc.), notification quand un client change de palier.
+
+## 3septendecies. Mode sombre (25/07) ✅ FAIT
+
+**⚠️ Autre écart de documentation constaté** (même cause que la fidélité,
+voir note ci-dessus en 3sexdecies) : construit et fusionné sur `main`
+(commit `50590de`) mais jamais documenté ici — il apparaissait à tort
+comme "à faire" en section 3bis et 3sexies.
+
+- `lib/core/providers/theme_provider.dart` : `themeModeProvider`
+  (StateNotifierProvider Riverpod), préférence clair/sombre/système
+  persistée via `SharedPreferences` (clé `theme_mode`).
+- Interrupteur ajouté à deux endroits : Profil client
+  (`client_home/profile_tab.dart`) et paramètres Admin
+  (`business_profile_settings/business_profile_settings.dart`).
+
+## 3octodecies. Rupture de stock prévue — analytics prédictif (25/07) ✅ FAIT
+
+**⚠️ Fonctionnalité retrouvée non documentée** (commit `f7143b6`, fusionné
+sur `main` le 25/07 — même cause : message du vrai commit avalé par un
+commit de fusion concurrent dans `CHANGELOG.md`, voir note méthodologique
+ci-dessous). Étend les alertes existantes (`alerts_center/alerts_center.dart`,
+Phase 1) avec une 3ᵉ section **"Rupture prévue"**, au-dessus de "Stock bas"
+et "DLC proche" :
+- Calcule la **vitesse de vente réelle des 30 derniers jours** par produit
+  (somme des quantités dans `order_items` jointes à `orders.created_at`),
+  divisée par 30 pour un rythme quotidien.
+- Compare ce rythme au stock actuel (`stock_quantity`) pour estimer le
+  nombre de jours restants avant rupture ; produits affichés si ce nombre
+  est **≤ 14 jours**, triés du plus urgent au moins urgent.
+- Estimation simple (moyenne linéaire sur 30 jours) — explicitement pas une
+  vraie prévision statistique, mais suffisante pour une alerte utile à
+  l'Admin. Aucune table/colonne supplémentaire nécessaire (calcul entièrement
+  côté app à partir des données existantes).
+
+**Note méthodologique importante (25/07)**, valable pour les deux
+fonctionnalités ci-dessus : la GitHub Action `changelog.yml` capture le
+message du dernier commit poussé pour remplir `CHANGELOG.md`. Quand un
+commit de fonctionnalité est immédiatement suivi d'un commit de fusion
+(cas fréquent quand deux pushes arrivent proches dans le temps), c'est le
+message générique **"Merge branch 'main'..."** qui atterrit dans le
+changelog — le vrai message ("Feature: ...") disparaît silencieusement.
+Conséquence concrète : le rituel de la section 6bis ("lire les dernières
+entrées de CHANGELOG.md") ne suffit pas à lui seul pour repérer tout ce qui
+a été construit. **À faire en début de session, en plus de lire ce
+fichier** : comparer `git log --oneline` (ou l'historique complet) contre
+ce document pour repérer d'éventuelles fonctionnalités non documentées,
+plutôt que de se fier uniquement à `CHANGELOG.md`.
 
 ## 4. Ce qui N'EST PAS encore fait
 
