@@ -227,3 +227,6 @@
 
 ## 2026-07-25 13:56 UTC — Anju-codermad
 - Add real AkoraHub app icon (green #085041, cart/A design) across Android, iOS, and web - replaces default Flutter icon (`7ddba81`)
+
+## 2026-07-25 14:07 UTC — Anju-codermad
+- Wire google-services.json into CI (via GitHub secret, base64) + conditionally apply Google Services Gradle plugin - safe fallback if secret absent (`5969403`)
