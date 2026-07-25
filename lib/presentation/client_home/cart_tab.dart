@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/loyalty/loyalty_tiers.dart';
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
 import '../../core/providers/cart_provider.dart';
@@ -26,10 +27,12 @@ class _CartTabState extends ConsumerState<CartTab> {
 
   bool _isEstimatingDelivery = false;
   double? _deliveryFee;
+  double? _deliveryFeeRaw;
   double? _deliveryDistanceKm;
   double? _deliveryLat;
   double? _deliveryLon;
   String? _deliveryError;
+  LoyaltyTier _loyaltyTier = kLoyaltyTiers.first;
 
   @override
   void initState() {
@@ -47,6 +50,26 @@ class _CartTabState extends ConsumerState<CartTab> {
 
     double? lat;
     double? lon;
+
+    // Palier de fidélité du client (donne droit à une remise sur les frais
+    // de livraison — Argent -50%, Or gratuite, voir core/loyalty/loyalty_tiers.dart).
+    var loyaltyTier = kLoyaltyTiers.first;
+    if (SupabaseConfig.isConfigured) {
+      try {
+        final userId = SupabaseConfig.client.auth.currentUser?.id;
+        if (userId != null) {
+          final loyaltyProfile = await SupabaseConfig.client
+              .from('profiles')
+              .select('loyalty_points')
+              .eq('id', userId)
+              .single();
+          final points = (loyaltyProfile['loyalty_points'] as num?)?.toInt() ?? 0;
+          loyaltyTier = tierForPoints(points);
+        }
+      } catch (_) {
+        // Pas de remise appliquée si le palier ne peut pas être déterminé.
+      }
+    }
 
     // 1) Position GPS actuelle (la plus précise).
     try {
@@ -111,19 +134,23 @@ class _CartTabState extends ConsumerState<CartTab> {
         _deliveryError =
             'Estimation indisponible (position introuvable). Les frais de livraison seront confirmés par notre équipe.';
         _deliveryFee = null;
+        _deliveryFeeRaw = null;
         _deliveryDistanceKm = null;
       });
       return;
     }
 
     final correctedKm = DeliveryPricing.correctedDistanceKm(lat, lon);
-    final fee = DeliveryPricing.feeForDistance(correctedKm);
+    final rawFee = DeliveryPricing.feeForDistance(correctedKm);
+    final fee = rawFee * (1 - loyaltyTier.deliveryDiscount);
     setState(() {
       _isEstimatingDelivery = false;
       _deliveryDistanceKm = correctedKm;
+      _deliveryFeeRaw = rawFee;
       _deliveryFee = fee;
       _deliveryLat = lat;
       _deliveryLon = lon;
+      _loyaltyTier = loyaltyTier;
     });
   }
 
@@ -419,7 +446,28 @@ class _CartTabState extends ConsumerState<CartTab> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   else if (_deliveryFee != null)
-                    Text(_currency.format(_deliveryFee))
+                    _loyaltyTier.deliveryDiscount > 0
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _currency.format(_deliveryFeeRaw),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  decoration: TextDecoration.lineThrough,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _currency.format(_deliveryFee),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(_currency.format(_deliveryFee))
                   else
                     TextButton(
                       onPressed: _estimateDelivery,
@@ -430,6 +478,22 @@ class _CartTabState extends ConsumerState<CartTab> {
                     ),
                 ],
               ),
+              if (_deliveryFee != null && _loyaltyTier.deliveryDiscount > 0)
+                Padding(
+                  padding: EdgeInsets.only(top: 0.5.h),
+                  child: Row(
+                    children: [
+                      Icon(Icons.emoji_events,
+                          size: 14, color: _loyaltyTier.color),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Palier ${_loyaltyTier.name} — ${_loyaltyTier.perk}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: _loyaltyTier.color),
+                      ),
+                    ],
+                  ),
+                ),
               if (_deliveryError != null)
                 Padding(
                   padding: EdgeInsets.only(top: 0.5.h),

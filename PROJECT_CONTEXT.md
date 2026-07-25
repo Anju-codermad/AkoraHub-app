@@ -884,6 +884,41 @@ géométriques (rectangle orange, cylindre bleu marine) à l'intérieur.
   `flutter_launcher_icons` utilisé (plus simple d'agir directement sur les
   fichiers pour un remplacement ponctuel).
 
+## 3sexdecies. Fidélité par paliers (25/07) ✅ FAIT
+
+**⚠️ Écart de documentation constaté** : cette fonctionnalité avait déjà été
+construite (commit `8552640`, fusionné sur `main`) mais n'avait jamais été
+consignée ici — elle apparaissait à tort en section 4 ("pas encore fait").
+Complétée aujourd'hui avec de vrais avantages par palier.
+
+- **Schéma** : `supabase/phase12_schema.sql` (**exécuté avec succès par
+  l'utilisateur le 25/07**) — colonne `profiles.loyalty_points`, trigger
+  `award_loyalty_points` qui crédite automatiquement **1 point par tranche
+  de 1000 Ar dépensée** dès qu'une commande passe au statut "livrée" (pas
+  de table séparée : les paliers sont calculés côté app à partir du total
+  de points).
+- **Paliers** (seuils confirmés par l'utilisateur) : Bronze (0+), Argent
+  (1000+), Or (5000+). Définition centralisée dans
+  `lib/core/loyalty/loyalty_tiers.dart` (`LoyaltyTier`, `kLoyaltyTiers`,
+  `tierForPoints()`/`nextTierForPoints()`) — partagée entre l'écran Fidélité
+  et le panier, pour éviter de dupliquer les seuils à deux endroits.
+- **Écran "Fidélité"** (`client_home/loyalty/loyalty_screen.dart`,
+  accessible depuis le Profil) : palier actuel, points, progression vers le
+  palier suivant, explication du fonctionnement, liste de tous les paliers.
+- **Avantage concret ajouté (25/07)** : remise automatique sur les **frais
+  de livraison** selon le palier — **Argent -50%, Or livraison gratuite**
+  (choix explicite de l'utilisateur, plutôt qu'une remise sur le prix
+  produit, pour ne pas entamer la marge sur les grosses commandes B2B
+  hôtels/hôpitaux). Appliquée dans `client_home/cart_tab.dart`
+  (`_estimateDelivery`) : le palier du client est lu depuis
+  `profiles.loyalty_points` puis multiplié au tarif calculé par
+  `DeliveryPricing` ; échec silencieux (aucune remise) si le palier ne peut
+  pas être déterminé (ex. hors-ligne). Affichage transparent dans le panier
+  : prix barré + prix remisé, avec le nom du palier en petit texte coloré.
+- **Reste ouvert, si l'utilisateur le demande plus tard** : avantages
+  additionnels par palier (remise produit, accès prioritaire au support,
+  etc.), notification quand un client change de palier.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
@@ -901,7 +936,6 @@ géométriques (rectangle orange, cylindre bleu marine) à l'intérieur.
 - **Notifications push** réelles
 - **Mode hors-ligne**
 - **Multi-langue** Français/Malagasy
-- **Fidélité par paliers**
 - **Paiement Mobile Money / carte Visa** (le compte MVola de l'entreprise
   existe mais son statut "marchand" n'est pas confirmé ; piste retenue :
   Papi, papi.mg, qui unifie MVola/Orange Money/Airtel Money/Visa — voir
