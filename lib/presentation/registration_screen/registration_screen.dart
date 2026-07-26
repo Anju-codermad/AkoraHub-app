@@ -54,20 +54,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'Le téléphone est obligatoire';
     }
-    final digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
-    // Normalise en retirant l'indicatif pays (261) s'il est présent.
+    final trimmed = value.trim();
+    final digitsOnly = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Cas 1 : numéro malgache (avec ou sans indicatif +261).
     final local = digitsOnly.startsWith('261')
         ? '0${digitsOnly.substring(3)}'
         : digitsOnly;
-
     const validPrefixes = ['032', '033', '034', '038'];
-    final hasValidPrefix =
-        validPrefixes.any((prefix) => local.startsWith(prefix));
+    final isValidMalagasy = validPrefixes.any((p) => local.startsWith(p)) &&
+        local.length == 10;
+    if (isValidMalagasy) return null;
 
-    if (!hasValidPrefix || local.length != 10) {
-      return 'Numéro invalide (ex: 034 XX XXX XX)';
-    }
-    return null;
+    // Cas 2 : numéro étranger — on accepte un format international
+    // générique (indicatif + suivi de 7 à 14 chiffres), sans valider
+    // chaque pays précisément. Un utilisateur étranger doit pouvoir
+    // s'inscrire même si son numéro ne correspond à aucun opérateur
+    // malgache.
+    final isPlausibleInternational =
+        trimmed.startsWith('+') && digitsOnly.length >= 8 && digitsOnly.length <= 15;
+    if (isPlausibleInternational) return null;
+
+    return 'Numéro invalide (ex: 034 XX XXX XX, ou +33 6 XX XX XX XX '
+        'pour l\'étranger)';
   }
 
   /// Vérifie que la date de naissance correspond à un âge d'au moins 18
@@ -267,7 +276,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Téléphone',
-                    hintText: '034 XX XXX XX',
+                    hintText: '034 XX XXX XX (ou +33... si étranger)',
                   ),
                   validator: _validatePhone,
                 ),
