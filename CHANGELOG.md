@@ -275,3 +275,6 @@
 
 ## 2026-07-26 09:30 UTC — Claude
 - Inscription: formulaire en 2 étapes (Identité / Coordonnées) (`704ac5b`)
+
+## 2026-07-26 09:45 UTC — Claude
+- Docs: documenter le formulaire d'inscription en 2 étapes (`ebaabd6`)
