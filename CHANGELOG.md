@@ -293,3 +293,6 @@
 
 ## 2026-07-26 17:24 UTC — Claude
 - Docs: documenter le correctif de la couleur outline (texte/icônes flous) (`97f4d51`)
+
+## 2026-07-26 23:16 UTC — Claude
+- fix(Backend/Infra): _slugify translittère maintenant les accents (évite les doublons de pilier/catégorie par slug différent) + script de nettoyage du doublon Matières Premières (`86908dc`)
