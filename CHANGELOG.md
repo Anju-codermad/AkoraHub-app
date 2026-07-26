@@ -287,3 +287,6 @@
 
 ## 2026-07-26 16:59 UTC — Claude
 - Docs: mettre à jour les noms finaux des 3 nouveaux piliers et le script SQL (`ae18abd`)
+
+## 2026-07-26 17:09 UTC — Claude
+- Thème: corriger la couleur 'outline' trop pâle (icônes/étoiles floues) (`69eb83c`)
