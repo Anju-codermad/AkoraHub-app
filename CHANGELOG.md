@@ -296,3 +296,6 @@
 
 ## 2026-07-26 23:16 UTC — Claude
 - fix(Backend/Infra): _slugify translittère maintenant les accents (évite les doublons de pilier/catégorie par slug différent) + script de nettoyage du doublon Matières Premières (`86908dc`)
+
+## 2026-07-26 23:44 UTC — Claude
+- fix: ne plus bloquer le premier affichage de l'app sur l'init Firebase (popup notifications avant même le logo) + splash en français (`a9179d0`)
