@@ -257,3 +257,6 @@
 
 ## 2026-07-26 03:05 UTC — Claude
 - Docs: documenter le sélecteur de comptes récents à la connexion (`722abfa`)
+
+## 2026-07-26 03:26 UTC — Claude
+- Inscription: accepter les numéros de téléphone étrangers (`16393c5`)
