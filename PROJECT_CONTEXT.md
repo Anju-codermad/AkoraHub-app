@@ -1047,6 +1047,21 @@ du dépôt GitHub** — le code n'existe donc plus nulle part. **Ne pas
 reconstruire cette fonctionnalité sans demande explicite renouvelée de
 l'utilisateur.**
 
+## 3vicies. Formulaire d'inscription en 2 étapes (26/07) ✅ FAIT
+
+`registration_screen.dart` réécrit en `PageView` à 2 pages (non
+swipeable, boutons uniquement) avec barre de progression en haut :
+- **Étape 1 — Identité** : secteur, nom, prénom, société, date de
+  naissance. Validée (`_step1FormKey` + `_validateBirthDate`) avant de
+  passer à l'étape 2 via "Suivant".
+- **Étape 2 — Coordonnées** : email, téléphone (indicatif pays), mot de
+  passe, confirmation, conditions. Bouton "Retour" revient à l'étape 1
+  sans perdre les données déjà saisies (les contrôleurs persistent).
+  La flèche retour de l'AppBar fait de même à l'étape 2, ou quitte l'écran
+  à l'étape 1.
+Aucun changement de logique métier — même validateurs, même appel
+Supabase, uniquement la présentation.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
