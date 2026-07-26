@@ -272,3 +272,6 @@
 
 ## 2026-07-26 05:18 UTC — Claude
 - feat(Backend/Infra): nouveau menu Admin 'Plus' (Facturation/Alertes/Piliers/Équipe enfin accessibles autrement que via le bouton +) (`9431a7f`)
+
+## 2026-07-26 09:30 UTC — Claude
+- Inscription: formulaire en 2 étapes (Identité / Coordonnées) (`704ac5b`)
