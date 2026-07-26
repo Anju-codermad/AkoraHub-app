@@ -290,3 +290,6 @@
 
 ## 2026-07-26 17:09 UTC — Claude
 - Thème: corriger la couleur 'outline' trop pâle (icônes/étoiles floues) (`69eb83c`)
+
+## 2026-07-26 17:24 UTC — Claude
+- Docs: documenter le correctif de la couleur outline (texte/icônes flous) (`97f4d51`)
