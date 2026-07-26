@@ -95,10 +95,16 @@ progressivement avec un vrai backend Supabase.
   variante réellement choisie ; ouvrir la fiche produit reste nécessaire
   pour un prix exact). Design inspiré de deux références visuelles
   fournies par l'utilisateur (grocery app + service app before/after).
-  **Piliers supplémentaires évoqués par l'utilisateur** (à créer par
-  l'Admin via l'écran de gestion des piliers, pas encore créés) : matières
-  premières chimiques, produits cosmétiques, produits insecticides — noms
-  et slugs suggérés en attente de validation utilisateur.
+  **Piliers supplémentaires** (26/07) — noms finaux décidés par
+  l'utilisateur (différents de la proposition initiale "Akora
+  Chimie/Cosmétique/Insecticides") : **Matières Premières**, **Anti-
+  Nuisibles**, **Matières Premières Peinture**. Script prêt :
+  `supabase/phase21_patch_new_business_units.sql` (insert idempotent,
+  **en attente d'exécution par l'utilisateur**). Icônes déjà mappées côté
+  client (`_iconForUnit` dans `catalog_tab.dart`) via les mots-clés
+  `peinture` → pinceau, `chimique` → fiole, `nuisible` → anti-nuisible
+  (peinture vérifiée en premier pour éviter le faux-positif de
+  "matieres-premieres-peinture" sur le mot-clé générique "premieres").
 - **Bannière hero de l'Accueil** (23/07) : la bannière promo en carrousel
   (`PageView` + indicateurs) n'est plus figée en dur — elle charge
   désormais les slides actifs depuis la table `home_banners`
