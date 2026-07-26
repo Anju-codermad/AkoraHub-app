@@ -254,3 +254,6 @@
 
 ## 2026-07-25 20:05 UTC — Claude
 - Connexion: sélecteur de comptes récents façon Facebook (pré-remplit l'email, sans stocker de mot de passe) (`8e58142`)
+
+## 2026-07-26 03:05 UTC — Claude
+- Docs: documenter le sélecteur de comptes récents à la connexion (`722abfa`)
