@@ -281,3 +281,6 @@
 
 ## 2026-07-26 16:15 UTC — Claude
 - feat(client): redesign écran Profil style Facebook centré, adapté aux vraies données (bio+couverture, catégories favorites, publications/favoris) (`6b8bf13`)
+
+## 2026-07-26 16:43 UTC — Claude
+- Piliers: script SQL pour 3 nouveaux piliers + icônes correspondantes (`60d1491`)
