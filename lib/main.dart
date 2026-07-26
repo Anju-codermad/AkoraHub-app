@@ -36,11 +36,15 @@ void main() async {
   // "hors-ligne" plutôt que de planter (utile pour du dev sans backend).
   await SupabaseConfig.initialize();
 
-  // Notifications push (Firebase). Tant que google-services.json n'est
-  // pas ajouté au projet Android, Firebase.initializeApp() échoue en
-  // silence (try/catch dans le service) et l'app continue normalement
-  // sans notifications — rien ne casse en attendant.
-  await PushNotificationService.initialize();
+  // Notifications push (Firebase). Volontairement PAS "await" ici :
+  // l'initialisation inclut la demande d'autorisation de notifications
+  // (popup système), qui bloquerait sinon l'affichage du tout premier
+  // écran — l'utilisateur verrait un écran blanc suivi d'une popup
+  // système avant même le logo AkoraHub. On lance l'app immédiatement,
+  // et les notifications s'initialisent en arrière-plan une fois l'app
+  // déjà visible. Si google-services.json est absent, échoue en
+  // silence (try/catch dans le service) sans rien casser.
+  PushNotificationService.initialize();
 
   // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
   Future.wait([

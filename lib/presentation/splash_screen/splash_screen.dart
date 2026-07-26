@@ -7,18 +7,14 @@ import '../../core/supabase/supabase_config.dart';
 import '../../core/supabase/auth_helpers.dart';
 import '../../widgets/custom_icon_widget.dart';
 
-/// Splash Screen - Branded app launch experience
+/// Splash Screen - écran de lancement de marque
 ///
-/// Provides professional branded launch while initializing:
-/// - Subscription status verification
-/// - Business profile loading
-/// - Essential configuration fetching
-/// - Offline data preparation
-///
-/// Navigation Logic:
-/// - Authenticated business owners → /business-dashboard
-/// - New users → /onboarding-flow
-/// - Returning non-authenticated → /authentication-screen
+/// Affiche brièvement le logo pendant que l'app vérifie si l'utilisateur
+/// est déjà connecté, puis redirige vers le bon écran :
+/// - Utilisateur connecté → tableau de bord Admin ou accueil client
+///   selon son rôle (voir AuthRouting.homeRouteForCurrentUser)
+/// - Premier lancement, jamais vu l'onboarding → /onboarding-flow
+/// - Non connecté (hors premier lancement) → /authentication-screen
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -92,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen>
 
       setState(() {
         _hasError = true;
-        _errorMessage = 'Initialization failed. Please try again.';
+        _errorMessage = 'Échec de l\'initialisation. Réessaie.';
       });
 
       // Auto-retry after 5 seconds
@@ -208,7 +204,7 @@ class _SplashScreenState extends State<SplashScreen>
               FadeTransition(
                 opacity: _fadeAnimation,
                 child: Text(
-                  'Professional Multi-Business Platform',
+                  'Votre plateforme multi-activités',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: Colors.white.withValues(alpha: 0.9),
                     letterSpacing: 0.5,
@@ -295,7 +291,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             child: Text(
-              'Retry',
+              'Réessayer',
               style: theme.textTheme.labelLarge?.copyWith(
                 color: theme.colorScheme.primary,
               ),
@@ -317,7 +313,7 @@ class _SplashScreenState extends State<SplashScreen>
         ),
         const SizedBox(height: 16),
         Text(
-          _initializationComplete ? 'Loading...' : 'Initializing services...',
+          _initializationComplete ? 'Chargement...' : 'Initialisation...',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: Colors.white.withValues(alpha: 0.9),
           ),

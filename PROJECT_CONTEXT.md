@@ -350,6 +350,26 @@ progressivement avec un vrai backend Supabase.
 - Catégories ajustables librement depuis l'écran de gestion des
   catégories une fois le pilier activé.
 
+## Démarrage app bloqué avant le premier écran (27/07, corrigé)
+
+L'utilisateur a demandé une vérification du "loading" de l'app. Trouvé un
+vrai problème dans `main.dart` : `PushNotificationService.initialize()`
+était `await`é **avant** `runApp()`. Cette initialisation inclut
+`messaging.requestPermission(...)` côté Firebase, qui affiche la popup
+système de demande d'autorisation de notifications — donc au premier
+lancement, l'utilisateur voyait un écran blanc suivi directement de cette
+popup système, **avant même le logo AkoraHub**. Tant qu'il n'y répondait
+pas, rien d'autre ne s'affichait (`runApp()` n'avait pas encore été
+appelé). Corrigé : l'appel n'est plus `await`é, l'app s'affiche
+immédiatement et les notifications s'initialisent en arrière-plan une
+fois l'UI déjà visible.
+
+Au passage : commentaire de doc périmé sur `splash_screen.dart` corrigé
+(décrivait encore les 4 fausses étapes d'initialisation supprimées le
+23/07 — voir plus bas "Bug de build résolu"), et les derniers textes
+anglais du splash (tagline, "Loading...", "Retry"...) traduits en
+français.
+
 ## Redesign écran Profil client — style Facebook centré (25/07)
 
 Demande explicite de l'utilisateur : reproduire la mise en page d'un
