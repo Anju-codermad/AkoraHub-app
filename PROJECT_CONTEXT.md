@@ -1125,6 +1125,27 @@ swipeable, boutons uniquement) avec barre de progression en haut :
 Aucun changement de logique métier — même validateurs, même appel
 Supabase, uniquement la présentation.
 
+## 3unvicies. Correctif thème : couleur "outline" trop pâle (26/07) ✅ FAIT
+
+L'utilisateur a signalé que beaucoup de texte/icônes paraissaient "flou"
+(l'étoile favoris, les libellés des piliers...). Diagnostic confirmé via
+capture d'écran + lecture du thème : **pas un bug de police** (les icônes
+Material ne dépendent pas de Google Fonts, donc si elles aussi paraissent
+floues, la cause est ailleurs). Cause réelle trouvée dans
+`lib/theme/app_theme.dart` : `colorScheme.outline` était réglé sur
+`dividerLight`/`dividerDark` (`0xFFE5E7EB` / `0xFF374151`, commentées
+"Minimal separation" — prévues pour de simples traits de séparation à
+peine visibles), alors que ce rôle sémantique (Material 3) doit rester
+lisible puisqu'il est utilisé pour des icônes/bordures visibles (étoile
+non-favorite, icônes de piliers, tags...). Corrigé : `outline` utilise
+maintenant `textSecondaryLight`/`textSecondaryDark` (gris moyen, déjà
+utilisé pour le texte secondaire) ; `outlineVariant` récupère l'ancienne
+couleur pâle, pour les vrais séparateurs discrets. **Un seul changement au
+niveau du thème corrige d'un coup les 18 usages de
+`colorScheme.outline`** repérés dans `client_home/` (favorites, catalog,
+cart, orders, profile, product_detail, chat, loyalty) sans toucher
+fichier par fichier.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
