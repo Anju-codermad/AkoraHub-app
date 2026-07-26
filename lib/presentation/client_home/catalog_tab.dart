@@ -415,13 +415,21 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
 
   IconData _iconForUnit(Map<String, dynamic> unit) {
     final slug = (unit['slug'] ?? '').toString();
-    if (slug.contains('paint')) return Icons.format_paint;
+    // Peinture vérifié en premier : "matieres-premieres-peinture" contient
+    // aussi "premieres" mais doit avoir l'icône pinceau, pas fiole.
+    if (slug.contains('paint') || slug.contains('peinture')) {
+      return Icons.format_paint;
+    }
     if (slug.contains('formation')) return Icons.school;
-    if (slug.contains('chimie') || slug.contains('chemical')) {
+    if (slug.contains('chimie') ||
+        slug.contains('chimique') ||
+        slug.contains('chemical')) {
       return Icons.science_outlined;
     }
     if (slug.contains('cosmet')) return Icons.spa_outlined;
-    if (slug.contains('insecticide') || slug.contains('insect')) {
+    if (slug.contains('insecticide') ||
+        slug.contains('insect') ||
+        slug.contains('nuisible')) {
       return Icons.pest_control_outlined;
     }
     return Icons.cleaning_services;
