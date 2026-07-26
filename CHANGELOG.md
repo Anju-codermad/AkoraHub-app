@@ -284,3 +284,6 @@
 
 ## 2026-07-26 16:43 UTC — Claude
 - Piliers: script SQL pour 3 nouveaux piliers + icônes correspondantes (`60d1491`)
+
+## 2026-07-26 16:59 UTC — Claude
+- Docs: mettre à jour les noms finaux des 3 nouveaux piliers et le script SQL (`ae18abd`)
