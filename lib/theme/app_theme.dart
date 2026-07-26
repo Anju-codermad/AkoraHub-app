@@ -72,8 +72,13 @@ class AppTheme {
       surface: surfaceLight,
       onSurface: textPrimaryLight,
       onSurfaceVariant: textSecondaryLight,
-      outline: dividerLight,
-      outlineVariant: dividerLight.withValues(alpha: 0.5),
+      // "outline" doit rester lisible pour les icônes/bordures visibles
+      // (ex: étoile favoris, icônes de piliers) — dividerLight est bien
+      // trop pâle pour ça (prévu pour de simples traits de séparation).
+      // "outlineVariant" garde la couleur pâle d'origine, pour les vrais
+      // séparateurs discrets.
+      outline: textSecondaryLight,
+      outlineVariant: dividerLight,
       shadow: shadowLight,
       scrim: Colors.black.withValues(alpha: 0.5),
       inverseSurface: surfaceDark,
@@ -471,8 +476,8 @@ class AppTheme {
       surface: surfaceDark,
       onSurface: textPrimaryDark,
       onSurfaceVariant: textSecondaryDark,
-      outline: dividerDark,
-      outlineVariant: dividerDark.withValues(alpha: 0.5),
+      outline: textSecondaryDark,
+      outlineVariant: dividerDark,
       shadow: shadowDark,
       scrim: Colors.black.withValues(alpha: 0.5),
       inverseSurface: surfaceLight,
