@@ -88,7 +88,7 @@ class _CustomBottomBarState extends State<CustomBottomBar>
       label: 'Analytics',
     ),
     CustomBottomBarItem(
-      route: '/business-profile-settings',
+      route: '/more-menu',
       icon: Icons.more_horiz,
       activeIcon: Icons.more_horiz,
       label: 'More',

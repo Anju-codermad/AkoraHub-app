@@ -344,6 +344,26 @@ progressivement avec un vrai backend Supabase.
 - Catégories ajustables librement depuis l'écran de gestion des
   catégories une fois le pilier activé.
 
+## 3septies. Menu Admin "Plus" (25/07)
+
+Amélioration proposée dès le début de nos échanges backend, jamais faite
+jusqu'ici : Facturation/Alertes/Piliers d'entreprise/Équipe & rôles/
+Bannière hero n'étaient accessibles QUE depuis le bottom sheet "+" de
+création rapide du dashboard — sémantiquement bizarre (gérer les piliers
+n'est pas "créer quelque chose de nouveau"), et l'onglet "More" de la
+barre de navigation menait directement au Profil entreprise sans jamais
+montrer ces sections.
+
+Nouvel écran `lib/presentation/more_menu/more_menu_screen.dart`,
+maintenant la destination de l'onglet "More" : liste organisée par
+section (Gestion : Commandes/Devis/Facturation/Alertes/Messagerie ;
+Entreprise : Piliers/Équipe/Bannière/Profil entreprise ; Déconnexion avec
+confirmation, même pattern que l'ancien emplacement dans Profil
+entreprise).
+
+Le bottom sheet "+" du dashboard est allégé pour ne garder que les vraies
+créations rapides : Add Product, New Order, Devis, Add Customer.
+
 ## 3sexies. Écran "Profil entreprise" Admin réparé (25/07)
 
 L'utilisateur a signalé que cet écran "ne fonctionne pas". Audit du code :

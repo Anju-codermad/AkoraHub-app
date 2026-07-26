@@ -69,6 +69,10 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
 
   Widget _buildCreateOptionsSheet() {
     final theme = Theme.of(context);
+    // Seulement de vraies actions "créer quelque chose de nouveau" ici.
+    // Piliers/Bannière/Équipe/Facturation/Alertes sont des écrans de
+    // gestion, pas des créations rapides — déplacés vers le menu "Plus"
+    // (onglet du bas), plus logique pour de la navigation.
     final createOptions = [
       {
         'icon': 'add_shopping_cart',
@@ -89,31 +93,6 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
         'icon': 'person_add',
         'label': 'Add Customer',
         'route': '/customer-management-real'
-      },
-      {
-        'icon': 'business',
-        'label': 'Piliers d\'entreprise',
-        'route': '/business-units-management'
-      },
-      {
-        'icon': 'add_photo_alternate',
-        'label': 'Bannière hero — Accueil',
-        'route': '/home-banners-management'
-      },
-      {
-        'icon': 'groups',
-        'label': 'Équipe & rôles',
-        'route': '/staff-management'
-      },
-      {
-        'icon': 'receipt_long',
-        'label': 'Facturation',
-        'route': '/invoicing'
-      },
-      {
-        'icon': 'notifications_active',
-        'label': 'Alertes',
-        'route': '/alerts-center'
       },
     ];
 
