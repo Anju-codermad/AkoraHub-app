@@ -266,3 +266,6 @@
 
 ## 2026-07-26 03:52 UTC — Claude
 - Inscription: sélecteur d'indicatif pays complet, Nom/Prénom séparés, société obligatoire pour les comptes pro (`399d5c8`)
+
+## 2026-07-26 04:08 UTC — Claude
+- Docs: documenter indicatif pays, Nom/Prénom, société obligatoire (`d932e22`)
