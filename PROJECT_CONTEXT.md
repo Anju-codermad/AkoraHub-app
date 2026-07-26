@@ -961,6 +961,28 @@ d'écran de l'étape 6 du tutoriel de création de token GitHub (sans lien
 avec l'inscription) en même temps que cette demande — probablement une
 pièce jointe laissée par mégarde, sans conséquence sur le travail effectué.
 
+## 3septdecies. Sélecteur de comptes récents à la connexion (25/07) ✅ FAIT
+
+Demandé par l'utilisateur en référence à l'UX de sélection de profil de
+Facebook (capture d'écran fournie). Implémenté avec une nuance de sécurité
+volontaire :
+
+- `authentication_screen/recent_accounts_store.dart` : stockage local
+  (`shared_preferences`) des derniers comptes utilisés sur l'appareil
+  (email, nom, avatar) — **jamais de mot de passe ni de jeton de session
+  stocké**.
+- Liste affichée au-dessus du formulaire de connexion (avatar + nom +
+  email, bouton "Oublier ce compte"). Taper sur un compte pré-remplit
+  l'email et bascule vers le formulaire — **le mot de passe reste
+  toujours obligatoire**.
+- **Différence assumée avec Facebook** : ce n'est PAS un vrai "1 tap, sans
+  mot de passe". Un vrai switch instantané comme Facebook nécessiterait de
+  garder plusieurs sessions Supabase actives en parallèle sur l'appareil
+  (jetons de session stockés localement pour chaque compte) — plus
+  complexe et plus sensible en sécurité (un jeton volé = accès direct sans
+  mot de passe). Pas fait sans décision explicite de l'utilisateur ; à
+  reconsidérer s'il confirme vouloir cette version plus poussée.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
