@@ -993,6 +993,28 @@ format international générique (commence par `+`, 8 à 14 chiffres), sans
 validation précise par pays étranger. Indice de saisie mis à jour pour
 mentionner le cas étranger (`+33...`).
 
+## 3undevicies. Sélecteur d'indicatif pays, Nom/Prénom séparés, société obligatoire (26/07) ✅ FAIT
+
+Trois demandes de l'utilisateur traitées ensemble sur l'inscription :
+
+- **Sélecteur d'indicatif pays** (`intl_phone_field` package) : menu
+  déroulant avec tous les indicatifs (drapeau + code), saisie manuelle
+  toujours possible, Madagascar par défaut. La validation stricte par
+  préfixe d'opérateur (Telma/Orange/Yas) ne s'applique que si "Madagascar"
+  est sélectionné dans le menu ; sinon validation générique par longueur.
+- **Nom/Prénom séparés** : le champ unique "Nom complet" devient deux
+  champs côte à côte. Recombinés en `full_name` ("Prénom Nom") au moment
+  de l'envoi — **aucun changement de schéma**, la logique existante de
+  salutation "Bonjour, {prénom}" sur l'Accueil (`.split(' ').first`)
+  continue de fonctionner sans modification.
+- **Société rendue obligatoire** pour Hôtel/Hôpital/Entreprise (elle
+  n'avait pas de validateur auparavant, malgré le champ affiché) ; ajoutée
+  en option pour les Particuliers ("si vous achetez pour un compte
+  professionnel"). **Confirmé à l'utilisateur** : `company_name` alimente
+  déjà les factures PDF et devis générés (`invoicing/invoicing_screen.dart`,
+  `quotes_management/quotes_management.dart`) — pas de travail
+  supplémentaire nécessaire pour que ça apparaisse sur les documents.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
