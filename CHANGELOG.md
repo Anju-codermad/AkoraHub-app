@@ -278,3 +278,6 @@
 
 ## 2026-07-26 09:45 UTC — Claude
 - Docs: documenter le formulaire d'inscription en 2 étapes (`ebaabd6`)
+
+## 2026-07-26 16:15 UTC — Claude
+- feat(client): redesign écran Profil style Facebook centré, adapté aux vraies données (bio+couverture, catégories favorites, publications/favoris) (`6b8bf13`)
