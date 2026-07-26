@@ -983,6 +983,16 @@ volontaire :
   mot de passe). Pas fait sans décision explicite de l'utilisateur ; à
   reconsidérer s'il confirme vouloir cette version plus poussée.
 
+## 3duodevicies. Téléphone étranger accepté à l'inscription (26/07) ✅ FAIT
+
+L'utilisateur a soulevé un vrai trou dans la validation : `_validatePhone`
+n'acceptait QUE les préfixes malgaches (032/033/034/038), rejetant tout
+client étranger (touriste, expatrié, hôtel à propriétaire étranger...).
+Corrigé : accepte maintenant soit un numéro malgache valide, soit un
+format international générique (commence par `+`, 8 à 14 chiffres), sans
+validation précise par pays étranger. Indice de saisie mis à jour pour
+mentionner le cas étranger (`+33...`).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
