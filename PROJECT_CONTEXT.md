@@ -1015,6 +1015,18 @@ Trois demandes de l'utilisateur traitées ensemble sur l'inscription :
   `quotes_management/quotes_management.dart`) — pas de travail
   supplémentaire nécessaire pour que ça apparaisse sur les documents.
 
+## 3sexdecies. Remise fidélité sur la livraison — REJETÉE par l'utilisateur (25/07)
+
+Une session Claude Code avait construit sur une branche séparée
+(`claude/akorahub-project-context-9zk67o`, jamais fusionnée dans `main`)
+une remise sur les frais de livraison selon le palier de fidélité
+(Argent -50%, Or gratuite). **L'utilisateur a explicitement refusé cette
+fonctionnalité** ("Je veux pas cette fonctionnalité pour le moment,
+effacer le!") après l'avoir vue expliquée. La branche a été **supprimée
+du dépôt GitHub** — le code n'existe donc plus nulle part. **Ne pas
+reconstruire cette fonctionnalité sans demande explicite renouvelée de
+l'utilisateur.**
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
