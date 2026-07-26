@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,7 +17,8 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _fullNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _firstNameController = TextEditingController();
   final _companyNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -25,6 +27,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _showPassword = false;
   DateTime? _birthDate;
   bool _acceptedTerms = false;
+  String _phoneCountryIso = 'MG';
+  String? _phoneError;
 
   String _clientType = 'particulier';
   bool _isLoading = false;
@@ -38,7 +42,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   void dispose() {
-    _fullNameController.dispose();
+    _lastNameController.dispose();
+    _firstNameController.dispose();
     _companyNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -50,33 +55,35 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   /// Valide un numéro malgache : doit commencer par un préfixe d'opérateur
   /// réel (Telma 034/038, Orange 032, Yas ex-Airtel 033), avec ou sans le
   /// +261, et contenir le bon nombre de chiffres.
-  String? _validatePhone(String? value) {
+  String? _validatePhone(String? value, String countryIso) {
     if (value == null || value.trim().isEmpty) {
       return 'Le téléphone est obligatoire';
     }
     final trimmed = value.trim();
     final digitsOnly = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
 
-    // Cas 1 : numéro malgache (avec ou sans indicatif +261).
-    final local = digitsOnly.startsWith('261')
-        ? '0${digitsOnly.substring(3)}'
-        : digitsOnly;
-    const validPrefixes = ['032', '033', '034', '038'];
-    final isValidMalagasy = validPrefixes.any((p) => local.startsWith(p)) &&
-        local.length == 10;
-    if (isValidMalagasy) return null;
+    // Madagascar sélectionné dans le menu déroulant : on applique la
+    // validation stricte par préfixe d'opérateur (Telma/Orange/Yas).
+    if (countryIso == 'MG') {
+      final local = digitsOnly.startsWith('261')
+          ? '0${digitsOnly.substring(3)}'
+          : digitsOnly;
+      const validPrefixes = ['032', '033', '034', '038'];
+      final isValidMalagasy =
+          validPrefixes.any((p) => local.startsWith(p)) && local.length == 10;
+      if (!isValidMalagasy) {
+        return 'Numéro invalide (ex: 034 XX XXX XX)';
+      }
+      return null;
+    }
 
-    // Cas 2 : numéro étranger — on accepte un format international
-    // générique (indicatif + suivi de 7 à 14 chiffres), sans valider
-    // chaque pays précisément. Un utilisateur étranger doit pouvoir
-    // s'inscrire même si son numéro ne correspond à aucun opérateur
-    // malgache.
-    final isPlausibleInternational =
-        trimmed.startsWith('+') && digitsOnly.length >= 8 && digitsOnly.length <= 15;
-    if (isPlausibleInternational) return null;
-
-    return 'Numéro invalide (ex: 034 XX XXX XX, ou +33 6 XX XX XX XX '
-        'pour l\'étranger)';
+    // Autre pays choisi dans le menu déroulant : validation générique
+    // (le paquet intl_phone_field a déjà formaté/filtré la saisie selon
+    // le pays), on vérifie juste une longueur plausible.
+    if (digitsOnly.length < 4 || digitsOnly.length > 14) {
+      return 'Numéro invalide';
+    }
+    return null;
   }
 
   /// Vérifie que la date de naissance correspond à un âge d'au moins 18
@@ -135,7 +142,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       final response = await SupabaseConfig.client.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        data: {'full_name': _fullNameController.text.trim()},
+        data: {
+          'full_name':
+              '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
+                  .trim()
+        },
       );
 
       final userId = response.user?.id;
@@ -236,28 +247,53 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
                 SizedBox(height: 3.h),
 
-                TextFormField(
-                  controller: _fullNameController,
-                  decoration:
-                      const InputDecoration(labelText: 'Nom complet'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _lastNameController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(labelText: 'Nom'),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Requis'
+                            : null,
+                      ),
+                    ),
+                    SizedBox(width: 3.w),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _firstNameController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration:
+                            const InputDecoration(labelText: 'Prénom'),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Requis'
+                            : null,
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: 2.h),
 
-                if (_clientType != 'particulier') ...[
-                  TextFormField(
-                    controller: _companyNameController,
-                    decoration: InputDecoration(
-                      labelText: _clientType == 'hotel'
-                          ? 'Nom de l\'hôtel'
-                          : _clientType == 'hopital'
-                              ? 'Nom de l\'hôpital / établissement'
-                              : 'Nom de l\'entreprise',
-                    ),
+                TextFormField(
+                  controller: _companyNameController,
+                  decoration: InputDecoration(
+                    labelText: _clientType == 'hotel'
+                        ? 'Nom de l\'hôtel'
+                        : _clientType == 'hopital'
+                            ? 'Nom de l\'hôpital / établissement'
+                            : _clientType == 'entreprise'
+                                ? 'Nom de l\'entreprise'
+                                : 'Entreprise (si vous achetez pour '
+                                    'un compte professionnel)',
                   ),
-                  SizedBox(height: 2.h),
-                ],
+                  validator: _clientType != 'particulier'
+                      ? (v) => (v == null || v.trim().isEmpty)
+                          ? 'Requis pour un compte professionnel'
+                          : null
+                      : null,
+                ),
+                SizedBox(height: 2.h),
 
                 TextFormField(
                   controller: _emailController,
@@ -271,14 +307,26 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
                 SizedBox(height: 2.h),
 
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
+                IntlPhoneField(
+                  initialCountryCode: 'MG',
                   decoration: const InputDecoration(
                     labelText: 'Téléphone',
-                    hintText: '034 XX XXX XX (ou +33... si étranger)',
+                    counterText: '',
                   ),
-                  validator: _validatePhone,
+                  disableLengthCheck: true,
+                  dropdownIconPosition: IconPosition.trailing,
+                  onChanged: (phone) {
+                    _phoneController.text = phone.completeNumber;
+                    _phoneCountryIso = phone.countryISOCode;
+                    if (_phoneError != null) {
+                      setState(() => _phoneError = null);
+                    }
+                  },
+                  onCountryChanged: (country) {
+                    _phoneCountryIso = country.code;
+                  },
+                  validator: (phone) => _validatePhone(
+                      phone?.completeNumber, _phoneCountryIso),
                 ),
                 SizedBox(height: 2.h),
 
