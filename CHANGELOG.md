@@ -260,3 +260,6 @@
 
 ## 2026-07-26 03:26 UTC — Claude
 - Inscription: accepter les numéros de téléphone étrangers (`16393c5`)
+
+## 2026-07-26 03:41 UTC — Claude
+- Docs: documenter le correctif téléphone étranger (`93908a5`)
