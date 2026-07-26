@@ -945,8 +945,8 @@ manquantes du formulaire d'inscription (`registration_screen.dart`) :
   (`showDatePicker`), obligatoire, avec vérification d'âge minimum 18 ans
   (`_validateBirthDate`) — justifié par la vente de produits chimiques/
   insecticides sur la plateforme. Stockée dans une nouvelle colonne
-  `profiles.birth_date` (`supabase/phase19_patch_birth_date.sql`, **prêt,
-  en attente d'exécution par l'utilisateur**).
+  `profiles.birth_date` (`supabase/phase19_patch_birth_date.sql`,
+  **exécuté avec succès par l'utilisateur**).
 - **Case "J'accepte les conditions d'utilisation et la politique de
   confidentialité"** : obligatoire pour créer un compte. **La page de
   politique de confidentialité elle-même reste à écrire/héberger** (voir
