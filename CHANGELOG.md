@@ -263,3 +263,6 @@
 
 ## 2026-07-26 03:41 UTC — Claude
 - Docs: documenter le correctif téléphone étranger (`93908a5`)
+
+## 2026-07-26 03:52 UTC — Claude
+- Inscription: sélecteur d'indicatif pays complet, Nom/Prénom séparés, société obligatoire pour les comptes pro (`399d5c8`)
