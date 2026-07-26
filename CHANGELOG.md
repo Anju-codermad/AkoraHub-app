@@ -269,3 +269,6 @@
 
 ## 2026-07-26 04:08 UTC — Claude
 - Docs: documenter indicatif pays, Nom/Prénom, société obligatoire (`d932e22`)
+
+## 2026-07-26 05:18 UTC — Claude
+- feat(Backend/Infra): nouveau menu Admin 'Plus' (Facturation/Alertes/Piliers/Équipe enfin accessibles autrement que via le bouton +) (`9431a7f`)
