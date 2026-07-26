@@ -344,6 +344,63 @@ progressivement avec un vrai backend Supabase.
 - Catégories ajustables librement depuis l'écran de gestion des
   catégories une fois le pilier activé.
 
+## Redesign écran Profil client — style Facebook centré (25/07)
+
+Demande explicite de l'utilisateur : reproduire la mise en page d'un
+profil Facebook mobile (photo de couverture, avatar centré chevauchant,
+identité/bio/localisation centrées, boutons d'action centrés, onglets
+centrés), mais **adaptée aux vraies données** plutôt que de fabriquer des
+sections Facebook sans base réelle (pas de système d'amis, pas de
+stories "à la une", pas de table centres d'intérêt/loisirs dans ce
+projet — décision actée avec l'utilisateur avant de coder, pour éviter
+de recréer le genre de "fonctionnalité bidon" qu'on a nettoyé plus tôt
+dans le projet).
+
+**Table `profiles`** : 2 nouveaux champs (`supabase/phase20_patch_profile_bio_cover.sql`,
+**script prêt, pas encore exécuté**) : `bio text`, `cover_url text`. Pas
+de nouveau bucket Storage — la photo de couverture réutilise le bucket
+`avatars` existant, juste un nom de fichier différent
+(`${userId}/cover_*.jpg`), déjà couvert par la policy actuelle (dossier
+= `auth.uid()`).
+
+**`lib/presentation/client_home/profile_tab.dart`** entièrement réécrit
+(`ProfileTab` passé en `ConsumerStatefulWidget` pour lire
+`favoritesProvider`) :
+- Cover + avatar en `Stack` chevauchant, chacun tapable → upload immédiat
+  (repli tolérant si la migration n'est pas encore exécutée : le reste du
+  profil continue de fonctionner, juste un SnackBar d'erreur)
+- Nom, "X publications · Client depuis {année}" (remplace "X amis"),
+  bio (ou bouton "+ Ajouter une bio"), localisation — tout centré
+- Boutons centrés : "Modifier le profil" (sheet existante, augmentée du
+  champ bio) + "Partager" (`share_plus`, partage une carte de contact
+  textuelle nom/société/téléphone — pas de lien, l'app n'a pas de page
+  profil web publique)
+- Sélecteur d'onglets centré (Tout / Publications / Favoris) via
+  `ChoiceChip`, pas de vrai `TabBarView` (évite le problème classique de
+  hauteur imbriquée dans un `ListView`)
+- Onglet "Tout" : Informations personnelles (email/société/téléphone/
+  localisation, toutes réelles) + **"Catégories favorites"** — remplace
+  Loisirs/Centres d'intérêt Facebook, calculé en interrogeant `products`
+  pour les ids de `favoritesProvider` et en dédupliquant `category` ;
+  section actions préservée à l'identique (Commandes récurrentes,
+  Fidélité, Messagerie, Langue, Scanner produit, Mode sombre,
+  Déconnexion — rien perdu du screen précédent)
+- Onglets "Publications"/"Favoris" : aperçu (3 posts / 4 produits) avec
+  bouton "Voir tout" vers `WallTab(initialOnlyMine: true)` /
+  `FavoritesScreen` — pas d'embed direct (ces deux écrans ont leur propre
+  `Scaffold`/`AppBar`, non conçus pour être imbriqués)
+
+**Sections Facebook volontairement absentes** (pas de table, pas
+fabriquées) : Amis (grille + "amis en commun"), À la une (stories),
+Loisirs (tags génériques), Centres d'intérêt (vignettes films/séries),
+bannière "profil verrouillé". Si l'utilisateur veut un vrai système
+d'amis ou des stories un jour, ça mérite sa propre conversation (modèle
+de données, écrans de demandes d'ami) — pas à fabriquer avec de fausses
+données dans ce redesign.
+
+**Reste à faire** : exécuter `phase20_patch_profile_bio_cover.sql` dans
+Supabase pour que bio et couverture se sauvegardent.
+
 ## 3septies. Menu Admin "Plus" (25/07)
 
 Amélioration proposée dès le début de nos échanges backend, jamais faite
