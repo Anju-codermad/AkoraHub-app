@@ -350,6 +350,26 @@ progressivement avec un vrai backend Supabase.
 - Catégories ajustables librement depuis l'écran de gestion des
   catégories une fois le pilier activé.
 
+## Chargement du catalogue client trop lent — appels séquentiels (27/07, corrigé)
+
+Suite demandée par l'utilisateur : "après l'initialisation, vérifier la
+suite". Le premier vrai écran qu'un client voit après le splash
+(`catalog_tab.dart`, onglet Accueil) faisait **9 appels réseau à la
+suite** dans `_loadData()` : un premier `Future.wait` (business_units +
+products + profil, déjà parallèle), puis 5 blocs indépendants enchaînés
+un par un — catégories désactivées, bannières hero, badge messages non
+lus, fil d'activité "Pour vous" (lui-même 3 requêtes), suggestions de
+réapprovisionnement (2 requêtes). Aucun de ces 5 blocs ne dépend du
+résultat d'un autre, donc rien ne justifiait de les enchaîner
+séquentiellement — sur une connexion 4G moyenne, ça pouvait ajouter
+plusieurs secondes de chargement inutiles avant que l'Accueil ne
+s'affiche.
+
+Corrigé : chaque bloc est maintenant une fonction async avec son propre
+try/catch (repli silencieux inchangé), et les 5 sont lancées ensemble via
+un second `Future.wait` — le temps total redevient celui du bloc le plus
+lent, pas la somme de tous.
+
 ## Démarrage app bloqué avant le premier écran (27/07, corrigé)
 
 L'utilisateur a demandé une vérification du "loading" de l'app. Trouvé un

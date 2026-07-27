@@ -121,124 +121,110 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       final profile =
           userId != null ? results[2] as Map<String, dynamic> : null;
 
-      // Catégories désactivées par l'Admin (préparation d'une gamme pas
-      // encore lancée) : à exclure des filtres du catalogue. Tolérant : si
-      // la migration phase9 (colonne `active`) n'a pas encore été exécutée,
-      // on n'exclut rien plutôt que de casser l'écran.
-      Set<String> inactiveCategoryNames = {};
-      try {
-        final catRows = await SupabaseConfig.client
-            .from('categories')
-            .select('name')
-            .eq('active', false);
-        inactiveCategoryNames = List<Map<String, dynamic>>.from(catRows)
-            .map((c) => c['name'] as String)
-            .toSet();
-      } catch (_) {
-        // Repli silencieux : aucune catégorie exclue.
+      // Les 5 blocs suivants sont indépendants les uns des autres (filtre
+      // catégories, bannières, badge messages, fil d'activité, suggestions
+      // de réapprovisionnement) — on les lance en parallèle plutôt qu'à la
+      // suite, pour ne pas cumuler leurs temps de réseau. Chacun gère déjà
+      // son propre repli silencieux en cas d'échec.
+      Future<Set<String>> loadInactiveCategories() async {
+        try {
+          final catRows = await SupabaseConfig.client
+              .from('categories')
+              .select('name')
+              .eq('active', false);
+          return List<Map<String, dynamic>>.from(catRows)
+              .map((c) => c['name'] as String)
+              .toSet();
+        } catch (_) {
+          return <String>{};
+        }
       }
 
-      // Bannières hero gérées par l'Admin (table home_banners). Chargement
-      // séparé et tolérant : si la migration Supabase n'a pas encore été
-      // appliquée, ou si aucune bannière n'est active, on garde le
-      // carrousel par défaut plutôt que de casser l'écran d'accueil.
-      List<_PromoSlide> loadedSlides = _defaultPromoSlides;
-      try {
-        final bannerRows = await SupabaseConfig.client
-            .from('home_banners')
-            .select()
-            .eq('active', true)
-            .order('sort_order');
-        final rows = List<Map<String, dynamic>>.from(bannerRows);
-        if (rows.isNotEmpty) {
-          loadedSlides = rows
+      Future<List<_PromoSlide>> loadBanners() async {
+        try {
+          final bannerRows = await SupabaseConfig.client
+              .from('home_banners')
+              .select()
+              .eq('active', true)
+              .order('sort_order');
+          final rows = List<Map<String, dynamic>>.from(bannerRows);
+          if (rows.isEmpty) return _defaultPromoSlides;
+          return rows
               .map((b) => _PromoSlide(
                     title: (b['title'] ?? '').toString(),
                     subtitle: (b['subtitle'] ?? '').toString(),
                     imageUrl: b['image_url'] as String?,
                   ))
               .toList();
+        } catch (_) {
+          return _defaultPromoSlides;
         }
-      } catch (_) {
-        // Repli silencieux sur _defaultPromoSlides.
       }
 
-      // Badge de notification (cloche) : nombre de messages non lus envoyés
-      // par le staff dans la conversation du client (champ read_by_client,
-      // supabase/phase8_patch_messaging.sql). Tolérant à l'échec : si la
-      // conversation n'existe pas encore ou hors-ligne, le badge reste à 0.
-      int unreadMessages = 0;
-      if (userId != null) {
+      Future<int> loadUnreadCount() async {
+        if (userId == null) return 0;
         try {
           final convo = await SupabaseConfig.client
               .from('conversations')
               .select('id')
               .eq('customer_id', userId)
               .maybeSingle();
-          if (convo != null) {
-            final unread = await SupabaseConfig.client
-                .from('messages')
-                .select('id')
-                .eq('conversation_id', convo['id'])
-                .eq('sender_role', 'staff')
-                .eq('read_by_client', false);
-            unreadMessages = List.from(unread).length;
-          }
+          if (convo == null) return 0;
+          final unread = await SupabaseConfig.client
+              .from('messages')
+              .select('id')
+              .eq('conversation_id', convo['id'])
+              .eq('sender_role', 'staff')
+              .eq('read_by_client', false);
+          return List.from(unread).length;
         } catch (_) {
-          // Repli silencieux : badge à 0.
+          return 0;
         }
       }
 
-      // Fil d'activité "Pour vous" : mélange des dernières publications
-      // publiques du Mur et des derniers produits ajoutés au catalogue,
-      // triés par date. Tolérant à l'échec (n'affecte pas le reste de
-      // l'Accueil si le Mur n'est pas accessible).
-      List<_ActivityItem> activityFeed = [];
-      try {
-        final recentPosts = await SupabaseConfig.client
-            .from('posts')
-            .select()
-            .eq('visibility', 'public')
-            .order('created_at', ascending: false)
-            .limit(5);
-        final postList = List<Map<String, dynamic>>.from(recentPosts);
-        final authorIds = postList
-            .map((p) => p['author_id'] as String?)
-            .whereType<String>()
-            .toSet();
-        final authorProfiles = await PublicProfilesRepo.fetchByIds(authorIds);
+      Future<List<_ActivityItem>> loadActivityFeed() async {
+        try {
+          final recentPosts = await SupabaseConfig.client
+              .from('posts')
+              .select()
+              .eq('visibility', 'public')
+              .order('created_at', ascending: false)
+              .limit(5);
+          final postList = List<Map<String, dynamic>>.from(recentPosts);
+          final authorIds = postList
+              .map((p) => p['author_id'] as String?)
+              .whereType<String>()
+              .toSet();
+          final authorProfiles = await PublicProfilesRepo.fetchByIds(authorIds);
 
-        final recentProducts = await SupabaseConfig.client
-            .from('products')
-            .select()
-            .eq('visibility', true)
-            .order('created_at', ascending: false)
-            .limit(5);
-        final productList = List<Map<String, dynamic>>.from(recentProducts);
+          final recentProducts = await SupabaseConfig.client
+              .from('products')
+              .select()
+              .eq('visibility', true)
+              .order('created_at', ascending: false)
+              .limit(5);
+          final productList = List<Map<String, dynamic>>.from(recentProducts);
 
-        activityFeed = [
-          ...postList.map((p) => _ActivityItem.post(
-                p,
-                authorProfiles[p['author_id']],
-                DateTime.tryParse(p['created_at'] ?? '') ?? DateTime.now(),
-              )),
-          ...productList.map((p) => _ActivityItem.product(
-                p,
-                DateTime.tryParse(p['created_at'] ?? '') ?? DateTime.now(),
-              )),
-        ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        if (activityFeed.length > 8) {
-          activityFeed = activityFeed.sublist(0, 8);
+          var feed = [
+            ...postList.map((p) => _ActivityItem.post(
+                  p,
+                  authorProfiles[p['author_id']],
+                  DateTime.tryParse(p['created_at'] ?? '') ?? DateTime.now(),
+                )),
+            ...productList.map((p) => _ActivityItem.product(
+                  p,
+                  DateTime.tryParse(p['created_at'] ?? '') ?? DateTime.now(),
+                )),
+          ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          if (feed.length > 8) feed = feed.sublist(0, 8);
+          return feed;
+        } catch (_) {
+          return <_ActivityItem>[];
         }
-      } catch (_) {
-        // Repli silencieux : la section "Pour vous" reste vide (masquée).
       }
 
-      // Réapprovisionnement suggéré : produits commandés dans au moins 2
-      // commandes distinctes par ce client, proposés en premier sur
-      // l'Accueil. Tolérant à l'échec (section masquée si indisponible).
-      List<Map<String, dynamic>> reorderSuggestions = [];
-      if (userId != null) {
+      Future<List<Map<String, dynamic>>> loadReorderSuggestions() async {
+        if (userId == null) return [];
         try {
           final orderItemRows = await SupabaseConfig.client
               .from('order_items')
@@ -261,28 +247,40 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               .toList()
             ..sort((a, b) => b.value.length.compareTo(a.value.length));
 
-          if (frequentProductIds.isNotEmpty) {
-            final topIds =
-                frequentProductIds.take(5).map((e) => e.key).toList();
-            final productRows = await SupabaseConfig.client
-                .from('products')
-                .select()
-                .inFilter('id', topIds)
-                .eq('visibility', true);
-            final productsById = {
-              for (final p in List<Map<String, dynamic>>.from(productRows))
-                p['id'] as String: p
-            };
-            // Conserve l'ordre de fréquence (le plus recommandé en premier).
-            reorderSuggestions = topIds
-                .map((id) => productsById[id])
-                .whereType<Map<String, dynamic>>()
-                .toList();
-          }
+          if (frequentProductIds.isEmpty) return [];
+          final topIds =
+              frequentProductIds.take(5).map((e) => e.key).toList();
+          final productRows = await SupabaseConfig.client
+              .from('products')
+              .select()
+              .inFilter('id', topIds)
+              .eq('visibility', true);
+          final productsById = {
+            for (final p in List<Map<String, dynamic>>.from(productRows))
+              p['id'] as String: p
+          };
+          // Conserve l'ordre de fréquence (le plus recommandé en premier).
+          return topIds
+              .map((id) => productsById[id])
+              .whereType<Map<String, dynamic>>()
+              .toList();
         } catch (_) {
-          // Repli silencieux : section masquée.
+          return [];
         }
       }
+
+      final parallel = await Future.wait([
+        loadInactiveCategories(),
+        loadBanners(),
+        loadUnreadCount(),
+        loadActivityFeed(),
+        loadReorderSuggestions(),
+      ]);
+      final inactiveCategoryNames = parallel[0] as Set<String>;
+      final loadedSlides = parallel[1] as List<_PromoSlide>;
+      final unreadMessages = parallel[2] as int;
+      final activityFeed = parallel[3] as List<_ActivityItem>;
+      final reorderSuggestions = parallel[4] as List<Map<String, dynamic>>;
 
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
