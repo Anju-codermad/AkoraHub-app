@@ -305,3 +305,6 @@
 
 ## 2026-07-27 04:15 UTC — Claude
 - Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`691f5f7`)
+
+## 2026-07-27 04:37 UTC — Claude
+- perf: paralléliser les 5 chargements indépendants de l'Accueil client (catégories/bannières/badge/activité/réappro), au lieu de les enchaîner à la suite (`440a8ba`)
