@@ -39,6 +39,7 @@ class ProfileTab extends ConsumerStatefulWidget {
 class _ProfileTabState extends ConsumerState<ProfileTab> {
   Map<String, dynamic>? _profile;
   bool _isLoading = true;
+  bool _isDeleting = false;
   String? _error;
 
   int _postsCount = 0;
@@ -225,6 +226,60 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
     if (updated == true) {
       _loadAll();
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer mon compte'),
+        content: const Text(
+          'Cette action est définitive et irréversible. Toutes vos '
+          'données seront supprimées : profil, commandes, devis, '
+          'favoris, messages et publications. Voulez-vous vraiment '
+          'continuer ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer définitivement'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      final response =
+          await SupabaseConfig.client.functions.invoke('delete-account');
+      if (response.status != 200) {
+        throw Exception(
+            (response.data is Map ? response.data['error'] : null) ??
+                'Échec de la suppression');
+      }
+      await SupabaseConfig.client.auth.signOut();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/authentication-screen',
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Impossible de supprimer le compte pour le moment. Réessayez plus tard.'),
+        ),
+      );
     }
   }
 
@@ -643,6 +698,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           title:
               const Text('Déconnexion', style: TextStyle(color: Colors.red)),
           onTap: widget.onLogout,
+        ),
+        ListTile(
+          leading: _isDeleting
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.delete_forever_outlined, color: Colors.red),
+          title: const Text('Supprimer mon compte',
+              style: TextStyle(color: Colors.red)),
+          onTap: _isDeleting ? null : _confirmDeleteAccount,
         ),
       ],
     );
