@@ -311,3 +311,6 @@
 
 ## 2026-07-27 05:13 UTC — Claude
 - chore: réduire la rétention des artifacts de build à 5 jours (quota de stockage GitHub dépassé — 168 builds/5,3 Go accumulés, nettoyés) (`a0d6d76`)
+
+## 2026-07-27 09:19 UTC — Claude
+- CI: réduire la durée de conservation des artefacts à 3 jours (évite la saturation du quota de stockage Actions) (`9c8ca10`)
