@@ -299,3 +299,6 @@
 
 ## 2026-07-26 23:44 UTC — Claude
 - fix: ne plus bloquer le premier affichage de l'app sur l'init Firebase (popup notifications avant même le logo) + splash en français (`a9179d0`)
+
+## 2026-07-27 03:59 UTC — Claude
+- Suppression de compte (self-service, requis pour Data Safety Play Store) (`cf2187a`)
