@@ -308,3 +308,6 @@
 
 ## 2026-07-27 04:37 UTC — Claude
 - perf: paralléliser les 5 chargements indépendants de l'Accueil client (catégories/bannières/badge/activité/réappro), au lieu de les enchaîner à la suite (`440a8ba`)
+
+## 2026-07-27 05:13 UTC — Claude
+- chore: réduire la rétention des artifacts de build à 5 jours (quota de stockage GitHub dépassé — 168 builds/5,3 Go accumulés, nettoyés) (`a0d6d76`)
