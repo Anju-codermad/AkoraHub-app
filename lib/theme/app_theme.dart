@@ -7,9 +7,14 @@ class AppTheme {
   AppTheme._();
 
   // Business Confidence Palette - Light Theme Colors
-  static const Color primaryLight = Color(0xFF1B365D); // Deep business navy
-  static const Color secondaryLight = Color(0xFF4A90A4); // Professional teal
-  static const Color accentLight = Color(0xFFE8B931); // Warm gold
+  // Alignée le 25/07 sur les couleurs réelles de l'icône d'app (vert,
+  // marine, orange) pour résoudre l'incohérence entre l'icône (déjà en
+  // place, créée par une autre conversation) et le thème de l'app
+  // (auparavant navy/teal/or). Couleurs extraites par échantillonnage de
+  // pixels sur l'icône réelle (mipmap-xxxhdpi/ic_launcher.png).
+  static const Color primaryLight = Color(0xFF085041); // Vert AkoraHub (icône)
+  static const Color secondaryLight = Color(0xFF0B2C64); // Marine (icône)
+  static const Color accentLight = Color(0xFFFE5905); // Orange (icône)
   static const Color surfaceLight = Color(0xFFFAFBFC); // Clean background
   static const Color errorLight = Color(0xFFD32F2F); // Clear danger
   static const Color successLight = Color(0xFF2E7D32); // Confident green
@@ -24,9 +29,9 @@ class AppTheme {
 
   // Business Confidence Palette - Dark Theme Colors
   static const Color primaryDark =
-      Color(0xFF4A90A4); // Professional teal (elevated)
-  static const Color secondaryDark = Color(0xFF6BA5B8); // Lighter teal
-  static const Color accentDark = Color(0xFFE8B931); // Warm gold (consistent)
+      Color(0xFF13A17E); // Vert AkoraHub (élevé pour le mode sombre)
+  static const Color secondaryDark = Color(0xFF3D5A99); // Marine plus clair
+  static const Color accentDark = Color(0xFFFF7A33); // Orange (plus clair)
   static const Color surfaceDark = Color(0xFF1A1A1A); // Dark surface
   static const Color errorDark = Color(0xFFEF5350); // Lighter danger
   static const Color successDark = Color(0xFF66BB6A); // Lighter green

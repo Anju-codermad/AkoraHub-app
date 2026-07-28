@@ -317,3 +317,18 @@
 
 ## 2026-07-28 01:42 UTC — Claude
 - fix(client): ne plus perdre le message tapé dans la messagerie en cas d'échec d'envoi + bouton Réessayer (`e7f67e5`)
+
+## 2026-07-28 03:11 UTC — Claude
+- CI: ne plus publier l'APK comme artefact téléchargeable (garde uniquement l'App Bundle) (`c30d561`)
+
+## 2026-07-28 07:00 UTC — Anju-codermad
+- docs: document CI storage quota failure diagnosis and fix, trigger fresh build to confirm (`7a49d43`)
+
+## 2026-07-28 07:40 UTC — Claude (Client UX/Design)
+- docs: resoudre la contradiction sur consolidation vs parallele (25/07) (`f859889`)
+
+## 2026-07-28 07:44 UTC — Claude (Client UX/Design)
+- Theme: aligner la palette de l app sur les couleurs reelles de l icone (25/07) (`747ee59`)
+
+## 2026-07-28 07:45 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`23b2db6`)

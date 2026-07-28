@@ -719,14 +719,23 @@ lancement.
    avant tout calendrier** : lance-t-on avec un paiement à la livraison en
    attendant l'intégration Mobile Money, ou est-ce bloquant pour le
    lancement ?
-4. **Identité visuelle** : pas de logo graphique custom pour l'icône/
-   splash (seul le nom "AkoraHub" est appliqué actuellement), pas de
-   captures d'écran préparées pour la fiche Play Store.
+4. **Identité visuelle** — **en grande partie fait (25/07)** : icône
+   réelle créée et intégrée sur Android/iOS/Web (vert `#085041`, concept
+   panier/lettre "A" — remplace l'ancien logo Flutter par défaut), thème
+   de toute l'app aligné dessus (`lib/theme/app_theme.dart` : primaire
+   vert `#085041`, secondaire marine `#0B2C64`, accent orange `#FE5905`,
+   extraits par échantillonnage de pixels de l'icône réelle — l'ancienne
+   palette navy/teal/or créait une incohérence avec l'icône). **Reste à
+   faire** : splash screen (toujours l'écran de démarrage par défaut,
+   pas de logo dessus), captures d'écran préparées pour la fiche Play
+   Store, feature graphic (1024×500).
 
-**Non bloquant, peut sortir après le lancement (v1.1)** : notifications
-push réelles, mode hors-ligne, multi-langue, fidélité par paliers, FDS,
-e-learning, groupes professionnels, mode sombre — voir section 3bis/4 pour
-le détail complet de chaque idée.
+**Déjà livrés depuis (25/07, via la session parallèle "Backend/Infra")** :
+notifications push réelles (Firebase, voir section correspondante), mode
+hors-ligne, multi-langue FR/MG (infrastructure + premiers écrans), mode
+sombre, fidélité par paliers Bronze/Argent/Or. **Reste non bloquant pour
+le lancement** : FDS, e-learning, groupes professionnels — voir section
+3bis/4 pour le détail complet de chaque idée.
 
 ## 3septies. Écran Admin des devis manquant (25/07, Backend/Infra) ✅ FAIT
 
@@ -1186,6 +1195,20 @@ niveau du thème corrige d'un coup les 18 usages de
 cart, orders, profile, product_detail, chat, loyalty) sans toucher
 fichier par fichier.
 
+## 3septdecies. Panne CI — quota de stockage Actions dépassé (28/07)
+
+3 compilations consécutives ont échoué à l'étape "Publier l'App Bundle
+comme fichier téléchargeable" (`upload-artifact`), alors que la
+compilation Flutter elle-même (App Bundle + APK) réussissait à chaque
+fois — **pas un bug de code**. Diagnostic confirmé : quota de stockage
+GitHub Actions dépassé (168 builds accumulés, 5,3 Go). Corrections déjà
+appliquées par une autre session : rétention réduite à 3 jours, artefacts
+anciens nettoyés, publication de l'APK (en plus de l'App Bundle) retirée
+du pipeline pour réduire le volume par build. Stockage vérifié à 115 Mo
+après nettoyage (28/07) — largement sous la limite. Un nouveau build a
+été déclenché pour confirmer la résolution définitive (voir résultat
+dans le prochain message de suivi de la conversation).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
@@ -1231,43 +1254,59 @@ fichier par fichier.
   toujours créer un nouvel écran propre plutôt que de risquer de casser un
   gros fichier existant, à l'image de ce qui a été fait jusqu'ici.
 
-## 7. Historique de répartition des missions (consolidé le 25/07)
+## 7. Répartition des missions entre conversations Claude en parallèle
 
 **⚠️ Dépôt renommé (23/07)** : `Anju-codermad/akora-fanadiovana-app` →
 **`Anju-codermad/AkoraHub-app`**. L'ancien nom redirige encore
 automatiquement (GitHub le fait par défaut après un renommage), mais
 utiliser le nouveau nom pour tout nouveau clone/remote/lien.
 
-**Consolidation (25/07)** : l'utilisateur a demandé de reprendre tout le
-travail dans une seule conversation à partir de maintenant, plutôt que de
-continuer à faire avancer deux sessions en parallèle. La répartition
-ci-dessous est conservée à titre d'historique (utile pour comprendre
-pourquoi certains fichiers ont été créés par l'une ou l'autre "session"),
-mais **ne s'applique plus** : toute nouvelle conversation qui reprend ce
-projet a désormais la responsabilité de l'ensemble du dépôt.
+**⚠️ Contradiction détectée et résolue (25/07)** : une note plus ancienne
+dans ce fichier indiquait que l'utilisateur avait demandé de tout
+consolider dans une seule conversation. Une autre conversation, menée en
+parallèle le même jour, a reçu l'instruction inverse : les deux
+conversations **continuent bien en parallèle**, confirmé explicitement par
+l'utilisateur après qu'on lui ait signalé la contradiction. **C'est cette
+version qui fait foi** — si un futur fil trouve encore une mention
+"consolidé en une seule conversation" quelque part, elle est obsolète.
 
-Répartition initiale (24-25/07, avant consolidation) :
-- **Conversation "Backend/Infra"** : `lib/core/`, `supabase/*.sql`, tous les
-  écrans Admin (`*_real` hors `client_home/`), `.github/workflows/`,
-  paiement, messagerie, notifications, sécurité RLS.
-- **Conversation "Client UX/Design"** : `lib/presentation/client_home/*` —
-  écrans client, style visuel, mise en page — élargie en cours de route
-  à des écrans Admin ponctuels (ex. `home_banners_management.dart`) avec
-  accord implicite de l'utilisateur.
+**Périmètre complet des deux côtés** : les deux conversations ont un accès
+complet et non restreint à tout le dépôt (plus de partition par dossier
+depuis le 23-25/07). N'importe quelle conversation peut modifier
+n'importe quel fichier, y compris `lib/core/`, `supabase/*.sql`, les
+écrans Admin, et `lib/presentation/client_home/*`.
 
-Plusieurs fusions Git automatiques propres ont eu lieu durant cette
-période (aucune perte de code), et un doublon fonctionnel (deux systèmes
-de messagerie construits indépendamment) a été détecté et résolu — voir
-section 3bis pour le détail. Cette expérience confirme qu'un travail en
-parallèle sur ce projet reste possible si besoin à l'avenir, à condition
-de repasser régulièrement par ce document et de toujours `git pull` avant
-de pousser.
+**Conséquence directe : le risque de collision de fichiers est réel**,
+puisqu'il n'y a plus de "chacun son dossier" comme garde-fou. Discipline
+Git impérative pour toute conversation qui reprend ce projet :
+1. `git fetch` systématique avant tout push, jamais de push en force
+2. Si des commits distants sont apparus entre-temps (ça arrive
+   régulièrement — plus de 80 commits sont arrivés en quelques jours lors
+   d'une session parallèle) : ne pas essayer de fusionner à la main un
+   historique périmé. Réinitialiser sur l'état distant (`git reset --hard
+   origin/main`) si son propre travail local n'a pas encore été poussé,
+   puis relire ce fichier à jour avant de continuer — plutôt que de
+   raisonner sur une version obsolète du projet.
+3. Documenter tout changement significatif dans ce fichier avant de
+   pousser le dernier commit de la session, pour que l'autre conversation
+   le voie à sa prochaine lecture. En cas de doute sur une décision déjà
+   prise (comme cette contradiction), la signaler explicitement à
+   l'utilisateur plutôt que de trancher seul.
+
+Plusieurs fusions automatiques propres ont déjà eu lieu entre le 23 et le
+25/07 sans perte de code d'aucun côté, et un doublon fonctionnel (deux
+systèmes de messagerie construits indépendamment) a été détecté et résolu
+— voir section 3bis. Cette discipline fonctionne, à condition de la
+suivre à chaque fois, même pour un fichier qu'on pense être "le sien".
 
 ## 6bis. Comment reprendre le fil (pour toute conversation)
 
-1. `git pull` avant de commencer
+1. `git pull` (ou `git fetch` + `git reset --hard origin/main` si son
+   propre historique local est périmé) avant de commencer
 2. Lire ce fichier en entier + les dernières entrées de `CHANGELOG.md`
-3. Travailler uniquement dans son périmètre (section 7)
+3. Accès complet à tout le dépôt des deux côtés (section 7) — vérifier
+   l'historique Git avant de toucher un fichier qui pourrait avoir été
+   modifié récemment par l'autre conversation
 4. Mettre à jour ce fichier (sections 3, 4 et 7 si besoin) avant de pousser
    le dernier commit de la session
 
