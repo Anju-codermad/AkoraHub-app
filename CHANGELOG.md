@@ -323,3 +323,6 @@
 
 ## 2026-07-28 07:00 UTC — Anju-codermad
 - docs: document CI storage quota failure diagnosis and fix, trigger fresh build to confirm (`7a49d43`)
+
+## 2026-07-28 07:40 UTC — Claude (Client UX/Design)
+- docs: resoudre la contradiction sur consolidation vs parallele (25/07) (`f859889`)
