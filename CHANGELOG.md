@@ -314,3 +314,6 @@
 
 ## 2026-07-27 09:19 UTC — Claude
 - CI: réduire la durée de conservation des artefacts à 3 jours (évite la saturation du quota de stockage Actions) (`9c8ca10`)
+
+## 2026-07-28 01:42 UTC — Claude
+- fix(client): ne plus perdre le message tapé dans la messagerie en cas d'échec d'envoi + bouton Réessayer (`e7f67e5`)
