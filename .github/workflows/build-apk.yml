@@ -74,10 +74,3 @@ jobs:
           name: akora-fanadiovana-aab
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 3
-
-      - name: Publier l'APK comme fichier téléchargeable
-        uses: actions/upload-artifact@v4
-        with:
-          name: akora-fanadiovana-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 3
