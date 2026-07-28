@@ -1186,6 +1186,20 @@ niveau du thème corrige d'un coup les 18 usages de
 cart, orders, profile, product_detail, chat, loyalty) sans toucher
 fichier par fichier.
 
+## 3septdecies. Panne CI — quota de stockage Actions dépassé (28/07)
+
+3 compilations consécutives ont échoué à l'étape "Publier l'App Bundle
+comme fichier téléchargeable" (`upload-artifact`), alors que la
+compilation Flutter elle-même (App Bundle + APK) réussissait à chaque
+fois — **pas un bug de code**. Diagnostic confirmé : quota de stockage
+GitHub Actions dépassé (168 builds accumulés, 5,3 Go). Corrections déjà
+appliquées par une autre session : rétention réduite à 3 jours, artefacts
+anciens nettoyés, publication de l'APK (en plus de l'App Bundle) retirée
+du pipeline pour réduire le volume par build. Stockage vérifié à 115 Mo
+après nettoyage (28/07) — largement sous la limite. Un nouveau build a
+été déclenché pour confirmer la résolution définitive (voir résultat
+dans le prochain message de suivi de la conversation).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
