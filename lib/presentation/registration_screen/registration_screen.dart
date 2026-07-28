@@ -1,11 +1,17 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
+
+/// Page hébergée (GitHub Pages) du fichier docs/privacy-policy.html du dépôt.
+const String _privacyPolicyUrl =
+    'https://anju-codermad.github.io/AkoraHub-app/privacy-policy.html';
 
 /// Écran d'inscription pour les clients (hôtel, hôpital, entreprise,
 /// particulier), en 2 étapes :
@@ -144,6 +150,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
     );
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    final uri = Uri.parse(_privacyPolicyUrl);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        _showError('Impossible d\'ouvrir la politique de confidentialité');
+      }
+    }
   }
 
   Future<void> _handleRegister() async {
@@ -513,10 +528,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(top: 1.5.h),
-                    child: Text(
-                      'J\'accepte les conditions d\'utilisation et la '
-                      'politique de confidentialité d\'AkoraHub',
-                      style: theme.textTheme.bodySmall,
+                    child: RichText(
+                      text: TextSpan(
+                        style: theme.textTheme.bodySmall,
+                        children: [
+                          const TextSpan(
+                              text: 'J\'accepte les conditions d\'utilisation '
+                                  'et la '),
+                          TextSpan(
+                            text: 'politique de confidentialité',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = _openPrivacyPolicy,
+                          ),
+                          const TextSpan(text: ' d\'AkoraHub'),
+                        ],
+                      ),
                     ),
                   ),
                 ),

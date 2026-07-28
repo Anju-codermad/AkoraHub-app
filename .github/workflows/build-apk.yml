@@ -7,6 +7,14 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Annule automatiquement un build en cours si un nouveau push arrive sur main
+# avant qu'il ne termine — évite de payer des minutes Actions pour compiler
+# un commit déjà dépassé (plusieurs push rapprochés = plusieurs builds
+# concurrents sinon, cause identifiée du dépassement de quota du 28/07).
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build APK

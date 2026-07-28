@@ -1209,6 +1209,85 @@ après nettoyage (28/07) — largement sous la limite. Un nouveau build a
 été déclenché pour confirmer la résolution définitive (voir résultat
 dans le prochain message de suivi de la conversation).
 
+## 3octodevicies. Suite panne CI — nouveau diagnostic : quota de MINUTES Actions, pas de stockage (28/07)
+
+Le correctif ci-dessus (section précédente) a résolu le quota de
+**stockage**, mais les 3 builds suivants (commit `26d09ea` inclus, la
+tentative de contournement "publier via GitHub Releases") ont échoué en
+seulement **~10 secondes**, contre 14-18 minutes pour les tentatives
+précédentes. Diagnostic via l'API GitHub Actions (`get_workflow_run_usage`) :
+`duration_ms: 0` sur le seul job du run — le job n'a **jamais été
+assigné à un runner** (`runner_id: 0`, `runner_name: ""`), donc 0 minute
+facturée, échec avant même `actions/checkout`. C'est la signature
+habituelle d'un **quota de minutes Actions épuisé** pour le compte (plan
+gratuit, quota partagé entre tous les dépôts) — différent du quota de
+stockage déjà traité, et **pas un bug de code** : impossible à corriger
+par un commit.
+
+**Non résolu, action utilisateur requise** — vérifier
+`Settings → Billing and plans → Plans and usage → Actions` du compte
+GitHub, et selon ce qui est constaté :
+- attendre la réinitialisation mensuelle du quota inclus, ou
+- augmenter la limite de dépenses Actions, ou
+- rendre le dépôt public (minutes illimitées sur runners standards
+  GitHub-hosted pour les dépôts publics — à évaluer avec l'utilisateur,
+  changement de visibilité hors périmètre d'une conversation Claude), ou
+- passer sur un runner auto-hébergé (gratuit, matériel de l'utilisateur).
+
+**Fait en attendant** (réduit la consommation future, n'affecte pas le
+blocage actuel) : `concurrency` ajouté à `build-apk.yml` — annule
+automatiquement un build en cours si un nouveau push arrive sur `main`
+avant qu'il ne termine, pour ne plus payer plusieurs builds concurrents
+sur des commits déjà dépassés.
+
+## 3novodevicies. Logo réel sur écran de lancement + écran de connexion (28/07)
+
+Les deux premiers écrans vus par l'utilisateur (`splash_screen.dart` et
+`AppLogoWidget` de `authentication_screen/`) affichaient encore une icône
+Material générique (`business_center`/`business`) au lieu du vrai logo
+AkoraHub, alors que celui-ci existe déjà en haute résolution
+(`store_assets/play_store_icon_512.png`, préparé en Phase "icône réelle"
+mais jamais réutilisé comme asset Flutter — seulement pour Play Store et
+la génération des icônes système). Copié vers `assets/images/app_logo.png`
+(dossier déjà déclaré dans `pubspec.yaml`, aucune nouvelle règle d'assets
+ajoutée) et affiché via `Image.asset` aux deux endroits. Au passage,
+`AppLogoWidget` avait aussi un reliquat Rocket.new en anglais ("Professional
+Business Platform") — remplacé par le même slogan français que le splash
+("Votre plateforme multi-activités").
+
+## 3vigies. Politique de confidentialité reliée au formulaire d'inscription (28/07)
+
+`docs/privacy-policy.html` existait déjà (rédigé le 24/07) mais n'était
+lié nulle part dans l'app — la case à cocher obligatoire de
+`registration_screen.dart` mentionnait "la politique de confidentialité"
+en texte simple, non cliquable, sans page réellement accessible pour
+l'utilisateur ni pour le formulaire "Sécurité des données" du Play Store.
+
+- Texte de la case transformé en `RichText`/`TextSpan` : "politique de
+  confidentialité" est maintenant un lien cliquable (souligné, couleur
+  primaire) qui ouvre le fichier dans le navigateur via le nouveau
+  package `url_launcher` (ajouté au `pubspec.yaml`). Permission Android
+  ajoutée (`<queries>` avec intent `VIEW`/`https` dans
+  `AndroidManifest.xml`, requis à partir d'Android 11 pour que
+  `launchUrl` trouve un navigateur).
+- **⚠️ Action utilisateur requise pour que le lien fonctionne** : le
+  fichier n'est pour l'instant qu'un fichier du dépôt, pas une page web
+  publique. Le lien pointe vers
+  `https://anju-codermad.github.io/AkoraHub-app/privacy-policy.html`
+  (GitHub Pages), qui nécessite d'activer Pages une fois dans les
+  paramètres du dépôt : `Settings → Pages → Source: "Deploy from a
+  branch"` → branche `main`, dossier `/docs` → Save. **Ne consomme
+  aucune minute Actions** (méthode "Deploy from a branch", différente
+  d'un déploiement par workflow) — indépendant du blocage de quota
+  ci-dessus, fonctionnera immédiatement même si le quota Actions n'est
+  pas encore réinitialisé. Tant que ce n'est pas fait, le lien renverra
+  une erreur 404.
+- **Non traité** : le contenu légal de "conditions d'utilisation" (CGU)
+  lui-même n'existe pas encore comme document séparé — seule la
+  politique de confidentialité était déjà rédigée. Rédiger des CGU est
+  une décision de contenu/juridique, pas fait sans validation explicite
+  de l'utilisateur.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

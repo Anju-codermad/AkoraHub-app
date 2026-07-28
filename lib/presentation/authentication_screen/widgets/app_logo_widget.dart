@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../core/app_export.dart';
-import '../../../widgets/custom_icon_widget.dart';
 
 /// App logo widget with brand recognition
 class AppLogoWidget extends StatelessWidget {
@@ -19,14 +18,21 @@ class AppLogoWidget extends StatelessWidget {
           width: 25.w,
           height: 25.w,
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.12),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: Center(
-            child: CustomIconWidget(
-              iconName: 'business',
-              color: theme.colorScheme.primary,
-              size: 15.w,
+          child: Padding(
+            padding: EdgeInsets.all(2.5.w),
+            child: Image.asset(
+              'assets/images/app_logo.png',
+              fit: BoxFit.contain,
             ),
           ),
         ),
@@ -41,7 +47,7 @@ class AppLogoWidget extends StatelessWidget {
         ),
         SizedBox(height: 0.5.h),
         Text(
-          'Professional Business Platform',
+          'Votre plateforme multi-activités',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

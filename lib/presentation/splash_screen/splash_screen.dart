@@ -246,11 +246,11 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ],
           ),
-          child: Center(
-            child: CustomIconWidget(
-              iconName: 'business_center',
-              color: theme.colorScheme.primary,
-              size: 60,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Image.asset(
+              'assets/images/app_logo.png',
+              fit: BoxFit.contain,
             ),
           ),
         ),
