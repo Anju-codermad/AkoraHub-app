@@ -1195,19 +1195,49 @@ niveau du thème corrige d'un coup les 18 usages de
 cart, orders, profile, product_detail, chat, loyalty) sans toucher
 fichier par fichier.
 
-## 3septdecies. Panne CI — quota de stockage Actions dépassé (28/07)
+## 3duodevicies. Panne CI — quota de MINUTES Actions épuisé, PAS résolu (28/07) ⚠️ BLOQUANT
 
-3 compilations consécutives ont échoué à l'étape "Publier l'App Bundle
-comme fichier téléchargeable" (`upload-artifact`), alors que la
-compilation Flutter elle-même (App Bundle + APK) réussissait à chaque
-fois — **pas un bug de code**. Diagnostic confirmé : quota de stockage
-GitHub Actions dépassé (168 builds accumulés, 5,3 Go). Corrections déjà
-appliquées par une autre session : rétention réduite à 3 jours, artefacts
-anciens nettoyés, publication de l'APK (en plus de l'App Bundle) retirée
-du pipeline pour réduire le volume par build. Stockage vérifié à 115 Mo
-après nettoyage (28/07) — largement sous la limite. Un nouveau build a
-été déclenché pour confirmer la résolution définitive (voir résultat
-dans le prochain message de suivi de la conversation).
+**⚠️ Ceci bloque activement tous les builds — première chose à vérifier
+dans une nouvelle session.**
+
+Chronologie du diagnostic (deux fausses pistes avant la vraie cause) :
+1. **1ère théorie (fausse piste partiellement utile)** : quota de
+   **stockage** Actions dépassé (168 builds accumulés, 5,3 Go). Corrigé
+   par une autre session (rétention réduite à 3 jours, nettoyage,
+   suppression de la publication APK en plus de l'AAB) — stockage
+   redescendu à 115 Mo. **N'a pas réglé le problème : les builds ont
+   continué à échouer après ce correctif.**
+2. **2ᵉ tentative** : remplacement du système de publication
+   (`actions/upload-artifact`, limité à 500 Mo partagés sur tout le
+   compte) par **GitHub Releases** (`softprops/action-gh-release@v2`,
+   stockage séparé et bien plus généreux) — voir
+   `.github/workflows/build-apk.yml`. Bonne pratique en soi (gardée),
+   **mais n'a pas non plus réglé le problème**.
+3. **Vraie cause identifiée (28/07)** : le job échoue en **2 secondes,
+   sans exécuter aucune étape** (`"steps": []` dans l'API GitHub) — signature
+   caractéristique d'un **quota de MINUTES Actions épuisé** (2000
+   min/mois gratuites, partagées sur tout le compte GitHub, pas
+   seulement ce dépôt), et non un problème de stockage. Confirmé par
+   recherche : le message d'erreur typique dans ce cas est *"The job was
+   not started because recent account payments have failed or your
+   spending limit needs to be increased"*, et le correctif standard est
+   de régler une **limite de dépenses ("Actions spending limit")** sur
+   1-5 $ dans **github.com/settings/billing/summary** (ou
+   `/settings/billing/budgets`) — même 1 $ suffit à débloquer les
+   minutes gratuites restantes, sans que ce soit un abonnement récurrent
+   (facturation à l'usage réel au-delà du gratuit, remise à 0 $ possible
+   à tout moment).
+
+**Reste à faire** : l'utilisateur a été guidé vers ce réglage mais
+**n'a pas encore confirmé l'avoir fait ni testé si ça débloque les
+builds**. Prochaine étape pour toute session qui reprend : demander à
+l'utilisateur s'il a réglé la limite de dépenses, puis déclencher un
+nouveau build (`git push` d'un commit anodin, ou `workflow_dispatch` si
+le jeton a la permission — le jeton utilisé jusqu'ici ne l'avait pas,
+d'où le recours à un commit) et vérifier via l'API
+`actions/runs` que le job progresse au-delà de "Set up job" cette fois
+(si un job a de nouveau `"steps": []` et se termine en quelques
+secondes, le quota n'est probablement toujours pas réglé).
 
 ## 4. Ce qui N'EST PAS encore fait
 
