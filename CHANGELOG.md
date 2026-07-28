@@ -317,3 +317,6 @@
 
 ## 2026-07-28 01:42 UTC — Claude
 - fix(client): ne plus perdre le message tapé dans la messagerie en cas d'échec d'envoi + bouton Réessayer (`e7f67e5`)
+
+## 2026-07-28 03:11 UTC — Claude
+- CI: ne plus publier l'APK comme artefact téléchargeable (garde uniquement l'App Bundle) (`c30d561`)
