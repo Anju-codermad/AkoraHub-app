@@ -117,7 +117,6 @@ class _ChatScreenState extends State<ChatScreen> {
     final userId = SupabaseConfig.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    _textController.clear();
     final wasRequest = _isRequestMode;
     setState(() => _isRequestMode = false);
 
@@ -135,10 +134,25 @@ class _ChatScreenState extends State<ChatScreen> {
           .from('conversations')
           .update({'last_message_at': DateTime.now().toIso8601String()}).eq(
               'id', _conversationId as Object);
+      // On ne vide le champ qu'une fois l'envoi confirmé — sinon, en cas
+      // d'échec, le client perdait son message tapé et devait tout
+      // retaper à chaque tentative.
+      if (mounted) _textController.clear();
     } catch (e) {
+      // Log technique pour diagnostiquer une éventuelle récidive (RLS,
+      // migration manquante...) — jamais montré au client.
+      debugPrint('Échec envoi message chat : $e');
       if (!mounted) return;
+      setState(() => _isRequestMode = wasRequest);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message non envoyé. Réessayez.')),
+        SnackBar(
+          content: const Text(
+              'Message non envoyé — vérifie ta connexion et réessaie.'),
+          action: SnackBarAction(
+            label: 'Réessayer',
+            onPressed: _send,
+          ),
+        ),
       );
     }
   }
