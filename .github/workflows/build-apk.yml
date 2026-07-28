@@ -17,6 +17,17 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
+      - name: Libérer de l'espace disque sur le runner
+        run: |
+          echo "--- Espace disque avant nettoyage ---"
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/local/share/boost /usr/share/swift \
+            /opt/hostedtoolcache/CodeQL || true
+          sudo docker image prune -a -f || true
+          echo "--- Espace disque après nettoyage ---"
+          df -h /
+
       - name: Installer Java
         uses: actions/setup-java@v4
         with:
