@@ -1245,43 +1245,59 @@ dans le prochain message de suivi de la conversation).
   toujours créer un nouvel écran propre plutôt que de risquer de casser un
   gros fichier existant, à l'image de ce qui a été fait jusqu'ici.
 
-## 7. Historique de répartition des missions (consolidé le 25/07)
+## 7. Répartition des missions entre conversations Claude en parallèle
 
 **⚠️ Dépôt renommé (23/07)** : `Anju-codermad/akora-fanadiovana-app` →
 **`Anju-codermad/AkoraHub-app`**. L'ancien nom redirige encore
 automatiquement (GitHub le fait par défaut après un renommage), mais
 utiliser le nouveau nom pour tout nouveau clone/remote/lien.
 
-**Consolidation (25/07)** : l'utilisateur a demandé de reprendre tout le
-travail dans une seule conversation à partir de maintenant, plutôt que de
-continuer à faire avancer deux sessions en parallèle. La répartition
-ci-dessous est conservée à titre d'historique (utile pour comprendre
-pourquoi certains fichiers ont été créés par l'une ou l'autre "session"),
-mais **ne s'applique plus** : toute nouvelle conversation qui reprend ce
-projet a désormais la responsabilité de l'ensemble du dépôt.
+**⚠️ Contradiction détectée et résolue (25/07)** : une note plus ancienne
+dans ce fichier indiquait que l'utilisateur avait demandé de tout
+consolider dans une seule conversation. Une autre conversation, menée en
+parallèle le même jour, a reçu l'instruction inverse : les deux
+conversations **continuent bien en parallèle**, confirmé explicitement par
+l'utilisateur après qu'on lui ait signalé la contradiction. **C'est cette
+version qui fait foi** — si un futur fil trouve encore une mention
+"consolidé en une seule conversation" quelque part, elle est obsolète.
 
-Répartition initiale (24-25/07, avant consolidation) :
-- **Conversation "Backend/Infra"** : `lib/core/`, `supabase/*.sql`, tous les
-  écrans Admin (`*_real` hors `client_home/`), `.github/workflows/`,
-  paiement, messagerie, notifications, sécurité RLS.
-- **Conversation "Client UX/Design"** : `lib/presentation/client_home/*` —
-  écrans client, style visuel, mise en page — élargie en cours de route
-  à des écrans Admin ponctuels (ex. `home_banners_management.dart`) avec
-  accord implicite de l'utilisateur.
+**Périmètre complet des deux côtés** : les deux conversations ont un accès
+complet et non restreint à tout le dépôt (plus de partition par dossier
+depuis le 23-25/07). N'importe quelle conversation peut modifier
+n'importe quel fichier, y compris `lib/core/`, `supabase/*.sql`, les
+écrans Admin, et `lib/presentation/client_home/*`.
 
-Plusieurs fusions Git automatiques propres ont eu lieu durant cette
-période (aucune perte de code), et un doublon fonctionnel (deux systèmes
-de messagerie construits indépendamment) a été détecté et résolu — voir
-section 3bis pour le détail. Cette expérience confirme qu'un travail en
-parallèle sur ce projet reste possible si besoin à l'avenir, à condition
-de repasser régulièrement par ce document et de toujours `git pull` avant
-de pousser.
+**Conséquence directe : le risque de collision de fichiers est réel**,
+puisqu'il n'y a plus de "chacun son dossier" comme garde-fou. Discipline
+Git impérative pour toute conversation qui reprend ce projet :
+1. `git fetch` systématique avant tout push, jamais de push en force
+2. Si des commits distants sont apparus entre-temps (ça arrive
+   régulièrement — plus de 80 commits sont arrivés en quelques jours lors
+   d'une session parallèle) : ne pas essayer de fusionner à la main un
+   historique périmé. Réinitialiser sur l'état distant (`git reset --hard
+   origin/main`) si son propre travail local n'a pas encore été poussé,
+   puis relire ce fichier à jour avant de continuer — plutôt que de
+   raisonner sur une version obsolète du projet.
+3. Documenter tout changement significatif dans ce fichier avant de
+   pousser le dernier commit de la session, pour que l'autre conversation
+   le voie à sa prochaine lecture. En cas de doute sur une décision déjà
+   prise (comme cette contradiction), la signaler explicitement à
+   l'utilisateur plutôt que de trancher seul.
+
+Plusieurs fusions automatiques propres ont déjà eu lieu entre le 23 et le
+25/07 sans perte de code d'aucun côté, et un doublon fonctionnel (deux
+systèmes de messagerie construits indépendamment) a été détecté et résolu
+— voir section 3bis. Cette discipline fonctionne, à condition de la
+suivre à chaque fois, même pour un fichier qu'on pense être "le sien".
 
 ## 6bis. Comment reprendre le fil (pour toute conversation)
 
-1. `git pull` avant de commencer
+1. `git pull` (ou `git fetch` + `git reset --hard origin/main` si son
+   propre historique local est périmé) avant de commencer
 2. Lire ce fichier en entier + les dernières entrées de `CHANGELOG.md`
-3. Travailler uniquement dans son périmètre (section 7)
+3. Accès complet à tout le dépôt des deux côtés (section 7) — vérifier
+   l'historique Git avant de toucher un fichier qui pourrait avoir été
+   modifié récemment par l'autre conversation
 4. Mettre à jour ce fichier (sections 3, 4 et 7 si besoin) avant de pousser
    le dernier commit de la session
 
