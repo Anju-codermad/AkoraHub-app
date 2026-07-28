@@ -329,3 +329,6 @@
 
 ## 2026-07-28 07:44 UTC — Claude (Client UX/Design)
 - Theme: aligner la palette de l app sur les couleurs reelles de l icone (25/07) (`747ee59`)
+
+## 2026-07-28 07:45 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`23b2db6`)
