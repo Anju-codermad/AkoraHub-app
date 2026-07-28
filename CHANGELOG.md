@@ -326,3 +326,6 @@
 
 ## 2026-07-28 07:40 UTC — Claude (Client UX/Design)
 - docs: resoudre la contradiction sur consolidation vs parallele (25/07) (`f859889`)
+
+## 2026-07-28 07:44 UTC — Claude (Client UX/Design)
+- Theme: aligner la palette de l app sur les couleurs reelles de l icone (25/07) (`747ee59`)
