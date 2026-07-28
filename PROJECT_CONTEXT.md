@@ -719,14 +719,23 @@ lancement.
    avant tout calendrier** : lance-t-on avec un paiement à la livraison en
    attendant l'intégration Mobile Money, ou est-ce bloquant pour le
    lancement ?
-4. **Identité visuelle** : pas de logo graphique custom pour l'icône/
-   splash (seul le nom "AkoraHub" est appliqué actuellement), pas de
-   captures d'écran préparées pour la fiche Play Store.
+4. **Identité visuelle** — **en grande partie fait (25/07)** : icône
+   réelle créée et intégrée sur Android/iOS/Web (vert `#085041`, concept
+   panier/lettre "A" — remplace l'ancien logo Flutter par défaut), thème
+   de toute l'app aligné dessus (`lib/theme/app_theme.dart` : primaire
+   vert `#085041`, secondaire marine `#0B2C64`, accent orange `#FE5905`,
+   extraits par échantillonnage de pixels de l'icône réelle — l'ancienne
+   palette navy/teal/or créait une incohérence avec l'icône). **Reste à
+   faire** : splash screen (toujours l'écran de démarrage par défaut,
+   pas de logo dessus), captures d'écran préparées pour la fiche Play
+   Store, feature graphic (1024×500).
 
-**Non bloquant, peut sortir après le lancement (v1.1)** : notifications
-push réelles, mode hors-ligne, multi-langue, fidélité par paliers, FDS,
-e-learning, groupes professionnels, mode sombre — voir section 3bis/4 pour
-le détail complet de chaque idée.
+**Déjà livrés depuis (25/07, via la session parallèle "Backend/Infra")** :
+notifications push réelles (Firebase, voir section correspondante), mode
+hors-ligne, multi-langue FR/MG (infrastructure + premiers écrans), mode
+sombre, fidélité par paliers Bronze/Argent/Or. **Reste non bloquant pour
+le lancement** : FDS, e-learning, groupes professionnels — voir section
+3bis/4 pour le détail complet de chaque idée.
 
 ## 3septies. Écran Admin des devis manquant (25/07, Backend/Infra) ✅ FAIT
 
