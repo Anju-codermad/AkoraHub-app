@@ -332,3 +332,6 @@
 
 ## 2026-07-28 07:45 UTC — Claude (Client UX/Design)
 - Merge: changelog auto-généré (`23b2db6`)
+
+## 2026-07-28 07:51 UTC — Claude
+- merge: intégrer les changements distants avant push du correctif espace disque CI (`d5ba48c`)
