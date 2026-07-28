@@ -10,6 +10,7 @@ import '../home_banners_management/home_banners_management.dart';
 import '../quotes_management/quotes_management.dart';
 import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
+import '../legal/about_screen.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
@@ -118,6 +119,17 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const BusinessProfileSettings()),
+            ),
+          ),
+          const Divider(height: 24),
+          _SectionHeader('Aide'),
+          _MenuTile(
+            icon: Icons.info_outline,
+            label: 'À propos d\'AkoraHub',
+            subtitle: 'Version, confidentialité, conditions d\'utilisation',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AboutScreen()),
             ),
           ),
           const Divider(height: 24),

@@ -1239,6 +1239,60 @@ d'où le recours à un commit) et vérifier via l'API
 (si un job a de nouveau `"steps": []` et se termine en quelques
 secondes, le quota n'est probablement toujours pas réglé).
 
+## 3trevicies. Polish "professionnalisation" de l'app (28/07) ✅ FAIT
+
+Suite à la question de l'utilisateur "comment rendre cette apk plus
+professionnelle, plus confortable pour mes clients/communauté" — lot de
+petites améliorations low-risk, sans toucher au CI (toujours bloqué, voir
+section précédente) :
+
+- **Vrai logo partout** : le splash screen et l'écran de connexion
+  (`AppLogoWidget`) affichaient une icône Material générique
+  (`business_center`/`business`) au lieu du vrai logo AkoraHub. Les deux
+  utilisent maintenant `assets/images/img_app_logo.png` (copie de
+  `store_assets/play_store_icon_512.png`, déjà la bonne icône). Tagline de
+  connexion traduite ("Professional Business Platform" → "Votre plateforme
+  multi-activités", cohérente avec le splash).
+- **Nettoyage** : `assets/images/img_app_logo.svg` supprimé — c'était un
+  logo bleu générique téléchargé sur svgrepo.com (résidu du scaffold
+  Rocket.new, commentaire `<!-- Uploaded to: SVG Repo -->` en tête de
+  fichier), sans rapport avec l'identité visuelle réelle d'AkoraHub, et
+  déjà mort (aucune référence nulle part dans le code, vérifié par grep).
+- **Pages légales** (`lib/presentation/legal/`) : `PrivacyPolicyScreen`
+  (politique de confidentialité — données collectées : profil,
+  géolocalisation, photos, activité ; hébergement Supabase UE ; droits) et
+  `TermsOfServiceScreen` (conditions d'utilisation — âge minimum 18 ans,
+  commandes/devis, livraison, contenu du Mur, sécurité du compte). Contenu
+  statique mais réel et spécifique à AkoraHub, pas un texte générique
+  copié-collé. Répond en partie au point 2 du plan de lancement (section
+  3sexies) — la page reste à héberger publiquement si Google Play l'exige
+  en dehors de l'app également (à vérifier lors de la soumission).
+- **Écran "À propos"** (`AboutScreen`) : logo, nom, version (`1.0.0`,
+  reprise de `pubspec.yaml` — codée en dur plutôt que lue dynamiquement via
+  un package `package_info_plus`, pour ne pas ajouter une dépendance non
+  testée pendant que le CI est bloqué et ne peut pas confirmer un build
+  vert), description courte de l'app, liens vers les deux pages légales
+  ci-dessus. Accessible depuis Profil client (nouvelle entrée "À propos &
+  aide", après "Scanner un produit") et depuis le menu Admin "Plus"
+  (nouvelle section "Aide").
+- **Case à cocher CGU/confidentialité rendue cliquable** à l'inscription
+  (`registration_screen.dart`, étape 2) : "conditions d'utilisation" et
+  "politique de confidentialité" sont maintenant deux liens (`RichText` +
+  `TapGestureRecognizer`) ouvrant les écrans ci-dessus, au lieu d'un texte
+  statique sans destination.
+- **Boutons Google/Facebook plus honnêtes** (`social_login_widget.dart`) :
+  ajout d'un texte "Bientôt disponible — utilisez votre email pour
+  l'instant" sous les boutons, en plus du SnackBar déjà existant au tap
+  (section 3ter) — évite qu'un nouvel utilisateur les essaie en pensant
+  qu'ils fonctionnent avant même de taper dessus.
+
+**Volontairement pas fait dans cette passe** (nécessite CI vert pour
+vérifier un build, ou une action externe de l'utilisateur) :
+traduction FR/MG des écrans restants (rappel : uniquement sur demande
+explicite écran par écran, voir section 3duodecies), feature graphic
+1024×500 et captures d'écran Play Store (assets graphiques, pas du code),
+paiement Mobile Money.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

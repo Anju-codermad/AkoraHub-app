@@ -6,6 +6,7 @@ import '../../core/app_export.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../core/supabase/auth_helpers.dart';
 import '../../widgets/custom_icon_widget.dart';
+import '../../widgets/custom_image_widget.dart';
 
 /// Splash Screen - écran de lancement de marque
 ///
@@ -246,11 +247,11 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ],
           ),
-          child: Center(
-            child: CustomIconWidget(
-              iconName: 'business_center',
-              color: theme.colorScheme.primary,
-              size: 60,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: CustomImageWidget(
+              imageUrl: 'assets/images/img_app_logo.png',
+              fit: BoxFit.contain,
             ),
           ),
         ),

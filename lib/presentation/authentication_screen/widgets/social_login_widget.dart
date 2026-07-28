@@ -84,6 +84,14 @@ class SocialLoginWidget extends StatelessWidget {
             ),
           ],
         ),
+        SizedBox(height: 1.h),
+        Text(
+          'Bientôt disponible — utilisez votre email pour l\'instant',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }

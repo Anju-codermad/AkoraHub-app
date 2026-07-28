@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show User;
 import '../../core/localization/app_translations.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../legal/about_screen.dart';
 import 'chat_screen.dart';
 import 'favorites_provider.dart';
 import 'favorites_screen.dart';
@@ -670,6 +671,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 subtitle: const Text('Vérifier la traçabilité d\'un lot'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.pushNamed(context, '/product-scanner'),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('À propos & aide'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AboutScreen())),
               ),
             ],
           ),

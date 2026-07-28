@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
@@ -6,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../legal/privacy_policy_screen.dart';
+import '../legal/terms_of_service_screen.dart';
 
 /// Écran d'inscription pour les clients (hôtel, hôpital, entreprise,
 /// particulier), en 2 étapes :
@@ -39,6 +42,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   String _clientType = 'particulier';
   bool _isLoading = false;
 
+  final TapGestureRecognizer _termsRecognizer = TapGestureRecognizer();
+  final TapGestureRecognizer _privacyRecognizer = TapGestureRecognizer();
+
   final List<Map<String, String>> _clientTypes = const [
     {'value': 'particulier', 'label': 'Particulier'},
     {'value': 'hotel', 'label': 'Hôtel'},
@@ -56,6 +62,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     super.dispose();
   }
 
@@ -513,10 +521,44 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(top: 1.5.h),
-                    child: Text(
-                      'J\'accepte les conditions d\'utilisation et la '
-                      'politique de confidentialité d\'AkoraHub',
-                      style: theme.textTheme.bodySmall,
+                    child: RichText(
+                      text: TextSpan(
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.onSurface),
+                        children: [
+                          const TextSpan(text: 'J\'accepte les '),
+                          TextSpan(
+                            text: 'conditions d\'utilisation',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            recognizer: _termsRecognizer
+                              ..onTap = () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const TermsOfServiceScreen()),
+                                  ),
+                          ),
+                          const TextSpan(text: ' et la '),
+                          TextSpan(
+                            text: 'politique de confidentialité',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            recognizer: _privacyRecognizer
+                              ..onTap = () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const PrivacyPolicyScreen()),
+                                  ),
+                          ),
+                          const TextSpan(text: ' d\'AkoraHub'),
+                        ],
+                      ),
                     ),
                   ),
                 ),
