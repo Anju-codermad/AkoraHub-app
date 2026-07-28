@@ -320,3 +320,6 @@
 
 ## 2026-07-28 03:11 UTC — Claude
 - CI: ne plus publier l'APK comme artefact téléchargeable (garde uniquement l'App Bundle) (`c30d561`)
+
+## 2026-07-28 07:00 UTC — Anju-codermad
+- docs: document CI storage quota failure diagnosis and fix, trigger fresh build to confirm (`7a49d43`)
