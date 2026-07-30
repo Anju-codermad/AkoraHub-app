@@ -1965,6 +1965,29 @@ colonnes, l'upload échouerait silencieusement — repli tolérant déjà en
 place côté client, mais la preuve ne serait jamais réellement
 enregistrée).
 
+## 3douzetrentecies. Verrouillage du statut tant que le paiement manuel n'est pas confirmé (30/07) ✅ FAIT
+
+Demande de l'utilisateur : le staff doit **vérifier le paiement puis
+valider la commande** — pas l'inverse. Auparavant, rien n'empêchait de
+faire passer une commande en virement/Mobile Money à "Expédiée" alors que
+le paiement n'avait jamais été confirmé.
+
+**Décision de conception (recommandation validée)** : pour les modes de
+paiement manuels (tout sauf "paiement à la livraison"), le statut de la
+commande reste **verrouillé sur "Reçue"/"Annulée"** tant que le paiement
+n'est pas confirmé (`payment_status = 'paye'` ou `'facture_30j'`) —
+"En préparation"/"Expédiée"/"Livrée" sont grisés.
+
+- **`order_management_real.dart`** : le bloc paiement (mode, référence,
+  capture) est remonté **en premier** dans le dialogue, avec un bandeau
+  d'alerte "⚠ Paiement non confirmé" et un bouton dédié **"Confirmer le
+  paiement reçu"** (raccourci qui sélectionne "Payée" dans le statut de
+  paiement). Le bloc "Statut de la commande" apparaît ensuite, avec un
+  message explicite ("Débloqué une fois le paiement confirmé ci-dessus")
+  et les options non pertinentes désactivées (`onChanged: null`) tant que
+  non confirmé. Rien ne change pour "paiement à la livraison" (jamais
+  verrouillé) ni pour les commandes déjà marquées payées/facturées.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

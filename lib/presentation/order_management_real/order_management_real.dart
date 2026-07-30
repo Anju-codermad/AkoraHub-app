@@ -83,128 +83,188 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
         : null;
     bool isUpdatingPosition = false;
 
+    final isManualPayment =
+        (order['payment_method'] ?? 'paiement_livraison') !=
+            'paiement_livraison';
+
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Commande ${order['order_number']}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Statut de la commande',
-                    style: Theme.of(context).textTheme.labelLarge),
-                ..._statusLabels.entries.map((entry) {
-                  return RadioListTile<String>(
-                    value: entry.key,
-                    groupValue: selectedStatus,
-                    dense: true,
-                    title: Text(entry.value),
-                    onChanged: (v) =>
-                        setDialogState(() => selectedStatus = v!),
-                  );
-                }),
-                const Divider(),
-                Text('Mode de paiement choisi par le client',
-                    style: Theme.of(context).textTheme.labelLarge),
-                SizedBox(height: 0.5.h),
-                Row(
-                  children: [
-                    Icon(
-                        PaymentMethodX.fromId(order['payment_method'] as String?)
-                            .icon,
-                        size: 18),
-                    const SizedBox(width: 6),
+        builder: (context, setDialogState) {
+          final theme = Theme.of(context);
+          final isPaymentConfirmed =
+              selectedPayment == 'paye' || selectedPayment == 'facture_30j';
+          final statusLocked = isManualPayment && !isPaymentConfirmed;
+
+          return AlertDialog(
+            title: Text('Commande ${order['order_number']}'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (statusLocked)
+                    Container(
+                      margin: EdgeInsets.only(bottom: 1.h),
+                      padding: EdgeInsets.all(2.w),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.errorContainer
+                            .withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded,
+                              size: 18, color: theme.colorScheme.error),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text('Paiement non confirmé',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.error,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Text('Mode de paiement choisi par le client',
+                      style: theme.textTheme.labelLarge),
+                  SizedBox(height: 0.5.h),
+                  Row(
+                    children: [
+                      Icon(
+                          PaymentMethodX.fromId(
+                                  order['payment_method'] as String?)
+                              .icon,
+                          size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        PaymentMethodX.fromId(
+                                order['payment_method'] as String?)
+                            .label,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                  if ((order['payment_reference'] as String?)
+                          ?.isNotEmpty ==
+                      true) ...[
+                    SizedBox(height: 0.5.h),
                     Text(
-                      PaymentMethodX.fromId(order['payment_method'] as String?)
-                          .label,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      'Référence : ${order['payment_reference']}',
+                      style: theme.textTheme.bodySmall,
                     ),
                   ],
-                ),
-                if ((order['payment_reference'] as String?)
-                        ?.isNotEmpty ==
-                    true) ...[
+                  if (order['payment_proof_path'] != null) ...[
+                    SizedBox(height: 0.5.h),
+                    TextButton.icon(
+                      onPressed: () =>
+                          _viewPaymentProof(order['payment_proof_path']),
+                      icon: const Icon(Icons.image_outlined, size: 18),
+                      label: const Text('Voir la capture de paiement'),
+                    ),
+                  ],
+                  if (isManualPayment && !isPaymentConfirmed) ...[
+                    SizedBox(height: 1.h),
+                    FilledButton.icon(
+                      onPressed: () =>
+                          setDialogState(() => selectedPayment = 'paye'),
+                      icon: const Icon(Icons.check_circle_outline, size: 18),
+                      label: const Text('Confirmer le paiement reçu'),
+                    ),
+                  ],
+                  SizedBox(height: 1.h),
+                  Text('Statut du paiement', style: theme.textTheme.labelLarge),
+                  ..._paymentStatusLabels.entries.map((entry) {
+                    return RadioListTile<String>(
+                      value: entry.key,
+                      groupValue: selectedPayment,
+                      dense: true,
+                      title: Text(entry.value),
+                      onChanged: (v) =>
+                          setDialogState(() => selectedPayment = v!),
+                    );
+                  }),
+                  const Divider(),
+                  Text('Statut de la commande',
+                      style: theme.textTheme.labelLarge),
+                  if (statusLocked)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 0.5.h),
+                      child: Text(
+                        'Débloqué une fois le paiement confirmé ci-dessus.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ..._statusLabels.entries.map((entry) {
+                    final lockedForThisEntry = statusLocked &&
+                        entry.key != 'recue' &&
+                        entry.key != 'annulee';
+                    return RadioListTile<String>(
+                      value: entry.key,
+                      groupValue: selectedStatus,
+                      dense: true,
+                      title: Text(entry.value),
+                      onChanged: lockedForThisEntry
+                          ? null
+                          : (v) => setDialogState(() => selectedStatus = v!),
+                    );
+                  }),
+                  const Divider(),
+                  Text('Position du livreur (suivi de livraison)',
+                      style: theme.textTheme.labelLarge),
                   SizedBox(height: 0.5.h),
                   Text(
-                    'Référence : ${order['payment_reference']}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    driverPositionUpdatedAt != null
+                        ? 'Dernière mise à jour : ${DateFormat('dd/MM HH:mm').format(driverPositionUpdatedAt!.toLocal())}'
+                        : 'Position jamais renseignée pour cette commande.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  SizedBox(height: 1.h),
+                  OutlinedButton.icon(
+                    onPressed: isUpdatingPosition
+                        ? null
+                        : () async {
+                            setDialogState(() => isUpdatingPosition = true);
+                            final updatedAt =
+                                await _captureAndSaveDriverPosition(
+                                    order['id']);
+                            setDialogState(() {
+                              isUpdatingPosition = false;
+                              if (updatedAt != null) {
+                                driverPositionUpdatedAt = updatedAt;
+                              }
+                            });
+                          },
+                    icon: isUpdatingPosition
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location),
+                    label: const Text('Mettre à jour ma position maintenant'),
                   ),
                 ],
-                if (order['payment_proof_path'] != null) ...[
-                  SizedBox(height: 0.5.h),
-                  TextButton.icon(
-                    onPressed: () =>
-                        _viewPaymentProof(order['payment_proof_path']),
-                    icon: const Icon(Icons.image_outlined, size: 18),
-                    label: const Text('Voir la capture de paiement'),
-                  ),
-                ],
-                SizedBox(height: 1.h),
-                Text('Statut du paiement',
-                    style: Theme.of(context).textTheme.labelLarge),
-                ..._paymentStatusLabels.entries.map((entry) {
-                  return RadioListTile<String>(
-                    value: entry.key,
-                    groupValue: selectedPayment,
-                    dense: true,
-                    title: Text(entry.value),
-                    onChanged: (v) =>
-                        setDialogState(() => selectedPayment = v!),
-                  );
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, {
+                  'status': selectedStatus,
+                  'payment_status': selectedPayment,
                 }),
-                const Divider(),
-                Text('Position du livreur (suivi de livraison)',
-                    style: Theme.of(context).textTheme.labelLarge),
-                SizedBox(height: 0.5.h),
-                Text(
-                  driverPositionUpdatedAt != null
-                      ? 'Dernière mise à jour : ${DateFormat('dd/MM HH:mm').format(driverPositionUpdatedAt!.toLocal())}'
-                      : 'Position jamais renseignée pour cette commande.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                SizedBox(height: 1.h),
-                OutlinedButton.icon(
-                  onPressed: isUpdatingPosition
-                      ? null
-                      : () async {
-                          setDialogState(() => isUpdatingPosition = true);
-                          final updatedAt = await _captureAndSaveDriverPosition(
-                              order['id']);
-                          setDialogState(() {
-                            isUpdatingPosition = false;
-                            if (updatedAt != null) {
-                              driverPositionUpdatedAt = updatedAt;
-                            }
-                          });
-                        },
-                  icon: isUpdatingPosition
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.my_location),
-                  label: const Text('Mettre à jour ma position maintenant'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, {
-                'status': selectedStatus,
-                'payment_status': selectedPayment,
-              }),
-              child: const Text('Mettre à jour'),
-            ),
-          ],
-        ),
+                child: const Text('Mettre à jour'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
