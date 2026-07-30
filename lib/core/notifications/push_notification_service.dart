@@ -59,6 +59,14 @@ class PushNotificationService {
       badge: true,
       sound: true,
     );
+    // Demande explicite côté Android (au cas où requestPermission()
+    // ci-dessus ne couvre pas POST_NOTIFICATIONS sur cet appareil) —
+    // sans cette autorisation (Android 13+), aucune notification ne
+    // peut s'afficher, avec ou sans son.
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
 
     // S'assure que les canaux Android existent pour les préférences
     // actuelles (cache local si disponible, sinon défauts) avant même

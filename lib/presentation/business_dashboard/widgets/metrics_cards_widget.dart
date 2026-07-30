@@ -23,6 +23,7 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
   int _productsCount = 0;
   int _pendingOrdersCount = 0;
   int _clientsCount = 0;
+  int _unreadMessagesCount = 0;
   bool _isLoading = true;
 
   @override
@@ -48,12 +49,21 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
           .select('id')
           .eq('role', 'client')
           .count();
+      // Messages client non lus par le staff — même filtre que
+      // messaging_center_real.dart pour rester cohérent.
+      final unreadMessages = await SupabaseConfig.client
+          .from('messages')
+          .select('id')
+          .eq('sender_role', 'client')
+          .eq('read_by_staff', false)
+          .count();
 
       if (!mounted) return;
       setState(() {
         _productsCount = products.count;
         _pendingOrdersCount = pendingOrders.count;
         _clientsCount = clients.count;
+        _unreadMessagesCount = unreadMessages.count;
         _isLoading = false;
       });
     } catch (_) {
@@ -88,7 +98,7 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
         'type': 'messages',
         'icon': 'message',
         'label': 'Messages',
-        'value': '—',
+        'value': _isLoading ? '—' : '$_unreadMessagesCount',
       },
     ];
 

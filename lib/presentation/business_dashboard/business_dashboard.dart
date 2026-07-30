@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/app_export.dart';
+import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_bottom_bar.dart';
 import '../../widgets/custom_icon_widget.dart';
 import './widgets/greeting_header_widget.dart';
@@ -22,6 +23,7 @@ class BusinessDashboard extends StatefulWidget {
 class _BusinessDashboardState extends State<BusinessDashboard> {
   bool _isRefreshing = false;
   DateTime _lastUpdated = DateTime.now();
+  int _unreadMessagesCount = 0;
 
   @override
   void initState() {
@@ -30,9 +32,27 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
   }
 
   Future<void> _loadDashboardData() async {
-    // Load dashboard data
+    // Badge de la cloche : messages client non lus par le staff, même
+    // filtre que la carte "Messages" (metrics_cards_widget.dart) et la
+    // liste des conversations (messaging_center_real.dart).
+    var unread = 0;
+    if (SupabaseConfig.isConfigured) {
+      try {
+        final result = await SupabaseConfig.client
+            .from('messages')
+            .select('id')
+            .eq('sender_role', 'client')
+            .eq('read_by_staff', false)
+            .count();
+        unread = result.count;
+      } catch (_) {
+        // Repli silencieux : le badge reste à 0 si la requête échoue.
+      }
+    }
+    if (!mounted) return;
     setState(() {
       _lastUpdated = DateTime.now();
+      _unreadMessagesCount = unread;
     });
   }
 
@@ -149,6 +169,7 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
         child: GreetingHeaderWidget(
+          notificationCount: _unreadMessagesCount,
           onNotificationTap: () {
             Navigator.pushNamed(context, '/messaging-center');
           },

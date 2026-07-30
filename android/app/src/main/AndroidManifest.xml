@@ -8,6 +8,11 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Obligatoire depuis Android 13 (API 33) pour pouvoir afficher une
+         notification (son inclus) — sans cette déclaration, le système
+         bloque silencieusement toute notification, quel que soit le code
+         de l'app. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
             android:label="AkoraHub"
