@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/app_export.dart';
-import '../../core/localization/app_translations.dart';
-import '../../core/providers/theme_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_icon_widget.dart';
-import '../client_home/notification_sounds_screen.dart';
+import '../client_home/settings/settings_screen.dart';
 import './widgets/business_information_section.dart';
 import './widgets/contact_details_section.dart';
 import './widgets/visual_identity_section.dart';
@@ -444,83 +441,17 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                   SizedBox(height: 2.h),
 
                   Card(
-                    child: Consumer(
-                      builder: (context, ref, _) {
-                        final themeMode = ref.watch(themeModeProvider);
-                        return SwitchListTile(
-                          secondary: const Icon(Icons.dark_mode_outlined),
-                          title: const Text('Mode sombre'),
-                          value: themeMode == ThemeMode.dark,
-                          onChanged: (value) {
-                            ref.read(themeModeProvider.notifier).setThemeMode(
-                                value ? ThemeMode.dark : ThemeMode.light);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-
-                  SizedBox(height: 2.h),
-
-                  Card(
                     child: ListTile(
-                      leading: const Icon(Icons.notifications_outlined),
-                      title: const Text('Sons de notification'),
+                      leading: const Icon(Icons.settings_outlined),
+                      title: const Text('Paramètres'),
+                      subtitle: const Text(
+                          'Notifications, langue, mode sombre, sécurité, aide'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const NotificationSoundsScreen()),
+                            builder: (_) => const SettingsScreen()),
                       ),
-                    ),
-                  ),
-
-                  SizedBox(height: 2.h),
-
-                  Card(
-                    child: Consumer(
-                      builder: (context, ref, _) {
-                        final locale = ref.watch(localeProvider);
-                        return ListTile(
-                          leading: const Icon(Icons.language_outlined),
-                          title: const Text('Langue / Fiteny'),
-                          trailing: Text(
-                            locale == 'fr' ? 'Français' : 'Malagasy',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                          onTap: () async {
-                            final selected = await showDialog<String>(
-                              context: context,
-                              builder: (context) => SimpleDialog(
-                                title: const Text('Choisir la langue'),
-                                children: [
-                                  SimpleDialogOption(
-                                    onPressed: () =>
-                                        Navigator.pop(context, 'fr'),
-                                    child: const Row(children: [
-                                      Text('🇫🇷 '),
-                                      Text('Français')
-                                    ]),
-                                  ),
-                                  SimpleDialogOption(
-                                    onPressed: () =>
-                                        Navigator.pop(context, 'mg'),
-                                    child: const Row(children: [
-                                      Text('🇲🇬 '),
-                                      Text('Malagasy')
-                                    ]),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (selected != null) {
-                              ref
-                                  .read(localeProvider.notifier)
-                                  .setLocale(selected);
-                            }
-                          },
-                        );
-                      },
                     ),
                   ),
 

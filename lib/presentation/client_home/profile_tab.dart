@@ -9,15 +9,13 @@ import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show User;
 
-import '../../core/localization/app_translations.dart';
-import '../../core/providers/theme_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
 import 'favorites_provider.dart';
 import 'favorites_screen.dart';
 import 'loyalty/loyalty_screen.dart';
-import 'notification_sounds_screen.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
+import 'settings/settings_screen.dart';
 import 'wall/wall_tab.dart';
 
 /// Profil client — mise en page centrée façon Facebook mobile (photo de
@@ -40,7 +38,6 @@ class ProfileTab extends ConsumerStatefulWidget {
 class _ProfileTabState extends ConsumerState<ProfileTab> {
   Map<String, dynamic>? _profile;
   bool _isLoading = true;
-  bool _isDeleting = false;
   String? _error;
 
   int _postsCount = 0;
@@ -227,60 +224,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
     if (updated == true) {
       _loadAll();
-    }
-  }
-
-  Future<void> _confirmDeleteAccount() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer mon compte'),
-        content: const Text(
-          'Cette action est définitive et irréversible. Toutes vos '
-          'données seront supprimées : profil, commandes, devis, '
-          'favoris, messages et publications. Voulez-vous vraiment '
-          'continuer ?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Supprimer définitivement'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    setState(() => _isDeleting = true);
-    try {
-      final response =
-          await SupabaseConfig.client.functions.invoke('delete-account');
-      if (response.status != 200) {
-        throw Exception(
-            (response.data is Map ? response.data['error'] : null) ??
-                'Échec de la suppression');
-      }
-      await SupabaseConfig.client.auth.signOut();
-      if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/authentication-screen',
-        (route) => false,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isDeleting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Impossible de supprimer le compte pour le moment. Réessayez plus tard.'),
-        ),
-      );
     }
   }
 
@@ -628,53 +571,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const ChatScreen())),
               ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.notifications_outlined),
-                title: const Text('Sons de notification'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const NotificationSoundsScreen())),
-              ),
-              const Divider(height: 1),
-              Consumer(
-                builder: (context, ref, _) {
-                  final locale = ref.watch(localeProvider);
-                  return ListTile(
-                    leading: const Icon(Icons.language_outlined),
-                    title: const Text('Langue / Fiteny'),
-                    trailing: Text(
-                      locale == 'fr' ? 'Français' : 'Malagasy',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    onTap: () async {
-                      final selected = await showDialog<String>(
-                        context: context,
-                        builder: (context) => SimpleDialog(
-                          title: const Text('Choisir la langue'),
-                          children: [
-                            SimpleDialogOption(
-                              onPressed: () => Navigator.pop(context, 'fr'),
-                              child: const Row(
-                                  children: [Text('🇫🇷 '), Text('Français')]),
-                            ),
-                            SimpleDialogOption(
-                              onPressed: () => Navigator.pop(context, 'mg'),
-                              child: const Row(
-                                  children: [Text('🇲🇬 '), Text('Malagasy')]),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (selected != null) {
-                        ref.read(localeProvider.notifier).setLocale(selected);
-                      }
-                    },
-                  );
-                },
-              ),
               ListTile(
                 leading: const Icon(Icons.qr_code_scanner),
                 title: const Text('Scanner un produit'),
@@ -686,22 +582,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           ),
         ),
         SizedBox(height: 2.h),
-        Consumer(
-          builder: (context, ref, _) {
-            final themeMode = ref.watch(themeModeProvider);
-            return Card(
-              child: SwitchListTile(
-                secondary: const Icon(Icons.dark_mode_outlined),
-                title: const Text('Mode sombre'),
-                value: themeMode == ThemeMode.dark,
-                onChanged: (value) {
-                  ref
-                      .read(themeModeProvider.notifier)
-                      .setThemeMode(value ? ThemeMode.dark : ThemeMode.light);
-                },
-              ),
-            );
-          },
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Paramètres'),
+            subtitle: const Text('Notifications, langue, sécurité, aide'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
         ),
         SizedBox(height: 1.h),
         ListTile(
@@ -709,18 +598,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           title:
               const Text('Déconnexion', style: TextStyle(color: Colors.red)),
           onTap: widget.onLogout,
-        ),
-        ListTile(
-          leading: _isDeleting
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.delete_forever_outlined, color: Colors.red),
-          title: const Text('Supprimer mon compte',
-              style: TextStyle(color: Colors.red)),
-          onTap: _isDeleting ? null : _confirmDeleteAccount,
         ),
       ],
     );

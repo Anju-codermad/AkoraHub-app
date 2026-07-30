@@ -1617,6 +1617,46 @@ Fusionné sur `main`, nouveau build déclenché. Reste à tester en
 conditions réelles (le staff met à jour sa position, le client vérifie
 que la carte s'affiche avec les 2 marqueurs).
 
+## 3duotrentecies. Écran "Paramètres" dédié — Client + Admin (30/07) ✅ FAIT
+
+L'utilisateur a montré l'écran Paramètres de Telegram comme référence :
+chez nous, ces réglages étaient éparpillés dans le menu du Profil (client)
+et du Profil entreprise (Admin), sans écran dédié, et deux catégories
+n'existaient pas du tout (Confidentialité/sécurité, Aide/support).
+
+**Nouveau dossier `client_home/settings/`**, réutilisé à l'identique côté
+Client et Admin (réglages personnels à l'utilisateur connecté, pas liés
+à son rôle) :
+- **`settings_screen.dart`** : écran principal — Notifications (→
+  `NotificationSoundsScreen`, inchangé), Langue/Fiteny, Mode sombre
+  (déplacés depuis le Profil, logique identique), puis 2 nouvelles
+  entrées : Confidentialité et sécurité, Aide et support.
+- **`security_settings_screen.dart`** (nouveau) :
+  - **Changer le mot de passe** : formulaire (nouveau mot de passe +
+    confirmation), `Supabase.auth.updateUser()` — fonctionne directement
+    car l'utilisateur est déjà connecté, pas besoin de repasser par
+    l'email de réinitialisation (`resetPasswordForEmail`, toujours en
+    place par ailleurs pour le cas "mot de passe oublié" à la connexion).
+  - **Supprimer mon compte** : logique **déplacée telle quelle** depuis
+    `profile_tab.dart` (Edge Function `delete-account`, phase 30/07) —
+    regroupée ici avec les autres réglages de sécurité plutôt que perdue
+    au milieu du Profil.
+- **`help_support_screen.dart`** (nouveau) :
+  - **Contacter le support** → redirige vers la Messagerie déjà
+    existante (pas de nouveau canal de support construit).
+  - **FAQ** : 5 questions/réponses réelles sur le fonctionnement de l'app
+    (suivi de commande, devis, fidélité, paiement à la livraison,
+    contact équipe) — pas de contenu générique inventé.
+  - **À propos** : `showAboutDialog` standard Flutter (nom, version,
+    mention légale).
+
+**Nettoyage au passage** : `profile_tab.dart` et
+`business_profile_settings.dart` perdent leurs imports/état devenus
+inutiles (`themeModeProvider`, `localeProvider`, `NotificationSoundsScreen`,
+`_isDeleting`/`_confirmDeleteAccount`) — tout vit maintenant uniquement
+dans `settings/`, une seule source de vérité au lieu de dupliquée entre
+Client et Admin.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
