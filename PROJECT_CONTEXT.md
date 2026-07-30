@@ -732,11 +732,14 @@ lancement.
 
 **Déjà livrés depuis (25/07)** : notifications push réelles (Firebase, voir
 section correspondante), mode hors-ligne, multi-langue FR/MG
-(infrastructure + premiers écrans), mode sombre, fidélité par paliers
-Bronze/Argent/Or (y compris l'avantage concret de remise livraison par
-palier). **Reste non bloquant pour le lancement** : FDS, e-learning,
-groupes professionnels — voir section 3bis/4 pour le détail complet de
-chaque idée.
+(infrastructure + premiers écrans), mode sombre. **⚠️ Correction (30/07)** :
+cette liste mentionnait à tort une "remise livraison par palier de
+fidélité" comme livrée — cette fonctionnalité a en réalité été **rejetée
+explicitement par l'utilisateur** puis retirée du code (voir 3sexdecies,
+"REJETÉE par l'utilisateur") ; l'écran Fidélité reste purement informatif
+(paliers Bronze/Argent/Or affichés, sans avantage concret). **Reste non
+bloquant pour le lancement** : FDS, e-learning, groupes professionnels —
+voir section 3bis/4 pour le détail complet de chaque idée.
 
 ## 3septies. Écran Admin des devis manquant (25/07, Backend/Infra) ✅ FAIT
 
@@ -1431,7 +1434,7 @@ d'écran, deux corrections apportées à `client_home/chat_screen.dart` :
 écran par écran (jamais revérifié depuis son ajout), micro-interactions
 (ex: animation du badge panier à l'ajout).
 
-## 3neuvicies. Sons de notification personnalisables par catégorie (30/07) ✅ FAIT, CORRECTIF PRÊT PAS ENCORE DÉPLOYÉ
+## 3neuvicies. Sons de notification personnalisables par catégorie (30/07) ✅ FAIT (script exécuté, Edge Function redéployée)
 
 Demande de l'utilisateur : pouvoir personnaliser le son des notifications
 push, avec un choix laissé à **chaque utilisateur** (client ou staff),
@@ -1754,6 +1757,137 @@ sans son, et un simple "remplacer l'APK" ne suffit pas à réinitialiser
 ni la permission ni les canaux (immuables une fois créés, voir
 3neuvicies).
 
+## 3septtrentecies. Modes de paiement manuels — virement bancaire + Mobile Money (30/07) ✅ FAIT
+
+En attendant le dossier marchand (BNI P@y et/ou marchand Mobile Money,
+toujours en cours — voir email envoyé à BNI), demande explicite de
+l'utilisateur : proposer un mode de paiement manuel par virement/transfert
+en plus du paiement à la livraison implicite existant. **Confirmé avec
+l'utilisateur** : compte BNI utilisé est un **compte personnel** (pas
+encore de compte professionnel), à traiter comme solution de pont
+temporaire (risque CGU banque/fiscal si le volume grossit — signalé à
+l'utilisateur) ; même logique pour les numéros Mobile Money personnels
+(plafonds de transaction plus bas qu'un compte marchand).
+
+- **Nouveau module partagé** `lib/core/payment/payment_methods.dart` :
+  enum `PaymentMethod` (paiementLivraison/virementBancaire/orangeMoney/
+  mvola/airtelMoney) avec `id` (valeur stockée en base), `label`, `icon`,
+  et `instructions` (coordonnées réelles à afficher, fournies par
+  l'utilisateur — RIB/IBAN BNI, ou numéro Mobile Money selon le mode).
+- **Schéma** : `supabase/phase27_patch_orders_payment_method.sql` — colonne
+  `orders.payment_method` (texte, défaut `paiement_livraison`, contrainte
+  CHECK sur les 5 valeurs). **Script prêt, pas encore exécuté.**
+- **Client** (`cart_tab.dart`) : sélecteur `ChoiceChip` sous le total,
+  affichant les coordonnées de paiement (bancaire ou Mobile Money choisi)
+  dans un encadré dès qu'un mode autre que "livraison" est sélectionné —
+  texte sélectionnable pour copier-coller facilement. Valeur incluse dans
+  la commande (insertion en ligne ET file d'attente hors-ligne).
+  `orders_tab.dart` affiche aussi le mode choisi sur chaque commande du
+  client.
+- **Admin** (`order_management_real.dart`) : mode de paiement choisi par
+  le client affiché en lecture seule dans la fiche commande (sous-titre de
+  la liste + dialogue de mise à jour de statut), juste au-dessus du statut
+  de paiement — le staff vérifie manuellement la réception (relevé
+  bancaire/SMS opérateur) puis marque `payment_status = 'paye'` comme
+  avant (aucun changement de ce mécanisme).
+- **Coordonnées actuellement affichées** (fournies par l'utilisateur,
+  30/07) :
+  - Virement bancaire : BNI Madagascar, agence Analakely, titulaire
+    ANDRINIRINA, IBAN `MG46 0000 5000 8175 0487 0000 141`, BIC `CLMDMGMG`.
+  - Orange Money : 037 34 786 84 (ANDRINIRINA Julio).
+  - Mvola : 034 08 746 96 (Akora Fanadiovana).
+  - Airtel Money : 033 19 581 85 (ANDRINIRINA Julio).
+- Pas de vrais logos d'opérateurs (Orange/Mvola/Airtel) utilisés — marques
+  déposées, risque de droits d'auteur — icône générique à la place.
+
+**Reste à faire** : exécuter `phase27_patch_orders_payment_method.sql`
+dans Supabase avant que le nouveau sélecteur ne fonctionne côté commande
+réelle (sans la colonne, l'insertion échouerait avec "colonne
+payment_method introuvable").
+
+## 3octotrentecies. Activation/désactivation de chaque mode de paiement par l'Admin (30/07) ✅ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ
+
+Demande de l'utilisateur juste après l'ajout des modes manuels
+(3septtrentecies) : pouvoir activer/désactiver chaque mode de paiement
+depuis l'Admin (utile si un numéro Mobile Money personnel devient
+temporairement indisponible, ou pour retirer les modes manuels une fois
+un vrai paiement en ligne en place).
+
+- **Schéma** : `supabase/phase28_patch_payment_method_settings.sql`
+  (**script prêt, pas encore exécuté**) — table
+  `payment_method_settings` (`method_id`, `enabled`), lecture publique,
+  écriture réservée à l'Admin (même modèle que `home_banners`/
+  `flash_infos`). Les 5 modes sont pré-remplis activés par défaut
+  (`on conflict do nothing`, sans danger si rejoué).
+- **Nouveau repo** `lib/core/payment/payment_method_settings_repo.dart` :
+  `fetchEnabled()` (repli tolérant — tous les modes actifs si la table
+  n'existe pas encore/hors-ligne, jamais de checkout bloqué) et
+  `setEnabled()`.
+- **Admin** : nouvel écran `payment_methods_management.dart` — un
+  `Switch` par mode, garde-fou intégré (impossible de désactiver le
+  dernier mode encore actif, message explicite à la place). Accessible
+  depuis le menu "Plus" → section "Entreprise" → "Modes de paiement".
+- **Client** (`cart_tab.dart`) : le sélecteur de paiement n'affiche
+  désormais que les modes activés par l'Admin (chargés au `initState`, en
+  parallèle de l'estimation de livraison) ; si le mode actuellement
+  sélectionné vient d'être désactivé, bascule automatiquement sur le
+  premier mode encore disponible.
+
+**Reste à faire** : exécuter `phase28_patch_payment_method_settings.sql`
+dans Supabase (après phase27) pour que les interrupteurs Admin
+fonctionnent réellement.
+
+## 3neuftrentecies. Collision détectée avec une session parallèle — sélecteur de paiement (30/07) ✅ RÉCONCILIÉ
+
+Une **autre conversation Claude**, travaillant en parallèle sur ce même
+projet (voir section 7 — accès complet des deux côtés, risque de
+collision connu), a construit **indépendamment** un premier sélecteur de
+mode de paiement pendant que celui documenté ci-dessus
+(3septtrentecies/3octotrentecies) était en cours ici. Poussée directement
+sur `main` (commits `50fb383`..`384505f`), **jamais consignée dans ce
+fichier** — retrouvée uniquement parce que l'utilisateur l'a signalée
+avant qu'on ne fusionne notre propre travail, évitant ainsi d'écraser
+l'un ou l'autre.
+
+**Ce que l'autre session avait fait** : `lib/presentation/client_home/
+payment_method.dart` (classe `PaymentMethod` limitée à 3 opérateurs
+Mobile Money, sans paiement à la livraison ni virement bancaire) +
+`payment_method_selector.dart` (jolis avatars circulaires cliquables avec
+le **vrai logo** de chaque opérateur) + 3 fichiers images réels
+(`assets/images/payment_{orange_money,mvola,airtel_money}.jpg`) +
+intégration dans `cart_tab.dart` (validation bloquante si aucun mode
+choisi). Pas de schéma serveur, pas de visibilité Admin, pas d'affichage
+des coordonnées de paiement au client.
+
+**Réconciliation retenue** (les deux systèmes ne pouvaient pas cohabiter
+— même nom de classe `PaymentMethod`, même case de fusion `git merge`
+dans `cart_tab.dart`) :
+- Le système déjà construit ici (enum `core/payment/payment_methods.dart`,
+  schéma `orders.payment_method` + `payment_method_settings`, activation
+  Admin, affichage des coordonnées réelles, visibilité Admin/historique
+  client) est conservé comme base — plus complet.
+- **Récupéré de l'autre session** : les 3 fichiers logos réels (bon
+  ajout, meilleur rendu que l'icône générique) et l'idée d'un sélecteur à
+  avatars circulaires. `PaymentMethod` (enum) gagne un getter
+  `logoAsset` (chemin d'image pour Orange Money/Mvola/Airtel Money,
+  `null` pour paiement à la livraison/virement bancaire → icône
+  générique en repli).
+- Nouveau widget partagé `lib/core/payment/payment_method_selector.dart`
+  (remplace celui de l'autre session, supprimé) : avatars circulaires
+  pour les 5 modes, image réelle quand disponible, icône sinon. Utilisé
+  à la fois dans `cart_tab.dart` et dans l'écran Admin
+  `payment_methods_management.dart`.
+- Fichiers de l'autre session supprimés car entièrement remplacés :
+  `lib/presentation/client_home/payment_method.dart` et
+  `payment_method_selector.dart` (le validation bloquante "choisissez un
+  mode" a aussi été retirée — plus nécessaire, "Paiement à la livraison"
+  reste toujours un choix par défaut valide).
+
+**Rappel pour toute session qui reprend** : toujours lire ce fichier +
+comparer `git log` avec `origin/main` avant de fusionner un travail en
+cours — cette collision n'a été détectée que parce que l'utilisateur l'a
+signalée manuellement, pas par une vérification automatique.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
@@ -1768,13 +1902,20 @@ ni la permission ni les canaux (immuables une fois créés, voir
   (`_checkSubscriptionStatus`, `_loadBusinessProfiles`,
   `_fetchConfigurations`, `_prepareCachedData`, chacune un `Future.delayed`
   sans effet réel) supprimées, temps de démarrage ramené de ~4,8s à ~1,5s.
-- **Notifications push** réelles
-- **Mode hors-ligne**
-- **Multi-langue** Français/Malagasy
-- **Paiement Mobile Money / carte Visa** (le compte MVola de l'entreprise
-  existe mais son statut "marchand" n'est pas confirmé ; piste retenue :
-  Papi, papi.mg, qui unifie MVola/Orange Money/Airtel Money/Visa — voir
-  historique de conversation pour le détail des échanges avec ce prestataire)
+- **Multi-langue** Français/Malagasy : infrastructure + 1er passage faits
+  (nav du bas, en-têtes Accueil — voir 3duodecies), la grande majorité des
+  écrans reste en français codé en dur. **Préférence explicite de
+  l'utilisateur : ne traduire qu'un seul écran à la fois, sur demande
+  explicite nommant l'écran** — ne pas continuer par anticipation.
+- **Paiement en ligne réel** (carte bancaire / marchand Mobile Money) :
+  toujours pas intégré — dossier BNI P@y (compte marchand) en attente de
+  réponse, statut marchand Mobile Money non confirmé. **Solution de pont
+  ajoutée en attendant (30/07, voir 3septtrentecies/3octotrentecies)** :
+  4 modes de paiement manuels sélectionnables au checkout (paiement à la
+  livraison, virement bancaire BNI, Orange Money, Mvola, Airtel Money),
+  chacun activable/désactivable par l'Admin — le staff vérifie la
+  réception manuellement, ce n'est pas un vrai paiement en ligne
+  automatisé.
 
 ## 5. Conventions et pièges à connaître
 

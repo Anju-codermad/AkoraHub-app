@@ -8,6 +8,7 @@ import '../invoicing/invoicing_screen.dart';
 import '../alerts_center/alerts_center.dart';
 import '../flash_infos_management/flash_infos_management.dart';
 import '../home_banners_management/home_banners_management.dart';
+import '../payment_methods_management/payment_methods_management.dart';
 import '../quotes_management/quotes_management.dart';
 import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
@@ -119,6 +120,16 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const FlashInfosManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.payments_outlined,
+            label: 'Modes de paiement',
+            subtitle: 'Activer/désactiver chaque mode de paiement au checkout',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const PaymentMethodsManagement()),
             ),
           ),
           _MenuTile(

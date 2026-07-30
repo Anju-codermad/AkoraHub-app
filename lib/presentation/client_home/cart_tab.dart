@@ -7,11 +7,12 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
+import '../../core/payment/payment_method_selector.dart';
+import '../../core/payment/payment_method_settings_repo.dart';
+import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'delivery_pricing.dart';
-import 'payment_method.dart';
-import 'payment_method_selector.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
 
 class CartTab extends ConsumerStatefulWidget {
@@ -32,12 +33,30 @@ class _CartTabState extends ConsumerState<CartTab> {
   double? _deliveryLat;
   double? _deliveryLon;
   String? _deliveryError;
-  String? _selectedPaymentMethodId;
+
+  PaymentMethod _paymentMethod = PaymentMethod.paiementLivraison;
+  Set<PaymentMethod> _availableMethods = PaymentMethod.values.toSet();
 
   @override
   void initState() {
     super.initState();
     _estimateDelivery();
+    _loadAvailablePaymentMethods();
+  }
+
+  /// Modes de paiement activés par l'Admin (voir
+  /// `payment_methods_management.dart`) — repli sur tous les modes actifs
+  /// tant que le chargement n'est pas terminé ou en cas d'échec, pour ne
+  /// jamais bloquer le checkout.
+  Future<void> _loadAvailablePaymentMethods() async {
+    final available = await PaymentMethodSettingsRepo.fetchEnabled();
+    if (!mounted) return;
+    setState(() {
+      _availableMethods = available;
+      if (!available.contains(_paymentMethod) && available.isNotEmpty) {
+        _paymentMethod = available.first;
+      }
+    });
   }
 
   Future<void> _estimateDelivery() async {
@@ -148,16 +167,6 @@ class _CartTabState extends ConsumerState<CartTab> {
       return;
     }
 
-    if (!asQuote && _selectedPaymentMethodId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez choisir un mode de paiement.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
 
     final total = ref.read(cartProvider.notifier).total;
@@ -202,7 +211,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                     : null,
                 'latitude': _deliveryLat,
                 'longitude': _deliveryLon,
-                'payment_method': _selectedPaymentMethodId,
+                'payment_method': _paymentMethod.id,
               },
               'items': cart
                   .map((item) => {
@@ -275,7 +284,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                   : null,
               'latitude': _deliveryLat,
               'longitude': _deliveryLon,
-              'payment_method': _selectedPaymentMethodId,
+              'payment_method': _paymentMethod.id,
             })
             .select()
             .single();
@@ -467,11 +476,43 @@ class _CartTabState extends ConsumerState<CartTab> {
                 ],
               ),
               SizedBox(height: 1.5.h),
+              Text('Mode de paiement', style: theme.textTheme.labelLarge),
+              SizedBox(height: 1.h),
               PaymentMethodSelector(
-                selectedId: _selectedPaymentMethodId,
-                onSelected: (id) =>
-                    setState(() => _selectedPaymentMethodId = id),
+                methods: PaymentMethod.values
+                    .where((m) => _availableMethods.contains(m))
+                    .toList(),
+                selected: _paymentMethod,
+                onSelected: (method) =>
+                    setState(() => _paymentMethod = method),
               ),
+              if (_paymentMethod.instructions != null)
+                Container(
+                  margin: EdgeInsets.only(top: 1.h),
+                  padding: EdgeInsets.all(3.w),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer
+                        .withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Effectuez ce paiement puis validez votre commande '
+                        '— nous confirmons dès réception :',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      SizedBox(height: 0.5.h),
+                      SelectableText(
+                        _paymentMethod.instructions!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               SizedBox(height: 1.5.h),
               Center(
                 child: TextButton.icon(
