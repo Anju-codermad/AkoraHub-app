@@ -1776,14 +1776,14 @@ l'utilisateur) ; même logique pour les numéros Mobile Money personnels
   l'utilisateur — RIB/IBAN BNI, ou numéro Mobile Money selon le mode).
 - **Schéma** : `supabase/phase27_patch_orders_payment_method.sql` — colonne
   `orders.payment_method` (texte, défaut `paiement_livraison`, contrainte
-  CHECK sur les 5 valeurs). **Script prêt, pas encore exécuté.**
-- **Client** (`cart_tab.dart`) : sélecteur `ChoiceChip` sous le total,
-  affichant les coordonnées de paiement (bancaire ou Mobile Money choisi)
-  dans un encadré dès qu'un mode autre que "livraison" est sélectionné —
-  texte sélectionnable pour copier-coller facilement. Valeur incluse dans
-  la commande (insertion en ligne ET file d'attente hors-ligne).
-  `orders_tab.dart` affiche aussi le mode choisi sur chaque commande du
-  client.
+  CHECK sur les 5 valeurs). **Exécuté avec succès par l'utilisateur (30/07).**
+- **Client** (`cart_tab.dart`) : sélecteur visuel (avatars circulaires,
+  voir 3neuftrentecies) sous le total, affichant les coordonnées de
+  paiement (bancaire ou Mobile Money choisi) dans un encadré dès qu'un
+  mode autre que "livraison" est sélectionné — texte sélectionnable pour
+  copier-coller facilement. Valeur incluse dans la commande (insertion en
+  ligne ET file d'attente hors-ligne). `orders_tab.dart` affiche aussi le
+  mode choisi sur chaque commande du client.
 - **Admin** (`order_management_real.dart`) : mode de paiement choisi par
   le client affiché en lecture seule dans la fiche commande (sous-titre de
   la liste + dialogue de mise à jour de statut), juste au-dessus du statut
@@ -1797,15 +1797,15 @@ l'utilisateur) ; même logique pour les numéros Mobile Money personnels
   - Orange Money : 037 34 786 84 (ANDRINIRINA Julio).
   - Mvola : 034 08 746 96 (Akora Fanadiovana).
   - Airtel Money : 033 19 581 85 (ANDRINIRINA Julio).
-- Pas de vrais logos d'opérateurs (Orange/Mvola/Airtel) utilisés — marques
-  déposées, risque de droits d'auteur — icône générique à la place.
+- **Mise à jour (30/07, voir 3neuftrentecies)** : les vrais logos Orange
+  Money/Mvola/Airtel Money sont finalement utilisés (fournis directement
+  par l'utilisateur en fichiers image, récupérés d'une session parallèle
+  lors de la réconciliation) — remplace l'icône générique initialement
+  prévue par prudence droits d'auteur.
 
-**Reste à faire** : exécuter `phase27_patch_orders_payment_method.sql`
-dans Supabase avant que le nouveau sélecteur ne fonctionne côté commande
-réelle (sans la colonne, l'insertion échouerait avec "colonne
-payment_method introuvable").
+**Terminé (30/07)** : script exécuté avec succès par l'utilisateur.
 
-## 3octotrentecies. Activation/désactivation de chaque mode de paiement par l'Admin (30/07) ✅ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ
+## 3octotrentecies. Activation/désactivation de chaque mode de paiement par l'Admin (30/07) ✅ FAIT
 
 Demande de l'utilisateur juste après l'ajout des modes manuels
 (3septtrentecies) : pouvoir activer/désactiver chaque mode de paiement
@@ -1814,7 +1814,7 @@ temporairement indisponible, ou pour retirer les modes manuels une fois
 un vrai paiement en ligne en place).
 
 - **Schéma** : `supabase/phase28_patch_payment_method_settings.sql`
-  (**script prêt, pas encore exécuté**) — table
+  (**exécuté avec succès par l'utilisateur, 30/07**) — table
   `payment_method_settings` (`method_id`, `enabled`), lecture publique,
   écriture réservée à l'Admin (même modèle que `home_banners`/
   `flash_infos`). Les 5 modes sont pré-remplis activés par défaut
@@ -1833,9 +1833,9 @@ un vrai paiement en ligne en place).
   sélectionné vient d'être désactivé, bascule automatiquement sur le
   premier mode encore disponible.
 
-**Reste à faire** : exécuter `phase28_patch_payment_method_settings.sql`
-dans Supabase (après phase27) pour que les interrupteurs Admin
-fonctionnent réellement.
+**Terminé (30/07)** : script exécuté avec succès par l'utilisateur — les
+2 modes de paiement (3septtrentecies/3octotrentecies) sont maintenant
+pleinement fonctionnels côté serveur.
 
 ## 3neuftrentecies. Collision détectée avec une session parallèle — sélecteur de paiement (30/07) ✅ RÉCONCILIÉ
 
