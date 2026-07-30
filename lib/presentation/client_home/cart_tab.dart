@@ -10,6 +10,8 @@ import '../../core/offline/offline_order_queue.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'delivery_pricing.dart';
+import 'payment_method.dart';
+import 'payment_method_selector.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
 
 class CartTab extends ConsumerStatefulWidget {
@@ -30,6 +32,7 @@ class _CartTabState extends ConsumerState<CartTab> {
   double? _deliveryLat;
   double? _deliveryLon;
   String? _deliveryError;
+  String? _selectedPaymentMethodId;
 
   @override
   void initState() {
@@ -145,6 +148,16 @@ class _CartTabState extends ConsumerState<CartTab> {
       return;
     }
 
+    if (!asQuote && _selectedPaymentMethodId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez choisir un mode de paiement.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     final total = ref.read(cartProvider.notifier).total;
@@ -189,6 +202,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                     : null,
                 'latitude': _deliveryLat,
                 'longitude': _deliveryLon,
+                'payment_method': _selectedPaymentMethodId,
               },
               'items': cart
                   .map((item) => {
@@ -261,6 +275,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                   : null,
               'latitude': _deliveryLat,
               'longitude': _deliveryLon,
+              'payment_method': _selectedPaymentMethodId,
             })
             .select()
             .single();
@@ -450,6 +465,12 @@ class _CartTabState extends ConsumerState<CartTab> {
                         ?.copyWith(color: theme.colorScheme.primary),
                   ),
                 ],
+              ),
+              SizedBox(height: 1.5.h),
+              PaymentMethodSelector(
+                selectedId: _selectedPaymentMethodId,
+                onSelected: (id) =>
+                    setState(() => _selectedPaymentMethodId = id),
               ),
               SizedBox(height: 1.5.h),
               Center(
