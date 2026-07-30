@@ -91,7 +91,10 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
                 final enabled = _enabled.contains(method);
                 return Card(
                   child: ListTile(
-                    leading: Icon(method.icon),
+                    leading: method.logoAsset != null
+                        ? CircleAvatar(
+                            backgroundImage: AssetImage(method.logoAsset!))
+                        : Icon(method.icon),
                     title: Text(method.label),
                     subtitle: Text(
                       method.instructions?.split('\n').first ??

@@ -1827,15 +1827,66 @@ un vrai paiement en ligne en place).
   `Switch` par mode, garde-fou intégré (impossible de désactiver le
   dernier mode encore actif, message explicite à la place). Accessible
   depuis le menu "Plus" → section "Entreprise" → "Modes de paiement".
-- **Client** (`cart_tab.dart`) : les `ChoiceChip` du sélecteur de paiement
-  n'affichent désormais que les modes activés par l'Admin (chargés au
-  `initState`, en parallèle de l'estimation de livraison) ; si le mode
-  actuellement sélectionné vient d'être désactivé, bascule
-  automatiquement sur le premier mode encore disponible.
+- **Client** (`cart_tab.dart`) : le sélecteur de paiement n'affiche
+  désormais que les modes activés par l'Admin (chargés au `initState`, en
+  parallèle de l'estimation de livraison) ; si le mode actuellement
+  sélectionné vient d'être désactivé, bascule automatiquement sur le
+  premier mode encore disponible.
 
 **Reste à faire** : exécuter `phase28_patch_payment_method_settings.sql`
 dans Supabase (après phase27) pour que les interrupteurs Admin
 fonctionnent réellement.
+
+## 3neuftrentecies. Collision détectée avec une session parallèle — sélecteur de paiement (30/07) ✅ RÉCONCILIÉ
+
+Une **autre conversation Claude**, travaillant en parallèle sur ce même
+projet (voir section 7 — accès complet des deux côtés, risque de
+collision connu), a construit **indépendamment** un premier sélecteur de
+mode de paiement pendant que celui documenté ci-dessus
+(3septtrentecies/3octotrentecies) était en cours ici. Poussée directement
+sur `main` (commits `50fb383`..`384505f`), **jamais consignée dans ce
+fichier** — retrouvée uniquement parce que l'utilisateur l'a signalée
+avant qu'on ne fusionne notre propre travail, évitant ainsi d'écraser
+l'un ou l'autre.
+
+**Ce que l'autre session avait fait** : `lib/presentation/client_home/
+payment_method.dart` (classe `PaymentMethod` limitée à 3 opérateurs
+Mobile Money, sans paiement à la livraison ni virement bancaire) +
+`payment_method_selector.dart` (jolis avatars circulaires cliquables avec
+le **vrai logo** de chaque opérateur) + 3 fichiers images réels
+(`assets/images/payment_{orange_money,mvola,airtel_money}.jpg`) +
+intégration dans `cart_tab.dart` (validation bloquante si aucun mode
+choisi). Pas de schéma serveur, pas de visibilité Admin, pas d'affichage
+des coordonnées de paiement au client.
+
+**Réconciliation retenue** (les deux systèmes ne pouvaient pas cohabiter
+— même nom de classe `PaymentMethod`, même case de fusion `git merge`
+dans `cart_tab.dart`) :
+- Le système déjà construit ici (enum `core/payment/payment_methods.dart`,
+  schéma `orders.payment_method` + `payment_method_settings`, activation
+  Admin, affichage des coordonnées réelles, visibilité Admin/historique
+  client) est conservé comme base — plus complet.
+- **Récupéré de l'autre session** : les 3 fichiers logos réels (bon
+  ajout, meilleur rendu que l'icône générique) et l'idée d'un sélecteur à
+  avatars circulaires. `PaymentMethod` (enum) gagne un getter
+  `logoAsset` (chemin d'image pour Orange Money/Mvola/Airtel Money,
+  `null` pour paiement à la livraison/virement bancaire → icône
+  générique en repli).
+- Nouveau widget partagé `lib/core/payment/payment_method_selector.dart`
+  (remplace celui de l'autre session, supprimé) : avatars circulaires
+  pour les 5 modes, image réelle quand disponible, icône sinon. Utilisé
+  à la fois dans `cart_tab.dart` et dans l'écran Admin
+  `payment_methods_management.dart`.
+- Fichiers de l'autre session supprimés car entièrement remplacés :
+  `lib/presentation/client_home/payment_method.dart` et
+  `payment_method_selector.dart` (le validation bloquante "choisissez un
+  mode" a aussi été retirée — plus nécessaire, "Paiement à la livraison"
+  reste toujours un choix par défaut valide).
+
+**Rappel pour toute session qui reprend** : toujours lire ce fichier +
+comparer `git log` avec `origin/main` avant de fusionner un travail en
+cours — cette collision n'a été détectée que parce que l'utilisateur l'a
+signalée manuellement, pas par une vérification automatique.
 
 ## 4. Ce qui N'EST PAS encore fait
 

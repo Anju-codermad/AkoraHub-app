@@ -56,6 +56,24 @@ extension PaymentMethodX on PaymentMethod {
     }
   }
 
+  /// Logo réel de l'opérateur (fourni par l'utilisateur), affiché à la
+  /// place de `icon` quand disponible. `null` pour les modes sans
+  /// opérateur (paiement à la livraison, virement bancaire) — l'icône
+  /// générique ci-dessus est utilisée à la place.
+  String? get logoAsset {
+    switch (this) {
+      case PaymentMethod.paiementLivraison:
+      case PaymentMethod.virementBancaire:
+        return null;
+      case PaymentMethod.orangeMoney:
+        return 'assets/images/payment_orange_money.jpg';
+      case PaymentMethod.mvola:
+        return 'assets/images/payment_mvola.jpg';
+      case PaymentMethod.airtelMoney:
+        return 'assets/images/payment_airtel_money.jpg';
+    }
+  }
+
   /// Coordonnées réelles à afficher au client pour effectuer le paiement
   /// avant validation de la commande. `null` pour le paiement à la
   /// livraison, qui n'en a pas besoin.

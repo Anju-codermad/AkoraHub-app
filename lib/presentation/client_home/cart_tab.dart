@@ -7,6 +7,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
+import '../../core/payment/payment_method_selector.dart';
 import '../../core/payment/payment_method_settings_repo.dart';
 import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
@@ -476,26 +477,14 @@ class _CartTabState extends ConsumerState<CartTab> {
               ),
               SizedBox(height: 1.5.h),
               Text('Mode de paiement', style: theme.textTheme.labelLarge),
-              SizedBox(height: 0.5.h),
-              Wrap(
-                spacing: 2.w,
-                runSpacing: 1.h,
-                children: PaymentMethod.values
+              SizedBox(height: 1.h),
+              PaymentMethodSelector(
+                methods: PaymentMethod.values
                     .where((m) => _availableMethods.contains(m))
-                    .map((method) {
-                  final selected = _paymentMethod == method;
-                  return ChoiceChip(
-                    avatar: Icon(method.icon,
-                        size: 16,
-                        color: selected
-                            ? theme.colorScheme.onPrimary
-                            : theme.colorScheme.onSurfaceVariant),
-                    label: Text(method.label),
-                    selected: selected,
-                    onSelected: (_) =>
-                        setState(() => _paymentMethod = method),
-                  );
-                }).toList(),
+                    .toList(),
+                selected: _paymentMethod,
+                onSelected: (method) =>
+                    setState(() => _paymentMethod = method),
               ),
               if (_paymentMethod.instructions != null)
                 Container(
