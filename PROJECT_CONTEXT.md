@@ -1228,16 +1228,32 @@ Chronologie du diagnostic (deux fausses pistes avant la vraie cause) :
    (facturation à l'usage réel au-delà du gratuit, remise à 0 $ possible
    à tout moment).
 
-**Reste à faire** : l'utilisateur a été guidé vers ce réglage mais
-**n'a pas encore confirmé l'avoir fait ni testé si ça débloque les
-builds**. Prochaine étape pour toute session qui reprend : demander à
-l'utilisateur s'il a réglé la limite de dépenses, puis déclencher un
-nouveau build (`git push` d'un commit anodin, ou `workflow_dispatch` si
-le jeton a la permission — le jeton utilisé jusqu'ici ne l'avait pas,
-d'où le recours à un commit) et vérifier via l'API
-`actions/runs` que le job progresse au-delà de "Set up job" cette fois
-(si un job a de nouveau `"steps": []` et se termine en quelques
-secondes, le quota n'est probablement toujours pas réglé).
+**Mise à jour (30/07)** : l'utilisateur a essayé de régler la limite de
+dépenses — **carte refusée par GitHub** (Orange Money prépayée). Le budget
+de 5$ existe côté GitHub mais reste inopérant tant qu'aucun moyen de
+paiement n'est accepté. **Décision** : ne pas s'acharner sur ce point —
+on attend la **réinitialisation naturelle du quota de minutes gratuites,
+prévue vers le 1er août** (cycle mensuel standard GitHub). Reconfirmé (via
+l'API `actions/runs`) que le run déclenché par le commit `codemagic.yaml`
+(30/07) échoue toujours avec la même signature (job de 2-3 secondes, aucun
+runner assigné) — le quota n'est donc pas encore revenu au moment de ce
+test.
+
+**Solution de contournement en place et fonctionnelle** : **Codemagic**
+(`codemagic.yaml` à la racine du dépôt, commit `e62a2de`) sert de CI
+alternative pendant l'attente — **premier APK compilé avec succès**
+confirmé par l'utilisateur (30/07). Config : recrée `env.json` et restaure
+`google-services.json`/keystore de prod depuis les variables d'environnement
+Codemagic (groupe `akorahub_secrets`, mêmes valeurs que les secrets GitHub
+actuels), compile APK + AAB, notifie par email. Déclenchement automatique
+sur chaque push vers `main` (comme le workflow GitHub Actions).
+
+**Prochaine étape pour toute session qui reprend** : vérifier si on est
+passé le 1er août — si oui, retester un push simple vers `main` et
+consulter `actions/runs` pour voir si le job dépasse enfin "Set up job".
+Si le quota est bien revenu, Codemagic peut rester en place comme CI de
+secours (aucune raison de le retirer) ou être désactivé, au choix de
+l'utilisateur.
 
 ## 3duovicies. Mode sombre (25/07) ✅ FAIT
 
