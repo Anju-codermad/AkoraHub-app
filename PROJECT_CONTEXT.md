@@ -1353,7 +1353,50 @@ confirmation du succès ; en cas d'échec, message d'erreur plus explicite
 ("vérifie ta connexion et réessaie") avec un bouton **"Réessayer"**
 directement dans le SnackBar (rappelle `_send`, pas besoin de retaper).
 Log technique (`debugPrint`) ajouté en cas d'échec pour diagnostiquer une
-éventuelle récidive, jamais montré au client.
+éventuelle récidive, jamais montré au client. **Cette récidive est
+justement arrivée le lendemain — voir section suivante.**
+
+## 3septvicies. Bug critique : messagerie 100% cassée — colonnes manquantes sur `messages` (30/07) ⚠️ CORRECTIF PRÊT, PAS ENCORE EXÉCUTÉ
+
+**Signalé par l'utilisateur** : impossible d'envoyer un message côté
+client, échec systématique (100% des tentatives) avec "Message non
+envoyé — vérifie ta connexion et réessaie."
+
+**Diagnostic** (requête de test dans une transaction annulée, exécutée
+par l'utilisateur dans le SQL Editor) : erreur
+`column "sender_role" of relation "messages" does not exist`.
+
+**Cause racine** : conséquence directe du doublon de messagerie déjà
+documenté en section 3bis. `phase6_schema.sql` (l'implémentation
+"Backend/Infra" concurrente, depuis supprimée du dépôt) créait déjà
+`public.messages`, mais **sans** les colonnes `sender_role`, `is_request`,
+`read_by_staff`, `read_by_client` (juste `id, conversation_id, sender_id,
+content, created_at, read_at`). Ce script a été exécuté sur ce projet
+Supabase avant la consolidation. Plus tard, `phase8_patch_messaging.sql`
+(l'implémentation retenue) a été exécuté à son tour — mais il utilise
+`create table **if not exists** public.messages (...)` : comme la table
+existait déjà (créée par phase6), cette instruction n'a **rien fait**,
+et les 4 colonnes qu'il ajoute normalement ne sont jamais apparues. Le
+code de l'app (et le trigger de notification push, Phase 17) suppose
+depuis le début que ces colonnes existent — d'où l'échec à 100% dès le
+premier message envoyé.
+
+**Correctif prêt** : `supabase/phase23_patch_messages_missing_columns.sql`
+— ajoute les 4 colonnes manquantes via `alter table ... add column if
+not exists`, comble les lignes déjà existantes (`sender_role = 'client'`
+par défaut, faute de mieux vu que l'ancien schéma ne distinguait pas
+client/staff), puis réapplique la contrainte `not null` + le check
+`sender_role in ('client','staff')`. **Reste à faire** : l'utilisateur
+doit l'exécuter dans le SQL Editor, puis retester l'envoi d'un message
+côté client pour confirmer.
+
+**Leçon pour les prochaines sessions** : `create table if not exists`
+est silencieux et trompeur en cas de schéma legacy conflictuel — quand
+un script de "patch" ajoute des colonnes à une table qui pourrait déjà
+exister sous une forme antérieure (cas fréquent ici vu l'historique de
+sessions parallèles, section 7), préférer systématiquement `alter table
+... add column if not exists` colonne par colonne, même pour un script
+qui se veut "self-contained" avec sa propre `create table`.
 
 ## 4. Ce qui N'EST PAS encore fait
 
