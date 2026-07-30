@@ -2162,6 +2162,23 @@ de conception validées par l'utilisateur :
 tester de bout en bout sur un vrai build (nouvelles permissions
 natives — micro, galerie — pas testables en hot-reload).
 
+**⚠️ Correctif build Codemagic (30/07)** : le premier build a échoué
+(`Target kernel_snapshot_program failed`) — le package `record` épinglé
+en `^5.x` laissait `pub` résoudre `record_platform_interface` jusqu'à sa
+version 1.6.0, plus récente que ce que l'implémentation Dart embarquée
+dans `record` 5.x avait été écrite pour gérer (ajout d'un paramètre
+`recorderId` à `hasPermission` pour le support multi-enregistreur) —
+un vrai décalage de versions entre deux paquets de la même famille, pas
+une erreur dans notre code. Recherché sur pub.dev (historique des
+versions + changelogs) pour confirmer : `record` **6.2.1** est la
+dernière version compatible avec le SDK Dart du projet (`^3.6.0` — la 7.x
+exige `^3.12.0`) dont la contrainte propre sur `record_platform_interface`
+(`^1.6.0`) ne laisse aucune place à ce décalage (seule la 1.6.0 la
+satisfait). Épinglé en version exacte (`record: 6.2.1`, pas de `^`) pour
+empêcher toute résolution future vers une version cassée. API publique
+(`AudioRecorder`, `hasPermission()`, `start()`, `stop()`) vérifiée
+identique — aucun changement de code nécessaire.
+
 ## 3dixseptrentecies. Animations — 1ère étape : Hero catalogue/favoris → fiche produit (30/07) ✅ FAIT
 
 Demande de l'utilisateur : ajouter des animations dans l'app ("comme la
