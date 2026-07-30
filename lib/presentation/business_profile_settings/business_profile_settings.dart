@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/app_export.dart';
+import '../../core/localization/app_translations.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_icon_widget.dart';
 import '../client_home/notification_sounds_screen.dart';
-import './widgets/app_preferences_section.dart';
 import './widgets/business_information_section.dart';
 import './widgets/contact_details_section.dart';
 import './widgets/visual_identity_section.dart';
@@ -64,16 +64,6 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
       "friday": {"open": "08:00", "close": "17:00", "closed": false},
       "saturday": {"open": "09:00", "close": "13:00", "closed": false},
       "sunday": {"open": "", "close": "", "closed": true}
-    },
-    "preferences": {
-      "language": "fr",
-      "notifications": {
-        "orders": true,
-        "messages": true,
-        "promotions": false,
-        "analytics": true
-      },
-      "privacy": {"showPhone": true, "showEmail": true, "showAddress": true}
     },
     "verification": {
       "status": "unverified",
@@ -487,12 +477,51 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
 
                   SizedBox(height: 2.h),
 
-                  // App Preferences Section
-                  AppPreferencesSection(
-                    businessData: _businessData,
-                    onChanged: () {
-                      setState(() => _hasUnsavedChanges = true);
-                    },
+                  Card(
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final locale = ref.watch(localeProvider);
+                        return ListTile(
+                          leading: const Icon(Icons.language_outlined),
+                          title: const Text('Langue / Fiteny'),
+                          trailing: Text(
+                            locale == 'fr' ? 'Français' : 'Malagasy',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          onTap: () async {
+                            final selected = await showDialog<String>(
+                              context: context,
+                              builder: (context) => SimpleDialog(
+                                title: const Text('Choisir la langue'),
+                                children: [
+                                  SimpleDialogOption(
+                                    onPressed: () =>
+                                        Navigator.pop(context, 'fr'),
+                                    child: const Row(children: [
+                                      Text('🇫🇷 '),
+                                      Text('Français')
+                                    ]),
+                                  ),
+                                  SimpleDialogOption(
+                                    onPressed: () =>
+                                        Navigator.pop(context, 'mg'),
+                                    child: const Row(children: [
+                                      Text('🇲🇬 '),
+                                      Text('Malagasy')
+                                    ]),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (selected != null) {
+                              ref
+                                  .read(localeProvider.notifier)
+                                  .setLocale(selected);
+                            }
+                          },
+                        );
+                      },
+                    ),
                   ),
 
                   SizedBox(height: 4.h),

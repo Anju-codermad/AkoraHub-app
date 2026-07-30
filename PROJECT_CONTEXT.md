@@ -1498,16 +1498,41 @@ séparément pour chaque catégorie de notification.
   l'app sache quel canal utiliser si la notification arrive pendant que
   l'app est ouverte au premier plan).
 
-**⚠️ Reste à faire avant que ça fonctionne réellement** :
-1. Exécuter `phase24_patch_notification_sound_prefs.sql` dans Supabase.
-2. **Redéployer l'Edge Function** `send-push-notification` (Dashboard →
-   Edge Functions → coller le nouveau contenu de `index.ts`) — modifier
-   le fichier dans le dépôt Git ne redéploie PAS automatiquement la
-   fonction, contrairement aux scripts SQL exécutés directement dans le
-   SQL Editor.
-3. `flutter pub get` (nouvelle dépendance `audioplayers` ajoutée à
-   `pubspec.yaml`) — se fait automatiquement au prochain build CI
-   (Codemagic/GitHub Actions), rien à faire manuellement pour ça.
+**Terminé (30/07)** : script `phase24` exécuté avec succès, Edge Function
+redéployée avec le nouveau code. Fusionné sur `main`, nouveau build
+Codemagic déclenché. Reste à tester en conditions réelles (choisir un
+son différent par catégorie, recevoir une vraie notification).
+
+## 3trentecies. Nettoyage "App Preferences" factice — écran Profil entreprise Admin (30/07) ✅ FAIT
+
+L'utilisateur a signalé que le bas de l'écran "Business Profile" (Admin)
+"n'a pas fonctionné". Diagnostic : contrairement au haut de l'écran
+(Informations, Identité visuelle, Contact — réparés en 3sexies), le bloc
+**"App Preferences"** (`widgets/app_preferences_section.dart`) était un
+reste de maquette Rocket.new **jamais connecté à rien de réel** :
+- Sélecteur de langue : état local factice, sans rapport avec le vrai
+  système de langue (`localeProvider`) déjà utilisé côté client — un
+  doublon fantôme qui affichait un SnackBar de confirmation sans effet
+  réel.
+- Toggles Notifications (Orders/Messages/Promotions/Analytics) et
+  Confidentialité (Show Phone/Email/Address) : la clé `"preferences"`
+  n'était **même pas dans `_persistedKeys`** — jamais sauvegardée, même
+  en appuyant sur "Save". Vérifié en plus : **aucun autre endroit du
+  code ne lit ces valeurs**, donc même sauvegardées elles ne changeraient
+  rien de réel.
+- 4 boutons (Data & Storage/Security/Help & Support/About) : `onTap`
+  littéralement vide (juste un commentaire `// Navigate to...`).
+
+**Corrigé** : widget `app_preferences_section.dart` supprimé
+entièrement (mort, plus aucune référence). Remplacé par le **vrai**
+sélecteur de langue (même `localeProvider` que côté client, cohérent
+avec le reste de l'app). Les toggles Notifications/Confidentialité et
+les 4 boutons morts retirés — pas reconstruits "pour de vrai" (aurait
+demandé un vrai système d'activation par catégorie, un vrai flux de
+sécurité, un vrai centre d'aide : hors du périmètre demandé). Clé
+`"preferences"` retirée de `_businessData` (plus utilisée nulle part).
+**Décision explicite de l'utilisateur** : supprimer le factice plutôt
+que de tout reconstruire pour de vrai.
 
 ## 4. Ce qui N'EST PAS encore fait
 
