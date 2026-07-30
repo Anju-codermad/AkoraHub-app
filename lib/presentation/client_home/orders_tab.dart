@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/pdf/document_pdf_generator.dart';
+import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'delivery_tracking_screen.dart';
@@ -196,6 +197,27 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                       Text(order['order_number'] ?? '',
                           style: theme.textTheme.titleSmall),
                       Text(_currency.format(order['total_amount'] ?? 0)),
+                    ],
+                  ),
+                  SizedBox(height: 0.3.h),
+                  Row(
+                    children: [
+                      Icon(
+                        PaymentMethodX.fromId(
+                                order['payment_method'] as String?)
+                            .icon,
+                        size: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        PaymentMethodX.fromId(
+                                order['payment_method'] as String?)
+                            .label,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                   SizedBox(height: 1.5.h),

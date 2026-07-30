@@ -7,6 +7,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
+import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'delivery_pricing.dart';
@@ -30,6 +31,8 @@ class _CartTabState extends ConsumerState<CartTab> {
   double? _deliveryLat;
   double? _deliveryLon;
   String? _deliveryError;
+
+  PaymentMethod _paymentMethod = PaymentMethod.paiementLivraison;
 
   @override
   void initState() {
@@ -189,6 +192,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                     : null,
                 'latitude': _deliveryLat,
                 'longitude': _deliveryLon,
+                'payment_method': _paymentMethod.id,
               },
               'items': cart
                   .map((item) => {
@@ -261,6 +265,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                   : null,
               'latitude': _deliveryLat,
               'longitude': _deliveryLon,
+              'payment_method': _paymentMethod.id,
             })
             .select()
             .single();
@@ -451,6 +456,54 @@ class _CartTabState extends ConsumerState<CartTab> {
                   ),
                 ],
               ),
+              SizedBox(height: 1.5.h),
+              Text('Mode de paiement', style: theme.textTheme.labelLarge),
+              SizedBox(height: 0.5.h),
+              Wrap(
+                spacing: 2.w,
+                runSpacing: 1.h,
+                children: PaymentMethod.values.map((method) {
+                  final selected = _paymentMethod == method;
+                  return ChoiceChip(
+                    avatar: Icon(method.icon,
+                        size: 16,
+                        color: selected
+                            ? theme.colorScheme.onPrimary
+                            : theme.colorScheme.onSurfaceVariant),
+                    label: Text(method.label),
+                    selected: selected,
+                    onSelected: (_) =>
+                        setState(() => _paymentMethod = method),
+                  );
+                }).toList(),
+              ),
+              if (_paymentMethod.instructions != null)
+                Container(
+                  margin: EdgeInsets.only(top: 1.h),
+                  padding: EdgeInsets.all(3.w),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer
+                        .withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Effectuez ce paiement puis validez votre commande '
+                        '— nous confirmons dès réception :',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      SizedBox(height: 0.5.h),
+                      SelectableText(
+                        _paymentMethod.instructions!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               SizedBox(height: 1.5.h),
               Center(
                 child: TextButton.icon(

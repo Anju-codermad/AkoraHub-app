@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/payment/payment_methods.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Gestion réelle des commandes : suivi des 4 statuts (Reçue, En préparation,
@@ -104,6 +105,24 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                   );
                 }),
                 const Divider(),
+                Text('Mode de paiement choisi par le client',
+                    style: Theme.of(context).textTheme.labelLarge),
+                SizedBox(height: 0.5.h),
+                Row(
+                  children: [
+                    Icon(
+                        PaymentMethodX.fromId(order['payment_method'] as String?)
+                            .icon,
+                        size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      PaymentMethodX.fromId(order['payment_method'] as String?)
+                          .label,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+                SizedBox(height: 1.h),
                 Text('Statut du paiement',
                     style: Theme.of(context).textTheme.labelLarge),
                 ..._paymentStatusLabels.entries.map((entry) {
@@ -332,7 +351,8 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                       title: Text(
                                           order['order_number'] ?? ''),
                                       subtitle: Text(
-                                        '$customerName · ${_currency.format(order['total_amount'] ?? 0)}',
+                                        '$customerName · ${_currency.format(order['total_amount'] ?? 0)} · '
+                                        '${PaymentMethodX.fromId(order['payment_method'] as String?).label}',
                                       ),
                                       trailing: Column(
                                         mainAxisAlignment:

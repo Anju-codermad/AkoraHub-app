@@ -1754,6 +1754,54 @@ sans son, et un simple "remplacer l'APK" ne suffit pas à réinitialiser
 ni la permission ni les canaux (immuables une fois créés, voir
 3neuvicies).
 
+## 3septtrentecies. Modes de paiement manuels — virement bancaire + Mobile Money (30/07) ✅ FAIT
+
+En attendant le dossier marchand (BNI P@y et/ou marchand Mobile Money,
+toujours en cours — voir email envoyé à BNI), demande explicite de
+l'utilisateur : proposer un mode de paiement manuel par virement/transfert
+en plus du paiement à la livraison implicite existant. **Confirmé avec
+l'utilisateur** : compte BNI utilisé est un **compte personnel** (pas
+encore de compte professionnel), à traiter comme solution de pont
+temporaire (risque CGU banque/fiscal si le volume grossit — signalé à
+l'utilisateur) ; même logique pour les numéros Mobile Money personnels
+(plafonds de transaction plus bas qu'un compte marchand).
+
+- **Nouveau module partagé** `lib/core/payment/payment_methods.dart` :
+  enum `PaymentMethod` (paiementLivraison/virementBancaire/orangeMoney/
+  mvola/airtelMoney) avec `id` (valeur stockée en base), `label`, `icon`,
+  et `instructions` (coordonnées réelles à afficher, fournies par
+  l'utilisateur — RIB/IBAN BNI, ou numéro Mobile Money selon le mode).
+- **Schéma** : `supabase/phase27_patch_orders_payment_method.sql` — colonne
+  `orders.payment_method` (texte, défaut `paiement_livraison`, contrainte
+  CHECK sur les 5 valeurs). **Script prêt, pas encore exécuté.**
+- **Client** (`cart_tab.dart`) : sélecteur `ChoiceChip` sous le total,
+  affichant les coordonnées de paiement (bancaire ou Mobile Money choisi)
+  dans un encadré dès qu'un mode autre que "livraison" est sélectionné —
+  texte sélectionnable pour copier-coller facilement. Valeur incluse dans
+  la commande (insertion en ligne ET file d'attente hors-ligne).
+  `orders_tab.dart` affiche aussi le mode choisi sur chaque commande du
+  client.
+- **Admin** (`order_management_real.dart`) : mode de paiement choisi par
+  le client affiché en lecture seule dans la fiche commande (sous-titre de
+  la liste + dialogue de mise à jour de statut), juste au-dessus du statut
+  de paiement — le staff vérifie manuellement la réception (relevé
+  bancaire/SMS opérateur) puis marque `payment_status = 'paye'` comme
+  avant (aucun changement de ce mécanisme).
+- **Coordonnées actuellement affichées** (fournies par l'utilisateur,
+  30/07) :
+  - Virement bancaire : BNI Madagascar, agence Analakely, titulaire
+    ANDRINIRINA, IBAN `MG46 0000 5000 8175 0487 0000 141`, BIC `CLMDMGMG`.
+  - Orange Money : 037 34 786 84 (ANDRINIRINA Julio).
+  - Mvola : 034 08 746 96 (Akora Fanadiovana).
+  - Airtel Money : 033 19 581 85 (ANDRINIRINA Julio).
+- Pas de vrais logos d'opérateurs (Orange/Mvola/Airtel) utilisés — marques
+  déposées, risque de droits d'auteur — icône générique à la place.
+
+**Reste à faire** : exécuter `phase27_patch_orders_payment_method.sql`
+dans Supabase avant que le nouveau sélecteur ne fonctionne côté commande
+réelle (sans la colonne, l'insertion échouerait avec "colonne
+payment_method introuvable").
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
