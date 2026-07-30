@@ -2116,7 +2116,7 @@ projet "AkoraHub" déjà existant (créé pour la clé Maps).
    nouveau schéma de deep link nécessite un nouveau build APK/IPA, pas
    testable en hot-reload).
 
-## 3seizetrentecies. Pièces jointes dans la messagerie — photo/vidéo/vocal/fichier (30/07) ✅ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ
+## 3seizetrentecies. Pièces jointes dans la messagerie — photo/vidéo/vocal/fichier (30/07) ✅ FAIT
 
 Demande de l'utilisateur : pouvoir envoyer des photos/vidéos/fichiers et
 des messages vocaux dans la messagerie (auparavant texte seul). Décisions
@@ -2127,8 +2127,9 @@ de conception validées par l'utilisateur :
   miniature qui ouvre le lecteur externe).
 - **Périmètre** : disponible des **deux côtés**, client ET staff.
 
-- **Schéma** : `supabase/phase30_patch_message_attachments.sql` (**script
-  prêt, pas encore exécuté**) — `messages.content` devient nullable (un
+- **Schéma** : `supabase/phase30_patch_message_attachments.sql`
+  (**exécuté avec succès par l'utilisateur, 30/07**) — `messages.content`
+  devient nullable (un
   message peut être une pièce jointe seule, sans texte), + colonnes
   `attachment_url`, `attachment_type` (check : image/video/audio/file),
   `attachment_name`, `attachment_duration_ms`. Bucket **privé**
@@ -2157,11 +2158,9 @@ de conception validées par l'utilisateur :
   `NSMicrophoneUsageDescription` + `NSPhotoLibraryUsageDescription` (iOS
   Info.plist).
 
-**Reste à faire** : exécuter `phase30_patch_message_attachments.sql`
-dans Supabase avant que l'envoi de pièces jointes ne fonctionne
-réellement (sans les colonnes/le bucket, l'upload échouerait). Tester de
-bout en bout sur un vrai build (nouvelles permissions natives, pas
-testable en hot-reload).
+**Terminé (30/07)** : script exécuté avec succès. **Reste à faire** :
+tester de bout en bout sur un vrai build (nouvelles permissions
+natives — micro, galerie — pas testables en hot-reload).
 
 ## 4. Ce qui N'EST PAS encore fait
 
