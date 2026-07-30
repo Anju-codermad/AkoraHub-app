@@ -57,8 +57,20 @@ class _BusinessUnitsManagementState extends State<BusinessUnitsManagement> {
     }
   }
 
+  /// Génère un identifiant technique propre à partir d'un nom, en gérant
+  /// correctement les accents français/malgaches (ex: "Matières Premières"
+  /// -> "matieres-premieres", pas "mati-res-premi-res"). Sans cette
+  /// translittération, deux piliers créés avec le même nom accentué à des
+  /// moments différents pouvaient obtenir des slugs différents et donc
+  /// échapper à la protection anti-doublon (unique sur `slug`).
   String _slugify(String name) {
-    return name
+    const accents = 'àâäáãåèéêëìíîïòóôöõùúûüçñÀÂÄÁÃÅÈÉÊËÌÍÎÏÒÓÔÖÕÙÚÛÜÇÑ';
+    const plain = 'aaaaaaeeeeiiiiooooouuuucnAAAAAAEEEEIIIIOOOOOUUUUCN';
+    var result = name;
+    for (var i = 0; i < accents.length; i++) {
+      result = result.replaceAll(accents[i], plain[i]);
+    }
+    return result
         .toLowerCase()
         .trim()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')

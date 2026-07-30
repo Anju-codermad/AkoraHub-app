@@ -53,6 +53,8 @@ class _BusinessInformationSectionState
     {"id": "real_estate", "name": "Real Estate"},
   ];
 
+  bool _isUploadingLogo = false;
+
   Future<void> _pickImage(ImageSource source) async {
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -62,44 +64,52 @@ class _BusinessInformationSectionState
         imageQuality: 85,
       );
 
-      if (image != null) {
-        if (!SupabaseConfig.isConfigured) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Connexion au serveur indisponible.')),
-            );
-          }
-          return;
-        }
-        try {
-          final fileName =
-              'logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          await SupabaseConfig.client.storage
-              .from('company-logo')
-              .upload(fileName, File(image.path),
-                  fileOptions: const FileOptions(upsert: true));
-          final url = SupabaseConfig.client.storage
-              .from('company-logo')
-              .getPublicUrl(fileName);
+      if (image == null) return;
 
-          widget.businessData['logo'] = url;
-          widget.onChanged();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Logo mis à jour — pensez à Enregistrer'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Erreur lors de l\'envoi du logo.')),
-            );
-          }
+      if (!SupabaseConfig.isConfigured) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Connexion au serveur indisponible.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      setState(() => _isUploadingLogo = true);
+      try {
+        final fileName =
+            'logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        await SupabaseConfig.client.storage.from('company-logo').upload(
+            fileName, File(image.path),
+            fileOptions: const FileOptions(upsert: true));
+        final publicUrl = SupabaseConfig.client.storage
+            .from('company-logo')
+            .getPublicUrl(fileName);
+
+        widget.businessData["logo"] = publicUrl;
+        widget.onChanged();
+        if (mounted) {
+          setState(() => _isUploadingLogo = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Logo mis à jour — clique sur Enregistrer pour confirmer.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isUploadingLogo = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Le logo n\'a pas pu être envoyé (le bucket Storage "company-logo" existe-t-il ?).'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
         }
       }
     } catch (e) {
@@ -230,13 +240,26 @@ class _BusinessInformationSectionState
                       ),
                     ),
                     child: ClipOval(
-                      child: CustomImageWidget(
-                        imageUrl: widget.businessData["logo"] as String,
-                        width: 30.w,
-                        height: 30.w,
-                        fit: BoxFit.cover,
-                        semanticLabel:
-                            widget.businessData["logoSemanticLabel"] as String,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CustomImageWidget(
+                            imageUrl: widget.businessData["logo"] as String,
+                            width: 30.w,
+                            height: 30.w,
+                            fit: BoxFit.cover,
+                            semanticLabel: widget
+                                .businessData["logoSemanticLabel"] as String,
+                          ),
+                          if (_isUploadingLogo)
+                            Container(
+                              color: Colors.black45,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                    color: Colors.white),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -328,6 +351,7 @@ class _BusinessInformationSectionState
           ),
           SizedBox(height: 1.h),
           TextFormField(
+            key: ValueKey('companyName_$_selectedLanguage'),
             initialValue: (widget.businessData["companyName"]
                 as Map<String, dynamic>)[_selectedLanguage] as String,
             decoration: InputDecoration(
@@ -341,7 +365,11 @@ class _BusinessInformationSectionState
                 ),
               ),
             ),
-            onChanged: (value) => widget.onChanged(),
+            onChanged: (value) {
+              (widget.businessData["companyName"]
+                  as Map<String, dynamic>)[_selectedLanguage] = value;
+              widget.onChanged();
+            },
           ),
 
           SizedBox(height: 2.h),
@@ -355,6 +383,7 @@ class _BusinessInformationSectionState
           ),
           SizedBox(height: 1.h),
           TextFormField(
+            key: ValueKey('description_$_selectedLanguage'),
             initialValue: (widget.businessData["description"]
                 as Map<String, dynamic>)[_selectedLanguage] as String,
             decoration: InputDecoration(
@@ -369,7 +398,11 @@ class _BusinessInformationSectionState
               ),
             ),
             maxLines: 3,
-            onChanged: (value) => widget.onChanged(),
+            onChanged: (value) {
+              (widget.businessData["description"]
+                  as Map<String, dynamic>)[_selectedLanguage] = value;
+              widget.onChanged();
+            },
           ),
 
           SizedBox(height: 2.h),
@@ -383,7 +416,11 @@ class _BusinessInformationSectionState
           ),
           SizedBox(height: 1.h),
           DropdownButtonFormField<String>(
-            value: widget.businessData["category"] as String,
+            initialValue: _categories.any((c) =>
+                    c["id"] == widget.businessData["category"] as String)
+                ? widget.businessData["category"] as String
+                : null,
+            hint: const Text('Select a category'),
             decoration: InputDecoration(
               prefixIcon: Padding(
                 padding: EdgeInsets.all(3.w),
@@ -402,6 +439,7 @@ class _BusinessInformationSectionState
             }).toList(),
             onChanged: (value) {
               if (value != null) {
+                widget.businessData["category"] = value;
                 widget.onChanged();
               }
             },

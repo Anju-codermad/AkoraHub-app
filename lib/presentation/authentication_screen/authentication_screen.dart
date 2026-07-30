@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../core/supabase/auth_helpers.dart';
+import './recent_accounts_store.dart';
 import './widgets/app_logo_widget.dart';
 import './widgets/email_input_widget.dart';
 import './widgets/language_selector_widget.dart';
@@ -31,6 +32,30 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   String? _passwordError;
   bool _isLoading = false;
   bool _rememberMe = false;
+  List<RecentAccount> _recentAccounts = [];
+  bool _showManualForm = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentAccounts();
+  }
+
+  Future<void> _loadRecentAccounts() async {
+    final accounts = await RecentAccountsStore.load();
+    if (!mounted) return;
+    setState(() {
+      _recentAccounts = accounts;
+      _showManualForm = accounts.isEmpty;
+    });
+  }
+
+  void _pickRecentAccount(RecentAccount account) {
+    setState(() {
+      _emailController.text = account.email;
+      _showManualForm = true;
+    });
+  }
 
   // Multi-language translations
   final Map<String, Map<String, String>> _translations = {
@@ -191,6 +216,26 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     if (errorMessage == null) {
       // Haptic feedback on success
       HapticFeedback.mediumImpact();
+
+      // Mémorise ce compte pour un accès rapide au prochain lancement
+      // (pré-remplit l'email, ne stocke jamais le mot de passe).
+      try {
+        final userId = SupabaseConfig.client.auth.currentUser?.id;
+        if (userId != null) {
+          final profile = await SupabaseConfig.client
+              .from('profiles')
+              .select('full_name, avatar_url')
+              .eq('id', userId)
+              .single();
+          await RecentAccountsStore.remember(RecentAccount(
+            email: _emailController.text.trim(),
+            fullName: profile['full_name'] as String?,
+            avatarUrl: profile['avatar_url'] as String?,
+          ));
+        }
+      } catch (_) {
+        // Non bloquant : la connexion a déjà réussi.
+      }
 
       // Associe le token FCM de cet appareil au compte qui vient de se
       // connecter (sinon les notifications resteraient liées au compte
@@ -369,6 +414,58 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
                 SizedBox(height: 4.h),
 
+                // Comptes récents : accès rapide façon Facebook (pré-remplit
+                // l'email au tap, le mot de passe reste toujours requis).
+                if (_recentAccounts.isNotEmpty && !_showManualForm) ...[
+                  ..._recentAccounts.map((account) => Card(
+                        margin: EdgeInsets.only(bottom: 1.5.h),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: account.avatarUrl != null
+                                ? NetworkImage(account.avatarUrl!)
+                                : null,
+                            child: account.avatarUrl == null
+                                ? const Icon(Icons.person)
+                                : null,
+                          ),
+                          title: Text(
+                            (account.fullName == null ||
+                                    account.fullName!.trim().isEmpty)
+                                ? account.email
+                                : account.fullName!,
+                          ),
+                          subtitle: (account.fullName == null ||
+                                  account.fullName!.trim().isEmpty)
+                              ? null
+                              : Text(account.email),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            tooltip: 'Oublier ce compte',
+                            onPressed: () async {
+                              await RecentAccountsStore.forget(account.email);
+                              _loadRecentAccounts();
+                            },
+                          ),
+                          onTap: () => _pickRecentAccount(account),
+                        ),
+                      )),
+                  OutlinedButton(
+                    onPressed: () => setState(() => _showManualForm = true),
+                    child: const Text('Utiliser un autre compte'),
+                  ),
+                  SizedBox(height: 3.h),
+                ] else ...[
+                  if (_recentAccounts.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _showManualForm = false),
+                        icon: const Icon(Icons.arrow_back, size: 16),
+                        label: const Text('Comptes récents'),
+                      ),
+                    ),
+
                 // Email input
                 EmailInputWidget(
                   controller: _emailController,
@@ -398,6 +495,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                   },
                   translations: _currentTranslations,
                 ),
+                ],
 
                 SizedBox(height: 2.h),
 

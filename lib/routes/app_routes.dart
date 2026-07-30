@@ -18,6 +18,7 @@ import '../presentation/quotes_management/quotes_management.dart';
 import '../presentation/client_home/product_scanner_screen.dart';
 import '../presentation/customer_management_real/customer_management_real.dart';
 import '../presentation/client_home/client_home.dart';
+import '../presentation/more_menu/more_menu_screen.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
@@ -41,6 +42,7 @@ class AppRoutes {
   static const String messagingCenter = '/messaging-center';
   static const String authentication = '/authentication-screen';
   static const String onboardingFlow = '/onboarding-flow';
+  static const String moreMenu = '/more-menu';
 
   static Map<String, WidgetBuilder> routes = {
     initial: (context) => const SplashScreen(),
@@ -63,6 +65,7 @@ class AppRoutes {
     productScanner: (context) => const ProductScannerScreen(),
     customerManagementReal: (context) => const CustomerManagementReal(),
     clientHome: (context) => const ClientHome(),
+    moreMenu: (context) => const MoreMenuScreen(),
     // TODO: Add your other routes here
   };
 }

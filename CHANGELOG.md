@@ -242,3 +242,96 @@
 
 ## 2026-07-25 16:42 UTC — Anju-codermad
 - Feature: extend push notifications to order shipped/delivered and quote accepted/refused (`26782e2`)
+
+## 2026-07-25 18:53 UTC — Claude
+- merge: intégrer les changements distants avant push des correctifs profil entreprise (`7a73420`)
+
+## 2026-07-25 19:42 UTC — Claude
+- Inscription: date de naissance (vérif 18+), acceptation des conditions, lien retour connexion (`f37ee03`)
+
+## 2026-07-25 19:57 UTC — Claude
+- Docs: documenter les améliorations de l'écran d'inscription (date de naissance, conditions, lien connexion) (`805831c`)
+
+## 2026-07-25 20:05 UTC — Claude
+- Connexion: sélecteur de comptes récents façon Facebook (pré-remplit l'email, sans stocker de mot de passe) (`8e58142`)
+
+## 2026-07-26 03:05 UTC — Claude
+- Docs: documenter le sélecteur de comptes récents à la connexion (`722abfa`)
+
+## 2026-07-26 03:26 UTC — Claude
+- Inscription: accepter les numéros de téléphone étrangers (`16393c5`)
+
+## 2026-07-26 03:41 UTC — Claude
+- Docs: documenter le correctif téléphone étranger (`93908a5`)
+
+## 2026-07-26 03:52 UTC — Claude
+- Inscription: sélecteur d'indicatif pays complet, Nom/Prénom séparés, société obligatoire pour les comptes pro (`399d5c8`)
+
+## 2026-07-26 04:08 UTC — Claude
+- Docs: documenter indicatif pays, Nom/Prénom, société obligatoire (`d932e22`)
+
+## 2026-07-26 05:18 UTC — Claude
+- feat(Backend/Infra): nouveau menu Admin 'Plus' (Facturation/Alertes/Piliers/Équipe enfin accessibles autrement que via le bouton +) (`9431a7f`)
+
+## 2026-07-26 09:30 UTC — Claude
+- Inscription: formulaire en 2 étapes (Identité / Coordonnées) (`704ac5b`)
+
+## 2026-07-26 09:45 UTC — Claude
+- Docs: documenter le formulaire d'inscription en 2 étapes (`ebaabd6`)
+
+## 2026-07-26 16:15 UTC — Claude
+- feat(client): redesign écran Profil style Facebook centré, adapté aux vraies données (bio+couverture, catégories favorites, publications/favoris) (`6b8bf13`)
+
+## 2026-07-26 16:43 UTC — Claude
+- Piliers: script SQL pour 3 nouveaux piliers + icônes correspondantes (`60d1491`)
+
+## 2026-07-26 16:59 UTC — Claude
+- Docs: mettre à jour les noms finaux des 3 nouveaux piliers et le script SQL (`ae18abd`)
+
+## 2026-07-26 17:09 UTC — Claude
+- Thème: corriger la couleur 'outline' trop pâle (icônes/étoiles floues) (`69eb83c`)
+
+## 2026-07-26 17:24 UTC — Claude
+- Docs: documenter le correctif de la couleur outline (texte/icônes flous) (`97f4d51`)
+
+## 2026-07-26 23:16 UTC — Claude
+- fix(Backend/Infra): _slugify translittère maintenant les accents (évite les doublons de pilier/catégorie par slug différent) + script de nettoyage du doublon Matières Premières (`86908dc`)
+
+## 2026-07-26 23:44 UTC — Claude
+- fix: ne plus bloquer le premier affichage de l'app sur l'init Firebase (popup notifications avant même le logo) + splash en français (`a9179d0`)
+
+## 2026-07-27 03:59 UTC — Claude
+- Suppression de compte (self-service, requis pour Data Safety Play Store) (`cf2187a`)
+
+## 2026-07-27 04:15 UTC — Claude
+- Merge branch 'main' of https://github.com/Anju-codermad/AkoraHub-app (`691f5f7`)
+
+## 2026-07-27 04:37 UTC — Claude
+- perf: paralléliser les 5 chargements indépendants de l'Accueil client (catégories/bannières/badge/activité/réappro), au lieu de les enchaîner à la suite (`440a8ba`)
+
+## 2026-07-27 05:13 UTC — Claude
+- chore: réduire la rétention des artifacts de build à 5 jours (quota de stockage GitHub dépassé — 168 builds/5,3 Go accumulés, nettoyés) (`a0d6d76`)
+
+## 2026-07-27 09:19 UTC — Claude
+- CI: réduire la durée de conservation des artefacts à 3 jours (évite la saturation du quota de stockage Actions) (`9c8ca10`)
+
+## 2026-07-28 01:42 UTC — Claude
+- fix(client): ne plus perdre le message tapé dans la messagerie en cas d'échec d'envoi + bouton Réessayer (`e7f67e5`)
+
+## 2026-07-28 03:11 UTC — Claude
+- CI: ne plus publier l'APK comme artefact téléchargeable (garde uniquement l'App Bundle) (`c30d561`)
+
+## 2026-07-28 07:00 UTC — Anju-codermad
+- docs: document CI storage quota failure diagnosis and fix, trigger fresh build to confirm (`7a49d43`)
+
+## 2026-07-28 07:40 UTC — Claude (Client UX/Design)
+- docs: resoudre la contradiction sur consolidation vs parallele (25/07) (`f859889`)
+
+## 2026-07-28 07:44 UTC — Claude (Client UX/Design)
+- Theme: aligner la palette de l app sur les couleurs reelles de l icone (25/07) (`747ee59`)
+
+## 2026-07-28 07:45 UTC — Claude (Client UX/Design)
+- Merge: changelog auto-généré (`23b2db6`)
+
+## 2026-07-28 07:51 UTC — Claude
+- merge: intégrer les changements distants avant push du correctif espace disque CI (`d5ba48c`)

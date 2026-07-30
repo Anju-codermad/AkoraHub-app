@@ -95,10 +95,16 @@ progressivement avec un vrai backend Supabase.
   variante réellement choisie ; ouvrir la fiche produit reste nécessaire
   pour un prix exact). Design inspiré de deux références visuelles
   fournies par l'utilisateur (grocery app + service app before/after).
-  **Piliers supplémentaires évoqués par l'utilisateur** (à créer par
-  l'Admin via l'écran de gestion des piliers, pas encore créés) : matières
-  premières chimiques, produits cosmétiques, produits insecticides — noms
-  et slugs suggérés en attente de validation utilisateur.
+  **Piliers supplémentaires** (26/07) — noms finaux décidés par
+  l'utilisateur (différents de la proposition initiale "Akora
+  Chimie/Cosmétique/Insecticides") : **Matières Premières**, **Anti-
+  Nuisibles**, **Matières Premières Peinture**. Script prêt :
+  `supabase/phase21_patch_new_business_units.sql` (insert idempotent,
+  **en attente d'exécution par l'utilisateur**). Icônes déjà mappées côté
+  client (`_iconForUnit` dans `catalog_tab.dart`) via les mots-clés
+  `peinture` → pinceau, `chimique` → fiole, `nuisible` → anti-nuisible
+  (peinture vérifiée en premier pour éviter le faux-positif de
+  "matieres-premieres-peinture" sur le mot-clé générique "premieres").
 - **Bannière hero de l'Accueil** (23/07) : la bannière promo en carrousel
   (`PageView` + indicateurs) n'est plus figée en dur — elle charge
   désormais les slides actifs depuis la table `home_banners`
@@ -344,6 +350,170 @@ progressivement avec un vrai backend Supabase.
 - Catégories ajustables librement depuis l'écran de gestion des
   catégories une fois le pilier activé.
 
+## Chargement du catalogue client trop lent — appels séquentiels (27/07, corrigé)
+
+Suite demandée par l'utilisateur : "après l'initialisation, vérifier la
+suite". Le premier vrai écran qu'un client voit après le splash
+(`catalog_tab.dart`, onglet Accueil) faisait **9 appels réseau à la
+suite** dans `_loadData()` : un premier `Future.wait` (business_units +
+products + profil, déjà parallèle), puis 5 blocs indépendants enchaînés
+un par un — catégories désactivées, bannières hero, badge messages non
+lus, fil d'activité "Pour vous" (lui-même 3 requêtes), suggestions de
+réapprovisionnement (2 requêtes). Aucun de ces 5 blocs ne dépend du
+résultat d'un autre, donc rien ne justifiait de les enchaîner
+séquentiellement — sur une connexion 4G moyenne, ça pouvait ajouter
+plusieurs secondes de chargement inutiles avant que l'Accueil ne
+s'affiche.
+
+Corrigé : chaque bloc est maintenant une fonction async avec son propre
+try/catch (repli silencieux inchangé), et les 5 sont lancées ensemble via
+un second `Future.wait` — le temps total redevient celui du bloc le plus
+lent, pas la somme de tous.
+
+## Démarrage app bloqué avant le premier écran (27/07, corrigé)
+
+L'utilisateur a demandé une vérification du "loading" de l'app. Trouvé un
+vrai problème dans `main.dart` : `PushNotificationService.initialize()`
+était `await`é **avant** `runApp()`. Cette initialisation inclut
+`messaging.requestPermission(...)` côté Firebase, qui affiche la popup
+système de demande d'autorisation de notifications — donc au premier
+lancement, l'utilisateur voyait un écran blanc suivi directement de cette
+popup système, **avant même le logo AkoraHub**. Tant qu'il n'y répondait
+pas, rien d'autre ne s'affichait (`runApp()` n'avait pas encore été
+appelé). Corrigé : l'appel n'est plus `await`é, l'app s'affiche
+immédiatement et les notifications s'initialisent en arrière-plan une
+fois l'UI déjà visible.
+
+Au passage : commentaire de doc périmé sur `splash_screen.dart` corrigé
+(décrivait encore les 4 fausses étapes d'initialisation supprimées le
+23/07 — voir plus bas "Bug de build résolu"), et les derniers textes
+anglais du splash (tagline, "Loading...", "Retry"...) traduits en
+français.
+
+## Redesign écran Profil client — style Facebook centré (25/07)
+
+Demande explicite de l'utilisateur : reproduire la mise en page d'un
+profil Facebook mobile (photo de couverture, avatar centré chevauchant,
+identité/bio/localisation centrées, boutons d'action centrés, onglets
+centrés), mais **adaptée aux vraies données** plutôt que de fabriquer des
+sections Facebook sans base réelle (pas de système d'amis, pas de
+stories "à la une", pas de table centres d'intérêt/loisirs dans ce
+projet — décision actée avec l'utilisateur avant de coder, pour éviter
+de recréer le genre de "fonctionnalité bidon" qu'on a nettoyé plus tôt
+dans le projet).
+
+**Table `profiles`** : 2 nouveaux champs (`supabase/phase20_patch_profile_bio_cover.sql`,
+**script prêt, pas encore exécuté**) : `bio text`, `cover_url text`. Pas
+de nouveau bucket Storage — la photo de couverture réutilise le bucket
+`avatars` existant, juste un nom de fichier différent
+(`${userId}/cover_*.jpg`), déjà couvert par la policy actuelle (dossier
+= `auth.uid()`).
+
+**`lib/presentation/client_home/profile_tab.dart`** entièrement réécrit
+(`ProfileTab` passé en `ConsumerStatefulWidget` pour lire
+`favoritesProvider`) :
+- Cover + avatar en `Stack` chevauchant, chacun tapable → upload immédiat
+  (repli tolérant si la migration n'est pas encore exécutée : le reste du
+  profil continue de fonctionner, juste un SnackBar d'erreur)
+- Nom, "X publications · Client depuis {année}" (remplace "X amis"),
+  bio (ou bouton "+ Ajouter une bio"), localisation — tout centré
+- Boutons centrés : "Modifier le profil" (sheet existante, augmentée du
+  champ bio) + "Partager" (`share_plus`, partage une carte de contact
+  textuelle nom/société/téléphone — pas de lien, l'app n'a pas de page
+  profil web publique)
+- Sélecteur d'onglets centré (Tout / Publications / Favoris) via
+  `ChoiceChip`, pas de vrai `TabBarView` (évite le problème classique de
+  hauteur imbriquée dans un `ListView`)
+- Onglet "Tout" : Informations personnelles (email/société/téléphone/
+  localisation, toutes réelles) + **"Catégories favorites"** — remplace
+  Loisirs/Centres d'intérêt Facebook, calculé en interrogeant `products`
+  pour les ids de `favoritesProvider` et en dédupliquant `category` ;
+  section actions préservée à l'identique (Commandes récurrentes,
+  Fidélité, Messagerie, Langue, Scanner produit, Mode sombre,
+  Déconnexion — rien perdu du screen précédent)
+- Onglets "Publications"/"Favoris" : aperçu (3 posts / 4 produits) avec
+  bouton "Voir tout" vers `WallTab(initialOnlyMine: true)` /
+  `FavoritesScreen` — pas d'embed direct (ces deux écrans ont leur propre
+  `Scaffold`/`AppBar`, non conçus pour être imbriqués)
+
+**Sections Facebook volontairement absentes** (pas de table, pas
+fabriquées) : Amis (grille + "amis en commun"), À la une (stories),
+Loisirs (tags génériques), Centres d'intérêt (vignettes films/séries),
+bannière "profil verrouillé". Si l'utilisateur veut un vrai système
+d'amis ou des stories un jour, ça mérite sa propre conversation (modèle
+de données, écrans de demandes d'ami) — pas à fabriquer avec de fausses
+données dans ce redesign.
+
+**Reste à faire** : exécuter `phase20_patch_profile_bio_cover.sql` dans
+Supabase pour que bio et couverture se sauvegardent.
+
+## 3septies. Menu Admin "Plus" (25/07)
+
+Amélioration proposée dès le début de nos échanges backend, jamais faite
+jusqu'ici : Facturation/Alertes/Piliers d'entreprise/Équipe & rôles/
+Bannière hero n'étaient accessibles QUE depuis le bottom sheet "+" de
+création rapide du dashboard — sémantiquement bizarre (gérer les piliers
+n'est pas "créer quelque chose de nouveau"), et l'onglet "More" de la
+barre de navigation menait directement au Profil entreprise sans jamais
+montrer ces sections.
+
+Nouvel écran `lib/presentation/more_menu/more_menu_screen.dart`,
+maintenant la destination de l'onglet "More" : liste organisée par
+section (Gestion : Commandes/Devis/Facturation/Alertes/Messagerie ;
+Entreprise : Piliers/Équipe/Bannière/Profil entreprise ; Déconnexion avec
+confirmation, même pattern que l'ancien emplacement dans Profil
+entreprise).
+
+Le bottom sheet "+" du dashboard est allégé pour ne garder que les vraies
+créations rapides : Add Product, New Order, Devis, Add Customer.
+
+## 3sexies. Écran "Profil entreprise" Admin réparé (25/07)
+
+L'utilisateur a signalé que cet écran "ne fonctionne pas". Audit du code :
+**aucun champ ne persistait réellement ses modifications**, sur les deux
+fichiers `business_information_section.dart` et
+`contact_details_section.dart` — un bug systémique du scaffold initial
+jamais corrigé : chaque `TextFormField` utilisait `onChanged: (value) =>
+widget.onChanged()`, qui prévient juste le parent qu'"il y a un
+changement" (pour activer le bouton Enregistrer) SANS jamais écrire
+`value` dans `widget.businessData`. Résultat : taper dans un champ semble
+fonctionner, "Enregistrer" affiche même un succès, mais les anciennes
+valeurs (vides) sont réenregistrées à chaque fois.
+
+**Champs corrigés (écrivent maintenant vraiment dans `businessData`)** :
+téléphone, email, site web, Facebook/Instagram/WhatsApp, adresse
+(rue/ville/code postal/pays), nom d'entreprise et description (par
+langue), catégorie d'activité.
+
+**Bugs additionnels trouvés et corrigés au passage** :
+- Les champs nom/description utilisaient `initialValue` sans `key` :
+  changer d'onglet de langue (FR/MG/EN/AR) n'actualisait pas le texte
+  affiché. Ajout de `key: ValueKey('champ_$_selectedLanguage')` pour
+  forcer Flutter à recréer le champ à chaque changement de langue.
+- Le Dropdown de catégorie utilisait `value:` (pas `initialValue:`) avec
+  une valeur par défaut `""` qui ne correspond à aucun item de la liste →
+  plantage `assert` au premier chargement de l'écran (tant que la
+  catégorie n'a jamais été choisie). Passé en `initialValue:` avec repli
+  sur `null` + `hint:` si la valeur ne correspond à aucun item.
+- Interrupteur "jour fermé" (horaires d'ouverture) ne faisait rien non
+  plus (même bug). `operatingHours` n'était même pas dans
+  `_persistedKeys` du parent — ajouté.
+- **Logo d'entreprise** : le bouton "changer le logo" ouvrait bien la
+  galerie/caméra, mais un commentaire `// In real implementation, upload
+  image and update businessData` révélait que la photo choisie n'était
+  jamais uploadée ni sauvegardée. Ajout d'un vrai upload vers un nouveau
+  bucket Storage `company` (`supabase/phase11_patch_company_logo_bucket.sql`,
+  **script prêt, pas encore exécuté** — public en lecture, écriture
+  réservée au staff, même pattern que `products`/`avatars`), avec
+  indicateur de chargement pendant l'envoi. `logo` ajouté à
+  `_persistedKeys`.
+
+**Non touché dans cette passe** : tous les textes de cet écran restent en
+anglais ("Company Name", "Business Category"...) — signalé à l'utilisateur
+comme amélioration possible, pas encore demandée. Le fichier
+`subscription_section.dart` (407 lignes) existe dans le dossier mais
+n'est importé nulle part — code mort, jamais affiché, pas touché.
+
 ## 3quinquies. Bug de build résolu (25/07) : version share_plus incompatible
 
 Après l'ajout de "Réseau social client" (commit 35c3a9e), **tous les builds
@@ -548,16 +718,24 @@ lancement.
    avant tout calendrier** : lance-t-on avec un paiement à la livraison en
    attendant l'intégration Mobile Money, ou est-ce bloquant pour le
    lancement ?
-4. **Identité visuelle** : pas de logo graphique custom pour l'icône/
-   splash (seul le nom "AkoraHub" est appliqué actuellement), pas de
-   captures d'écran préparées pour la fiche Play Store.
+4. **Identité visuelle** — **en grande partie fait (25/07)** : icône
+   réelle créée et intégrée sur Android/iOS/Web (vert `#085041`, concept
+   panier/lettre "A" — remplace l'ancien logo Flutter par défaut), thème
+   de toute l'app aligné dessus (`lib/theme/app_theme.dart` : primaire
+   vert `#085041`, secondaire marine `#0B2C64`, accent orange `#FE5905`,
+   extraits par échantillonnage de pixels de l'icône réelle — l'ancienne
+   palette navy/teal/or créait une incohérence avec l'icône). **Reste à
+   faire** : splash screen (toujours l'écran de démarrage par défaut,
+   pas de logo dessus), captures d'écran préparées pour la fiche Play
+   Store, feature graphic (1024×500).
 
-**Non bloquant, peut sortir après le lancement (v1.1)** : FDS, e-learning,
-groupes professionnels — voir section 3bis/4 pour le détail. **Mise à
-jour** : notifications push, mode hors-ligne, fidélité par paliers et mode
-sombre sont désormais ✅ **faits** (voir sections dédiées) ; seul le
-multi-langue reste un chantier en cours (infrastructure posée, traduction
-écran par écran restante, voir 3duodecies).
+**Déjà livrés depuis (25/07)** : notifications push réelles (Firebase, voir
+section correspondante), mode hors-ligne, multi-langue FR/MG
+(infrastructure + premiers écrans), mode sombre, fidélité par paliers
+Bronze/Argent/Or (y compris l'avantage concret de remise livraison par
+palier). **Reste non bloquant pour le lancement** : FDS, e-learning,
+groupes professionnels — voir section 3bis/4 pour le détail complet de
+chaque idée.
 
 ## 3septies. Écran Admin des devis manquant (25/07, Backend/Infra) ✅ FAIT
 
@@ -890,48 +1068,184 @@ géométriques (rectangle orange, cylindre bleu marine) à l'intérieur.
   `flutter_launcher_icons` utilisé (plus simple d'agir directement sur les
   fichiers pour un remplacement ponctuel).
 
-## 3sexdecies. Fidélité par paliers (25/07) ✅ FAIT
+## 3sexdecies. Inscription : date de naissance, conditions, lien connexion (25/07) ✅ FAIT
 
-**⚠️ Écart de documentation constaté** : cette fonctionnalité avait déjà été
-construite (commit `8552640`, fusionné sur `main`) mais n'avait jamais été
-consignée ici — elle apparaissait à tort en section 4 ("pas encore fait").
-Complétée aujourd'hui avec de vrais avantages par palier.
+Suite à une demande de l'utilisateur de vérifier les informations
+manquantes du formulaire d'inscription (`registration_screen.dart`) :
 
-- **Schéma** : `supabase/phase12_schema.sql` (**exécuté avec succès par
-  l'utilisateur le 25/07**) — colonne `profiles.loyalty_points`, trigger
-  `award_loyalty_points` qui crédite automatiquement **1 point par tranche
-  de 1000 Ar dépensée** dès qu'une commande passe au statut "livrée" (pas
-  de table séparée : les paliers sont calculés côté app à partir du total
-  de points).
-- **Paliers** (seuils confirmés par l'utilisateur) : Bronze (0+), Argent
-  (1000+), Or (5000+). Définition centralisée dans
-  `lib/core/loyalty/loyalty_tiers.dart` (`LoyaltyTier`, `kLoyaltyTiers`,
-  `tierForPoints()`/`nextTierForPoints()`) — partagée entre l'écran Fidélité
-  et le panier, pour éviter de dupliquer les seuils à deux endroits.
-- **Écran "Fidélité"** (`client_home/loyalty/loyalty_screen.dart`,
-  accessible depuis le Profil) : palier actuel, points, progression vers le
-  palier suivant, explication du fonctionnement, liste de tous les paliers.
-- **Avantage concret ajouté (25/07)** : remise automatique sur les **frais
-  de livraison** selon le palier — **Argent -50%, Or livraison gratuite**
-  (choix explicite de l'utilisateur, plutôt qu'une remise sur le prix
-  produit, pour ne pas entamer la marge sur les grosses commandes B2B
-  hôtels/hôpitaux). Appliquée dans `client_home/cart_tab.dart`
-  (`_estimateDelivery`) : le palier du client est lu depuis
-  `profiles.loyalty_points` puis multiplié au tarif calculé par
-  `DeliveryPricing` ; échec silencieux (aucune remise) si le palier ne peut
-  pas être déterminé (ex. hors-ligne). Affichage transparent dans le panier
-  : prix barré + prix remisé, avec le nom du palier en petit texte coloré.
-- **Reste ouvert, si l'utilisateur le demande plus tard** : avantages
-  additionnels par palier (remise produit, accès prioritaire au support,
-  etc.), notification quand un client change de palier.
+- **Date de naissance** : nouveau champ avec sélecteur natif
+  (`showDatePicker`), obligatoire, avec vérification d'âge minimum 18 ans
+  (`_validateBirthDate`) — justifié par la vente de produits chimiques/
+  insecticides sur la plateforme. Stockée dans une nouvelle colonne
+  `profiles.birth_date` (`supabase/phase19_patch_birth_date.sql`,
+  **exécuté avec succès par l'utilisateur**).
+- **Case "J'accepte les conditions d'utilisation et la politique de
+  confidentialité"** : obligatoire pour créer un compte. **La page de
+  politique de confidentialité elle-même reste à écrire/héberger** (voir
+  plan de lancement, section 3sexies, point 2 — bloquant pour la
+  publication Play Store).
+- **Lien "Déjà un compte ? Se connecter"** sous le bouton d'inscription
+  (`Navigator.pop`) — auparavant seul le bouton retour de l'AppBar
+  permettait ce chemin.
 
-## 3septendecies. Mode sombre (25/07) ✅ FAIT
+**Note pour la suite** : l'utilisateur a envoyé par erreur une capture
+d'écran de l'étape 6 du tutoriel de création de token GitHub (sans lien
+avec l'inscription) en même temps que cette demande — probablement une
+pièce jointe laissée par mégarde, sans conséquence sur le travail effectué.
 
-**⚠️ Autre écart de documentation constaté** (même cause que la fidélité,
-voir note ci-dessus en 3sexdecies) : construit et fusionné sur `main`
-(commit `50590de`) mais jamais documenté ici — il apparaissait à tort
-comme "à faire" en section 3bis et 3sexies.
+## 3septdecies. Sélecteur de comptes récents à la connexion (25/07) ✅ FAIT
 
+Demandé par l'utilisateur en référence à l'UX de sélection de profil de
+Facebook (capture d'écran fournie). Implémenté avec une nuance de sécurité
+volontaire :
+
+- `authentication_screen/recent_accounts_store.dart` : stockage local
+  (`shared_preferences`) des derniers comptes utilisés sur l'appareil
+  (email, nom, avatar) — **jamais de mot de passe ni de jeton de session
+  stocké**.
+- Liste affichée au-dessus du formulaire de connexion (avatar + nom +
+  email, bouton "Oublier ce compte"). Taper sur un compte pré-remplit
+  l'email et bascule vers le formulaire — **le mot de passe reste
+  toujours obligatoire**.
+- **Différence assumée avec Facebook** : ce n'est PAS un vrai "1 tap, sans
+  mot de passe". Un vrai switch instantané comme Facebook nécessiterait de
+  garder plusieurs sessions Supabase actives en parallèle sur l'appareil
+  (jetons de session stockés localement pour chaque compte) — plus
+  complexe et plus sensible en sécurité (un jeton volé = accès direct sans
+  mot de passe). Pas fait sans décision explicite de l'utilisateur ; à
+  reconsidérer s'il confirme vouloir cette version plus poussée.
+
+## 3duodevicies. Téléphone étranger accepté à l'inscription (26/07) ✅ FAIT
+
+L'utilisateur a soulevé un vrai trou dans la validation : `_validatePhone`
+n'acceptait QUE les préfixes malgaches (032/033/034/038), rejetant tout
+client étranger (touriste, expatrié, hôtel à propriétaire étranger...).
+Corrigé : accepte maintenant soit un numéro malgache valide, soit un
+format international générique (commence par `+`, 8 à 14 chiffres), sans
+validation précise par pays étranger. Indice de saisie mis à jour pour
+mentionner le cas étranger (`+33...`).
+
+## 3undevicies. Sélecteur d'indicatif pays, Nom/Prénom séparés, société obligatoire (26/07) ✅ FAIT
+
+Trois demandes de l'utilisateur traitées ensemble sur l'inscription :
+
+- **Sélecteur d'indicatif pays** (`intl_phone_field` package) : menu
+  déroulant avec tous les indicatifs (drapeau + code), saisie manuelle
+  toujours possible, Madagascar par défaut. La validation stricte par
+  préfixe d'opérateur (Telma/Orange/Yas) ne s'applique que si "Madagascar"
+  est sélectionné dans le menu ; sinon validation générique par longueur.
+- **Nom/Prénom séparés** : le champ unique "Nom complet" devient deux
+  champs côte à côte. Recombinés en `full_name` ("Prénom Nom") au moment
+  de l'envoi — **aucun changement de schéma**, la logique existante de
+  salutation "Bonjour, {prénom}" sur l'Accueil (`.split(' ').first`)
+  continue de fonctionner sans modification.
+- **Société rendue obligatoire** pour Hôtel/Hôpital/Entreprise (elle
+  n'avait pas de validateur auparavant, malgré le champ affiché) ; ajoutée
+  en option pour les Particuliers ("si vous achetez pour un compte
+  professionnel"). **Confirmé à l'utilisateur** : `company_name` alimente
+  déjà les factures PDF et devis générés (`invoicing/invoicing_screen.dart`,
+  `quotes_management/quotes_management.dart`) — pas de travail
+  supplémentaire nécessaire pour que ça apparaisse sur les documents.
+
+## 3sexdecies. Remise fidélité sur la livraison — REJETÉE par l'utilisateur (25/07)
+
+Une session Claude Code avait construit sur une branche séparée
+(`claude/akorahub-project-context-9zk67o`, jamais fusionnée dans `main`)
+une remise sur les frais de livraison selon le palier de fidélité
+(Argent -50%, Or gratuite). **L'utilisateur a explicitement refusé cette
+fonctionnalité** ("Je veux pas cette fonctionnalité pour le moment,
+effacer le!") après l'avoir vue expliquée. La branche a été **supprimée
+du dépôt GitHub** — le code n'existe donc plus nulle part. **Ne pas
+reconstruire cette fonctionnalité sans demande explicite renouvelée de
+l'utilisateur.**
+
+## 3vicies. Formulaire d'inscription en 2 étapes (26/07) ✅ FAIT
+
+`registration_screen.dart` réécrit en `PageView` à 2 pages (non
+swipeable, boutons uniquement) avec barre de progression en haut :
+- **Étape 1 — Identité** : secteur, nom, prénom, société, date de
+  naissance. Validée (`_step1FormKey` + `_validateBirthDate`) avant de
+  passer à l'étape 2 via "Suivant".
+- **Étape 2 — Coordonnées** : email, téléphone (indicatif pays), mot de
+  passe, confirmation, conditions. Bouton "Retour" revient à l'étape 1
+  sans perdre les données déjà saisies (les contrôleurs persistent).
+  La flèche retour de l'AppBar fait de même à l'étape 2, ou quitte l'écran
+  à l'étape 1.
+Aucun changement de logique métier — même validateurs, même appel
+Supabase, uniquement la présentation.
+
+## 3unvicies. Correctif thème : couleur "outline" trop pâle (26/07) ✅ FAIT
+
+L'utilisateur a signalé que beaucoup de texte/icônes paraissaient "flou"
+(l'étoile favoris, les libellés des piliers...). Diagnostic confirmé via
+capture d'écran + lecture du thème : **pas un bug de police** (les icônes
+Material ne dépendent pas de Google Fonts, donc si elles aussi paraissent
+floues, la cause est ailleurs). Cause réelle trouvée dans
+`lib/theme/app_theme.dart` : `colorScheme.outline` était réglé sur
+`dividerLight`/`dividerDark` (`0xFFE5E7EB` / `0xFF374151`, commentées
+"Minimal separation" — prévues pour de simples traits de séparation à
+peine visibles), alors que ce rôle sémantique (Material 3) doit rester
+lisible puisqu'il est utilisé pour des icônes/bordures visibles (étoile
+non-favorite, icônes de piliers, tags...). Corrigé : `outline` utilise
+maintenant `textSecondaryLight`/`textSecondaryDark` (gris moyen, déjà
+utilisé pour le texte secondaire) ; `outlineVariant` récupère l'ancienne
+couleur pâle, pour les vrais séparateurs discrets. **Un seul changement au
+niveau du thème corrige d'un coup les 18 usages de
+`colorScheme.outline`** repérés dans `client_home/` (favorites, catalog,
+cart, orders, profile, product_detail, chat, loyalty) sans toucher
+fichier par fichier.
+
+## 3duodevicies. Panne CI — quota de MINUTES Actions épuisé, PAS résolu (28/07) ⚠️ BLOQUANT
+
+**⚠️ Ceci bloque activement tous les builds — première chose à vérifier
+dans une nouvelle session.**
+
+Chronologie du diagnostic (deux fausses pistes avant la vraie cause) :
+1. **1ère théorie (fausse piste partiellement utile)** : quota de
+   **stockage** Actions dépassé (168 builds accumulés, 5,3 Go). Corrigé
+   par une autre session (rétention réduite à 3 jours, nettoyage,
+   suppression de la publication APK en plus de l'AAB) — stockage
+   redescendu à 115 Mo. **N'a pas réglé le problème : les builds ont
+   continué à échouer après ce correctif.**
+2. **2ᵉ tentative** : remplacement du système de publication
+   (`actions/upload-artifact`, limité à 500 Mo partagés sur tout le
+   compte) par **GitHub Releases** (`softprops/action-gh-release@v2`,
+   stockage séparé et bien plus généreux) — voir
+   `.github/workflows/build-apk.yml`. Bonne pratique en soi (gardée),
+   **mais n'a pas non plus réglé le problème**.
+3. **Vraie cause identifiée (28/07)** : le job échoue en **2 secondes,
+   sans exécuter aucune étape** (`"steps": []` dans l'API GitHub) — signature
+   caractéristique d'un **quota de MINUTES Actions épuisé** (2000
+   min/mois gratuites, partagées sur tout le compte GitHub, pas
+   seulement ce dépôt), et non un problème de stockage. Confirmé par
+   recherche : le message d'erreur typique dans ce cas est *"The job was
+   not started because recent account payments have failed or your
+   spending limit needs to be increased"*, et le correctif standard est
+   de régler une **limite de dépenses ("Actions spending limit")** sur
+   1-5 $ dans **github.com/settings/billing/summary** (ou
+   `/settings/billing/budgets`) — même 1 $ suffit à débloquer les
+   minutes gratuites restantes, sans que ce soit un abonnement récurrent
+   (facturation à l'usage réel au-delà du gratuit, remise à 0 $ possible
+   à tout moment).
+
+**Reste à faire** : l'utilisateur a été guidé vers ce réglage mais
+**n'a pas encore confirmé l'avoir fait ni testé si ça débloque les
+builds**. Prochaine étape pour toute session qui reprend : demander à
+l'utilisateur s'il a réglé la limite de dépenses, puis déclencher un
+nouveau build (`git push` d'un commit anodin, ou `workflow_dispatch` si
+le jeton a la permission — le jeton utilisé jusqu'ici ne l'avait pas,
+d'où le recours à un commit) et vérifier via l'API
+`actions/runs` que le job progresse au-delà de "Set up job" cette fois
+(si un job a de nouveau `"steps": []` et se termine en quelques
+secondes, le quota n'est probablement toujours pas réglé).
+
+## 3duovicies. Mode sombre (25/07) ✅ FAIT
+
+**⚠️ Écart de documentation constaté** (même cause que la fidélité ci-dessus
+avant sa suppression : une fonctionnalité fusionnée sur `main` sans jamais
+être consignée ici). Commit `50590de`, toujours en place et fonctionnel
+(contrairement à la remise fidélité livraison ci-dessus, celle-ci n'a pas
+été remise en cause) :
 - `lib/core/providers/theme_provider.dart` : `themeModeProvider`
   (StateNotifierProvider Riverpod), préférence clair/sombre/système
   persistée via `SharedPreferences` (clé `theme_mode`).
@@ -939,14 +1253,12 @@ comme "à faire" en section 3bis et 3sexies.
   (`client_home/profile_tab.dart`) et paramètres Admin
   (`business_profile_settings/business_profile_settings.dart`).
 
-## 3octodecies. Rupture de stock prévue — analytics prédictif (25/07) ✅ FAIT
+## 3trevicies. Rupture de stock prévue — analytics prédictif (25/07) ✅ FAIT
 
-**⚠️ Fonctionnalité retrouvée non documentée** (commit `f7143b6`, fusionné
-sur `main` le 25/07 — même cause : message du vrai commit avalé par un
-commit de fusion concurrent dans `CHANGELOG.md`, voir note méthodologique
-ci-dessous). Étend les alertes existantes (`alerts_center/alerts_center.dart`,
-Phase 1) avec une 3ᵉ section **"Rupture prévue"**, au-dessus de "Stock bas"
-et "DLC proche" :
+**⚠️ Autre fonctionnalité retrouvée non documentée** (commit `f7143b6`,
+toujours en place sur `main`). Étend les alertes existantes
+(`alerts_center/alerts_center.dart`, Phase 1) avec une 3ᵉ section
+**"Rupture prévue"**, au-dessus de "Stock bas" et "DLC proche" :
 - Calcule la **vitesse de vente réelle des 30 derniers jours** par produit
   (somme des quantités dans `order_items` jointes à `orders.created_at`),
   divisée par 30 pour un rythme quotidien.
@@ -955,22 +1267,20 @@ et "DLC proche" :
   est **≤ 14 jours**, triés du plus urgent au moins urgent.
 - Estimation simple (moyenne linéaire sur 30 jours) — explicitement pas une
   vraie prévision statistique, mais suffisante pour une alerte utile à
-  l'Admin. Aucune table/colonne supplémentaire nécessaire (calcul entièrement
-  côté app à partir des données existantes).
+  l'Admin. Aucune table/colonne supplémentaire nécessaire.
 
-**Note méthodologique importante (25/07)**, valable pour les deux
-fonctionnalités ci-dessus : la GitHub Action `changelog.yml` capture le
-message du dernier commit poussé pour remplir `CHANGELOG.md`. Quand un
-commit de fonctionnalité est immédiatement suivi d'un commit de fusion
-(cas fréquent quand deux pushes arrivent proches dans le temps), c'est le
-message générique **"Merge branch 'main'..."** qui atterrit dans le
-changelog — le vrai message ("Feature: ...") disparaît silencieusement.
-Conséquence concrète : le rituel de la section 6bis ("lire les dernières
-entrées de CHANGELOG.md") ne suffit pas à lui seul pour repérer tout ce qui
-a été construit. **À faire en début de session, en plus de lire ce
-fichier** : comparer `git log --oneline` (ou l'historique complet) contre
-ce document pour repérer d'éventuelles fonctionnalités non documentées,
-plutôt que de se fier uniquement à `CHANGELOG.md`.
+**Note méthodologique importante**, qui explique aussi comment la remise
+fidélité ci-dessus a pu être reconstruite par erreur après son rejet : la
+GitHub Action `changelog.yml` capture le message du dernier commit poussé
+pour remplir `CHANGELOG.md`. Quand un commit de fonctionnalité est
+immédiatement suivi d'un commit de fusion (deux pushes proches dans le
+temps), c'est le message générique **"Merge branch 'main'..."** qui
+atterrit dans le changelog — le vrai message disparaît silencieusement, et
+une session qui ne lit que `CHANGELOG.md` (au lieu de ce document +
+l'historique Git complet) peut manquer une fonctionnalité déjà construite
+**ou déjà rejetée**. **À faire en début de session** : comparer
+`git log --oneline` contre ce document, pas seulement lire
+`CHANGELOG.md`.
 
 ## 4. Ce qui N'EST PAS encore fait
 
@@ -1016,43 +1326,59 @@ plutôt que de se fier uniquement à `CHANGELOG.md`.
   toujours créer un nouvel écran propre plutôt que de risquer de casser un
   gros fichier existant, à l'image de ce qui a été fait jusqu'ici.
 
-## 7. Historique de répartition des missions (consolidé le 25/07)
+## 7. Répartition des missions entre conversations Claude en parallèle
 
 **⚠️ Dépôt renommé (23/07)** : `Anju-codermad/akora-fanadiovana-app` →
 **`Anju-codermad/AkoraHub-app`**. L'ancien nom redirige encore
 automatiquement (GitHub le fait par défaut après un renommage), mais
 utiliser le nouveau nom pour tout nouveau clone/remote/lien.
 
-**Consolidation (25/07)** : l'utilisateur a demandé de reprendre tout le
-travail dans une seule conversation à partir de maintenant, plutôt que de
-continuer à faire avancer deux sessions en parallèle. La répartition
-ci-dessous est conservée à titre d'historique (utile pour comprendre
-pourquoi certains fichiers ont été créés par l'une ou l'autre "session"),
-mais **ne s'applique plus** : toute nouvelle conversation qui reprend ce
-projet a désormais la responsabilité de l'ensemble du dépôt.
+**⚠️ Contradiction détectée et résolue (25/07)** : une note plus ancienne
+dans ce fichier indiquait que l'utilisateur avait demandé de tout
+consolider dans une seule conversation. Une autre conversation, menée en
+parallèle le même jour, a reçu l'instruction inverse : les deux
+conversations **continuent bien en parallèle**, confirmé explicitement par
+l'utilisateur après qu'on lui ait signalé la contradiction. **C'est cette
+version qui fait foi** — si un futur fil trouve encore une mention
+"consolidé en une seule conversation" quelque part, elle est obsolète.
 
-Répartition initiale (24-25/07, avant consolidation) :
-- **Conversation "Backend/Infra"** : `lib/core/`, `supabase/*.sql`, tous les
-  écrans Admin (`*_real` hors `client_home/`), `.github/workflows/`,
-  paiement, messagerie, notifications, sécurité RLS.
-- **Conversation "Client UX/Design"** : `lib/presentation/client_home/*` —
-  écrans client, style visuel, mise en page — élargie en cours de route
-  à des écrans Admin ponctuels (ex. `home_banners_management.dart`) avec
-  accord implicite de l'utilisateur.
+**Périmètre complet des deux côtés** : les deux conversations ont un accès
+complet et non restreint à tout le dépôt (plus de partition par dossier
+depuis le 23-25/07). N'importe quelle conversation peut modifier
+n'importe quel fichier, y compris `lib/core/`, `supabase/*.sql`, les
+écrans Admin, et `lib/presentation/client_home/*`.
 
-Plusieurs fusions Git automatiques propres ont eu lieu durant cette
-période (aucune perte de code), et un doublon fonctionnel (deux systèmes
-de messagerie construits indépendamment) a été détecté et résolu — voir
-section 3bis pour le détail. Cette expérience confirme qu'un travail en
-parallèle sur ce projet reste possible si besoin à l'avenir, à condition
-de repasser régulièrement par ce document et de toujours `git pull` avant
-de pousser.
+**Conséquence directe : le risque de collision de fichiers est réel**,
+puisqu'il n'y a plus de "chacun son dossier" comme garde-fou. Discipline
+Git impérative pour toute conversation qui reprend ce projet :
+1. `git fetch` systématique avant tout push, jamais de push en force
+2. Si des commits distants sont apparus entre-temps (ça arrive
+   régulièrement — plus de 80 commits sont arrivés en quelques jours lors
+   d'une session parallèle) : ne pas essayer de fusionner à la main un
+   historique périmé. Réinitialiser sur l'état distant (`git reset --hard
+   origin/main`) si son propre travail local n'a pas encore été poussé,
+   puis relire ce fichier à jour avant de continuer — plutôt que de
+   raisonner sur une version obsolète du projet.
+3. Documenter tout changement significatif dans ce fichier avant de
+   pousser le dernier commit de la session, pour que l'autre conversation
+   le voie à sa prochaine lecture. En cas de doute sur une décision déjà
+   prise (comme cette contradiction), la signaler explicitement à
+   l'utilisateur plutôt que de trancher seul.
+
+Plusieurs fusions automatiques propres ont déjà eu lieu entre le 23 et le
+25/07 sans perte de code d'aucun côté, et un doublon fonctionnel (deux
+systèmes de messagerie construits indépendamment) a été détecté et résolu
+— voir section 3bis. Cette discipline fonctionne, à condition de la
+suivre à chaque fois, même pour un fichier qu'on pense être "le sien".
 
 ## 6bis. Comment reprendre le fil (pour toute conversation)
 
-1. `git pull` avant de commencer
+1. `git pull` (ou `git fetch` + `git reset --hard origin/main` si son
+   propre historique local est périmé) avant de commencer
 2. Lire ce fichier en entier + les dernières entrées de `CHANGELOG.md`
-3. Travailler uniquement dans son périmètre (section 7)
+3. Accès complet à tout le dépôt des deux côtés (section 7) — vérifier
+   l'historique Git avant de toucher un fichier qui pourrait avoir été
+   modifié récemment par l'autre conversation
 4. Mettre à jour ce fichier (sections 3, 4 et 7 si besoin) avant de pousser
    le dernier commit de la session
 

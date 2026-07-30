@@ -1,0 +1,84 @@
+workflows:
+  android-release:
+    name: AkoraHub - Build Android (APK + AAB)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        # Groupe de variables à créer dans Codemagic (dashboard →
+        # Teams/App settings → Environment variables → nouveau groupe
+        # nommé "akorahub_secrets"). Contient les mêmes valeurs que les
+        # secrets GitHub actuels :
+        #   SUPABASE_URL, SUPABASE_ANON_KEY
+        #   GOOGLE_SERVICES_JSON_BASE64  (optionnel — Firebase push)
+        #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+        #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD  (optionnel — signature release)
+        - akorahub_secrets
+      vars:
+        PACKAGE_NAME: "com.akora_fanadiovana.app"
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+      cancel_previous_builds: true
+
+    scripts:
+      - name: Créer env.json à partir des variables Codemagic
+        script: |
+          cat > env.json << EOF
+          {
+            "SUPABASE_URL": "$SUPABASE_URL",
+            "SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY"
+          }
+          EOF
+
+      - name: Reconstruire google-services.json (Firebase) si configuré
+        script: |
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
+            echo "google-services.json restauré."
+          else
+            echo "Pas de GOOGLE_SERVICES_JSON_BASE64 — notifications push désactivées sur ce build."
+          fi
+
+      - name: Reconstruire le keystore de production si configuré
+        script: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/akora_release.jks
+            cat > android/key.properties << EOF
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=akora_release.jks
+          EOF
+            echo "Clé de production restaurée."
+          else
+            echo "Pas de clé de production — build signé avec la clé debug."
+          fi
+
+      - name: Récupérer les dépendances Flutter
+        script: flutter pub get
+
+      - name: Compiler l'APK (release)
+        script: flutter build apk --release
+
+      - name: Compiler l'App Bundle (release) — format Google Play
+        script: flutter build appbundle --release
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+      - build/app/outputs/bundle/release/app-release.aab
+      - build/app/outputs/**/mapping.txt
+
+    publishing:
+      email:
+        recipients:
+          - akorafanadiovana@gmail.com
+        notify:
+          success: true
+          failure: true

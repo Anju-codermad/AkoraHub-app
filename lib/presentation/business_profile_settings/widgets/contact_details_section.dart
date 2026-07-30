@@ -124,8 +124,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                 ),
               ),
               keyboardType: TextInputType.phone,
-              validator: _validatePhone,
-              onChanged: (value) => widget.onChanged(),
+              onChanged: (value) {
+                widget.businessData["phone"] = value;
+                widget.onChanged();
+              },
             ),
 
             SizedBox(height: 2.h),
@@ -153,7 +155,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
               ),
               keyboardType: TextInputType.emailAddress,
               validator: _validateEmail,
-              onChanged: (value) => widget.onChanged(),
+              onChanged: (value) {
+                widget.businessData["email"] = value;
+                widget.onChanged();
+              },
             ),
 
             SizedBox(height: 2.h),
@@ -181,7 +186,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
               ),
               keyboardType: TextInputType.url,
               validator: _validateUrl,
-              onChanged: (value) => widget.onChanged(),
+              onChanged: (value) {
+                widget.businessData["website"] = value;
+                widget.onChanged();
+              },
             ),
 
             SizedBox(height: 3.h),
@@ -210,7 +218,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                   ),
                 ),
               ),
-              onChanged: (value) => widget.onChanged(),
+              onChanged: (value) {
+                socialMedia["facebook"] = value;
+                widget.onChanged();
+              },
             ),
 
             SizedBox(height: 2.h),
@@ -230,7 +241,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                   ),
                 ),
               ),
-              onChanged: (value) => widget.onChanged(),
+              onChanged: (value) {
+                socialMedia["instagram"] = value;
+                widget.onChanged();
+              },
             ),
 
             SizedBox(height: 2.h),
@@ -251,7 +265,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                 ),
               ),
               keyboardType: TextInputType.phone,
-              onChanged: (value) => widget.onChanged(),
+              onChanged: (value) {
+                socialMedia["whatsapp"] = value;
+                widget.onChanged();
+              },
             ),
 
             SizedBox(height: 3.h),
@@ -278,7 +295,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                   ),
                 ),
               ),
-              onChanged: (value) => widget.onChanged(),
+              onChanged: (value) {
+                address["street"] = value;
+                widget.onChanged();
+              },
             ),
 
             SizedBox(height: 2.h),
@@ -292,7 +312,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                     decoration: const InputDecoration(
                       labelText: 'City',
                     ),
-                    onChanged: (value) => widget.onChanged(),
+                    onChanged: (value) {
+                      address["city"] = value;
+                      widget.onChanged();
+                    },
                   ),
                 ),
                 SizedBox(width: 2.w),
@@ -302,7 +325,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                     decoration: const InputDecoration(
                       labelText: 'Postal Code',
                     ),
-                    onChanged: (value) => widget.onChanged(),
+                    onChanged: (value) {
+                      address["postalCode"] = value;
+                      widget.onChanged();
+                    },
                   ),
                 ),
               ],
@@ -315,7 +341,10 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
               decoration: const InputDecoration(
                 labelText: 'Country',
               ),
-              onChanged: (value) => widget.onChanged(),
+              onChanged: (value) {
+                address["country"] = value;
+                widget.onChanged();
+              },
             ),
 
             SizedBox(height: 3.h),
@@ -436,6 +465,7 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                 Switch(
                   value: !isClosed,
                   onChanged: (value) {
+                    setState(() => dayData["closed"] = !value);
                     widget.onChanged();
                   },
                 ),

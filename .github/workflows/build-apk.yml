@@ -12,10 +12,23 @@ jobs:
     name: Build APK
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    permissions:
+      contents: write
 
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
+
+      - name: Libérer de l'espace disque sur le runner
+        run: |
+          echo "--- Espace disque avant nettoyage ---"
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/local/share/boost /usr/share/swift \
+            /opt/hostedtoolcache/CodeQL || true
+          sudo docker image prune -a -f || true
+          echo "--- Espace disque après nettoyage ---"
+          df -h /
 
       - name: Installer Java
         uses: actions/setup-java@v4
@@ -68,16 +81,18 @@ jobs:
       - name: Compiler l'APK (release) — pour test/installation directe
         run: flutter build apk --release
 
-      - name: Publier l'App Bundle comme fichier téléchargeable
-        uses: actions/upload-artifact@v4
+      - name: Publier l'App Bundle et l'APK comme Release GitHub
+        # Contourne totalement le quota de stockage Actions (500 Mo,
+        # partagé entre tous les dépôts du compte) — les fichiers d'une
+        # Release GitHub vivent dans un espace de stockage séparé et
+        # beaucoup plus généreux (2 Go par fichier), et ne disparaissent
+        # jamais après quelques jours contrairement aux artifacts.
+        # Le tag est unique par build (numéro de run) pour ne jamais
+        # entrer en conflit avec un build précédent.
+        uses: softprops/action-gh-release@v2
         with:
-          name: akora-fanadiovana-aab
-          path: build/app/outputs/bundle/release/app-release.aab
-          retention-days: 30
-
-      - name: Publier l'APK comme fichier téléchargeable
-        uses: actions/upload-artifact@v4
-        with:
-          name: akora-fanadiovana-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
+          tag_name: build-${{ github.run_number }}
+          name: "Build #${{ github.run_number }}"
+          files: |
+            build/app/outputs/bundle/release/app-release.aab
+            build/app/outputs/flutter-apk/app-release.apk
