@@ -1599,10 +1599,23 @@ jour où un build iOS est mis en place).
 
 **Terminé (30/07)** : les 4 prérequis sont faits — projet Google Cloud +
 facturation + clé API restreinte, secrets `MAPS_API_KEY` ajoutés
-(GitHub + Codemagic), script `phase25` exécuté. Fusionné sur `main`,
-nouveau build déclenché. Reste à tester en conditions réelles (le staff
-met à jour sa position, le client vérifie que la carte s'affiche avec les
-2 marqueurs).
+(GitHub + Codemagic), script `phase25` exécuté.
+
+**Bug de build corrigé (30/07)** : le tout premier build Codemagic après
+fusion a échoué — `Manifest merger failed`,
+`Attribute application@name ... requires a placeholder substitution but
+no value for <applicationName> is provided`. Cause : dans
+`android/app/build.gradle`, `manifestPlaceholders = [mapsApiKey: ...]`
+(affectation directe avec `=`) **remplace toute la map** au lieu de la
+compléter — ça a effacé le placeholder `applicationName` que le plugin
+Gradle de Flutter y ajoute déjà lui-même. Corrigé avec
+`manifestPlaceholders.put("mapsApiKey", ...)`, qui ajoute la clé sans
+toucher au reste. **Leçon** : ne jamais faire `manifestPlaceholders = [...]`
+dans un projet Flutter — toujours `.put(...)` ou `+=`.
+
+Fusionné sur `main`, nouveau build déclenché. Reste à tester en
+conditions réelles (le staff met à jour sa position, le client vérifie
+que la carte s'affiche avec les 2 marqueurs).
 
 ## 4. Ce qui N'EST PAS encore fait
 

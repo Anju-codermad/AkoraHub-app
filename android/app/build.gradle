@@ -60,7 +60,12 @@ android {
         // CI, même pattern que le keystore de production). Chaîne vide si
         // absente : le build réussit quand même, la carte affiche juste un
         // fond gris tant qu'une vraie clé n'est pas fournie (aucun crash).
-        manifestPlaceholders = [mapsApiKey: (System.getenv("MAPS_API_KEY") ?: "")]
+        // ⚠️ `.put(...)` et non `manifestPlaceholders = [...]` : une
+        // affectation directe remplace TOUTE la map et efface le
+        // placeholder `applicationName` que le plugin Gradle de Flutter y
+        // ajoute déjà de son côté (fait échouer le merge du manifest avec
+        // "no value for <applicationName>").
+        manifestPlaceholders.put("mapsApiKey", System.getenv("MAPS_API_KEY") ?: "")
     }
 
     signingConfigs {
