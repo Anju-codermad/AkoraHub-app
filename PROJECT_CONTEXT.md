@@ -1657,6 +1657,40 @@ inutiles (`themeModeProvider`, `localeProvider`, `NotificationSoundsScreen`,
 dans `settings/`, une seule source de vérité au lieu de dupliquée entre
 Client et Admin.
 
+## 3tritrentecies. Flash infos (30/07) ✅ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ
+
+Demande de l'utilisateur : annonces courtes affichées sur l'Accueil
+client. Distinct de la bannière hero existante (`home_banners` — photo +
+titre/sous-titre, carrousel) : ici du **texte seul**, pensé pour publier
+une annonce en quelques secondes sans upload d'image (promo, rupture de
+stock temporaire, nouveauté...).
+
+**Décision de conception (recommandation validée)** : un **bandeau
+compact** sur l'Accueil affichant la dernière annonce active, tapable
+pour ouvrir l'historique complet — plutôt qu'un vrai bandeau défilant
+animé (moins lisible, peu idiomatique sur mobile). Écriture réservée à
+l'Admin, lecture publique des annonces actives (même modèle de
+permissions que `home_banners`).
+
+- **Schéma** : `supabase/phase26_patch_flash_infos.sql` (**script prêt,
+  pas encore exécuté**) — table `flash_infos` (`message`, `active`,
+  `created_by`, `created_at`), RLS identique à `home_banners`.
+- **Admin** : nouvel écran `flash_infos_management.dart` — liste
+  triée par date, bouton "Publier" (texte seul, 200 caractères max),
+  interrupteur actif/inactif, suppression. Accessible depuis le menu
+  "Plus" → section "Entreprise", à côté de "Bannière hero — Accueil".
+- **Client** : bandeau compact inséré dans `catalog_tab.dart` (juste
+  au-dessus de la barre de recherche), affiche la dernière annonce active
+  uniquement si elle existe (rien affiché sinon — pas de bandeau vide).
+  Tap → nouvel écran `client_home/flash_infos_screen.dart` avec
+  l'historique complet des annonces actives.
+- Chargement parallélisé avec les autres données de l'Accueil (même
+  `Future.wait` que bannières/badge/activité/réappro), échec silencieux
+  tolérant comme le reste de l'écran.
+
+**Reste à faire** : exécuter `phase26_patch_flash_infos.sql` dans
+Supabase avant que l'Admin puisse publier une première annonce.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

@@ -12,6 +12,7 @@ import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
 import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
+import 'flash_infos_screen.dart';
 import 'product_detail_client.dart';
 import 'wall/wall_tab.dart';
 
@@ -42,6 +43,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   int _unreadMessagesCount = 0;
   List<_ActivityItem> _activityFeed = [];
   List<Map<String, dynamic>> _reorderSuggestions = [];
+  String? _flashInfo;
 
   final PageController _bannerController = PageController();
   int _bannerIndex = 0;
@@ -161,6 +163,21 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         }
       }
 
+      Future<String?> loadFlashInfo() async {
+        try {
+          final row = await SupabaseConfig.client
+              .from('flash_infos')
+              .select('message')
+              .eq('active', true)
+              .order('created_at', ascending: false)
+              .limit(1)
+              .maybeSingle();
+          return row?['message'] as String?;
+        } catch (_) {
+          return null;
+        }
+      }
+
       Future<int> loadUnreadCount() async {
         if (userId == null) return 0;
         try {
@@ -275,12 +292,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         loadUnreadCount(),
         loadActivityFeed(),
         loadReorderSuggestions(),
+        loadFlashInfo(),
       ]);
       final inactiveCategoryNames = parallel[0] as Set<String>;
       final loadedSlides = parallel[1] as List<_PromoSlide>;
       final unreadMessages = parallel[2] as int;
       final activityFeed = parallel[3] as List<_ActivityItem>;
       final reorderSuggestions = parallel[4] as List<Map<String, dynamic>>;
+      final flashInfo = parallel[5] as String?;
 
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
@@ -293,6 +312,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _activityFeed = activityFeed;
         _reorderSuggestions = reorderSuggestions;
         _inactiveCategoryNames = inactiveCategoryNames;
+        _flashInfo = flashInfo;
         _isLoading = false;
       });
 
@@ -624,6 +644,52 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
           ),
+
+          // --- Flash info (annonce courte de l'Admin, si présente) ---
+          if (_flashInfo != null && _flashInfo!.trim().isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 0),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const FlashInfosScreen()),
+                  ),
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 3.w, vertical: 1.2.h),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.campaign_outlined,
+                            size: 18,
+                            color: theme.colorScheme.onPrimaryContainer),
+                        SizedBox(width: 2.w),
+                        Expanded(
+                          child: Text(
+                            _flashInfo!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right,
+                            size: 18,
+                            color: theme.colorScheme.onPrimaryContainer),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // --- Barre de recherche ---
           SliverToBoxAdapter(

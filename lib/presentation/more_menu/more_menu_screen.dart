@@ -6,6 +6,7 @@ import '../business_units_management/business_units_management.dart';
 import '../staff_management/staff_management.dart';
 import '../invoicing/invoicing_screen.dart';
 import '../alerts_center/alerts_center.dart';
+import '../flash_infos_management/flash_infos_management.dart';
 import '../home_banners_management/home_banners_management.dart';
 import '../quotes_management/quotes_management.dart';
 import '../order_management_real/order_management_real.dart';
@@ -108,6 +109,16 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const HomeBannersManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.campaign_outlined,
+            label: 'Flash infos — Accueil',
+            subtitle: 'Annonces courtes affichées sur l\'accueil client',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const FlashInfosManagement()),
             ),
           ),
           _MenuTile(
