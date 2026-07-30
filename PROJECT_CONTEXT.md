@@ -1802,6 +1802,38 @@ dans Supabase avant que le nouveau sélecteur ne fonctionne côté commande
 réelle (sans la colonne, l'insertion échouerait avec "colonne
 payment_method introuvable").
 
+## 3octotrentecies. Activation/désactivation de chaque mode de paiement par l'Admin (30/07) ✅ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ
+
+Demande de l'utilisateur juste après l'ajout des modes manuels
+(3septtrentecies) : pouvoir activer/désactiver chaque mode de paiement
+depuis l'Admin (utile si un numéro Mobile Money personnel devient
+temporairement indisponible, ou pour retirer les modes manuels une fois
+un vrai paiement en ligne en place).
+
+- **Schéma** : `supabase/phase28_patch_payment_method_settings.sql`
+  (**script prêt, pas encore exécuté**) — table
+  `payment_method_settings` (`method_id`, `enabled`), lecture publique,
+  écriture réservée à l'Admin (même modèle que `home_banners`/
+  `flash_infos`). Les 5 modes sont pré-remplis activés par défaut
+  (`on conflict do nothing`, sans danger si rejoué).
+- **Nouveau repo** `lib/core/payment/payment_method_settings_repo.dart` :
+  `fetchEnabled()` (repli tolérant — tous les modes actifs si la table
+  n'existe pas encore/hors-ligne, jamais de checkout bloqué) et
+  `setEnabled()`.
+- **Admin** : nouvel écran `payment_methods_management.dart` — un
+  `Switch` par mode, garde-fou intégré (impossible de désactiver le
+  dernier mode encore actif, message explicite à la place). Accessible
+  depuis le menu "Plus" → section "Entreprise" → "Modes de paiement".
+- **Client** (`cart_tab.dart`) : les `ChoiceChip` du sélecteur de paiement
+  n'affichent désormais que les modes activés par l'Admin (chargés au
+  `initState`, en parallèle de l'estimation de livraison) ; si le mode
+  actuellement sélectionné vient d'être désactivé, bascule
+  automatiquement sur le premier mode encore disponible.
+
+**Reste à faire** : exécuter `phase28_patch_payment_method_settings.sql`
+dans Supabase (après phase27) pour que les interrupteurs Admin
+fonctionnent réellement.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

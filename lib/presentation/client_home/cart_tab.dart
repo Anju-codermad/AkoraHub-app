@@ -7,6 +7,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
+import '../../core/payment/payment_method_settings_repo.dart';
 import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -33,11 +34,28 @@ class _CartTabState extends ConsumerState<CartTab> {
   String? _deliveryError;
 
   PaymentMethod _paymentMethod = PaymentMethod.paiementLivraison;
+  Set<PaymentMethod> _availableMethods = PaymentMethod.values.toSet();
 
   @override
   void initState() {
     super.initState();
     _estimateDelivery();
+    _loadAvailablePaymentMethods();
+  }
+
+  /// Modes de paiement activés par l'Admin (voir
+  /// `payment_methods_management.dart`) — repli sur tous les modes actifs
+  /// tant que le chargement n'est pas terminé ou en cas d'échec, pour ne
+  /// jamais bloquer le checkout.
+  Future<void> _loadAvailablePaymentMethods() async {
+    final available = await PaymentMethodSettingsRepo.fetchEnabled();
+    if (!mounted) return;
+    setState(() {
+      _availableMethods = available;
+      if (!available.contains(_paymentMethod) && available.isNotEmpty) {
+        _paymentMethod = available.first;
+      }
+    });
   }
 
   Future<void> _estimateDelivery() async {
@@ -462,7 +480,9 @@ class _CartTabState extends ConsumerState<CartTab> {
               Wrap(
                 spacing: 2.w,
                 runSpacing: 1.h,
-                children: PaymentMethod.values.map((method) {
+                children: PaymentMethod.values
+                    .where((m) => _availableMethods.contains(m))
+                    .map((method) {
                   final selected = _paymentMethod == method;
                   return ChoiceChip(
                     avatar: Icon(method.icon,
