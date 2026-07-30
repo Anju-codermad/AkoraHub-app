@@ -1298,6 +1298,63 @@ l'historique Git complet) peut manquer une fonctionnalité déjà construite
 `git log --oneline` contre ce document, pas seulement lire
 `CHANGELOG.md`.
 
+## 3quatervicies. Suppression de compte self-service (30/07) ✅ FAIT
+
+**⚠️ Encore une fonctionnalité retrouvée non documentée**, trouvée en
+comparant l'arborescence du dépôt (`supabase/functions/delete-account/`)
+contre ce document. Répond directement à une exigence du plan de
+lancement (section 3sexies, point 2 — formulaire "Sécurité des données"
+du Play Store, qui demande si les utilisateurs peuvent demander la
+suppression de leurs données) :
+- `supabase/functions/delete-account/index.ts` (Edge Function) : un
+  client authentifié appelle cette fonction pour supprimer
+  **définitivement et immédiatement** son propre compte. Nécessaire côté
+  serveur car la clé `anon` d'un client ne peut ni supprimer sa ligne
+  `auth.users` ni contourner les policies RLS — seule la
+  `service_role_key` (disponible automatiquement dans toute Edge
+  Function Supabase, aucun secret à configurer) le peut. Supprime
+  explicitement la ligne `profiles` avant `auth.admin.deleteUser` (la
+  plupart des tables liées — orders, quotes, favorites, conversations,
+  posts — ont déjà un `on delete cascade` vers `profiles(id)`, mais la
+  suppression explicite sert de filet de sécurité).
+- Côté client (`client_home/profile_tab.dart`, `_confirmDeleteAccount`) :
+  bouton "Supprimer mon compte" dans le Profil, dialogue de confirmation
+  listant explicitement ce qui sera perdu (profil, commandes, devis,
+  favoris, messages, publications), déconnexion + redirection vers
+  l'écran de connexion une fois la suppression confirmée par le serveur.
+
+## 3quinvicies. Nettoyage doublon pilier "Matières Premières" (30/07) ✅ FAIT
+
+Bug réel trouvé (pas documenté) : deux sessions différentes ont créé le
+pilier "Matières Premières" avec des slugs différents
+(`matieres-premieres` vs `matieres-premieres-chimiques`), donc la
+contrainte d'unicité sur le slug ne l'a pas détecté comme doublon.
+`supabase/phase22_patch_cleanup_duplicate_pilier.sql` : garde le pilier
+avec ses 12 catégories déjà attachées (`matieres-premieres`), migre vers
+lui toute catégorie/produit qui aurait été accroché par erreur au
+doublon (normalement rien), puis supprime le doublon vide. **Statut
+d'exécution à confirmer par l'utilisateur.**
+
+**Cause racine corrigée** (`business_units_management.dart`, `_slugify`) :
+la fonction ne translittérait pas les accents avant de générer le slug —
+"Matières Premières" créé deux fois à des moments différents (par deux
+sessions) pouvait donc produire deux slugs différents et échapper à la
+contrainte d'unicité. Ajout d'une table de translittération
+accents→lettres simples (français/malgache) avant slugification —
+empêche la récidive pour tout futur pilier/catégorie au nom accentué.
+
+## 3sexvicies. Chat client : message tapé plus jamais perdu en cas d'échec (28/07) ✅ FAIT
+
+Bug UX réel trouvé (pas documenté) dans `client_home/chat_screen.dart` :
+le champ de saisie était vidé **avant** la tentative d'envoi réseau —
+en cas d'échec (hors-ligne, RLS, etc.), le client perdait le message
+tapé et devait tout retaper. Corrigé : le champ n'est vidé qu'après
+confirmation du succès ; en cas d'échec, message d'erreur plus explicite
+("vérifie ta connexion et réessaie") avec un bouton **"Réessayer"**
+directement dans le SnackBar (rappelle `_send`, pas besoin de retaper).
+Log technique (`debugPrint`) ajouté en cas d'échec pour diagnostiquer une
+éventuelle récidive, jamais montré au client.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
