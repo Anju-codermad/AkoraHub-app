@@ -206,13 +206,23 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                               setState(() => _photoIndex = i),
                           itemBuilder: (context, i) => Container(
                             color: theme.colorScheme.surfaceContainerHighest,
-                            child: Image.network(
-                              photos[i],
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stack) => Icon(
-                                Icons.inventory_2_outlined,
-                                size: 56,
-                                color: theme.colorScheme.outline,
+                            child: Hero(
+                              // Seule la 1ère photo partage le tag de la
+                              // vignette catalogue/favoris (celle qu'on
+                              // voit avant l'ouverture de cette fiche) —
+                              // les suivantes ont un tag unique pour ne
+                              // jamais entrer en conflit dans le PageView.
+                              tag: i == 0
+                                  ? 'product-image-${p['id']}'
+                                  : 'product-image-${p['id']}-$i',
+                              child: Image.network(
+                                photos[i],
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stack) => Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 56,
+                                  color: theme.colorScheme.outline,
+                                ),
                               ),
                             ),
                           ),

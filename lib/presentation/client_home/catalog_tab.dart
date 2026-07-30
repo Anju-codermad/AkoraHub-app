@@ -1317,30 +1317,34 @@ class _ProductCard extends StatelessWidget {
                                 size: 36,
                                 color: theme.colorScheme.outline,
                               )
-                            : Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stack) => Icon(
-                                  Icons.inventory_2_outlined,
-                                  size: 36,
-                                  color: theme.colorScheme.outline,
-                                ),
-                                loadingBuilder:
-                                    (context, child, progress) =>
-                                        progress == null
-                                            ? child
-                                            : Center(
-                                                child: SizedBox(
-                                                  width: 20,
-                                                  height: 20,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                    color: theme
-                                                        .colorScheme.outline,
+                            : Hero(
+                                tag: 'product-image-${product['id']}',
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stack) =>
+                                      Icon(
+                                    Icons.inventory_2_outlined,
+                                    size: 36,
+                                    color: theme.colorScheme.outline,
+                                  ),
+                                  loadingBuilder:
+                                      (context, child, progress) =>
+                                          progress == null
+                                              ? child
+                                              : Center(
+                                                  child: SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: theme
+                                                          .colorScheme.outline,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
+                                ),
                               ),
                       ),
                     ),

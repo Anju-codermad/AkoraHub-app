@@ -2162,6 +2162,39 @@ de conception validées par l'utilisateur :
 tester de bout en bout sur un vrai build (nouvelles permissions
 natives — micro, galerie — pas testables en hot-reload).
 
+## 3dixseptrentecies. Animations — 1ère étape : Hero catalogue/favoris → fiche produit (30/07) ✅ FAIT
+
+Demande de l'utilisateur : ajouter des animations dans l'app ("comme la
+photo hero"), à faire **étape par étape**. Première étape choisie
+(recommandation validée) : une animation **Hero** Flutter (transition
+d'élément partagé) sur l'image produit, entre les vignettes (catalogue,
+favoris) et l'ouverture de la fiche produit — parcours le plus fréquent
+de l'app. **Première utilisation de `Hero` dans tout le projet** (aucun
+autre écran n'en avait avant).
+
+- **Sources** : `_ProductCard` dans `catalog_tab.dart` (grille catalogue
+  + section "Vous recommandez souvent") et `_FavoriteCard` dans
+  `favorites_screen.dart` — l'image produit (`Image.network`) est
+  enveloppée dans un `Hero(tag: 'product-image-${product['id']}', ...)`,
+  uniquement quand une vraie image existe (pas sur l'icône de repli, pour
+  ne pas animer icône → icône).
+- **Destination** : `product_detail_client.dart` — la fiche produit
+  affiche potentiellement plusieurs photos dans un `PageView` ; seule la
+  **première photo** partage le tag `'product-image-${p['id']}'` (celle
+  visible juste avant l'ouverture) ; les photos suivantes du carrousel
+  ont un tag unique (`-$i`) pour ne jamais entrer en conflit avec le
+  premier Hero au sein du même `PageView`.
+- **Non couvert** (pas d'image affichée à la source, donc pas de Hero
+  possible sans ajouter une image d'abord) : le fil "Pour vous" (cartes
+  texte seul) et les produits tagués dans les posts du Mur (icône
+  générique, pas de vraie photo). L'aperçu favoris dans le Profil n'est
+  aujourd'hui pas cliquable du tout (aucune navigation), donc hors
+  périmètre également.
+
+**Prochaines étapes possibles** (à valider une par une avec
+l'utilisateur avant de les faire) : transitions de page personnalisées,
+retour visuel à l'ajout au panier, écrans de chargement squelettes.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
