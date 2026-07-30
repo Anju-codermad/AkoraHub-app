@@ -732,11 +732,14 @@ lancement.
 
 **Déjà livrés depuis (25/07)** : notifications push réelles (Firebase, voir
 section correspondante), mode hors-ligne, multi-langue FR/MG
-(infrastructure + premiers écrans), mode sombre, fidélité par paliers
-Bronze/Argent/Or (y compris l'avantage concret de remise livraison par
-palier). **Reste non bloquant pour le lancement** : FDS, e-learning,
-groupes professionnels — voir section 3bis/4 pour le détail complet de
-chaque idée.
+(infrastructure + premiers écrans), mode sombre. **⚠️ Correction (30/07)** :
+cette liste mentionnait à tort une "remise livraison par palier de
+fidélité" comme livrée — cette fonctionnalité a en réalité été **rejetée
+explicitement par l'utilisateur** puis retirée du code (voir 3sexdecies,
+"REJETÉE par l'utilisateur") ; l'écran Fidélité reste purement informatif
+(paliers Bronze/Argent/Or affichés, sans avantage concret). **Reste non
+bloquant pour le lancement** : FDS, e-learning, groupes professionnels —
+voir section 3bis/4 pour le détail complet de chaque idée.
 
 ## 3septies. Écran Admin des devis manquant (25/07, Backend/Infra) ✅ FAIT
 
@@ -1431,7 +1434,7 @@ d'écran, deux corrections apportées à `client_home/chat_screen.dart` :
 écran par écran (jamais revérifié depuis son ajout), micro-interactions
 (ex: animation du badge panier à l'ajout).
 
-## 3neuvicies. Sons de notification personnalisables par catégorie (30/07) ✅ FAIT, CORRECTIF PRÊT PAS ENCORE DÉPLOYÉ
+## 3neuvicies. Sons de notification personnalisables par catégorie (30/07) ✅ FAIT (script exécuté, Edge Function redéployée)
 
 Demande de l'utilisateur : pouvoir personnaliser le son des notifications
 push, avec un choix laissé à **chaque utilisateur** (client ou staff),
@@ -1848,13 +1851,20 @@ fonctionnent réellement.
   (`_checkSubscriptionStatus`, `_loadBusinessProfiles`,
   `_fetchConfigurations`, `_prepareCachedData`, chacune un `Future.delayed`
   sans effet réel) supprimées, temps de démarrage ramené de ~4,8s à ~1,5s.
-- **Notifications push** réelles
-- **Mode hors-ligne**
-- **Multi-langue** Français/Malagasy
-- **Paiement Mobile Money / carte Visa** (le compte MVola de l'entreprise
-  existe mais son statut "marchand" n'est pas confirmé ; piste retenue :
-  Papi, papi.mg, qui unifie MVola/Orange Money/Airtel Money/Visa — voir
-  historique de conversation pour le détail des échanges avec ce prestataire)
+- **Multi-langue** Français/Malagasy : infrastructure + 1er passage faits
+  (nav du bas, en-têtes Accueil — voir 3duodecies), la grande majorité des
+  écrans reste en français codé en dur. **Préférence explicite de
+  l'utilisateur : ne traduire qu'un seul écran à la fois, sur demande
+  explicite nommant l'écran** — ne pas continuer par anticipation.
+- **Paiement en ligne réel** (carte bancaire / marchand Mobile Money) :
+  toujours pas intégré — dossier BNI P@y (compte marchand) en attente de
+  réponse, statut marchand Mobile Money non confirmé. **Solution de pont
+  ajoutée en attendant (30/07, voir 3septtrentecies/3octotrentecies)** :
+  4 modes de paiement manuels sélectionnables au checkout (paiement à la
+  livraison, virement bancaire BNI, Orange Money, Mvola, Airtel Money),
+  chacun activable/désactivable par l'Admin — le staff vérifie la
+  réception manuellement, ce n'est pas un vrai paiement en ligne
+  automatisé.
 
 ## 5. Conventions et pièges à connaître
 
