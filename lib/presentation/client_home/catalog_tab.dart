@@ -608,16 +608,20 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             color: theme.colorScheme.surfaceContainerHighest
                                 .withValues(alpha: 0.5),
                             shape: const CircleBorder(),
-                            child: IconButton(
-                              icon: const Icon(Icons.chat_bubble_outline),
-                              tooltip: 'Messagerie',
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const ChatScreen()),
-                                );
-                              },
+                            child: Badge(
+                              label: Text('$_unreadMessagesCount'),
+                              isLabelVisible: _unreadMessagesCount > 0,
+                              child: IconButton(
+                                icon: const Icon(Icons.chat_bubble_outline),
+                                tooltip: 'Messagerie',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const ChatScreen()),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                           SizedBox(width: 2.w),

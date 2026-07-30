@@ -1691,6 +1691,19 @@ permissions que `home_banners`).
 **Reste à faire** : exécuter `phase26_patch_flash_infos.sql` dans
 Supabase avant que l'Admin puisse publier une première annonce.
 
+## 3quatretrentecies. Badge manquant sur l'icône Messagerie de l'Accueil (30/07) ✅ FAIT
+
+L'utilisateur a remarqué qu'aucun des 3 icônes de l'en-tête Accueil
+(panier/messagerie/cloche) n'affichait de nombre. Vérification : le
+badge existait déjà pour le **panier** (`cartCount`) et la **cloche**
+(`_unreadMessagesCount`, messages non lus du staff) — juste invisibles
+sur sa capture car aucun n'était `> 0` à ce moment (`isLabelVisible`).
+**Vrai trou trouvé** : l'icône **messagerie** (bulle de chat) n'avait
+**aucun badge**, alors que la cloche juste à côté compte déjà exactement
+les mêmes messages non lus. Corrigé dans `catalog_tab.dart` : même
+`Badge(label: '$_unreadMessagesCount', isLabelVisible: ... > 0)` ajouté
+autour de l'icône bulle de chat — les 3 icônes sont maintenant cohérentes.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
