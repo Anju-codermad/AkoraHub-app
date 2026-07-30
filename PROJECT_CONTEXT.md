@@ -2012,6 +2012,52 @@ assets pour la cohérence (demander à l'utilisateur le fichier source
 haute résolution du nouveau caddie), soit revenir sciemment sur cette
 décision si le changement Android n'était qu'un test.
 
+## 3quatorzetrentecies. Écran de connexion : logo générique, faux boutons sociaux, "Se souvenir de moi" inactif (30/07) ✅ FAIT
+
+L'utilisateur a signalé (capture d'écran de l'écran de connexion) que
+plusieurs éléments ne fonctionnaient pas correctement. Audit du fichier +
+corrections :
+
+- **Logo générique au lieu de la vraie icône** (`app_logo_widget.dart`) :
+  affichait une icône Material `business` (silhouette d'immeuble) dans un
+  encadré coloré, pas le logo réel d'AkoraHub. Remplacé par la vraie
+  icône de l'app (copie de `android/.../mipmap-xxxhdpi/ic_launcher.png`
+  vers `assets/images/app_icon.png`, affichée via `Image.asset`).
+- **"Professional Business Platform" en anglais**, incohérent avec le
+  reste de l'écran en français — traduit en "Plateforme professionnelle".
+- **Boutons Google/Facebook avec de mauvaises icônes** — trouvé en lisant
+  le code : Google utilisait l'icône Material `g_translate` (Google
+  *Traduction*, pas Google Sign-In) et Facebook utilisait un nom d'icône
+  `'facebook'` qui **n'existe pas** dans la table d'icônes custom de
+  l'app, tombant silencieusement sur l'icône de repli
+  `Icons.help_outline` (point d'interrogation gris — exactement ce que
+  montrait la capture d'écran). Les deux icônes trompeuses retirées ;
+  boutons texte seul "Google"/"Facebook" (toujours des stubs honnêtes
+  "bientôt disponible" au clic, décision déjà actée en 3ter — pas de
+  changement sur ce point).
+- **"Se souvenir de moi" ne faisait strictement rien** : la case à cocher
+  changeait un état local (`_rememberMe`) jamais lu nulle part —
+  l'ajout au carrousel "comptes récents" se faisait **systématiquement**
+  à chaque connexion réussie, qu'elle soit cochée ou non. Corrigé :
+  l'ajout aux comptes récents est maintenant conditionné à cette case
+  (cochée par défaut, pour ne pas changer le comportement pratique
+  existant ; utile à décocher sur un appareil partagé/public pour ne pas
+  laisser le compte visible au prochain lancement).
+- Au passage, suppression d'un fichier SVG mort et non lié
+  (`assets/images/img_app_logo.svg`) : ce n'était pas un logo AkoraHub
+  mais le **logo Firebase** (téléchargé depuis svgrepo.com, résidu du
+  gabarit de départ), jamais référencé dans le code.
+
+**Non traité, signalé mais pas corrigé** : le sélecteur de langue de cet
+écran (FR/MG/EN/AR, `_currentLanguage`) est un système de traduction
+**local à cet écran uniquement**, complètement séparé du système
+d'internationalisation utilisé dans le reste de l'app
+(`localeProvider`/`app_translations.dart`, FR/MG uniquement). Changer la
+langue ici n'a aucun effet après la connexion. Incohérence
+architecturale réelle, mais pas un "bug" au sens propre — à signaler à
+l'utilisateur avant d'entreprendre une unification, gros chantier hors
+du périmètre de cette demande.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

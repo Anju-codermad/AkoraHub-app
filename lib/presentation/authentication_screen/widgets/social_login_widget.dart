@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
-import '../../../core/app_export.dart';
-import '../../../widgets/custom_icon_widget.dart';
-
 /// Social login options widget
 class SocialLoginWidget extends StatelessWidget {
   final Function(String) onSocialLogin;
@@ -48,37 +45,27 @@ class SocialLoginWidget extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: OutlinedButton(
                 onPressed: () => onSocialLogin('google'),
-                icon: CustomIconWidget(
-                  iconName: 'g_translate',
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
-                label: Text(
-                  'Google',
-                  style: theme.textTheme.labelLarge,
-                ),
                 style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 2.h),
+                ),
+                child: Text(
+                  'Google',
+                  style: theme.textTheme.labelLarge,
                 ),
               ),
             ),
             SizedBox(width: 4.w),
             Expanded(
-              child: OutlinedButton.icon(
+              child: OutlinedButton(
                 onPressed: () => onSocialLogin('facebook'),
-                icon: CustomIconWidget(
-                  iconName: 'facebook',
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
-                label: Text(
-                  'Facebook',
-                  style: theme.textTheme.labelLarge,
-                ),
                 style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 2.h),
+                ),
+                child: Text(
+                  'Facebook',
+                  style: theme.textTheme.labelLarge,
                 ),
               ),
             ),

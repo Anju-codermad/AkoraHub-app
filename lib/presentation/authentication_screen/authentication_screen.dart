@@ -31,7 +31,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   String? _emailError;
   String? _passwordError;
   bool _isLoading = false;
-  bool _rememberMe = false;
+  bool _rememberMe = true;
   List<RecentAccount> _recentAccounts = [];
   bool _showManualForm = false;
 
@@ -218,23 +218,27 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       HapticFeedback.mediumImpact();
 
       // Mémorise ce compte pour un accès rapide au prochain lancement
-      // (pré-remplit l'email, ne stocke jamais le mot de passe).
-      try {
-        final userId = SupabaseConfig.client.auth.currentUser?.id;
-        if (userId != null) {
-          final profile = await SupabaseConfig.client
-              .from('profiles')
-              .select('full_name, avatar_url')
-              .eq('id', userId)
-              .single();
-          await RecentAccountsStore.remember(RecentAccount(
-            email: _emailController.text.trim(),
-            fullName: profile['full_name'] as String?,
-            avatarUrl: profile['avatar_url'] as String?,
-          ));
+      // (pré-remplit l'email, ne stocke jamais le mot de passe) —
+      // seulement si "Se souvenir de moi" est coché (utile pour ne pas
+      // laisser un compte visible sur un appareil partagé/public).
+      if (_rememberMe) {
+        try {
+          final userId = SupabaseConfig.client.auth.currentUser?.id;
+          if (userId != null) {
+            final profile = await SupabaseConfig.client
+                .from('profiles')
+                .select('full_name, avatar_url')
+                .eq('id', userId)
+                .single();
+            await RecentAccountsStore.remember(RecentAccount(
+              email: _emailController.text.trim(),
+              fullName: profile['full_name'] as String?,
+              avatarUrl: profile['avatar_url'] as String?,
+            ));
+          }
+        } catch (_) {
+          // Non bloquant : la connexion a déjà réussi.
         }
-      } catch (_) {
-        // Non bloquant : la connexion a déjà réussi.
       }
 
       // Associe le token FCM de cet appareil au compte qui vient de se
