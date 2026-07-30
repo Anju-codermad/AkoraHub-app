@@ -1914,7 +1914,7 @@ code, package name, manifestes, ressources) :
   laissé tel quel — c'est une note historique sur une suppression déjà
   faite, pas une trace active.
 
-## 3onziemetrentecies. Référence et preuve de paiement (30/07) ✅ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ
+## 3onziemetrentecies. Référence et preuve de paiement (30/07) ✅ FAIT
 
 Suite au test du sélecteur de paiement (capture d'écran envoyée par
 l'utilisateur, virement bancaire bien affiché avec les vraies
@@ -1932,8 +1932,9 @@ Mobile Money — est obligatoire** pour tout mode autre que "paiement à la
 livraison". Validation bloquante côté client (`cart_tab.dart`) avant
 envoi de la commande (en ligne et hors-ligne).
 
-- **Schéma** : `supabase/phase29_patch_payment_proof.sql` (**script prêt,
-  pas encore exécuté**) — colonnes `orders.payment_reference` (texte) et
+- **Schéma** : `supabase/phase29_patch_payment_proof.sql` (**exécuté avec
+  succès par l'utilisateur, 30/07**) — colonnes `orders.payment_reference`
+  (texte) et
   `orders.payment_proof_path` (chemin dans le bucket). Bucket **privé**
   `payment-proofs` (contrairement à `avatars`, public) : ce sont des
   documents financiers — RLS : le client ne peut lire/écrire que dans son
@@ -1959,11 +1960,9 @@ envoi de la commande (en ligne et hors-ligne).
   montre que les commandes en mode de paiement manuel pas encore marquées
   payées.
 
-**Reste à faire** : exécuter `phase29_patch_payment_proof.sql` dans
-Supabase avant que l'upload de preuve ne fonctionne (sans le bucket/les
-colonnes, l'upload échouerait silencieusement — repli tolérant déjà en
-place côté client, mais la preuve ne serait jamais réellement
-enregistrée).
+**Terminé (30/07)** : script exécuté avec succès par l'utilisateur — la
+référence/preuve de paiement et le verrouillage du statut
+(3douzetrentecies) sont maintenant pleinement fonctionnels côté serveur.
 
 ## 3douzetrentecies. Verrouillage du statut tant que le paiement manuel n'est pas confirmé (30/07) ✅ FAIT
 
