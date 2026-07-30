@@ -1380,23 +1380,7 @@ class _ProductCard extends StatelessWidget {
                     Positioned(
                       right: 8,
                       bottom: 8,
-                      child: Material(
-                        color: theme.colorScheme.primary,
-                        shape: const CircleBorder(),
-                        elevation: 2,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: onQuickAdd,
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Icon(
-                              Icons.add,
-                              size: 16,
-                              color: theme.colorScheme.onPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
+                      child: _QuickAddButton(onTap: onQuickAdd),
                     ),
                   ],
                 ),
@@ -1422,6 +1406,66 @@ class _ProductCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bouton "+" d'ajout rapide au panier — petit effet de rebond au tap,
+/// pour donner un retour visuel immédiat que l'ajout a bien eu lieu
+/// (auparavant seul un SnackBar discret confirmait l'action).
+class _QuickAddButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _QuickAddButton({required this.onTap});
+
+  @override
+  State<_QuickAddButton> createState() => _QuickAddButtonState();
+}
+
+class _QuickAddButtonState extends State<_QuickAddButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
+  late final Animation<double> _scale = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 1),
+    TweenSequenceItem(tween: Tween(begin: 1.35, end: 1.0), weight: 1),
+  ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    _controller.forward(from: 0);
+    widget.onTap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ScaleTransition(
+      scale: _scale,
+      child: Material(
+        color: theme.colorScheme.primary,
+        shape: const CircleBorder(),
+        elevation: 2,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: _handleTap,
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Icon(
+              Icons.add,
+              size: 16,
+              color: theme.colorScheme.onPrimary,
+            ),
           ),
         ),
       ),

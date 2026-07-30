@@ -2193,7 +2193,24 @@ autre écran n'en avait avant).
 
 **Prochaines étapes possibles** (à valider une par une avec
 l'utilisateur avant de les faire) : transitions de page personnalisées,
-retour visuel à l'ajout au panier, écrans de chargement squelettes.
+écrans de chargement squelettes.
+
+## 3dixhuittrentecies. Animations — 2ème étape : retour visuel à l'ajout au panier (30/07) ✅ FAIT
+
+Suite de 3dixseptrentecies. Le bouton "+" d'ajout rapide au panier (sur
+chaque carte produit du catalogue) ne donnait comme retour qu'un
+SnackBar discret d'une seconde — facile à manquer. Ajout d'un petit
+**effet de rebond** (scale 1 → 1,35 → 1 sur 220ms, `AnimationController` +
+`TweenSequence`) au tap, en plus du SnackBar existant (inchangé).
+
+- Nouveau widget privé `_QuickAddButton` (`catalog_tab.dart`), remplace
+  le `Material`/`InkWell` codé en dur précédemment inline dans
+  `_ProductCard`.
+- Limité à ce seul bouton — les favoris (`favorites_screen.dart`) n'ont
+  pas de bouton d'ajout rapide équivalent, rien à changer là-bas.
+
+**Prochaines étapes possibles restantes** : transitions de page
+personnalisées, écrans de chargement squelettes.
 
 ## 4. Ce qui N'EST PAS encore fait
 
