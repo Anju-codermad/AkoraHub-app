@@ -98,9 +98,9 @@ progressivement avec un vrai backend Supabase.
   **Piliers supplémentaires** (26/07) — noms finaux décidés par
   l'utilisateur (différents de la proposition initiale "Akora
   Chimie/Cosmétique/Insecticides") : **Matières Premières**, **Anti-
-  Nuisibles**, **Matières Premières Peinture**. Script prêt :
+  Nuisibles**, **Matières Premières Peinture**. Script :
   `supabase/phase21_patch_new_business_units.sql` (insert idempotent,
-  **en attente d'exécution par l'utilisateur**). Icônes déjà mappées côté
+  **exécuté avec succès par l'utilisateur le 30/07**). Icônes déjà mappées côté
   client (`_iconForUnit` dans `catalog_tab.dart`) via les mots-clés
   `peinture` → pinceau, `chimique` → fiole, `nuisible` → anti-nuisible
   (peinture vérifiée en premier pour éviter le faux-positif de
@@ -403,7 +403,7 @@ de recréer le genre de "fonctionnalité bidon" qu'on a nettoyé plus tôt
 dans le projet).
 
 **Table `profiles`** : 2 nouveaux champs (`supabase/phase20_patch_profile_bio_cover.sql`,
-**script prêt, pas encore exécuté**) : `bio text`, `cover_url text`. Pas
+**exécuté avec succès par l'utilisateur le 30/07**) : `bio text`, `cover_url text`. Pas
 de nouveau bucket Storage — la photo de couverture réutilise le bucket
 `avatars` existant, juste un nom de fichier différent
 (`${userId}/cover_*.jpg`), déjà couvert par la policy actuelle (dossier
@@ -444,8 +444,8 @@ d'amis ou des stories un jour, ça mérite sa propre conversation (modèle
 de données, écrans de demandes d'ami) — pas à fabriquer avec de fausses
 données dans ce redesign.
 
-**Reste à faire** : exécuter `phase20_patch_profile_bio_cover.sql` dans
-Supabase pour que bio et couverture se sauvegardent.
+**Terminé (30/07)** : `phase20_patch_profile_bio_cover.sql` exécuté avec
+succès — bio et couverture se sauvegardent bien.
 
 ## 3septies. Menu Admin "Plus" (25/07)
 
@@ -501,12 +501,13 @@ langue), catégorie d'activité.
 - **Logo d'entreprise** : le bouton "changer le logo" ouvrait bien la
   galerie/caméra, mais un commentaire `// In real implementation, upload
   image and update businessData` révélait que la photo choisie n'était
-  jamais uploadée ni sauvegardée. Ajout d'un vrai upload vers un nouveau
-  bucket Storage `company` (`supabase/phase11_patch_company_logo_bucket.sql`,
-  **script prêt, pas encore exécuté** — public en lecture, écriture
-  réservée au staff, même pattern que `products`/`avatars`), avec
-  indicateur de chargement pendant l'envoi. `logo` ajouté à
-  `_persistedKeys`.
+  jamais uploadée ni sauvegardée. Ajout d'un vrai upload avec indicateur
+  de chargement pendant l'envoi, `logo` ajouté à `_persistedKeys`.
+  **Note (30/07)** : `supabase/phase11_patch_company_logo_bucket.sql`
+  mentionné ici est en réalité un fichier **vide** — le vrai bucket a
+  été créé plus tard sous un nom différent (`company-logo`, section
+  3undecies, `phase15_schema.sql`, déjà exécuté avec succès). Fichier
+  phase11 sans effet, à supprimer un jour par ménage.
 
 **Non touché dans cette passe** : tous les textes de cet écran restent en
 anglais ("Company Name", "Business Category"...) — signalé à l'utilisateur
@@ -1332,8 +1333,9 @@ contrainte d'unicité sur le slug ne l'a pas détecté comme doublon.
 `supabase/phase22_patch_cleanup_duplicate_pilier.sql` : garde le pilier
 avec ses 12 catégories déjà attachées (`matieres-premieres`), migre vers
 lui toute catégorie/produit qui aurait été accroché par erreur au
-doublon (normalement rien), puis supprime le doublon vide. **Statut
-d'exécution à confirmer par l'utilisateur.**
+doublon (normalement rien), puis supprime le doublon vide. **Exécuté
+avec succès par l'utilisateur le 30/07** — vérification finale confirme
+une seule ligne "Matières Premières" (slug `matieres-premieres`, actif).
 
 **Cause racine corrigée** (`business_units_management.dart`, `_slugify`) :
 la fonction ne translittérait pas les accents avant de générer le slug —
