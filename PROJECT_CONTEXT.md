@@ -1704,6 +1704,56 @@ les mêmes messages non lus. Corrigé dans `catalog_tab.dart` : même
 `Badge(label: '$_unreadMessagesCount', isLabelVisible: ... > 0)` ajouté
 autour de l'icône bulle de chat — les 3 icônes sont maintenant cohérentes.
 
+## 3quintrentecies. Nombre de messages non lus au tableau de bord Admin (30/07) ✅ FAIT
+
+Suite au test utilisateur (capture d'écran : tableau de bord Admin affichait
+"Messages : —"), deux trous trouvés par inspection directe du code :
+- `metrics_cards_widget.dart` : la carte "Messages" affichait un `'—'`
+  **codé en dur**, jamais reliée à une vraie requête.
+- `business_dashboard.dart` : `GreetingHeaderWidget` était instancié
+  **sans** passer `notificationCount` — la logique d'affichage du badge
+  de la cloche était pourtant déjà correcte dans ce widget
+  (`greeting_header_widget.dart`), juste jamais alimentée (défaut à 0
+  silencieux).
+
+Corrigé dans les deux fichiers avec le **même filtre** déjà utilisé par
+`messaging_center_real.dart` (`sender_role='client'`, `read_by_staff=false`)
+pour rester cohérent partout : carte "Messages" et badge de cloche du
+tableau de bord Admin affichent maintenant le vrai nombre de messages
+client non lus par le staff.
+
+## 3sextrentecies. Notifications silencieuses — permission POST_NOTIFICATIONS manquante (30/07) ✅ FAIT
+
+L'utilisateur a signalé après test réel : notifications sans son, et
+aucun signe dans les icônes des deux côtés. Le trou de badges a été
+traité en 3quatretrentecies/3quintrentecies. Pour le son : vérification
+complète de la chaîne (fichiers `.wav` présents et nommés correctement
+dans `android/app/src/main/res/raw/`, canaux Android créés avec le bon
+son via `ensureAndroidChannel`, payload FCM correct côté
+`send-push-notification/index.ts`) — tout était correct côté code.
+
+**Vraie cause** : `AndroidManifest.xml` ne déclarait pas
+`android.permission.POST_NOTIFICATIONS`, obligatoire depuis Android 13
+(API 33). Sans cette déclaration, Android **bloque silencieusement
+toute notification** (avec ou sans son) — la plupart des appareils de
+test en 2026 tournent sous Android 13+.
+
+- Ajout de `<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>`
+  dans `android/app/src/main/AndroidManifest.xml`.
+- Ajout en complément d'un appel explicite
+  `AndroidFlutterLocalNotificationsPlugin.requestNotificationsPermission()`
+  dans `push_notification_service.dart` (au cas où
+  `FirebaseMessaging.requestPermission()` seul ne déclenche pas la
+  demande sur certains appareils).
+
+**Important pour le prochain test** : si l'app a déjà été installée sur
+l'appareil de test avant ce correctif, **désinstaller complètement
+l'app** avant de réinstaller le nouveau build — sinon Android peut avoir
+mémorisé un refus de permission ou des canaux de notification déjà créés
+sans son, et un simple "remplacer l'APK" ne suffit pas à réinitialiser
+ni la permission ni les canaux (immuables une fois créés, voir
+3neuvicies).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
