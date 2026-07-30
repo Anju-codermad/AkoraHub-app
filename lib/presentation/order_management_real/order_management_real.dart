@@ -20,6 +20,7 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   bool _isLoading = true;
   String? _error;
   String _statusFilter = 'toutes';
+  bool _onlyPaymentToVerify = false;
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -122,6 +123,24 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                     ),
                   ],
                 ),
+                if ((order['payment_reference'] as String?)
+                        ?.isNotEmpty ==
+                    true) ...[
+                  SizedBox(height: 0.5.h),
+                  Text(
+                    'Référence : ${order['payment_reference']}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (order['payment_proof_path'] != null) ...[
+                  SizedBox(height: 0.5.h),
+                  TextButton.icon(
+                    onPressed: () =>
+                        _viewPaymentProof(order['payment_proof_path']),
+                    icon: const Icon(Icons.image_outlined, size: 18),
+                    label: const Text('Voir la capture de paiement'),
+                  ),
+                ],
                 SizedBox(height: 1.h),
                 Text('Statut du paiement',
                     style: Theme.of(context).textTheme.labelLarge),
@@ -250,8 +269,44 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   }
 
   List<Map<String, dynamic>> get _filteredOrders {
-    if (_statusFilter == 'toutes') return _orders;
-    return _orders.where((o) => o['status'] == _statusFilter).toList();
+    var orders = _statusFilter == 'toutes'
+        ? _orders
+        : _orders.where((o) => o['status'] == _statusFilter).toList();
+    if (_onlyPaymentToVerify) {
+      orders = orders
+          .where((o) =>
+              (o['payment_method'] ?? 'paiement_livraison') !=
+                  'paiement_livraison' &&
+              (o['payment_status'] ?? 'en_attente') != 'paye')
+          .toList();
+    }
+    return orders;
+  }
+
+  /// Ouvre la capture de paiement jointe par le client (bucket privé
+  /// `payment-proofs` — URL signée temporaire, pas d'URL publique
+  /// puisque ce sont des documents financiers).
+  Future<void> _viewPaymentProof(String path) async {
+    try {
+      final signedUrl = await SupabaseConfig.client.storage
+          .from('payment-proofs')
+          .createSignedUrl(path, 3600);
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          child: InteractiveViewer(
+            child: Image.network(signedUrl),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Impossible de charger la capture de paiement.')),
+      );
+    }
   }
 
   Color _statusColor(String status, ThemeData theme) {
@@ -316,6 +371,14 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                       () => _statusFilter = entry.key),
                                 ),
                               )),
+                          FilterChip(
+                            label: const Text('Paiement à vérifier'),
+                            avatar: const Icon(Icons.receipt_long_outlined,
+                                size: 16),
+                            selected: _onlyPaymentToVerify,
+                            onSelected: (v) =>
+                                setState(() => _onlyPaymentToVerify = v),
+                          ),
                         ],
                       ),
                     ),
@@ -346,13 +409,33 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                           customer['full_name'] ??
                                           'Client')
                                       : 'Client';
+                                  final hasPaymentProof =
+                                      order['payment_proof_path'] != null ||
+                                          (order['payment_reference']
+                                                      as String?)
+                                                  ?.isNotEmpty ==
+                                              true;
                                   return Card(
                                     child: ListTile(
                                       title: Text(
                                           order['order_number'] ?? ''),
-                                      subtitle: Text(
-                                        '$customerName · ${_currency.format(order['total_amount'] ?? 0)} · '
-                                        '${PaymentMethodX.fromId(order['payment_method'] as String?).label}',
+                                      subtitle: Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              '$customerName · ${_currency.format(order['total_amount'] ?? 0)} · '
+                                              '${PaymentMethodX.fromId(order['payment_method'] as String?).label}',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (hasPaymentProof) ...[
+                                            const SizedBox(width: 4),
+                                            Icon(Icons.attach_file,
+                                                size: 14,
+                                                color: theme
+                                                    .colorScheme.primary),
+                                          ],
+                                        ],
                                       ),
                                       trailing: Column(
                                         mainAxisAlignment:

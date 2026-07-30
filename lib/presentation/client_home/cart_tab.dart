@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
@@ -36,12 +40,27 @@ class _CartTabState extends ConsumerState<CartTab> {
 
   PaymentMethod _paymentMethod = PaymentMethod.paiementLivraison;
   Set<PaymentMethod> _availableMethods = PaymentMethod.values.toSet();
+  final _paymentReferenceController = TextEditingController();
+  File? _paymentProofFile;
 
   @override
   void initState() {
     super.initState();
     _estimateDelivery();
     _loadAvailablePaymentMethods();
+  }
+
+  @override
+  void dispose() {
+    _paymentReferenceController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPaymentProof() async {
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    setState(() => _paymentProofFile = File(picked.path));
   }
 
   /// Modes de paiement activés par l'Admin (voir
@@ -212,6 +231,10 @@ class _CartTabState extends ConsumerState<CartTab> {
                 'latitude': _deliveryLat,
                 'longitude': _deliveryLon,
                 'payment_method': _paymentMethod.id,
+                'payment_reference':
+                    _paymentReferenceController.text.trim().isEmpty
+                        ? null
+                        : _paymentReferenceController.text.trim(),
               },
               'items': cart
                   .map((item) => {
@@ -232,9 +255,13 @@ class _CartTabState extends ConsumerState<CartTab> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              asQuote
-                  ? 'Pas de connexion — votre demande de devis sera envoyée automatiquement dès que le réseau revient.'
-                  : 'Pas de connexion — votre commande sera envoyée automatiquement dès que le réseau revient.',
+              [
+                asQuote
+                    ? 'Pas de connexion — votre demande de devis sera envoyée automatiquement dès que le réseau revient.'
+                    : 'Pas de connexion — votre commande sera envoyée automatiquement dès que le réseau revient.',
+                if (!asQuote && _paymentProofFile != null)
+                  ' La capture de paiement n\'a pas pu être jointe (nécessite une connexion) — vous pourrez l\'envoyer par message.',
+              ].join(),
             ),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 5),
@@ -272,6 +299,22 @@ class _CartTabState extends ConsumerState<CartTab> {
             );
       } else {
         final orderNumber = _generateNumber('CMD');
+
+        String? proofPath;
+        if (_paymentProofFile != null) {
+          try {
+            proofPath = '$userId/$orderNumber.jpg';
+            await SupabaseConfig.client.storage
+                .from('payment-proofs')
+                .upload(proofPath, _paymentProofFile!);
+          } catch (_) {
+            // Repli tolérant : la commande part quand même sans preuve
+            // jointe (ex: migration phase29 pas encore exécutée) — le
+            // staff pourra la demander par message si besoin.
+            proofPath = null;
+          }
+        }
+
         final order = await SupabaseConfig.client
             .from('orders')
             .insert({
@@ -285,6 +328,11 @@ class _CartTabState extends ConsumerState<CartTab> {
               'latitude': _deliveryLat,
               'longitude': _deliveryLon,
               'payment_method': _paymentMethod.id,
+              'payment_reference':
+                  _paymentReferenceController.text.trim().isEmpty
+                      ? null
+                      : _paymentReferenceController.text.trim(),
+              'payment_proof_path': proofPath,
             })
             .select()
             .single();
@@ -304,6 +352,8 @@ class _CartTabState extends ConsumerState<CartTab> {
       }
 
       ref.read(cartProvider.notifier).clear();
+      _paymentReferenceController.clear();
+      _paymentProofFile = null;
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -486,7 +536,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                 onSelected: (method) =>
                     setState(() => _paymentMethod = method),
               ),
-              if (_paymentMethod.instructions != null)
+              if (_paymentMethod.instructions != null) ...[
                 Container(
                   margin: EdgeInsets.only(top: 1.h),
                   padding: EdgeInsets.all(3.w),
@@ -498,12 +548,33 @@ class _CartTabState extends ConsumerState<CartTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Effectuez ce paiement puis validez votre commande '
-                        '— nous confirmons dès réception :',
-                        style: theme.textTheme.bodySmall,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Effectuez ce paiement puis validez votre '
+                              'commande — nous confirmons dès réception :',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.copy_outlined, size: 18),
+                            tooltip: 'Copier les coordonnées',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(
+                                  text: _paymentMethod.instructions!));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Coordonnées copiées.'),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 0.5.h),
                       SelectableText(
                         _paymentMethod.instructions!,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -513,6 +584,54 @@ class _CartTabState extends ConsumerState<CartTab> {
                     ],
                   ),
                 ),
+                SizedBox(height: 1.h),
+                TextField(
+                  controller: _paymentReferenceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Référence de paiement (facultatif)',
+                    hintText: 'Ex : numéro de transaction reçu par SMS',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                SizedBox(height: 1.h),
+                if (_paymentProofFile != null)
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          _paymentProofFile!,
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: Colors.black54,
+                          child: IconButton(
+                            icon: const Icon(Icons.close,
+                                size: 16, color: Colors.white),
+                            padding: EdgeInsets.zero,
+                            onPressed: () =>
+                                setState(() => _paymentProofFile = null),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: _pickPaymentProof,
+                    icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                    label:
+                        const Text('Joindre une capture du paiement (facultatif)'),
+                  ),
+              ],
               SizedBox(height: 1.5.h),
               Center(
                 child: TextButton.icon(

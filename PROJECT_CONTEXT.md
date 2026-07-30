@@ -1914,6 +1914,53 @@ code, package name, manifestes, ressources) :
   laissé tel quel — c'est une note historique sur une suppression déjà
   faite, pas une trace active.
 
+## 3onziemetrentecies. Référence et preuve de paiement (30/07) ✅ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ
+
+Suite au test du sélecteur de paiement (capture d'écran envoyée par
+l'utilisateur, virement bancaire bien affiché avec les vraies
+coordonnées), demande d'amélioration : aujourd'hui le staff doit deviner
+manuellement quelle commande correspond à quel virement/transfert reçu.
+Ajout d'un champ de référence + upload optionnel d'une capture d'écran de
+transaction, pour les modes de paiement manuels (pas pour "paiement à la
+livraison").
+
+**Décision de conception (recommandation validée)** : référence + capture
+**facultatives, pas bloquantes** — le client peut valider sa commande
+sans (ex : il paie juste après avoir validé), le staff relance par
+message si la preuve manque à la vérification. Les rendre obligatoires
+risquerait de bloquer des commandes légitimes.
+
+- **Schéma** : `supabase/phase29_patch_payment_proof.sql` (**script prêt,
+  pas encore exécuté**) — colonnes `orders.payment_reference` (texte) et
+  `orders.payment_proof_path` (chemin dans le bucket). Bucket **privé**
+  `payment-proofs` (contrairement à `avatars`, public) : ce sont des
+  documents financiers — RLS : le client ne peut lire/écrire que dans son
+  propre dossier (`storage.foldername(name)[1] = auth.uid()`), le staff
+  peut tout lire via `current_role_is_staff()`.
+- **Client** (`cart_tab.dart`) : quand un mode autre que "livraison" est
+  choisi, un champ "Référence de paiement" (facultatif) et un bouton
+  "Joindre une capture" (`image_picker`, aperçu + bouton retirer)
+  apparaissent sous les coordonnées. Upload vers le bucket juste avant
+  l'insertion de la commande (chemin `<user_id>/<order_number>.jpg`) ;
+  repli tolérant si l'upload échoue (commande envoyée quand même, sans
+  preuve jointe). Hors-ligne : la référence texte part normalement dans
+  la file d'attente, la capture ne peut pas être jointe (pas de réseau) —
+  message explicite à l'utilisateur si une photo avait été sélectionnée.
+  Ajout au passage d'un **bouton "copier"** sur l'encadré des coordonnées
+  de paiement (`Clipboard.setData`).
+- **Admin** (`order_management_real.dart`) : référence et bouton "Voir la
+  capture de paiement" (URL signée temporaire, 1h) affichés dans la fiche
+  commande ; icône trombone dans la liste si une preuve/référence existe.
+  Nouveau filtre rapide **"Paiement à vérifier"** (`FilterChip`) : ne
+  montre que les commandes en mode de paiement manuel pas encore marquées
+  payées.
+
+**Reste à faire** : exécuter `phase29_patch_payment_proof.sql` dans
+Supabase avant que l'upload de preuve ne fonctionne (sans le bucket/les
+colonnes, l'upload échouerait silencieusement — repli tolérant déjà en
+place côté client, mais la preuve ne serait jamais réellement
+enregistrée).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
