@@ -1987,6 +1987,31 @@ n'est pas confirmé (`payment_status = 'paye'` ou `'facture_30j'`) —
   non confirmé. Rien ne change pour "paiement à la livraison" (jamais
   verrouillé) ni pour les commandes déjà marquées payées/facturées.
 
+## 3treizetrentecies. Nouvelle icône Android poussée directement par l'utilisateur (30/07) ⚠️ INCOHÉRENCE ENTRE PLATEFORMES
+
+Découverte lors d'un audit demandé par l'utilisateur : 5 commits
+(`2d88033`..`65ef5dc`) poussés **directement sur `main` par l'utilisateur
+lui-même** (pas une autre session Claude — auteur `Anju-codermad
+<julioandrinirina95@gmail.com>`, vraisemblablement via l'interface web
+GitHub), jamais documentés ici. Remplacent les 5 densités
+`android/app/src/main/res/mipmap-*/ic_launcher.png` par un nouveau
+design : lettre "A" verte conservée, mais le chariot à l'intérieur est
+redessiné (silhouette de caddie vert avec 3 rectangles colorés inclinés
+au-dessus, façon "produits" — voir discussion sur un nouveau logo dans
+cette session) à la place de l'ancien chariot en "swoosh" + rectangle
+orange + cylindre bleu marine (design de 3quindecies).
+
+**⚠️ Résultat actuel : incohérence entre plateformes** — seul **Android**
+a la nouvelle icône. **iOS** (`ios/Runner/Assets.xcassets/AppIcon.appiconset/`)
+et **Web** (`web/icons/`, `web/favicon.png`) affichent toujours
+**l'ancien design**. Store assets (`store_assets/play_store_icon_512.png`)
+également pas mis à jour.
+
+**Reste à faire** : soit répliquer le nouveau design sur iOS/Web/store
+assets pour la cohérence (demander à l'utilisateur le fichier source
+haute résolution du nouveau caddie), soit revenir sciemment sur cette
+décision si le changement Android n'était qu'un test.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
