@@ -1534,7 +1534,7 @@ sécurité, un vrai centre d'aide : hors du périmètre demandé). Clé
 **Décision explicite de l'utilisateur** : supprimer le factice plutôt
 que de tout reconstruire pour de vrai.
 
-## 3untrentecies. Suivi de livraison — Google Maps (30/07) ✅ CODE PRÊT, PAS ENCORE ACTIVABLE
+## 3untrentecies. Suivi de livraison — Google Maps (30/07) ✅ FAIT
 
 Demande de l'utilisateur : intégration Google Maps pour le suivi de
 livraison — le staff indique la position du livreur, le client voit un
@@ -1551,12 +1551,22 @@ coder :
 - Le **Maps SDK Android/iOS lui-même est gratuit et illimité** (contrairement
   à l'API JavaScript web) — mais nécessite quand même un projet Google
   Cloud avec la facturation activée (carte bancaire enregistrée) pour
-  obtenir une clé API. **Même risque déjà rencontré avec GitHub** : une
-  carte prépayée peut être refusée — pas encore testé côté Google au
-  moment d'écrire ceci.
+  obtenir une clé API. **Contrairement à GitHub, la carte de l'utilisateur
+  a été acceptée sans problème** par Google Cloud Billing (30/07).
+
+**Compte Google Cloud créé et configuré (30/07)** : projet dédié
+`AkoraHub` (ID `akorahub-504010`), facturation activée, **Maps SDK for
+Android** activé, clé API créée (nommée "AkoraHub Maps"), **restreinte à
+cette seule API** (principe du moindre privilège — limite les dégâts en
+cas de fuite, même si d'autres API venaient à être activées plus tard sur
+ce projet). Pas de restriction par application Android pour l'instant
+(nécessiterait l'empreinte SHA-1 du keystore de production — à faire
+plus tard en durcissement si besoin, pas bloquant). Clé ajoutée comme
+secret `MAPS_API_KEY` dans **GitHub Actions** et dans le groupe
+**`akorahub_secrets`** sur **Codemagic**.
 
 **Schéma** : `supabase/phase25_patch_orders_driver_position.sql`
-(**script prêt, pas encore exécuté**) — 3 colonnes sur `orders` :
+(**exécuté avec succès par l'utilisateur le 30/07**) — 3 colonnes sur `orders` :
 `driver_latitude`, `driver_longitude`, `driver_position_updated_at`.
 Aucun changement RLS nécessaire (les policies existantes sur `orders`
 couvrent déjà toutes les colonnes).
@@ -1587,16 +1597,12 @@ gris tant qu'une vraie clé n'est pas fournie, aucun crash. iOS non câblé
 (pas de pipeline CI iOS actif actuellement, voir section 5 — à faire le
 jour où un build iOS est mis en place).
 
-**⚠️ Reste à faire avant que ça fonctionne réellement** :
-1. Créer un projet Google Cloud, activer **Maps SDK for Android** (et iOS
-   si besoin plus tard), activer la facturation (carte bancaire — **à
-   tester, risque de refus comme pour GitHub**), générer une clé API.
-2. Ajouter cette clé comme secret **`MAPS_API_KEY`** — à la fois dans les
-   secrets GitHub Actions du dépôt, et dans le groupe `akorahub_secrets`
-   sur Codemagic.
-3. Exécuter `phase25_patch_orders_driver_position.sql` dans Supabase.
-4. `flutter pub get` (nouvelle dépendance) — automatique au prochain
-   build CI.
+**Terminé (30/07)** : les 4 prérequis sont faits — projet Google Cloud +
+facturation + clé API restreinte, secrets `MAPS_API_KEY` ajoutés
+(GitHub + Codemagic), script `phase25` exécuté. Fusionné sur `main`,
+nouveau build déclenché. Reste à tester en conditions réelles (le staff
+met à jour sa position, le client vérifie que la carte s'affiche avec les
+2 marqueurs).
 
 ## 4. Ce qui N'EST PAS encore fait
 
