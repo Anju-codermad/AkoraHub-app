@@ -1,6 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/chat/chat_attachment_bubble.dart';
+import '../../core/chat/chat_attachment_service.dart';
+import '../../core/chat/chat_composer.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Messagerie côté staff : liste de toutes les conversations clients,
@@ -250,6 +255,38 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
     }
   }
 
+  Future<void> _sendAttachment(File file, String type,
+      {String? name, int? durationMs}) async {
+    if (_myId == null) return;
+
+    try {
+      final upload = await ChatAttachmentService.upload(
+        conversationId: widget.conversationId,
+        file: file,
+        type: type,
+        name: name,
+        durationMs: durationMs,
+      );
+      await SupabaseConfig.client.from('messages').insert({
+        'conversation_id': widget.conversationId,
+        'sender_id': _myId,
+        'sender_role': 'staff',
+        'attachment_url': upload.path,
+        'attachment_type': upload.type,
+        'attachment_name': upload.name,
+        'attachment_duration_ms': upload.durationMs,
+        'read_by_staff': true,
+      });
+      await _loadMessages();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Échec de l\'envoi de la pièce jointe.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -311,14 +348,26 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
                                         MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
-                              Text(
-                                m['content'] ?? '',
-                                style: TextStyle(
-                                  color: isMine
+                              if (m['attachment_type'] != null)
+                                ChatAttachmentBubble(
+                                  path: m['attachment_url'],
+                                  type: m['attachment_type'],
+                                  name: m['attachment_name'],
+                                  durationMs: m['attachment_duration_ms'],
+                                  foregroundColor: isMine
                                       ? theme.colorScheme.onPrimary
                                       : theme.colorScheme.onSurface,
                                 ),
-                              ),
+                              if ((m['content'] as String?)?.isNotEmpty ==
+                                  true)
+                                Text(
+                                  m['content'],
+                                  style: TextStyle(
+                                    color: isMine
+                                        ? theme.colorScheme.onPrimary
+                                        : theme.colorScheme.onSurface,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -330,30 +379,11 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            decoration: const InputDecoration(
-                              hintText: 'Répondre...',
-                              isDense: true,
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(24)),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                            ),
-                            onSubmitted: (_) => _sendMessage(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton.filled(
-                          onPressed: _isSending ? null : _sendMessage,
-                          icon: const Icon(Icons.send),
-                        ),
-                      ],
+                    child: ChatComposer(
+                      controller: _controller,
+                      hintText: 'Répondre...',
+                      onSendText: _isSending ? () {} : _sendMessage,
+                      onSendAttachment: _sendAttachment,
                     ),
                   ),
                 ),

@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/chat/chat_attachment_bubble.dart';
+import '../../core/chat/chat_attachment_service.dart';
+import '../../core/chat/chat_composer.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Messagerie privée client ↔ équipe commerciale — une conversation par
@@ -155,6 +160,45 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _sendAttachment(File file, String type,
+      {String? name, int? durationMs}) async {
+    if (_conversationId == null) return;
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final upload = await ChatAttachmentService.upload(
+        conversationId: _conversationId!,
+        file: file,
+        type: type,
+        name: name,
+        durationMs: durationMs,
+      );
+      await SupabaseConfig.client.from('messages').insert({
+        'conversation_id': _conversationId,
+        'sender_id': userId,
+        'sender_role': 'client',
+        'attachment_url': upload.path,
+        'attachment_type': upload.type,
+        'attachment_name': upload.name,
+        'attachment_duration_ms': upload.durationMs,
+        'read_by_client': true,
+        'read_by_staff': false,
+      });
+      await SupabaseConfig.client
+          .from('conversations')
+          .update({'last_message_at': DateTime.now().toIso8601String()}).eq(
+              'id', _conversationId as Object);
+    } catch (e) {
+      debugPrint('Échec envoi pièce jointe chat : $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Échec de l\'envoi de la pièce jointe.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -271,14 +315,28 @@ class _ChatScreenState extends State<ChatScreen> {
                                                     .shrinkWrap,
                                           ),
                                         ),
-                                      Text(
-                                        m['content'] ?? '',
-                                        style: TextStyle(
-                                          color: isClient
+                                      if (m['attachment_type'] != null)
+                                        ChatAttachmentBubble(
+                                          path: m['attachment_url'],
+                                          type: m['attachment_type'],
+                                          name: m['attachment_name'],
+                                          durationMs:
+                                              m['attachment_duration_ms'],
+                                          foregroundColor: isClient
                                               ? theme.colorScheme.onPrimary
                                               : theme.colorScheme.onSurface,
                                         ),
-                                      ),
+                                      if ((m['content'] as String?)
+                                              ?.isNotEmpty ==
+                                          true)
+                                        Text(
+                                          m['content'],
+                                          style: TextStyle(
+                                            color: isClient
+                                                ? theme.colorScheme.onPrimary
+                                                : theme.colorScheme.onSurface,
+                                          ),
+                                        ),
                                       if (createdAt != null && isLastOfGroup)
                                         Padding(
                                           padding:
@@ -310,74 +368,37 @@ class _ChatScreenState extends State<ChatScreen> {
                       top: false,
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(3.w, 1.h, 3.w, 1.h),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding:
-                                  const EdgeInsets.only(bottom: 6, left: 4),
-                              child: FilterChip(
-                                label: const Text('Envoyer comme demande'),
-                                avatar: Icon(
-                                  Icons.request_page_outlined,
-                                  size: 16,
-                                  color: _isRequestMode
-                                      ? theme.colorScheme.onPrimary
-                                      : theme.colorScheme.outline,
-                                ),
-                                selected: _isRequestMode,
-                                onSelected: (v) =>
-                                    setState(() => _isRequestMode = v),
-                                selectedColor: theme.colorScheme.primary,
-                                labelStyle: TextStyle(
-                                  color: _isRequestMode
-                                      ? theme.colorScheme.onPrimary
-                                      : null,
-                                  fontSize: 11,
-                                ),
+                        child: ChatComposer(
+                          controller: _textController,
+                          hintText: _isRequestMode
+                              ? 'Décrivez votre besoin...'
+                              : 'Écrire un message...',
+                          onSendText: _send,
+                          onSendAttachment: _sendAttachment,
+                          topBar: Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: 6, left: 4),
+                            child: FilterChip(
+                              label: const Text('Envoyer comme demande'),
+                              avatar: Icon(
+                                Icons.request_page_outlined,
+                                size: 16,
+                                color: _isRequestMode
+                                    ? theme.colorScheme.onPrimary
+                                    : theme.colorScheme.outline,
+                              ),
+                              selected: _isRequestMode,
+                              onSelected: (v) =>
+                                  setState(() => _isRequestMode = v),
+                              selectedColor: theme.colorScheme.primary,
+                              labelStyle: TextStyle(
+                                color: _isRequestMode
+                                    ? theme.colorScheme.onPrimary
+                                    : null,
+                                fontSize: 11,
                               ),
                             ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _textController,
-                                    minLines: 1,
-                                    maxLines: 4,
-                                    textCapitalization:
-                                        TextCapitalization.sentences,
-                                    decoration: InputDecoration(
-                                      hintText: _isRequestMode
-                                          ? 'Décrivez votre besoin...'
-                                          : 'Écrire un message...',
-                                      filled: true,
-                                      fillColor: theme
-                                          .colorScheme.surfaceContainerHighest
-                                          .withValues(alpha: 0.5),
-                                      border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(24),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 10),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 2.w),
-                                Material(
-                                  color: theme.colorScheme.primary,
-                                  shape: const CircleBorder(),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.send),
-                                    color: theme.colorScheme.onPrimary,
-                                    onPressed: _send,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

@@ -2116,6 +2116,53 @@ projet "AkoraHub" déjà existant (créé pour la clé Maps).
    nouveau schéma de deep link nécessite un nouveau build APK/IPA, pas
    testable en hot-reload).
 
+## 3seizetrentecies. Pièces jointes dans la messagerie — photo/vidéo/vocal/fichier (30/07) ✅ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ
+
+Demande de l'utilisateur : pouvoir envoyer des photos/vidéos/fichiers et
+des messages vocaux dans la messagerie (auparavant texte seul). Décisions
+de conception validées par l'utilisateur :
+- **Vocal** : maintenir le bouton micro pour enregistrer (style
+  WhatsApp), relâcher pour envoyer.
+- **Vidéo** : lecture **intégrée dans la bulle** de chat (pas juste une
+  miniature qui ouvre le lecteur externe).
+- **Périmètre** : disponible des **deux côtés**, client ET staff.
+
+- **Schéma** : `supabase/phase30_patch_message_attachments.sql` (**script
+  prêt, pas encore exécuté**) — `messages.content` devient nullable (un
+  message peut être une pièce jointe seule, sans texte), + colonnes
+  `attachment_url`, `attachment_type` (check : image/video/audio/file),
+  `attachment_name`, `attachment_duration_ms`. Bucket **privé**
+  `chat-attachments` (comme `payment-proofs`, pas comme `avatars`) : RLS
+  basée sur le participant à la conversation (client propriétaire ou
+  staff), chemin `chat-attachments/<conversation_id>/<fichier>`.
+- **Nouveau module partagé** `lib/core/chat/` (utilisé par `chat_screen.dart`
+  côté client ET `messaging_center_real.dart` côté staff — évite de dupliquer
+  cette logique conséquente deux fois) :
+  - `chat_attachment_service.dart` : upload vers le bucket + génération
+    d'URL signée temporaire (1h) pour l'affichage.
+  - `chat_attachment_bubble.dart` : rendu de la pièce jointe selon son
+    type — image (tap → visionneuse plein écran avec zoom), vidéo (lecture
+    intégrée via `video_player`, bouton play/pause superposé), audio
+    (bouton play/pause + durée via `audioplayers`), fichier (icône + nom,
+    tap → ouverture externe via `url_launcher`).
+  - `chat_composer.dart` : barre de saisie complète — bouton "+"
+    (bottom sheet Photo/Vidéo/Fichier via `image_picker`/`file_picker`),
+    bouton micro/envoi qui bascule selon la présence de texte (micro si
+    vide, envoi si texte tapé), enregistrement vocal par appui long
+    (`record` package) avec minimum 0,8s (sinon message "trop court"),
+    annulation possible pendant l'enregistrement.
+- **Nouvelles dépendances** : `record`, `video_player`, `file_picker`,
+  `url_launcher`, `path_provider`.
+- **Permissions ajoutées** : `RECORD_AUDIO` (Android manifest),
+  `NSMicrophoneUsageDescription` + `NSPhotoLibraryUsageDescription` (iOS
+  Info.plist).
+
+**Reste à faire** : exécuter `phase30_patch_message_attachments.sql`
+dans Supabase avant que l'envoi de pièces jointes ne fonctionne
+réellement (sans les colonnes/le bucket, l'upload échouerait). Tester de
+bout en bout sur un vrai build (nouvelles permissions natives, pas
+testable en hot-reload).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
