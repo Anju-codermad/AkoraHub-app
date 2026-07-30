@@ -14,6 +14,14 @@
 //
 // SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont fournis automatiquement
 // par Supabase à toute Edge Function — pas besoin de les définir.
+//
+// Depuis la Phase 24 : chaque utilisateur choisit son propre son de
+// notification par catégorie (message/devis/commande,
+// profiles.notification_sound_<catégorie>). Le canal Android
+// correspondant (`akorahub_<catégorie>_<son>`) est créé côté app dès que
+// l'utilisateur choisit ce son (voir
+// lib/core/notifications/push_notification_service.dart) — cette
+// fonction se contente de router chaque envoi vers le bon canal/son.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -21,6 +29,17 @@ interface WebhookPayload {
   table: string;
   record: Record<string, unknown>;
 }
+
+type Category = "message" | "devis" | "commande";
+
+const soundColumn = (category: Category) => `notification_sound_${category}`;
+const defaultSound: Record<Category, string> = {
+  message: "notif_message_classique",
+  devis: "notif_devis_classique",
+  commande: "notif_commande_classique",
+};
+const channelId = (category: Category, soundId: string) =>
+  `akorahub_${category}_${soundId}`;
 
 function base64url(input: ArrayBuffer | string): string {
   const bytes =
@@ -96,8 +115,11 @@ async function sendPush(
   fcmToken: string,
   title: string,
   body: string,
+  category: Category,
+  soundId: string,
 ) {
   const accessToken = await getFirebaseAccessToken(serviceAccount);
+  const channel = channelId(category, soundId);
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
     {
@@ -107,13 +129,46 @@ async function sendPush(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: { token: fcmToken, notification: { title, body } },
+        message: {
+          token: fcmToken,
+          notification: { title, body },
+          data: { category },
+          android: {
+            notification: { channel_id: channel, sound: soundId },
+          },
+          apns: {
+            payload: { aps: { sound: `${soundId}.wav` } },
+          },
+        },
       }),
     },
   );
   if (!res.ok) {
     console.error("Échec envoi FCM :", await res.text());
   }
+}
+
+/// Envoie à un destinataire en lisant son propre choix de son pour cette
+/// catégorie (repli sur le son par défaut si la colonne est vide ou si
+/// la migration phase24 n'a pas encore été exécutée).
+async function sendToProfile(
+  serviceAccount: { project_id: string; client_email: string; private_key: string },
+  profile: Record<string, unknown> | null | undefined,
+  title: string,
+  body: string,
+  category: Category,
+) {
+  if (!profile?.fcm_token) return;
+  const soundId =
+    (profile[soundColumn(category)] as string | null) ?? defaultSound[category];
+  await sendPush(
+    serviceAccount,
+    profile.fcm_token as string,
+    title,
+    body,
+    category,
+    soundId,
+  );
 }
 
 Deno.serve(async (req) => {
@@ -140,8 +195,10 @@ Deno.serve(async (req) => {
     let recipientIds: string[] = [];
     let title = "AkoraHub";
     let body = "Vous avez une nouvelle notification";
+    let category: Category = "message";
 
     if (payload.table === "messages") {
+      category = "message";
       const { data: conv } = await supabase
         .from("conversations")
         .select("customer_id")
@@ -152,14 +209,14 @@ Deno.serve(async (req) => {
         // Le client a écrit -> notifie toute l'équipe (Admin/Commercial).
         const { data: staff } = await supabase
           .from("profiles")
-          .select("fcm_token")
+          .select(`fcm_token, ${soundColumn(category)}`)
           .in("role", ["admin", "commercial"])
           .not("fcm_token", "is", null);
         title = "Nouveau message client";
         body = String(record.content ?? "").slice(0, 100) ||
           "Nouveau message reçu";
         for (const s of staff ?? []) {
-          if (s.fcm_token) await sendPush(serviceAccount, s.fcm_token, title, body);
+          await sendToProfile(serviceAccount, s, title, body, category);
         }
         return new Response("ok");
       } else if (conv?.customer_id) {
@@ -169,6 +226,7 @@ Deno.serve(async (req) => {
           "Vous avez reçu une réponse";
       }
     } else if (payload.table === "quote_messages") {
+      category = "devis";
       const { data: quote } = await supabase
         .from("quotes")
         .select("customer_id")
@@ -188,6 +246,7 @@ Deno.serve(async (req) => {
       // le client concerné. Le trigger SQL ne se déclenche déjà que sur
       // ces deux statuts précis (voir supabase/phase18_schema.sql), donc
       // pas besoin de revérifier ici.
+      category = "commande";
       const statusLabels: Record<string, string> = {
         expediee: "Votre commande a été expédiée",
         livree: "Votre commande a été livrée",
@@ -202,9 +261,10 @@ Deno.serve(async (req) => {
     } else if (payload.table === "quotes") {
       // Le client vient d'accepter/refuser un devis -> notifie toute
       // l'équipe (Admin/Commercial), pas juste le staff qui avait répondu.
+      category = "devis";
       const { data: staff } = await supabase
         .from("profiles")
-        .select("fcm_token")
+        .select(`fcm_token, ${soundColumn(category)}`)
         .in("role", ["admin", "commercial"])
         .not("fcm_token", "is", null);
       const accepted = record.status === "accepte";
@@ -213,7 +273,7 @@ Deno.serve(async (req) => {
         accepted ? "accepté" : "refusé"
       } par le client.`;
       for (const s of staff ?? []) {
-        if (s.fcm_token) await sendPush(serviceAccount, s.fcm_token, title, body);
+        await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
     }
@@ -221,12 +281,10 @@ Deno.serve(async (req) => {
     for (const id of recipientIds) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("fcm_token")
+        .select(`fcm_token, ${soundColumn(category)}`)
         .eq("id", id)
         .maybeSingle();
-      if (profile?.fcm_token) {
-        await sendPush(serviceAccount, profile.fcm_token, title, body);
-      }
+      await sendToProfile(serviceAccount, profile, title, body, category);
     }
 
     return new Response("ok");

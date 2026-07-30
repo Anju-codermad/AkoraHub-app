@@ -16,6 +16,7 @@ import 'chat_screen.dart';
 import 'favorites_provider.dart';
 import 'favorites_screen.dart';
 import 'loyalty/loyalty_screen.dart';
+import 'notification_sounds_screen.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
 import 'wall/wall_tab.dart';
 
@@ -626,6 +627,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const ChatScreen())),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.notifications_outlined),
+                title: const Text('Sons de notification'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationSoundsScreen())),
               ),
               const Divider(height: 1),
               Consumer(

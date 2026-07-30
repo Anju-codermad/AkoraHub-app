@@ -1431,6 +1431,84 @@ d'écran, deux corrections apportées à `client_home/chat_screen.dart` :
 écran par écran (jamais revérifié depuis son ajout), micro-interactions
 (ex: animation du badge panier à l'ajout).
 
+## 3neuvicies. Sons de notification personnalisables par catégorie (30/07) ✅ FAIT, CORRECTIF PRÊT PAS ENCORE DÉPLOYÉ
+
+Demande de l'utilisateur : pouvoir personnaliser le son des notifications
+push, avec un choix laissé à **chaque utilisateur** (client ou staff),
+séparément pour chaque catégorie de notification.
+
+- **Catégories** (calquées sur les distinctions déjà faites par l'Edge
+  Function `send-push-notification`) : `message` (chat client ↔ équipe),
+  `devis` (réponse/négociation), `commande` (expédiée/livrée).
+- **Réservoir de sons commun** (choix explicite de l'utilisateur, plutôt
+  qu'une liste figée par catégorie) : `lib/core/notifications/notification_sounds.dart`
+  (`kNotificationSounds`, `NotificationCategory`) — **20 sons** au total :
+  - 15 générés mathématiquement par Claude (aucun droit d'auteur, voir
+    plus haut dans la conversation) : 5 variantes par catégorie
+    d'origine (`notif_message_*`, `notif_devis_*`, `notif_commande_*`),
+    dont une variante "fun" par groupe (ludique, pas le style
+    "inquiétant" un temps évoqué puis abandonné par l'utilisateur).
+  - 5 sons "bulles/radar" fournis par l'utilisateur (Mixkit, licence
+    libre sans attribution) : `notif_bulle_eau`, `notif_bulle_savon`,
+    `notif_bulle_liquide`, `notif_bulles_profondes` (original 5,85s,
+    raccourci à 1,3s — trop long pour une notification), `notif_radar`.
+    Thématiquement cohérent avec la marque (Akora Fanadiovana = produits
+    de nettoyage).
+- **Fichiers son présents à DEUX endroits** (nécessaire, pas une
+  duplication accidentelle) :
+  1. `android/app/src/main/res/raw/*.wav` — requis par Android pour
+     qu'un canal de notification puisse référencer le son par nom de
+     ressource.
+  2. `assets/*.wav` (racine du dossier `assets/`, pas de nouveau
+     sous-dossier — respecte la règle du pubspec "ne pas ajouter de
+     nouveau dossier d'assets") — requis pour l'aperçu audio jouable
+     dans l'app via le package `audioplayers` (nouvelle dépendance).
+- **Écran de sélection** : `client_home/notification_sounds_screen.dart`
+  — une liste par catégorie, bouton ▶ pour prévisualiser chaque son
+  avant de choisir, sélection sauvegardée immédiatement. Accessible
+  depuis le Profil client (entrée "Sons de notification", à côté de
+  "Messagerie") **et** depuis les paramètres Admin
+  (`business_profile_settings.dart`, à côté de "Mode sombre") — le
+  staff reçoit aussi des push (nouveau message client, devis accepté/
+  refusé), donc doit pouvoir personnaliser son propre son.
+- **Stockage** : `supabase/phase24_patch_notification_sound_prefs.sql`
+  (**script prêt, pas encore exécuté**) — 3 colonnes
+  `profiles.notification_sound_{message,devis,commande}`, défaut = les
+  sons "classiques" d'origine.
+- **Canaux Android** : un canal est **immuable une fois créé** (son figé
+  pour toujours sur cet appareil) — d'où un canal par combinaison
+  (catégorie, son choisi), nommé `akorahub_<catégorie>_<son>`
+  (`androidChannelId()` côté Dart, dupliqué à l'identique côté Edge
+  Function pour que les deux calculent le même nom). Créé/confirmé à 3
+  moments : au démarrage de l'app (préférences en cache local ou
+  défauts), à la connexion (resynchronisation depuis le serveur, utile
+  si l'utilisateur a changé de préférence depuis un autre appareil), et
+  immédiatement quand l'utilisateur choisit un son dans l'écran dédié.
+- **`push_notification_service.dart`** entièrement retravaillé : cache
+  local des 3 préférences (`SharedPreferences`, lecture rapide sans
+  aller-retour réseau à chaque notification reçue en premier plan),
+  `getSoundPreference()`/`setSoundPreference()` exposés pour l'écran de
+  sélection, `ensureAndroidChannel()` pour la création de canal.
+- **Edge Function mise à jour** (`send-push-notification/index.ts`) :
+  détermine la catégorie selon la table qui a déclenché l'appel, lit la
+  préférence de son du **destinataire** (`notification_sound_<catégorie>`,
+  repli sur le son par défaut si colonne vide/migration pas encore
+  faite), et l'inclut dans l'appel FCM (`android.notification.channel_id`
+  + `sound`, `apns.payload.aps.sound` pour iOS, `data.category` pour que
+  l'app sache quel canal utiliser si la notification arrive pendant que
+  l'app est ouverte au premier plan).
+
+**⚠️ Reste à faire avant que ça fonctionne réellement** :
+1. Exécuter `phase24_patch_notification_sound_prefs.sql` dans Supabase.
+2. **Redéployer l'Edge Function** `send-push-notification` (Dashboard →
+   Edge Functions → coller le nouveau contenu de `index.ts`) — modifier
+   le fichier dans le dépôt Git ne redéploie PAS automatiquement la
+   fonction, contrairement aux scripts SQL exécutés directement dans le
+   SQL Editor.
+3. `flutter pub get` (nouvelle dépendance `audioplayers` ajoutée à
+   `pubspec.yaml`) — se fait automatiquement au prochain build CI
+   (Codemagic/GitHub Actions), rien à faire manuellement pour ça.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

@@ -6,6 +6,7 @@ import '../../core/app_export.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_icon_widget.dart';
+import '../client_home/notification_sounds_screen.dart';
 import './widgets/app_preferences_section.dart';
 import './widgets/business_information_section.dart';
 import './widgets/contact_details_section.dart';
@@ -466,6 +467,21 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                           },
                         );
                       },
+                    ),
+                  ),
+
+                  SizedBox(height: 2.h),
+
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.notifications_outlined),
+                      title: const Text('Sons de notification'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const NotificationSoundsScreen()),
+                      ),
                     ),
                   ),
 
