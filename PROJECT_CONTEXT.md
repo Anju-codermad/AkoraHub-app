@@ -1888,6 +1888,32 @@ comparer `git log` avec `origin/main` avant de fusionner un travail en
 cours — cette collision n'a été détectée que parce que l'utilisateur l'a
 signalée manuellement, pas par une vérification automatique.
 
+## 3dixtrentecies. Nettoyage des traces Rocket.new (30/07) ✅ FAIT
+
+L'utilisateur a demandé une vérification qu'aucune trace de Rocket.new
+(l'outil ayant servi à générer le squelette initial du projet) ne
+subsiste. Audit complet du dépôt (grep `rocket`/`Rocket` sur tout le
+code, package name, manifestes, ressources) :
+
+- **Aucune trace dans l'APK Android lui-même** : `applicationId` déjà
+  propre (`com.akora_fanadiovana.app`), icône/splash/écran "À propos"
+  affichent déjà "AkoraHub"/"Akora Fanadiovana" (voir `help_support_screen.dart`).
+- **`README.md`** : réécrit entièrement — c'était encore le gabarit
+  générique de Rocket.new ("# Flutter", structure de dossiers inventée,
+  crédit "Built with Rocket.new" en pied de page). Remplacé par un vrai
+  README décrivant AkoraHub (contexte, prérequis, installation avec
+  `env.json`, structure réelle du projet, renvoi vers
+  `PROJECT_CONTEXT.md`).
+- **Identifiant de bundle iOS** : `com.akora_fanadiovana.app.testProject`
+  (suffixe générique hérité du gabarit) nettoyé en
+  `com.akora_fanadiovana.app`, cohérent avec l'`applicationId` Android
+  (`ios/Runner.xcodeproj/project.pbxproj`). N'affecte pas les builds
+  Android, mais nécessaire avant toute publication iOS.
+- Un commentaire de code anodin dans `onboarding_page_widget.dart`
+  mentionnant d'anciennes images `img.rocket.new` déjà supprimées a été
+  laissé tel quel — c'est une note historique sur une suppression déjà
+  faite, pas une trace active.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

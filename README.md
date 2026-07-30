@@ -1,112 +1,65 @@
-# Flutter
+# AkoraHub
 
-A modern Flutter-based mobile application utilizing the latest mobile development technologies and tools for building responsive cross-platform applications.
+Application mobile Flutter + Supabase pour Akora Fanadiovana (fabrication et
+distribution de produits d'hygiène/nettoyage à Madagascar), incluant les
+pôles ARCA PAINTS et AkoraFormation.
 
-## 📋 Prerequisites
+## 📋 Prérequis
 
 - Flutter SDK (^3.29.2)
 - Dart SDK
-- Android Studio / VS Code with Flutter extensions
-- Android SDK / Xcode (for iOS development)
+- Android Studio / VS Code avec les extensions Flutter
+- Android SDK / Xcode (pour le développement iOS)
+- Un projet Supabase configuré (voir `supabase/*.sql` pour le schéma)
 
 ## 🛠️ Installation
 
-1. Install dependencies:
+1. Installer les dépendances :
 ```bash
 flutter pub get
 ```
 
-2. Run the application:
+2. Configurer `env.json` à la racine (URL et clé publique Supabase) :
+```json
+{
+  "SUPABASE_URL": "https://xxxxx.supabase.co",
+  "SUPABASE_ANON_KEY": "..."
+}
+```
+
+3. Lancer l'application :
 ```bash
 flutter run
 ```
 
-## 📁 Project Structure
+## 📁 Structure du projet
 
 ```
-flutter_app/
-├── android/            # Android-specific configuration
-├── ios/                # iOS-specific configuration
+AkoraHub-app/
+├── android/            # Configuration spécifique Android
+├── ios/                # Configuration spécifique iOS
 ├── lib/
-│   ├── core/           # Core utilities and services
-│   │   └── utils/      # Utility classes
-│   ├── presentation/   # UI screens and widgets
-│   │   └── splash_screen/ # Splash screen implementation
-│   ├── routes/         # Application routing
-│   ├── theme/          # Theme configuration
-│   ├── widgets/        # Reusable UI components
-│   └── main.dart       # Application entry point
-├── assets/             # Static assets (images, fonts, etc.)
-├── pubspec.yaml        # Project dependencies and configuration
-└── README.md           # Project documentation
+│   ├── core/           # Services partagés (Supabase, notifications, paiement...)
+│   ├── presentation/   # Écrans et widgets
+│   ├── routes/         # Routage de l'application
+│   ├── theme/          # Configuration du thème
+│   ├── widgets/        # Composants UI réutilisables
+│   └── main.dart       # Point d'entrée
+├── supabase/           # Scripts SQL (schéma, migrations par phase)
+├── assets/             # Ressources statiques (images, sons)
+├── pubspec.yaml        # Dépendances et configuration du projet
+└── PROJECT_CONTEXT.md  # Documentation détaillée du projet
 ```
 
-## 🧩 Adding Routes
-
-To add new routes to the application, update the `lib/routes/app_routes.dart` file:
-
-```dart
-import 'package:flutter/material.dart';
-import 'package:package_name/presentation/home_screen/home_screen.dart';
-
-class AppRoutes {
-  static const String initial = '/';
-  static const String home = '/home';
-
-  static Map<String, WidgetBuilder> routes = {
-    initial: (context) => const SplashScreen(),
-    home: (context) => const HomeScreen(),
-    // Add more routes as needed
-  }
-}
-```
-
-## 🎨 Theming
-
-This project includes a comprehensive theming system with both light and dark themes:
-
-```dart
-// Access the current theme
-ThemeData theme = Theme.of(context);
-
-// Use theme colors
-Color primaryColor = theme.colorScheme.primary;
-```
-
-The theme configuration includes:
-- Color schemes for light and dark modes
-- Typography styles
-- Button themes
-- Input decoration themes
-- Card and dialog themes
-
-## 📱 Responsive Design
-
-The app is built with responsive design using the Sizer package:
-
-```dart
-// Example of responsive sizing
-Container(
-  width: 50.w, // 50% of screen width
-  height: 20.h, // 20% of screen height
-  child: Text('Responsive Container'),
-)
-```
-## 📦 Deployment
-
-Build the application for production:
+## 📦 Build de production
 
 ```bash
-# For Android
+# Android
 flutter build apk --release
 
-# For iOS
+# iOS
 flutter build ios --release
 ```
 
-## 🙏 Acknowledgments
-- Built with [Rocket.new](https://rocket.new)
-- Powered by [Flutter](https://flutter.dev) & [Dart](https://dart.dev)
-- Styled with Material Design
-
-Built with ❤️ on Rocket.new
+Voir `PROJECT_CONTEXT.md` pour l'historique détaillé des fonctionnalités,
+les scripts SQL à exécuter et les conventions du projet.
