@@ -15,6 +15,8 @@ workflows:
         #   GOOGLE_SERVICES_JSON_BASE64  (optionnel — Firebase push)
         #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
         #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD  (optionnel — signature release)
+        #   MAPS_API_KEY  (optionnel — suivi de livraison Google Maps,
+        #     lu directement par android/app/build.gradle via System.getenv)
         - akorahub_secrets
       vars:
         PACKAGE_NAME: "com.akora_fanadiovana.app"

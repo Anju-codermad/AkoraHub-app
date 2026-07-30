@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
@@ -74,6 +75,11 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   Future<void> _updateStatus(Map<String, dynamic> order) async {
     String selectedStatus = order['status'] ?? 'recue';
     String selectedPayment = order['payment_status'] ?? 'en_attente';
+    DateTime? driverPositionUpdatedAt = order['driver_position_updated_at'] !=
+            null
+        ? DateTime.tryParse(order['driver_position_updated_at'])
+        : null;
+    bool isUpdatingPosition = false;
 
     final result = await showDialog<Map<String, String>>(
       context: context,
@@ -110,6 +116,40 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                         setDialogState(() => selectedPayment = v!),
                   );
                 }),
+                const Divider(),
+                Text('Position du livreur (suivi de livraison)',
+                    style: Theme.of(context).textTheme.labelLarge),
+                SizedBox(height: 0.5.h),
+                Text(
+                  driverPositionUpdatedAt != null
+                      ? 'Dernière mise à jour : ${DateFormat('dd/MM HH:mm').format(driverPositionUpdatedAt!.toLocal())}'
+                      : 'Position jamais renseignée pour cette commande.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                SizedBox(height: 1.h),
+                OutlinedButton.icon(
+                  onPressed: isUpdatingPosition
+                      ? null
+                      : () async {
+                          setDialogState(() => isUpdatingPosition = true);
+                          final updatedAt = await _captureAndSaveDriverPosition(
+                              order['id']);
+                          setDialogState(() {
+                            isUpdatingPosition = false;
+                            if (updatedAt != null) {
+                              driverPositionUpdatedAt = updatedAt;
+                            }
+                          });
+                        },
+                  icon: isUpdatingPosition
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location),
+                  label: const Text('Mettre à jour ma position maintenant'),
+                ),
               ],
             ),
           ),
@@ -143,6 +183,50 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Erreur lors de la mise à jour.')),
       );
+    }
+  }
+
+  /// Capture la position GPS actuelle du staff (livreur) et la sauvegarde
+  /// immédiatement sur la commande — indépendant du bouton "Mettre à
+  /// jour" du dialogue (statut/paiement), pour que le client voie la
+  /// nouvelle position tout de suite, même si le staff annule le reste
+  /// du dialogue. Retourne l'horodatage de la mise à jour si réussie.
+  Future<DateTime?> _captureAndSaveDriverPosition(String orderId) async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Autorisation de localisation refusée — impossible de mettre à jour la position.')),
+          );
+        }
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      final now = DateTime.now();
+      await SupabaseConfig.client.from('orders').update({
+        'driver_latitude': position.latitude,
+        'driver_longitude': position.longitude,
+        'driver_position_updated_at': now.toIso8601String(),
+      }).eq('id', orderId);
+      _loadOrders();
+      return now;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Impossible de récupérer votre position.')),
+        );
+      }
+      return null;
     }
   }
 

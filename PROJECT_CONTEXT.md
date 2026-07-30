@@ -1534,6 +1534,70 @@ sécurité, un vrai centre d'aide : hors du périmètre demandé). Clé
 **Décision explicite de l'utilisateur** : supprimer le factice plutôt
 que de tout reconstruire pour de vrai.
 
+## 3untrentecies. Suivi de livraison — Google Maps (30/07) ✅ CODE PRÊT, PAS ENCORE ACTIVABLE
+
+Demande de l'utilisateur : intégration Google Maps pour le suivi de
+livraison — le staff indique la position du livreur, le client voit un
+itinéraire sur la carte. Portée délibérément simple, discutée avant de
+coder :
+- **Position du livreur : mise à jour manuelle**, pas de suivi GPS
+  continu (décision utilisateur — plus simple, pas de service en
+  arrière-plan, pas de consommation batterie/données, pas de question de
+  vie privée du livreur type Uber/Yango).
+- **Ligne directe entre le livreur et l'adresse**, pas un itinéraire
+  routier réel — évite l'API Directions payante (au-delà d'un crédit
+  gratuit mensuel), cohérent avec le calcul de distance à vol d'oiseau
+  déjà utilisé pour les frais de livraison (`delivery_pricing.dart`).
+- Le **Maps SDK Android/iOS lui-même est gratuit et illimité** (contrairement
+  à l'API JavaScript web) — mais nécessite quand même un projet Google
+  Cloud avec la facturation activée (carte bancaire enregistrée) pour
+  obtenir une clé API. **Même risque déjà rencontré avec GitHub** : une
+  carte prépayée peut être refusée — pas encore testé côté Google au
+  moment d'écrire ceci.
+
+**Schéma** : `supabase/phase25_patch_orders_driver_position.sql`
+(**script prêt, pas encore exécuté**) — 3 colonnes sur `orders` :
+`driver_latitude`, `driver_longitude`, `driver_position_updated_at`.
+Aucun changement RLS nécessaire (les policies existantes sur `orders`
+couvrent déjà toutes les colonnes).
+
+**Côté Admin** (`order_management_real.dart`) : dans le dialogue de
+commande (déjà utilisé pour statut/paiement), nouvelle section "Position
+du livreur" avec un bouton "Mettre à jour ma position maintenant"
+(capture le GPS du staff via `geolocator`, sauvegarde immédiate —
+indépendant du bouton "Mettre à jour" du reste du dialogue, pour que le
+client voie la nouvelle position tout de suite même si le staff annule
+le reste).
+
+**Côté Client** : nouvel écran `client_home/delivery_tracking_screen.dart`
+— carte avec marqueur livreur + marqueur adresse de livraison + ligne
+pointillée entre les deux, horodatage relatif de la dernière mise à jour
+("il y a X min"). Accessible via un bouton "Suivre sur la carte" sur
+chaque commande au statut **Expédiée** (`orders_tab.dart`). Message
+explicite si la position n'a pas encore été renseignée, plutôt qu'une
+carte vide silencieuse.
+
+**Infrastructure clé API** (package `google_maps_flutter` ajouté à
+`pubspec.yaml`) : même pattern que le keystore de production — clé lue
+depuis la variable d'environnement `MAPS_API_KEY` au moment du build
+(`android/app/build.gradle`, `manifestPlaceholders`), injectée dans
+`AndroidManifest.xml` (`com.google.android.geo.API_KEY`). **Build réussit
+même sans clé** (chaîne vide par défaut) — la carte affiche juste un fond
+gris tant qu'une vraie clé n'est pas fournie, aucun crash. iOS non câblé
+(pas de pipeline CI iOS actif actuellement, voir section 5 — à faire le
+jour où un build iOS est mis en place).
+
+**⚠️ Reste à faire avant que ça fonctionne réellement** :
+1. Créer un projet Google Cloud, activer **Maps SDK for Android** (et iOS
+   si besoin plus tard), activer la facturation (carte bancaire — **à
+   tester, risque de refus comme pour GitHub**), générer une clé API.
+2. Ajouter cette clé comme secret **`MAPS_API_KEY`** — à la fois dans les
+   secrets GitHub Actions du dépôt, et dans le groupe `akorahub_secrets`
+   sur Codemagic.
+3. Exécuter `phase25_patch_orders_driver_position.sql` dans Supabase.
+4. `flutter pub get` (nouvelle dépendance) — automatique au prochain
+   build CI.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

@@ -77,9 +77,13 @@ jobs:
 
       - name: Compiler l'App Bundle (release) — format exigé par Google Play
         run: flutter build appbundle --release
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
 
       - name: Compiler l'APK (release) — pour test/installation directe
         run: flutter build apk --release
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
 
       - name: Publier l'App Bundle et l'APK comme Release GitHub
         # Contourne totalement le quota de stockage Actions (500 Mo,

@@ -54,6 +54,13 @@ android {
         versionName = flutter.versionName
         multiDexEnabled true
         minSdkVersion 23
+
+        // Clé API Google Maps (suivi de livraison) — injectée depuis la
+        // variable d'environnement MAPS_API_KEY au moment du build (secret
+        // CI, même pattern que le keystore de production). Chaîne vide si
+        // absente : le build réussit quand même, la carte affiche juste un
+        // fond gris tant qu'une vraie clé n'est pas fournie (aucun crash).
+        manifestPlaceholders = [mapsApiKey: (System.getenv("MAPS_API_KEY") ?: "")]
     }
 
     signingConfigs {

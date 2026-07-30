@@ -7,6 +7,7 @@ import 'package:sizer/sizer.dart';
 import '../../core/pdf/document_pdf_generator.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'delivery_tracking_screen.dart';
 import 'quote_thread_client.dart';
 
 /// Écran "Commandes" du client, avec deux sous-onglets : Commandes et Devis
@@ -238,6 +239,18 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      if (status == 'expediee')
+                        TextButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  DeliveryTrackingScreen(order: order),
+                            ),
+                          ),
+                          icon: const Icon(Icons.map_outlined, size: 18),
+                          label: const Text('Suivre sur la carte'),
+                        ),
                       TextButton.icon(
                         onPressed: () => _downloadInvoice(order),
                         icon: const Icon(Icons.picture_as_pdf_outlined,
