@@ -54,5 +54,14 @@
     <string>AkoraHub utilise votre position pour faciliter la saisie de votre adresse de livraison.</string>
     <key>NSCameraUsageDescription</key>
     <string>AkoraHub utilise la caméra pour scanner le QR code de traçabilité des produits.</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>io.supabase.akorahub</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

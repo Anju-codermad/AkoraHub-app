@@ -2058,6 +2058,64 @@ architecturale réelle, mais pas un "bug" au sens propre — à signaler à
 l'utilisateur avant d'entreprendre une unification, gros chantier hors
 du périmètre de cette demande.
 
+## 3quinzetrentecies. Connexion Google réelle (30/07) ✅ FAIT (Facebook toujours en attente)
+
+Suite à 3quatorzetrentecies (nettoyage des faux boutons sociaux), demande
+explicite de l'utilisateur : rendre la connexion Google réellement
+fonctionnelle. Guidé pas à pas (captures d'écran successives) pour créer
+les identifiants OAuth côté Google Cloud Console, en réutilisant le
+projet "AkoraHub" déjà existant (créé pour la clé Maps).
+
+- **Google Cloud Console** : écran de consentement OAuth configuré (type
+  Externe), client OAuth 2.0 créé (type **Application Web** — c'est le
+  bon type même pour une app mobile, Supabase gère la redirection),
+  redirect URI = `https://lmnprtwelmmoiuygvgmf.supabase.co/auth/v1/callback`.
+  **⚠️ L'app reste en mode "Testing"** côté Google — seuls les comptes
+  Google ajoutés explicitement comme utilisateurs de test peuvent se
+  connecter pour l'instant. Passage en production (pour que n'importe
+  quel client puisse se connecter) **reste à faire**.
+- **Supabase** (Authentication → Providers → Google) : Client ID + Client
+  Secret renseignés, "Enable Sign in with Google" activé — confirmé
+  ("Successfully updated settings").
+- **Code** (`authentication_screen.dart`) : refactor important — la
+  logique de succès de connexion (mémorisation du compte, association du
+  token FCM, message de succès, routage vers l'accueil) était uniquement
+  déclenchée après un `signInWithPassword` réussi. Extraite dans une
+  nouvelle méthode `_onAuthenticated()`, déclenchée par une écoute
+  `SupabaseConfig.client.auth.onAuthStateChange` (posée dans `initState`)
+  sur l'évènement `AuthChangeEvent.signedIn` — **commune** aux connexions
+  email ET OAuth, puisqu'une connexion Google se termine par une
+  redirection externe qui ne repasse jamais par `_handleLogin()`.
+  `_handleSocialLogin('google')` appelle désormais
+  `SupabaseConfig.client.auth.signInWithOAuth(OAuthProvider.google,
+  redirectTo: 'io.supabase.akorahub://login-callback/')` ; Facebook reste
+  sur le message "bientôt disponible" en attendant sa propre
+  configuration (Meta for Developers).
+- **Redirection mobile (deep link)** : schéma personnalisé
+  `io.supabase.akorahub` enregistré des deux côtés — nouvel
+  intent-filter (`android:scheme="io.supabase.akorahub"`) dans
+  `AndroidManifest.xml`, et `CFBundleURLTypes` correspondant dans
+  `ios/Runner/Info.plist`. Doit être exactement identique au `redirectTo`
+  dans le code Dart, sinon la redirection après connexion échoue.
+- **Pas de nouveau code pour "capter" le retour du navigateur** :
+  `supabase_flutter` (déjà en v2.8.0) écoute lui-même les deep links une
+  fois le schéma enregistré côté natif — aucune configuration
+  supplémentaire nécessaire.
+- Vérifié au passage : `public.handle_new_user()` (trigger sur
+  `auth.users`, phase1) crée déjà un profil `client` par défaut pour
+  **tout** nouvel utilisateur, quel que soit le mode d'inscription — donc
+  aucun risque qu'un premier login Google (sans passer par l'écran
+  d'inscription) se retrouve sans ligne dans `profiles`.
+
+**Reste à faire** :
+1. Passer l'app Google en production (ou ajouter des utilisateurs de
+   test) pour que n'importe quel client puisse réellement se connecter.
+2. Configurer Facebook (Meta for Developers → App ID/Secret → Supabase)
+   sur le même modèle, si l'utilisateur le souhaite.
+3. Tester la connexion Google de bout en bout sur un vrai build (le
+   nouveau schéma de deep link nécessite un nouveau build APK/IPA, pas
+   testable en hot-reload).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

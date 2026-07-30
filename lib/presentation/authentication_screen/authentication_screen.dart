@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sizer/sizer.dart';
@@ -34,11 +36,26 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   bool _rememberMe = true;
   List<RecentAccount> _recentAccounts = [];
   bool _showManualForm = false;
+  StreamSubscription<AuthState>? _authStateSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadRecentAccounts();
+
+    // Écoute centralisée des connexions réussies (email/mot de passe ET
+    // Google/Facebook) : une connexion OAuth se termine par une redirection
+    // depuis le navigateur externe, sans jamais repasser par
+    // `_handleLogin()` — ce flux d'évènements est le seul point commun aux
+    // deux méthodes de connexion.
+    if (SupabaseConfig.isConfigured) {
+      _authStateSubscription =
+          SupabaseConfig.client.auth.onAuthStateChange.listen((data) {
+        if (data.event == AuthChangeEvent.signedIn) {
+          _onAuthenticated();
+        }
+      });
+    }
   }
 
   Future<void> _loadRecentAccounts() async {
@@ -147,6 +164,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
   @override
   void dispose() {
+    _authStateSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -213,55 +231,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
     if (!mounted) return;
 
-    if (errorMessage == null) {
-      // Haptic feedback on success
-      HapticFeedback.mediumImpact();
-
-      // Mémorise ce compte pour un accès rapide au prochain lancement
-      // (pré-remplit l'email, ne stocke jamais le mot de passe) —
-      // seulement si "Se souvenir de moi" est coché (utile pour ne pas
-      // laisser un compte visible sur un appareil partagé/public).
-      if (_rememberMe) {
-        try {
-          final userId = SupabaseConfig.client.auth.currentUser?.id;
-          if (userId != null) {
-            final profile = await SupabaseConfig.client
-                .from('profiles')
-                .select('full_name, avatar_url')
-                .eq('id', userId)
-                .single();
-            await RecentAccountsStore.remember(RecentAccount(
-              email: _emailController.text.trim(),
-              fullName: profile['full_name'] as String?,
-              avatarUrl: profile['avatar_url'] as String?,
-            ));
-          }
-        } catch (_) {
-          // Non bloquant : la connexion a déjà réussi.
-        }
-      }
-
-      // Associe le token FCM de cet appareil au compte qui vient de se
-      // connecter (sinon les notifications resteraient liées au compte
-      // précédent utilisé sur ce même téléphone, le cas échéant).
-      PushNotificationService.onUserSignedIn();
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_currentTranslations['login_success']!),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
-      // Navigate to the right home screen depending on role
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
-      final route = await AuthRouting.homeRouteForCurrentUser();
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, route);
-    } else {
+    if (errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
@@ -271,18 +241,104 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
         ),
       );
     }
+    // Le cas de succès est géré par `_onAuthenticated()`, déclenché par
+    // l'écoute `onAuthStateChange` posée dans `initState()` — commun avec
+    // la connexion Google/Facebook (voir `_handleSocialLogin`).
+  }
+
+  /// Suite commune à toute connexion réussie (email/mot de passe ou
+  /// OAuth) : mémorisation du compte, association du token de
+  /// notifications, message de succès, puis routage vers l'accueil selon
+  /// le rôle.
+  Future<void> _onAuthenticated() async {
+    if (!mounted) return;
+
+    HapticFeedback.mediumImpact();
+
+    // Mémorise ce compte pour un accès rapide au prochain lancement
+    // (pré-remplit l'email, ne stocke jamais le mot de passe) —
+    // seulement si "Se souvenir de moi" est coché (utile pour ne pas
+    // laisser un compte visible sur un appareil partagé/public).
+    if (_rememberMe) {
+      try {
+        final user = SupabaseConfig.client.auth.currentUser;
+        if (user != null) {
+          final profile = await SupabaseConfig.client
+              .from('profiles')
+              .select('full_name, avatar_url')
+              .eq('id', user.id)
+              .single();
+          await RecentAccountsStore.remember(RecentAccount(
+            email: user.email ?? _emailController.text.trim(),
+            fullName: profile['full_name'] as String?,
+            avatarUrl: profile['avatar_url'] as String?,
+          ));
+        }
+      } catch (_) {
+        // Non bloquant : la connexion a déjà réussi.
+      }
+    }
+
+    // Associe le token FCM de cet appareil au compte qui vient de se
+    // connecter (sinon les notifications resteraient liées au compte
+    // précédent utilisé sur ce même téléphone, le cas échéant).
+    PushNotificationService.onUserSignedIn();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_currentTranslations['login_success']!),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    // Navigate to the right home screen depending on role
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    final route = await AuthRouting.homeRouteForCurrentUser();
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, route);
   }
 
   Future<void> _handleSocialLogin(String provider) async {
     HapticFeedback.selectionClick();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            'Connexion $provider bientôt disponible. Utilisez votre email pour l\'instant.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (provider != 'google') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Connexion $provider bientôt disponible. Utilisez votre email pour l\'instant.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!SupabaseConfig.isConfigured) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Connexion au serveur indisponible. Réessayez.')),
+      );
+      return;
+    }
+
+    try {
+      // Ouvre le navigateur externe pour l'écran de consentement Google ;
+      // Supabase gère la redirection et émet `AuthChangeEvent.signedIn`
+      // (capté par l'écoute posée dans `initState()`) une fois la
+      // connexion terminée — pas de résultat direct à traiter ici.
+      await SupabaseConfig.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'io.supabase.akorahub://login-callback/',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Impossible de lancer la connexion Google.')),
+      );
+    }
   }
 
   Future<void> _handleForgotPassword() async {
