@@ -1924,11 +1924,13 @@ Ajout d'un champ de référence + upload optionnel d'une capture d'écran de
 transaction, pour les modes de paiement manuels (pas pour "paiement à la
 livraison").
 
-**Décision de conception (recommandation validée)** : référence + capture
-**facultatives, pas bloquantes** — le client peut valider sa commande
-sans (ex : il paie juste après avoir validé), le staff relance par
-message si la preuve manque à la vérification. Les rendre obligatoires
-risquerait de bloquer des commandes légitimes.
+**Décision de conception (précisée par l'utilisateur après la première
+implémentation)** : la **capture d'écran reste facultative** (upload
+optionnel, le staff relance par message si besoin), mais la **référence
+de paiement — ou le nom du kiosque si le client a payé via un agent
+Mobile Money — est obligatoire** pour tout mode autre que "paiement à la
+livraison". Validation bloquante côté client (`cart_tab.dart`) avant
+envoi de la commande (en ligne et hors-ligne).
 
 - **Schéma** : `supabase/phase29_patch_payment_proof.sql` (**script prêt,
   pas encore exécuté**) — colonnes `orders.payment_reference` (texte) et
@@ -1938,16 +1940,18 @@ risquerait de bloquer des commandes légitimes.
   propre dossier (`storage.foldername(name)[1] = auth.uid()`), le staff
   peut tout lire via `current_role_is_staff()`.
 - **Client** (`cart_tab.dart`) : quand un mode autre que "livraison" est
-  choisi, un champ "Référence de paiement" (facultatif) et un bouton
-  "Joindre une capture" (`image_picker`, aperçu + bouton retirer)
-  apparaissent sous les coordonnées. Upload vers le bucket juste avant
-  l'insertion de la commande (chemin `<user_id>/<order_number>.jpg`) ;
-  repli tolérant si l'upload échoue (commande envoyée quand même, sans
-  preuve jointe). Hors-ligne : la référence texte part normalement dans
-  la file d'attente, la capture ne peut pas être jointe (pas de réseau) —
-  message explicite à l'utilisateur si une photo avait été sélectionnée.
-  Ajout au passage d'un **bouton "copier"** sur l'encadré des coordonnées
-  de paiement (`Clipboard.setData`).
+  choisi, un champ **"Référence de paiement ou nom du kiosque *"**
+  (obligatoire — bloque l'envoi de la commande si vide, message explicite)
+  et un bouton "Joindre une capture" (facultatif, `image_picker`, aperçu +
+  bouton retirer) apparaissent sous les coordonnées. Upload de la capture
+  vers le bucket juste avant l'insertion de la commande (chemin
+  `<user_id>/<order_number>.jpg`) ; repli tolérant si l'upload échoue
+  (commande envoyée quand même, sans preuve jointe — la référence, elle,
+  est déjà garantie présente). Hors-ligne : la référence texte part
+  normalement dans la file d'attente, la capture ne peut pas être jointe
+  (pas de réseau) — message explicite à l'utilisateur si une photo avait
+  été sélectionnée. Ajout au passage d'un **bouton "copier"** sur
+  l'encadré des coordonnées de paiement (`Clipboard.setData`).
 - **Admin** (`order_management_real.dart`) : référence et bouton "Voir la
   capture de paiement" (URL signée temporaire, 1h) affichés dans la fiche
   commande ; icône trombone dans la liste si une preuve/référence existe.

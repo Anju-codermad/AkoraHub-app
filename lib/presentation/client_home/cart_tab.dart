@@ -186,6 +186,19 @@ class _CartTabState extends ConsumerState<CartTab> {
       return;
     }
 
+    if (!asQuote &&
+        _paymentMethod != PaymentMethod.paiementLivraison &&
+        _paymentReferenceController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Indiquez la référence du paiement ou le nom du kiosque.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     final total = ref.read(cartProvider.notifier).total;
@@ -588,8 +601,9 @@ class _CartTabState extends ConsumerState<CartTab> {
                 TextField(
                   controller: _paymentReferenceController,
                   decoration: const InputDecoration(
-                    labelText: 'Référence de paiement (facultatif)',
-                    hintText: 'Ex : numéro de transaction reçu par SMS',
+                    labelText: 'Référence de paiement ou nom du kiosque *',
+                    hintText: 'Ex : numéro de transaction reçu par SMS, ou '
+                        'nom du kiosque si payé via un agent',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
