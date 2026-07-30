@@ -1356,7 +1356,7 @@ Log technique (`debugPrint`) ajouté en cas d'échec pour diagnostiquer une
 éventuelle récidive, jamais montré au client. **Cette récidive est
 justement arrivée le lendemain — voir section suivante.**
 
-## 3septvicies. Bug critique : messagerie 100% cassée — colonnes manquantes sur `messages` (30/07) ⚠️ CORRECTIF PRÊT, PAS ENCORE EXÉCUTÉ
+## 3septvicies. Bug critique : messagerie 100% cassée — colonnes manquantes sur `messages` (30/07) ✅ CORRIGÉ ET CONFIRMÉ
 
 **Signalé par l'utilisateur** : impossible d'envoyer un message côté
 client, échec systématique (100% des tentatives) avec "Message non
@@ -1386,9 +1386,10 @@ premier message envoyé.
 not exists`, comble les lignes déjà existantes (`sender_role = 'client'`
 par défaut, faute de mieux vu que l'ancien schéma ne distinguait pas
 client/staff), puis réapplique la contrainte `not null` + le check
-`sender_role in ('client','staff')`. **Reste à faire** : l'utilisateur
-doit l'exécuter dans le SQL Editor, puis retester l'envoi d'un message
-côté client pour confirmer.
+`sender_role in ('client','staff')`. **Exécuté et confirmé par
+l'utilisateur (30/07)** : les 4 colonnes apparaissent bien désormais,
+l'envoi de message côté client fonctionne, et le staff reçoit bien le
+message côté Admin (`messaging_center_real/`).
 
 **Leçon pour les prochaines sessions** : `create table if not exists`
 est silencieux et trompeur en cas de schéma legacy conflictuel — quand
@@ -1397,6 +1398,36 @@ exister sous une forme antérieure (cas fréquent ici vu l'historique de
 sessions parallèles, section 7), préférer systématiquement `alter table
 ... add column if not exists` colonne par colonne, même pour un script
 qui se veut "self-contained" avec sa propre `create table`.
+
+## 3octovicies. Design chat client : ancrage en bas + regroupement des horodatages (30/07) ✅ FAIT
+
+Suite au test réussi de la messagerie (section précédente), l'utilisateur
+a demandé des suggestions de design côté client. Repéré sur capture
+d'écran, deux corrections apportées à `client_home/chat_screen.dart` :
+- **Ancrage en bas de l'écran** : la liste utilisait un `ListView`
+  classique (haut → bas) avec un scroll forcé manuellement vers le bas
+  au chargement (`addPostFrameCallback` + `jumpTo`) — avec peu de
+  messages, ils "flottaient" en haut avec un grand vide en dessous au
+  lieu de rester ancrés près du champ de saisie, contrairement à
+  WhatsApp/Messenger/Telegram. Remplacé par le pattern standard
+  `ListView.builder(reverse: true, ...)` (index 0 = message le plus
+  récent, ancrage automatique en bas quel que soit le nombre de
+  messages) — plus besoin du `ScrollController` manuel, supprimé.
+- **Horodatage regroupé** : chaque bulle affichait son heure, y compris
+  pour des messages consécutifs du même expéditeur envoyés à quelques
+  secondes d'intervalle (répétitif). L'horodatage ne s'affiche
+  maintenant que sur la **dernière bulle d'une série consécutive** du
+  même expéditeur (`isLastOfGroup`, calculé en comparant `sender_role`
+  avec le message chronologiquement suivant). Changement volontairement
+  limité à l'affichage de l'horodatage (pas de modification des marges/
+  espacement entre bulles) pour rester sur une correction à faible
+  risque, non vérifiable visuellement dans cet environnement (pas de
+  Flutter/émulateur installé — à confirmer par l'utilisateur en testant
+  l'app réelle).
+
+**Reste à faire, si l'utilisateur le demande** : audit du mode sombre
+écran par écran (jamais revérifié depuis son ajout), micro-interactions
+(ex: animation du badge panier à l'ajout).
 
 ## 4. Ce qui N'EST PAS encore fait
 

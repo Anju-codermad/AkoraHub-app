@@ -26,7 +26,6 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _error;
   bool _isRequestMode = false;
   final _textController = TextEditingController();
-  final _scrollController = ScrollController();
   final _dateFormat = DateFormat('HH:mm');
   Stream<List<Map<String, dynamic>>>? _messagesStream;
 
@@ -39,7 +38,6 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _textController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -199,22 +197,32 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                             );
                           }
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_scrollController.hasClients) {
-                              _scrollController.jumpTo(
-                                  _scrollController.position.maxScrollExtent);
-                            }
-                          });
                           return ListView.builder(
-                            controller: _scrollController,
+                            reverse: true,
                             padding: EdgeInsets.all(4.w),
                             itemCount: messages.length,
                             itemBuilder: (context, index) {
-                              final m = messages[index];
+                              // reverse: true ancre la liste en bas de
+                              // l'écran (comme WhatsApp/Messenger) au lieu
+                              // de laisser les messages "flotter" en haut
+                              // avec un grand vide en dessous quand il y en
+                              // a peu — index 0 = message le plus récent.
+                              final msgIndex = messages.length - 1 - index;
+                              final m = messages[msgIndex];
                               final isClient = m['sender_role'] == 'client';
                               final isRequest = m['is_request'] == true;
                               final createdAt =
                                   DateTime.tryParse(m['created_at'] ?? '');
+
+                              // N'affiche l'horodatage que sur la dernière
+                              // bulle d'une série consécutive du même
+                              // expéditeur — évite de répéter l'heure sur
+                              // chaque message envoyé coup sur coup.
+                              final nextMsg = msgIndex + 1 < messages.length
+                                  ? messages[msgIndex + 1]
+                                  : null;
+                              final isLastOfGroup = nextMsg == null ||
+                                  nextMsg['sender_role'] != m['sender_role'];
 
                               return Align(
                                 alignment: isClient
@@ -271,7 +279,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                               : theme.colorScheme.onSurface,
                                         ),
                                       ),
-                                      if (createdAt != null)
+                                      if (createdAt != null && isLastOfGroup)
                                         Padding(
                                           padding:
                                               const EdgeInsets.only(top: 4),
