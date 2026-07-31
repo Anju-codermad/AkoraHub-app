@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
+import './phone_otp_verification_screen.dart';
 
 /// Étape de vérification par code après inscription (`auth.signUp`) —
 /// nécessite que "Confirm email" soit activé côté Supabase (Authentication
@@ -15,10 +16,12 @@ import '../../core/supabase/supabase_config.dart';
 /// Email -> "Email OTP length") plutôt qu'un simple lien, sinon le
 /// client ne reçoit jamais aucun code (voir demande utilisateur du 31/07).
 ///
-/// Le profil (type de client, société, téléphone, date de naissance) ne
-/// peut être mis à jour qu'après ce succès : avant la vérification, il
-/// n'y a pas encore de session (donc pas de JWT), et les policies RLS de
-/// `profiles` refusent toute écriture sans session valide.
+/// Le profil (type de client, société, date de naissance) ne peut être
+/// mis à jour qu'après ce succès : avant la vérification, il n'y a pas
+/// encore de session (donc pas de JWT), et les policies RLS de `profiles`
+/// refusent toute écriture sans session valide. Le téléphone n'est PAS
+/// écrit ici : il est vérifié par SMS juste après (voir
+/// `PhoneOtpVerificationScreen`) et n'est enregistré qu'une fois confirmé.
 class EmailOtpVerificationScreen extends StatefulWidget {
   final String email;
   final Map<String, dynamic> pendingProfileUpdate;
@@ -88,19 +91,39 @@ class _EmailOtpVerificationScreenState
       );
 
       final userId = response.user?.id;
+      final phone = widget.pendingProfileUpdate['phone'] as String?;
       if (userId != null) {
+        // Le téléphone est appliqué séparément, seulement après sa
+        // vérification par SMS (voir PhoneOtpVerificationScreen) — on ne
+        // l'écrit pas ici.
+        final profileWithoutPhone = Map<String, dynamic>.from(
+            widget.pendingProfileUpdate)
+          ..remove('phone');
         await SupabaseConfig.client
             .from('profiles')
-            .update(widget.pendingProfileUpdate)
+            .update(profileWithoutPhone)
             .eq('id', userId);
       }
 
-      PushNotificationService.onUserSignedIn();
-
       if (!mounted) return;
       HapticFeedback.mediumImpact();
-      Navigator.pushNamedAndRemoveUntil(
-          context, '/client-home', (route) => false);
+
+      if (phone == null || phone.isEmpty) {
+        // Ne devrait pas arriver (le téléphone est obligatoire au
+        // formulaire d'inscription) — filet de sécurité pour ne pas
+        // bloquer un compte sans téléphone connu.
+        PushNotificationService.onUserSignedIn();
+        Navigator.pushNamedAndRemoveUntil(
+            context, '/client-home', (route) => false);
+        return;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PhoneOtpVerificationScreen(phone: phone),
+        ),
+      );
     } on AuthException catch (e) {
       _showError(e.message);
     } catch (e) {

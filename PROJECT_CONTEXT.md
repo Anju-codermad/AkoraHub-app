@@ -2901,10 +2901,58 @@ si oui (confirmation requise), redirige vers `EmailOtpVerificationScreen`
 avec l'email + les champs de profil en attente ; sinon (confirmation
 désactivée), ancien comportement inchangé (connexion immédiate).
 
-**Reste à faire** : l'utilisateur doit activer les 2 réglages Dashboard
-ci-dessus, puis tester une inscription réelle de bout en bout (réception
-du code par email, saisie, activation du compte) avant de merger sur
-`main`.
+**Terminé (31/07)** : "Confirm email" activé, template modifié avec
+`{{ .Token }}`. Un blocage supplémentaire est apparu en cours de route :
+le template "Confirm signup" n'est éditable qu'avec un SMTP personnalisé
+connecté (le mailer par défaut de Supabase ne l'autorise pas) — **Gmail
+SMTP configuré** (Authentication → Emails → SMTP Settings :
+`smtp.gmail.com:587`, mot de passe d'application Google généré côté
+Dashboard Google, pas le mot de passe du compte). Sender : AkoraHub
+`<julioandrinirina95@gmail.com>`.
+
+## 3trentequatretrentecies. Vérification du téléphone par SMS après l'email (31/07) ⚠️ CODE PRÊT, PROVIDER PHONE + TWILIO PAS ENCORE CONFIGURÉS
+
+Suite logique du point précédent : l'utilisateur a remarqué que le
+téléphone saisi à l'inscription n'était jamais vérifié (n'importe qui
+peut taper un faux numéro), et a demandé une vraie vérification par SMS
+pour limiter les faux comptes — implémentée comme **étape obligatoire
+après l'email**, pas seulement pour les comptes Google (choix explicite
+de l'utilisateur parmi 2 options proposées).
+
+**Nouveau** `lib/presentation/registration_screen/phone_otp_verification_screen.dart` :
+utilise le flux "changement de téléphone" de Supabase Auth
+(`auth.updateUser(UserAttributes(phone: ...))` déclenche l'envoi du SMS,
+puis `auth.verifyOTP(type: OtpType.phoneChange, phone, token)` confirme)
+plutôt que le flux de connexion par téléphone — l'utilisateur a déjà une
+session (email vérifié juste avant), on ne fait qu'attacher et confirmer
+son numéro à ce compte existant. `profiles.phone` n'est écrit qu'après
+ce succès (pas avant, contrairement à avant ce chantier).
+
+**Modifié** `lib/presentation/registration_screen/email_otp_verification_screen.dart` :
+n'écrit plus `phone` dans le profil immédiatement après la vérification
+email (retiré du map avant l'update) ; redirige vers
+`PhoneOtpVerificationScreen` avec le numéro saisi au formulaire au lieu
+d'aller directement au client-home. Filet de sécurité (ne devrait pas
+arriver, le téléphone est obligatoire au formulaire) : si jamais aucun
+téléphone n'est disponible, va directement au client-home comme avant.
+
+**⚠️ Réglage manuel obligatoire, PAS ENCORE FAIT** : Dashboard Supabase
+→ Authentication → Providers → **Phone** → activer, choisir **Twilio**
+comme fournisseur SMS, renseigner Account SID + Auth Token + un numéro/
+Messaging Service capable d'envoyer vers Madagascar (+261). Nécessite un
+compte Twilio (externe, payant à l'usage — coût par SMS envoyé). Sans ce
+réglage, `updateUser(phone: ...)` échouera et l'écran affichera une
+erreur au lieu d'envoyer un SMS.
+
+**Non déterminé** : le nombre de chiffres du code SMS (l'écran accepte
+jusqu'à 8 chiffres sans vérifier une longueur exacte, contrairement à
+l'écran email qui avait dû être corrigé une fois la vraie longueur
+connue — volontairement laissé flexible cette fois pour éviter de refaire
+la même erreur).
+
+**Reste à faire** : configurer Twilio + le provider Phone côté Dashboard,
+puis tester une inscription réelle de bout en bout (email → SMS → les
+deux vérifiés → compte activé) avant de merger sur `main`.
 
 ## 4. Ce qui N'EST PAS encore fait
 
