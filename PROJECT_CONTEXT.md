@@ -2745,6 +2745,64 @@ Item 3 de la checklist perf/sécurité maintenant traité. Il reste les 2
 items sécurité : rate limiting connexion/reset, et journalisation des
 actions sensibles.
 
+## 3trenteuntrentecies. Rate limiting connexion + journal de sécurité (31/07) ⚠️ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ + ÉTAPE MANUELLE DASHBOARD REQUISE
+
+Items 4 et 5 (derniers) de la checklist perf/sécurité (31/07) : rate
+limiting sur la connexion, et journalisation des actions sensibles
+(connexions échouées/réussies, changements de mot de passe/rôle).
+
+**Contrainte technique importante** : `signInWithPassword` et
+`resetPasswordForEmail` appellent directement le service GoTrue managé de
+Supabase, pas une table ou fonction qu'on contrôle — impossible d'y
+brancher un simple trigger Postgres. La seule façon officielle d'agir
+AVANT qu'une tentative de connexion soit acceptée est le mécanisme
+"Auth Hooks" de Supabase, en particulier le "Password Verification
+Attempt" hook (contrat exact vérifié via la doc officielle GitHub, la
+doc web ayant renvoyé une 403 lors de la vérification).
+
+**Nouveau** `supabase/phase34_patch_security_audit_log.sql` (**PAS ENCORE
+EXÉCUTÉ**) :
+- Table `security_audit_log` (event_type, user_id, metadata jsonb,
+  created_at) — RLS : lecture réservée à l'Admin (`current_role_is_admin()`),
+  aucune policy d'insert : seules les fonctions `SECURITY DEFINER`
+  ci-dessous peuvent écrire.
+- `log_security_event(p_event_type text)` : appelée par l'app pour
+  journaliser `password_changed` (après succès de
+  `security_settings_screen.dart`) et `password_reset_requested` (après
+  succès de `authentication_screen.dart`, **avant** connexion — d'où le
+  grant à `anon` en plus de `authenticated`).
+- `log_role_change()` (trigger `after update on profiles`) : journalise
+  tout changement de `role`, quelle que soit son origine (écran Admin,
+  SQL Editor...) — plus robuste qu'un appel explicite depuis un seul
+  écran.
+- `hook_password_verification_attempt(event jsonb)` : la fonction Auth
+  Hook elle-même. Journalise `login_success`/`login_failed` à CHAQUE
+  tentative, et renvoie `{"decision": "reject"}` après 5 échecs en 15
+  minutes pour un même utilisateur. **Fail-open volontaire** : tout le
+  corps est enveloppé dans `EXCEPTION WHEN OTHERS THEN return 'continue'`
+  — un bug interne ne doit jamais pouvoir verrouiller l'accès à toute
+  l'app, y compris pour l'Admin.
+
+**⚠️ Étape manuelle obligatoire après exécution du script** (ne peut pas
+être faite en SQL) : Dashboard Supabase → Authentication → Hooks →
+"Password Verification Attempt" → Enable → choisir la fonction
+`public.hook_password_verification_attempt`. Sans cette activation, le
+rate limiting ne fait rien (mais rien ne casse : la fonction reste
+inutilisée). À tester après activation : se tromper de mot de passe une
+fois (doit encore fonctionner), puis se reconnecter avec le bon mot de
+passe (doit toujours marcher).
+
+**Nouveau** `lib/presentation/security_audit_log/security_audit_log_screen.dart` :
+écran Admin "Journal de sécurité" (paginé, même schéma que les autres
+listes de ce chantier), affiche chaque événement avec libellé FR, icône,
+nom de la personne (via `profiles`) et horodatage — ajouté au menu
+"Plus" → section Entreprise, sous "Sons de notification".
+
+Checklist perf/sécurité (31/07) entièrement traitée côté code. **Ne pas
+merger sur `main` avant confirmation d'exécution du script par
+l'utilisateur, et lui rappeler explicitement l'étape manuelle du
+Dashboard.**
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

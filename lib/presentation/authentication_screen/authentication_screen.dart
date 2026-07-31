@@ -392,6 +392,15 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
     try {
       await SupabaseConfig.client.auth.resetPasswordForEmail(email);
+      // Journalisation (revue de sécurité Admin) — voir
+      // supabase/phase34_patch_security_audit_log.sql. Best-effort :
+      // n'affecte jamais l'envoi de l'email lui-même si l'appel échoue.
+      // Non authentifié à ce stade (auth.uid() sera null côté serveur),
+      // ce qui est normal — la fonction journalise quand même l'événement.
+      try {
+        await SupabaseConfig.client.rpc('log_security_event',
+            params: {'p_event_type': 'password_reset_requested'});
+      } catch (_) {}
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
