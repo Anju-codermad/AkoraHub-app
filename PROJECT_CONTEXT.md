@@ -3285,6 +3285,14 @@ test documentés par Papi, ex: `0341230001` pour un succès Mvola,
 `0341230002` pour un échec) via le build Codemagic, puis vérifier le
 toggle "Mode manuel (secours)".
 
+**⚠️ Build Codemagic cassé après le merge (31/07)** : `agora_rtc_engine
+^6.6.3` exige `ffi ^1.1.2`, incompatible avec `share_plus ^12.0.2` qui
+exige `ffi ^2.1.2` — pub échoue à résoudre les dépendances
+("version solving failed"). Corrigé en plafonnant
+`agora_rtc_engine: ^6.5.4` (suggestion de `pub` lui-même) ; le code
+d'appel (`call_screen.dart`) n'utilise que des API stables présentes
+dans cette version, aucun changement de code nécessaire.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
