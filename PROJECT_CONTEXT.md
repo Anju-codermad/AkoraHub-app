@@ -2870,6 +2870,312 @@ du projet, et l'abus possible (spam d'emails) est moins critique qu'une
 attaque par force brute sur un mot de passe. La journalisation
 `password_reset_requested` (phase34) reste en place.
 
+## 3trentetroistrentecies. Code de vérification manquant à l'inscription (31/07) ⚠️ CODE PRÊT, 2 RÉGLAGES MANUELS SUPABASE REQUIS
+
+L'utilisateur a remarqué qu'aucun code de vérification n'était envoyé
+lors de la création d'un compte — normal : `auth.signUp` connectait
+directement l'utilisateur (`response.session` non nul), signe que
+"Confirm email" est désactivé côté Supabase. Aucune notion de code
+n'existait avant dans l'app.
+
+**⚠️ 2 réglages manuels obligatoires** (ne peuvent pas être faits en
+SQL) :
+1. Dashboard → Authentication → Providers → Email → activer **"Confirm
+   email"**.
+2. Dashboard → Authentication → Email Templates → **"Confirm signup"** →
+   ajouter `{{ .Token }}` dans le corps du template (le template par
+   défaut n'affiche que le lien `{{ .ConfirmationURL }}`, pas de code à 6
+   chiffres, tant qu'on ne l'ajoute pas explicitement).
+
+**Nouveau** `lib/presentation/registration_screen/email_otp_verification_screen.dart` :
+écran de saisie du code à 6 chiffres, `auth.verifyOTP(type: OtpType.signup,
+email, token)`, bouton "Renvoyer le code" avec cooldown 60s
+(`auth.resend(type: OtpType.signup, email)`). C'est seulement APRÈS ce
+succès (une fois la session établie) que le profil est complété
+(`client_type`/`company_name`/`phone`/`birth_date`) — impossible de le
+faire avant, RLS refuse toute écriture sans session valide.
+
+**Modifié** `lib/presentation/registration_screen/registration_screen.dart` :
+`_handleRegister()` vérifie `response.session == null` après `signUp()` —
+si oui (confirmation requise), redirige vers `EmailOtpVerificationScreen`
+avec l'email + les champs de profil en attente ; sinon (confirmation
+désactivée), ancien comportement inchangé (connexion immédiate).
+
+**Terminé (31/07)** : "Confirm email" activé, template modifié avec
+`{{ .Token }}`. Un blocage supplémentaire est apparu en cours de route :
+le template "Confirm signup" n'est éditable qu'avec un SMTP personnalisé
+connecté (le mailer par défaut de Supabase ne l'autorise pas) — **Gmail
+SMTP configuré** (Authentication → Emails → SMTP Settings :
+`smtp.gmail.com:587`, mot de passe d'application Google généré côté
+Dashboard Google, pas le mot de passe du compte). Sender : AkoraHub
+`<julioandrinirina95@gmail.com>`.
+
+## 3trentequatretrentecies. Vérification du téléphone par SMS après l'email (31/07) ⚠️ CODE PRÊT, PROVIDER PHONE + TWILIO PAS ENCORE CONFIGURÉS
+
+Suite logique du point précédent : l'utilisateur a remarqué que le
+téléphone saisi à l'inscription n'était jamais vérifié (n'importe qui
+peut taper un faux numéro), et a demandé une vraie vérification par SMS
+pour limiter les faux comptes — implémentée comme **étape obligatoire
+après l'email**, pas seulement pour les comptes Google (choix explicite
+de l'utilisateur parmi 2 options proposées).
+
+**Nouveau** `lib/presentation/registration_screen/phone_otp_verification_screen.dart` :
+utilise le flux "changement de téléphone" de Supabase Auth
+(`auth.updateUser(UserAttributes(phone: ...))` déclenche l'envoi du SMS,
+puis `auth.verifyOTP(type: OtpType.phoneChange, phone, token)` confirme)
+plutôt que le flux de connexion par téléphone — l'utilisateur a déjà une
+session (email vérifié juste avant), on ne fait qu'attacher et confirmer
+son numéro à ce compte existant. `profiles.phone` n'est écrit qu'après
+ce succès (pas avant, contrairement à avant ce chantier).
+
+**Modifié** `lib/presentation/registration_screen/email_otp_verification_screen.dart` :
+n'écrit plus `phone` dans le profil immédiatement après la vérification
+email (retiré du map avant l'update) ; redirige vers
+`PhoneOtpVerificationScreen` avec le numéro saisi au formulaire au lieu
+d'aller directement au client-home. Filet de sécurité (ne devrait pas
+arriver, le téléphone est obligatoire au formulaire) : si jamais aucun
+téléphone n'est disponible, va directement au client-home comme avant.
+
+**⚠️ Réglage manuel obligatoire, PAS ENCORE FAIT** : Dashboard Supabase
+→ Authentication → Providers → **Phone** → activer, choisir **Twilio**
+comme fournisseur SMS, renseigner Account SID + Auth Token + un numéro/
+Messaging Service capable d'envoyer vers Madagascar (+261). Nécessite un
+compte Twilio (externe, payant à l'usage — coût par SMS envoyé). Sans ce
+réglage, `updateUser(phone: ...)` échouera et l'écran affichera une
+erreur au lieu d'envoyer un SMS.
+
+**⏸️ Twilio mis en pause (31/07)** : blocage sur la validation MFA du
+compte Twilio (SMS non reçu). Pour ne pas bloquer complètement les
+inscriptions en attendant, **la vérification SMS est devenue
+optionnelle** : bouton **"Passer pour l'instant"** ajouté sur
+`PhoneOtpVerificationScreen` (visible que l'envoi du SMS échoue ou
+réussisse) qui envoie directement vers `/client-home` sans écrire
+`profiles.phone` — mesure temporaire, explicitement documentée dans le
+code (`_skip`) pour être retirée une fois Twilio opérationnel, sinon
+l'étape ne protège plus vraiment contre les faux comptes.
+
+**Non déterminé** : le nombre de chiffres du code SMS (l'écran accepte
+jusqu'à 8 chiffres sans vérifier une longueur exacte, contrairement à
+l'écran email qui avait dû être corrigé une fois la vraie longueur
+connue — volontairement laissé flexible cette fois pour éviter de refaire
+la même erreur).
+
+**Reste à faire** : configurer Twilio + le provider Phone côté Dashboard,
+puis tester une inscription réelle de bout en bout (email → SMS → les
+deux vérifiés → compte activé) avant de merger sur `main`.
+
+**⏸️ Mis en pause (31/07)** : blocage rencontré sur la validation MFA du
+compte Twilio de l'utilisateur (SMS de vérification Twilio non reçu,
+malgré plusieurs tentatives dont un appel vocal). Reporté à plus tard sur
+demande explicite de l'utilisateur — le code applicatif ci-dessus reste
+en l'état, prêt à être repris dès que Twilio sera configurable. **Le
+provider Phone Supabase n'est toujours pas activé** : tant que ce n'est
+pas fait, toute nouvelle inscription reste bloquée à l'écran de
+vérification SMS (aucune façon de terminer une inscription) — raison de
+plus pour NE PAS merger cette branche sur `main` avant que Twilio soit
+opérationnel et testé.
+
+## 3trentecinqtrentecies. Abonnement aux notifications par catégorie de produit (31/07) ⚠️ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ (secret webhook à renseigner)
+
+3e des nouvelles fonctionnalités notées plus tôt dans la session
+(parrainage / export RGPD / abonnement notifications — les deux premières
+restent non commencées). Un client peut s'abonner à une catégorie précise
+d'un pilier (ex: Anti-nuisibles → Insecticides) et reçoit une notification
+push quand un nouveau produit y est ajouté.
+
+**Nouveau** `supabase/phase36_patch_product_category_subscriptions.sql`
+(**PAS ENCORE EXÉCUTÉ**) :
+- Table `product_category_subscriptions` (customer_id, business_unit_id,
+  category_name, unique sur le triplet) — RLS : chacun ne gère que ses
+  propres abonnements (select/insert/delete, pas d'update nécessaire).
+- 4e catégorie de notification **"produit"** (même plomberie que
+  message/devis/commande, phase24+phase32) : colonne
+  `profiles.notification_sound_produit` (défaut `notif_bulle_eau`,
+  réservoir commun de sons déjà intégrés, pas de nouveau fichier audio
+  nécessaire), contrainte `notification_sound_catalog` élargie, 20 lignes
+  seedées pour cette catégorie.
+- Trigger `on_new_product_push` (`after insert on products, when
+  (NEW.visibility = true)`) — même modèle que phase17/phase18, réutilise
+  l'Edge Function `send-push-notification` existante.
+
+**⚠️ Avant d'exécuter ce script** : remplacer `<WEBHOOK_SECRET>` dans le
+fichier par la même valeur secrète déjà utilisée pour les triggers
+messages/commandes/devis (Edge Functions → send-push-notification →
+Manage secrets → WEBHOOK_SECRET).
+
+**Modifié** `supabase/functions/send-push-notification/index.ts` :
+`Category` élargi à `"produit"` ; nouvelle branche `payload.table ===
+"products"` — résout les abonnés via
+`product_category_subscriptions.eq(business_unit_id,
+category_name).select(customer_id)`, construit `recipientIds` à partir de
+ça (contrairement aux autres branches qui connaissent déjà un destinataire
+unique), rejoint la boucle d'envoi générique existante.
+
+**Modifié** `lib/core/notifications/notification_sounds.dart` : ajout de
+`NotificationCategory.produit` (label "Nouveaux produits", son par défaut
+`notif_bulle_eau`) — se propage automatiquement à l'écran de choix des
+sons (`notification_sounds_screen.dart`, déjà piloté par l'énumération) et
+à la création des canaux Android au démarrage
+(`push_notification_service.dart`, boucle déjà pilotée par l'énumération).
+Seul point non piloté par l'énumération et corrigé manuellement : la
+liste de colonnes codée en dur dans
+`_syncSoundPreferencesFromServer()` (ajout de
+`notification_sound_produit`).
+
+**Nouveau** `lib/core/notifications/category_subscription_repo.dart` :
+`isSubscribed`/`subscribe`/`unsubscribe`, CRUD simple sans cache (faible
+fréquence d'utilisation).
+
+**Modifié** `lib/presentation/client_home/catalog_tab.dart` : un
+`ActionChip` "S'abonner aux nouveautés" / "Abonné aux nouveautés" apparaît
+sous les puces de catégorie, **uniquement quand un pilier ET une
+catégorie précis sont sélectionnés** (pas "tous piliers"/"toutes
+catégories") — une catégorie choisie sans pilier précis pourrait exister
+dans plusieurs piliers différents, ambigu pour l'abonnement. Statut
+rechargé (`_refreshSubscriptionStatus`) à chaque changement de pilier/
+catégorie.
+
+**Terminé (31/07)** : script exécuté, `WEBHOOK_SECRET` créé comme secret
+Edge Function (il n'existait pas du tout auparavant — découverte au
+passage : les triggers phase17/phase18 utilisaient déjà une valeur
+"réelle" trouvée en lisant `pg_proc.prosrc` du trigger messages existant,
+réutilisée ici pour cohérence), fonction `send-push-notification`
+redéployée avec la 4e catégorie. **Reste à tester** (s'abonner à une
+catégorie, publier un produit dedans depuis l'Admin, vérifier la
+notification) avant de merger sur `main`.
+
+## 3trentesixtrentecies. Améliorations de l'accueil client (31/07) ✅ FAIT (pas de SQL)
+
+Suite à une session de retours visuels sur l'accueil client (capture
+d'écran fournie par l'utilisateur), 5 pistes ont été proposées puis
+validées (sauf la bannière hero, volontairement laissée telle quelle —
+contenu de test, pas un problème de design). Constat en cours de route :
+2 des 5 étaient **déjà implémentées** (badge panier avec compteur, badge
+"notifications" avec compteur — ce dernier réutilise en fait le nombre de
+messages non lus, il n'existe pas de flux de notifications distinct).
+Seuls 3 points restaient réellement à faire :
+
+- **Salutation dynamique** : "Bonjour"/"Bonsoir" selon `DateTime.now().hour`
+  (avant 5h ou après 18h → "Bonsoir") au lieu de "Bonjour" figé.
+- **Icônes par catégorie** : nouvelle fonction `_iconForCategory` (mots-clés
+  sur le nom, ex: "peinture"→pinceau, "carrelage"→grille, "insecticide"→
+  anti-nuisible), même principe que `_iconForUnit` déjà existant pour les
+  piliers — appliquée via `avatar:` sur les `ChoiceChip` de catégorie.
+- **Bouton "Recommander" visible** : la carte "Vous recommandez souvent"
+  avait déjà un bouton d'ajout rapide (icône "+" seule) — ajout d'un
+  badge "🔁 Recommander" en haut à gauche de chaque carte, plus visible
+  et explicite, qui ajoute directement au panier en 1 tap (même logique
+  `_quickAddToCart`).
+- **Écran de chargement (skeleton)** : remplace le spinner plein écran par
+  un aperçu de la mise en page (en-tête, bannière, piliers, grille de
+  produits) avec des rectangles qui pulsent doucement — fait main
+  (`_ShimmerBox`/`_CatalogSkeleton` dans `catalog_tab.dart`) plutôt qu'un
+  package tiers (`shimmer`), pour ne pas ajouter de dépendance non
+  testable sans SDK Flutter local dans cet environnement.
+
+Tout dans `lib/presentation/client_home/catalog_tab.dart`, aucun
+changement SQL — mergeable indépendamment du reste de la branche dès
+que testé visuellement.
+
+## 3trentesepttrentecies. Appels audio/vidéo dans la messagerie — Agora (31/07) ⚠️ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ, `flutter pub get` NÉCESSAIRE
+
+Demandé par l'utilisateur en même temps que les améliorations d'accueil.
+Compte Agora créé par l'utilisateur (mode "Secure", 10 000 min gratuites/
+mois), secrets `AGORA_APP_ID`/`AGORA_APP_CERTIFICATE` déjà ajoutés dans
+Edge Functions → Manage secrets.
+
+**⚠️ Limite MVP assumée** (documentée dans le script SQL) : sans
+intégration CallKit (iOS)/ConnectionService (Android), l'appel ne sonne
+pas comme un vrai appel téléphonique tant que l'app est fermée — une
+notification push classique arrive, l'écran d'appel entrant et la
+sonnerie ne s'affichent qu'au tap dessus ou si l'app est déjà ouverte.
+Suffisant pour un usage normal, pas un remplacement d'un appel GSM.
+
+**Nouveau** `supabase/phase37_patch_calls.sql` (**PAS ENCORE EXÉCUTÉ**) :
+table `call_invitations` (conversation_id, caller_id, callee_id, call_type
+'audio'|'video', channel_name, status 'ringing'|'accepted'|'declined'|
+'ended'|'missed') — signalisation uniquement, aucun flux audio/vidéo n'y
+transite (ça, c'est Agora directement entre les 2 téléphones). RLS : les
+2 parties (appelant/appelé) peuvent lire/mettre à jour, seul l'appelant
+peut créer. Trigger `after insert` réutilise `send-push-notification`
+(même schéma que phase17/18/36) — **remplacer `<WEBHOOK_SECRET>`** par la
+valeur réelle avant d'exécuter (Edge Functions → send-push-notification →
+Manage secrets → WEBHOOK_SECRET — retrouvée cette fois-ci en lisant
+`pg_proc.prosrc` du trigger messages existant, faute de secret déjà
+enregistré nommé ainsi côté Dashboard).
+
+**Nouveau** `supabase/functions/super-endpoint/index.ts` (contenu
+"generate-agora-token", **nom déployé imposé par le Dashboard** — même
+situation que hyper-endpoint/secure-login plus tôt dans la session) :
+seule fonction ayant accès à `AGORA_APP_CERTIFICATE` (jamais côté
+client) — génère un token via le package npm `agora-token` (importé
+directement depuis esm.sh, pas de réimplémentation de l'algorithme de
+signature Agora). `uid=0` volontairement (laisse le SDK choisir un uid à
+la connexion) plutôt qu'un uid par utilisateur, pour simplifier — l'accès
+au canal reste conditionné à une ligne `call_invitations` valide et à une
+session Supabase authentifiée. "Verify JWT with legacy secret" désactivé
+dans ses Settings, comme pour hyper-endpoint.
+
+**Modifié** `supabase/functions/send-push-notification/index.ts` :
+nouvelle branche `payload.table === "call_invitations"` — n'utilise PAS
+le système de son par catégorie personnalisable (message/devis/commande/
+produit) puisqu'un appel doit toujours sonner de façon reconnaissable,
+pas selon une préférence ; construit `data: {type: 'call_invite', ...}`
+consommé côté client pour afficher l'écran d'appel entrant plutôt qu'une
+notification classique.
+
+**Nouveau** côté app :
+- `lib/core/calls/agora_token_repo.dart` — appelle `super-endpoint`.
+- `lib/core/calls/call_repo.dart` — `createInvitation`/`updateStatus`.
+- `lib/presentation/calls/call_screen.dart` — écran d'appel en cours
+  (`agora_rtc_engine`), vue vidéo locale/distante ou avatar pour l'audio,
+  contrôles (micro, haut-parleur/caméra selon le type, raccrocher).
+- `lib/presentation/calls/incoming_call_screen.dart` — écran "appel
+  entrant", sonnerie en boucle (réutilise l'asset son `notif_radar.wav`
+  déjà intégré, pas de nouveau fichier), accepter/refuser, expire après
+  45s sans réponse ("missed").
+
+**Modifié** `lib/core/notifications/push_notification_service.dart` :
+canal Android dédié `akorahub_calls` (en dehors du système de son
+personnalisable) ; détection `data.type == 'call_invite'` dans les 3 états
+possibles de l'app — `onMessage` (ouverte, pousse directement
+`IncomingCallScreen` au lieu d'une notification classique via le
+`navigatorKey` global `GlobalAuthListener`), `onMessageOpenedApp`
+(arrière-plan, tap sur la notification) et `getInitialMessage()` (app
+totalement fermée). Pas de canal Realtime Postgres séparé : le message
+FCM en premier plan (`onMessage`) suffit déjà à couvrir le cas "app
+ouverte", inutile de dupliquer avec un flux Realtime.
+
+**Modifié** `lib/presentation/client_home/chat_screen.dart` (client) et
+`lib/presentation/messaging_center_real/messaging_center_real.dart`
+(`_AdminConversationThread`, staff) : boutons appel audio/vidéo dans
+l'AppBar. Côté client, comme une conversation n'a pas de membre du staff
+assigné (`conversations` n'a pas de colonne `staff_id`), l'appel cible en
+priorité le dernier membre du staff ayant répondu dans cette conversation,
+sinon n'importe quel Admin/Commercial (`_resolveCalleeStaffId`). Côté
+staff, `_AdminConversationThread` a gagné un paramètre `customerId`
+(absent avant ce chantier — seuls `conversationId`/`customerName`
+existaient) passé depuis la liste des conversations qui l'avait déjà en
+base (`conversations.customer_id`).
+
+**Modifié** `pubspec.yaml` : ajout de `agora_rtc_engine: ^6.6.3`.
+**`flutter pub get` (ou un build Codemagic) est nécessaire** — pas
+vérifiable localement dans cet environnement (pas de SDK Flutter/Dart
+installé ici).
+
+**Modifié** permissions : `AndroidManifest.xml` (ajout
+`MODIFY_AUDIO_SETTINGS`, `BLUETOOTH`, `BLUETOOTH_CONNECT`, `WAKE_LOCK` —
+`CAMERA`/`RECORD_AUDIO`/`INTERNET` existaient déjà) ; `Info.plist`
+(descriptions `NSCameraUsageDescription`/`NSMicrophoneUsageDescription`
+élargies pour mentionner aussi les appels, en plus du scan QR/messages
+vocaux déjà couverts).
+
+**Reste à faire** : remplacer `<WEBHOOK_SECRET>` dans phase37 et
+l'exécuter, lancer un build (Codemagic ou `flutter pub get` local) pour
+vérifier que `agora_rtc_engine` se résout sans conflit, puis tester un
+appel réel de bout en bout (audio ET vidéo, dans les 2 sens
+client→staff et staff→client) avant de merger sur `main`.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

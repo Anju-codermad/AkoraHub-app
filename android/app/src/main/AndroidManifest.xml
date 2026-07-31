@@ -15,6 +15,12 @@
          bloque silencieusement toute notification, quel que soit le code
          de l'app. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Appels audio/vidéo (Agora) — 31/07 : recommandé pour un routage
+         audio correct (haut-parleur/écouteur/Bluetooth) pendant un appel. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <application
             android:label="AkoraHub"

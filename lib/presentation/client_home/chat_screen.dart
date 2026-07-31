@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/calls/call_repo.dart';
 import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../calls/call_screen.dart';
 
 /// Messagerie privée client ↔ équipe commerciale — une conversation par
 /// client. Une "Demande" (ex "Demandes & annonces") est un message envoyé
@@ -161,6 +163,69 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  /// Une conversation n'a pas de membre du staff assigné (voir
+  /// `conversations`, phase8) — appelle en priorité le dernier membre du
+  /// staff ayant répondu ici, sinon n'importe quel Admin/Commercial.
+  Future<String?> _resolveCalleeStaffId() async {
+    if (_conversationId == null) return null;
+    final lastStaffMessage = await SupabaseConfig.client
+        .from('messages')
+        .select('sender_id')
+        .eq('conversation_id', _conversationId!)
+        .eq('sender_role', 'staff')
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    if (lastStaffMessage != null) {
+      return lastStaffMessage['sender_id'] as String;
+    }
+    final anyStaff = await SupabaseConfig.client
+        .from('profiles')
+        .select('id')
+        .inFilter('role', ['admin', 'commercial'])
+        .limit(1)
+        .maybeSingle();
+    return anyStaff?['id'] as String?;
+  }
+
+  Future<void> _startCall(String callType) async {
+    if (_conversationId == null) return;
+    try {
+      final calleeId = await _resolveCalleeStaffId();
+      if (calleeId == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Aucun membre de l\'équipe disponible.')),
+        );
+        return;
+      }
+      final invitation = await CallRepo.createInvitation(
+        conversationId: _conversationId!,
+        calleeId: calleeId,
+        callType: callType,
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CallScreen(
+            channelName: invitation.channelName,
+            callType: callType,
+            peerName: 'AkoraHub',
+            invitationId: invitation.id,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Impossible de démarrer l\'appel. Réessayez.')),
+      );
+    }
+  }
+
   Future<void> _send() async {
     final text = _textController.text.trim();
     if (text.isEmpty || _conversationId == null) return;
@@ -252,7 +317,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final bubbleStyle = ref.watch(chatBubbleStyleProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Messagerie')),
+      appBar: AppBar(
+        title: const Text('Messagerie'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.call_outlined),
+            tooltip: 'Appel audio',
+            onPressed: () => _startCall('audio'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam_outlined),
+            tooltip: 'Appel vidéo',
+            onPressed: () => _startCall('video'),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

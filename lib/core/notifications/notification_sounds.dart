@@ -1,6 +1,6 @@
 /// Catalogue partagé des sons de notification disponibles, et des
 /// catégories de notification que l'app distingue (Message/Devis/
-/// Commande — voir supabase/functions/send-push-notification/index.ts).
+/// Commande/Produit — voir supabase/functions/send-push-notification/index.ts).
 ///
 /// Tous les fichiers son sont dans `android/app/src/main/res/raw/` (nom
 /// de fichier = `id` ci-dessous, sans extension — obligatoire pour un nom
@@ -10,7 +10,7 @@
 /// plutôt qu'une liste figée par catégorie).
 library;
 
-enum NotificationCategory { message, devis, commande }
+enum NotificationCategory { message, devis, commande, produit }
 
 extension NotificationCategoryX on NotificationCategory {
   /// Identifiant stable utilisé en base (colonne `profiles.notification_sound_<id>`),
@@ -24,6 +24,8 @@ extension NotificationCategoryX on NotificationCategory {
         return 'devis';
       case NotificationCategory.commande:
         return 'commande';
+      case NotificationCategory.produit:
+        return 'produit';
     }
   }
 
@@ -35,6 +37,8 @@ extension NotificationCategoryX on NotificationCategory {
         return 'Devis';
       case NotificationCategory.commande:
         return 'Commandes';
+      case NotificationCategory.produit:
+        return 'Nouveaux produits';
     }
   }
 
@@ -48,6 +52,8 @@ extension NotificationCategoryX on NotificationCategory {
         return 'notif_devis_classique';
       case NotificationCategory.commande:
         return 'notif_commande_classique';
+      case NotificationCategory.produit:
+        return 'notif_bulle_eau';
     }
   }
 

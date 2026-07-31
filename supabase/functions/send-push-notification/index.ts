@@ -30,13 +30,14 @@ interface WebhookPayload {
   record: Record<string, unknown>;
 }
 
-type Category = "message" | "devis" | "commande";
+type Category = "message" | "devis" | "commande" | "produit";
 
 const soundColumn = (category: Category) => `notification_sound_${category}`;
 const defaultSound: Record<Category, string> = {
   message: "notif_message_classique",
   devis: "notif_devis_classique",
   commande: "notif_commande_classique",
+  produit: "notif_bulle_eau",
 };
 const channelId = (category: Category, soundId: string) =>
   `akorahub_${category}_${soundId}`;
@@ -275,6 +276,86 @@ Deno.serve(async (req) => {
       for (const s of staff ?? []) {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
+      return new Response("ok");
+    } else if (payload.table === "products") {
+      // Nouveau produit visible -> notifie les clients abonnés à cette
+      // catégorie précise de ce pilier (voir
+      // supabase/phase36_patch_product_category_subscriptions.sql).
+      category = "produit";
+      const businessUnitId = record.business_unit_id as string | undefined;
+      const categoryName = record.category as string | undefined;
+      if (!businessUnitId || !categoryName) return new Response("ok");
+      const { data: subs } = await supabase
+        .from("product_category_subscriptions")
+        .select("customer_id")
+        .eq("business_unit_id", businessUnitId)
+        .eq("category_name", categoryName);
+      recipientIds = (subs ?? []).map((s: Record<string, unknown>) =>
+        s.customer_id as string
+      );
+      title = "Nouveau produit disponible";
+      body = `${record.name ?? "Un nouveau produit"} vient d'être ajouté dans "${categoryName}".`;
+    } else if (payload.table === "call_invitations") {
+      // Appel entrant (voir supabase/phase37_patch_calls.sql) — payload
+      // dédié (pas de choix de son par l'utilisateur ici, contrairement
+      // aux autres catégories : un appel doit toujours utiliser un son
+      // d'appel reconnaissable, pas une préférence personnalisable), donc
+      // on n'utilise pas `sendToProfile`/`soundColumn` pour ce cas.
+      const { data: callee } = await supabase
+        .from("profiles")
+        .select("fcm_token")
+        .eq("id", record.callee_id)
+        .maybeSingle();
+      if (!callee?.fcm_token) return new Response("ok");
+
+      const { data: caller } = await supabase
+        .from("profiles")
+        .select("full_name, company_name")
+        .eq("id", record.caller_id)
+        .maybeSingle();
+      const callerName = caller?.company_name || caller?.full_name ||
+        "Quelqu'un";
+      const isVideo = record.call_type === "video";
+
+      const accessToken = await getFirebaseAccessToken(serviceAccount);
+      await fetch(
+        `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: {
+              token: callee.fcm_token,
+              notification: {
+                title: isVideo ? "Appel vidéo entrant" : "Appel entrant",
+                body: `${callerName} vous appelle`,
+              },
+              data: {
+                type: "call_invite",
+                invitation_id: String(record.id),
+                call_type: record.call_type,
+                channel_name: record.channel_name,
+                caller_name: callerName,
+              },
+              android: {
+                priority: "high",
+                notification: {
+                  channel_id: "akorahub_calls",
+                  sound: "default",
+                },
+              },
+              apns: {
+                payload: {
+                  aps: { sound: "default", "content-available": 1 },
+                },
+              },
+            },
+          }),
+        },
+      );
       return new Response("ok");
     }
 

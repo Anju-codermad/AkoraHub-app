@@ -1,0 +1,233 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:sizer/sizer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/notifications/push_notification_service.dart';
+import '../../core/supabase/supabase_config.dart';
+import './phone_otp_verification_screen.dart';
+
+/// Étape de vérification par code après inscription (`auth.signUp`) —
+/// nécessite que "Confirm email" soit activé côté Supabase (Authentication
+/// -> Providers -> Email) ET que le template "Confirm signup" affiche
+/// `{{ .Token }}` (code à 8 chiffres — voir Authentication -> Providers ->
+/// Email -> "Email OTP length") plutôt qu'un simple lien, sinon le
+/// client ne reçoit jamais aucun code (voir demande utilisateur du 31/07).
+///
+/// Le profil (type de client, société, date de naissance) ne peut être
+/// mis à jour qu'après ce succès : avant la vérification, il n'y a pas
+/// encore de session (donc pas de JWT), et les policies RLS de `profiles`
+/// refusent toute écriture sans session valide. Le téléphone n'est PAS
+/// écrit ici : il est vérifié par SMS juste après (voir
+/// `PhoneOtpVerificationScreen`) et n'est enregistré qu'une fois confirmé.
+class EmailOtpVerificationScreen extends StatefulWidget {
+  final String email;
+  final Map<String, dynamic> pendingProfileUpdate;
+
+  const EmailOtpVerificationScreen({
+    super.key,
+    required this.email,
+    required this.pendingProfileUpdate,
+  });
+
+  @override
+  State<EmailOtpVerificationScreen> createState() =>
+      _EmailOtpVerificationScreenState();
+}
+
+class _EmailOtpVerificationScreenState
+    extends State<EmailOtpVerificationScreen> {
+  final _codeController = TextEditingController();
+  bool _isVerifying = false;
+  bool _isResending = false;
+  int _resendCooldown = 0;
+  Timer? _cooldownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCooldown();
+  }
+
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  void _startCooldown() {
+    setState(() => _resendCooldown = 60);
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendCooldown <= 1) {
+        timer.cancel();
+        setState(() => _resendCooldown = 0);
+      } else {
+        setState(() => _resendCooldown -= 1);
+      }
+    });
+  }
+
+  Future<void> _verify() async {
+    final code = _codeController.text.trim();
+    if (code.length != 8) {
+      _showError('Le code doit contenir 8 chiffres.');
+      return;
+    }
+
+    setState(() => _isVerifying = true);
+    try {
+      final response = await SupabaseConfig.client.auth.verifyOTP(
+        type: OtpType.signup,
+        email: widget.email,
+        token: code,
+      );
+
+      final userId = response.user?.id;
+      final phone = widget.pendingProfileUpdate['phone'] as String?;
+      if (userId != null) {
+        // Le téléphone est appliqué séparément, seulement après sa
+        // vérification par SMS (voir PhoneOtpVerificationScreen) — on ne
+        // l'écrit pas ici.
+        final profileWithoutPhone = Map<String, dynamic>.from(
+            widget.pendingProfileUpdate)
+          ..remove('phone');
+        await SupabaseConfig.client
+            .from('profiles')
+            .update(profileWithoutPhone)
+            .eq('id', userId);
+      }
+
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+
+      if (phone == null || phone.isEmpty) {
+        // Ne devrait pas arriver (le téléphone est obligatoire au
+        // formulaire d'inscription) — filet de sécurité pour ne pas
+        // bloquer un compte sans téléphone connu.
+        PushNotificationService.onUserSignedIn();
+        Navigator.pushNamedAndRemoveUntil(
+            context, '/client-home', (route) => false);
+        return;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PhoneOtpVerificationScreen(phone: phone),
+        ),
+      );
+    } on AuthException catch (e) {
+      _showError(e.message);
+    } catch (e) {
+      _showError('Une erreur est survenue. Réessayez.');
+    } finally {
+      if (mounted) setState(() => _isVerifying = false);
+    }
+  }
+
+  Future<void> _resend() async {
+    if (_resendCooldown > 0 || _isResending) return;
+    setState(() => _isResending = true);
+    try {
+      await SupabaseConfig.client.auth
+          .resend(type: OtpType.signup, email: widget.email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Un nouveau code a été envoyé.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _startCooldown();
+    } on AuthException catch (e) {
+      _showError(e.message);
+    } catch (e) {
+      _showError('Impossible de renvoyer le code. Réessayez plus tard.');
+    } finally {
+      if (mounted) setState(() => _isResending = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Vérification de l\'email')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Icon(Icons.mark_email_read_outlined,
+                  size: 48, color: theme.colorScheme.primary),
+              SizedBox(height: 2.h),
+              Text(
+                'Un code à 8 chiffres a été envoyé à ${widget.email}. '
+                'Saisissez-le ci-dessous pour activer votre compte.',
+                style: theme.textTheme.bodyMedium,
+              ),
+              SizedBox(height: 3.h),
+              TextField(
+                controller: _codeController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: 8,
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(letterSpacing: 4),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  counterText: '',
+                  hintText: '00000000',
+                ),
+                onSubmitted: (_) => _verify(),
+              ),
+              SizedBox(height: 3.h),
+              FilledButton(
+                onPressed: _isVerifying ? null : _verify,
+                child: _isVerifying
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child:
+                            CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Vérifier'),
+              ),
+              SizedBox(height: 2.h),
+              TextButton(
+                onPressed: (_resendCooldown > 0 || _isResending)
+                    ? null
+                    : _resend,
+                child: Text(
+                  _resendCooldown > 0
+                      ? 'Renvoyer le code (${_resendCooldown}s)'
+                      : 'Renvoyer le code',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

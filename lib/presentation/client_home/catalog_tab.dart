@@ -9,6 +9,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/localization/app_translations.dart';
 import '../../core/navigation/product_detail_route.dart';
+import '../../core/notifications/category_subscription_repo.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -36,6 +37,12 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   String? _selectedUnitId;
   String _selectedCategory = 'toutes';
   String _searchQuery = '';
+
+  // Abonnement aux notifications pour la catégorie actuellement
+  // sélectionnée (uniquement pertinent quand un pilier ET une catégorie
+  // précis sont choisis — voir CategorySubscriptionRepo).
+  bool _isSubscribedToCategory = false;
+  bool _isTogglingSubscription = false;
 
   // Pagination : la grille produits n'avait pas de limite (catalogue
   // entier chargé d'un coup) — remplacé par un chargement par pages de
@@ -566,6 +573,40 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     return Icons.cleaning_services;
   }
 
+  /// Icône approximative par mot-clé du nom de catégorie (pas de slug
+  /// dédié pour les catégories, contrairement aux piliers — voir
+  /// `_iconForUnit` ci-dessus, même principe).
+  IconData _iconForCategory(String category) {
+    final name = category.toLowerCase();
+    if (name.contains('peinture') || name.contains('paint')) {
+      return Icons.format_paint;
+    }
+    if (name.contains('acide') || name.contains('base')) {
+      return Icons.science_outlined;
+    }
+    if (name.contains('carrelage') || name.contains('sol')) {
+      return Icons.grid_view_outlined;
+    }
+    if (name.contains('insecticide') ||
+        name.contains('nuisible') ||
+        name.contains('anti-')) {
+      return Icons.pest_control_outlined;
+    }
+    if (name.contains('soin') || name.contains('cosmet')) {
+      return Icons.spa_outlined;
+    }
+    if (name.contains('parfum') || name.contains('odeur')) {
+      return Icons.local_florist_outlined;
+    }
+    if (name.contains('désinfect') || name.contains('desinfect')) {
+      return Icons.sanitizer_outlined;
+    }
+    if (name.contains('emballage') || name.contains('contenant')) {
+      return Icons.inventory_2_outlined;
+    }
+    return Icons.category_outlined;
+  }
+
   List<String> get _categories {
     // Basé sur le catalogue complet (_allProductsForReference), pas sur
     // _products qui n'est plus qu'une page — sinon les puces
@@ -589,6 +630,53 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         .toList();
     cats.sort();
     return cats;
+  }
+
+  /// Recharge le statut d'abonnement pour le (pilier, catégorie)
+  /// actuellement sélectionnés — pas pertinent si l'un des deux vaut
+  /// "tous" (une catégorie choisie sans pilier précis pourrait exister
+  /// dans plusieurs piliers, donc ambigu pour l'abonnement).
+  Future<void> _refreshSubscriptionStatus() async {
+    if (_selectedUnitId == null || _selectedCategory == 'toutes') {
+      if (_isSubscribedToCategory) {
+        setState(() => _isSubscribedToCategory = false);
+      }
+      return;
+    }
+    final subscribed = await CategorySubscriptionRepo.isSubscribed(
+        _selectedUnitId!, _selectedCategory);
+    if (!mounted) return;
+    setState(() => _isSubscribedToCategory = subscribed);
+  }
+
+  Future<void> _toggleCategorySubscription() async {
+    if (_selectedUnitId == null ||
+        _selectedCategory == 'toutes' ||
+        _isTogglingSubscription) {
+      return;
+    }
+    setState(() => _isTogglingSubscription = true);
+    try {
+      if (_isSubscribedToCategory) {
+        await CategorySubscriptionRepo.unsubscribe(
+            _selectedUnitId!, _selectedCategory);
+      } else {
+        await CategorySubscriptionRepo.subscribe(
+            _selectedUnitId!, _selectedCategory);
+      }
+      if (!mounted) return;
+      setState(() => _isSubscribedToCategory = !_isSubscribedToCategory);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Une erreur est survenue. Réessayez.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isTogglingSubscription = false);
+    }
   }
 
   List<Map<String, dynamic>> get _filteredProducts {
@@ -631,16 +719,22 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     final favorites = ref.watch(favoritesProvider);
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const _CatalogSkeleton();
     }
     if (_error != null) {
       return Center(child: Text(_error!));
     }
 
+    final hour = DateTime.now().hour;
+    final greetingPrefix = hour < 5
+        ? 'Bonsoir'
+        : hour < 18
+            ? 'Bonjour'
+            : 'Bonsoir';
     final greetingName =
         (_clientName == null || _clientName!.trim().isEmpty)
-            ? 'Bonjour'
-            : 'Bonjour, ${_clientName!.split(' ').first}';
+            ? greetingPrefix
+            : '$greetingPrefix, ${_clientName!.split(' ').first}';
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -992,23 +1086,64 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       padding: EdgeInsets.only(right: 3.w),
                       child: SizedBox(
                         width: 38.w,
-                        child: _ProductCard(
-                          product: p,
-                          currency: _currency,
-                          isFavorite:
-                              ref.watch(favoritesProvider).contains(p['id']),
-                          enableHero: false,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              productDetailRoute(
-                                  ProductDetailClient(product: p)),
-                            );
-                          },
-                          onQuickAdd: () => _quickAddToCart(p),
-                          onToggleFavorite: () => ref
-                              .read(favoritesProvider.notifier)
-                              .toggle(p['id']),
+                        child: Stack(
+                          children: [
+                            _ProductCard(
+                              product: p,
+                              currency: _currency,
+                              isFavorite: ref
+                                  .watch(favoritesProvider)
+                                  .contains(p['id']),
+                              enableHero: false,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  productDetailRoute(
+                                      ProductDetailClient(product: p)),
+                                );
+                              },
+                              onQuickAdd: () => _quickAddToCart(p),
+                              onToggleFavorite: () => ref
+                                  .read(favoritesProvider.notifier)
+                                  .toggle(p['id']),
+                            ),
+                            // Achat en 1 tap sans ouvrir la fiche produit —
+                            // c'est tout l'intérêt de cette section (produits
+                            // déjà commandés au moins 2 fois par ce client).
+                            Positioned(
+                              left: 8,
+                              top: 8,
+                              child: Material(
+                                color: theme.colorScheme.primary,
+                                borderRadius: BorderRadius.circular(20),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(20),
+                                  onTap: () => _quickAddToCart(p),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.replay,
+                                            size: 12,
+                                            color: theme.colorScheme.onPrimary),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'Recommander',
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                            color: theme.colorScheme.onPrimary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -1186,6 +1321,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             _selectedCategory = 'toutes';
                           });
                           _reloadProductsPage();
+                          _refreshSubscriptionStatus();
                         },
                         child: const Text('Voir tout'),
                       ),
@@ -1214,6 +1350,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             _selectedCategory = 'toutes';
                           });
                           _reloadProductsPage();
+                          _refreshSubscriptionStatus();
                         },
                         child: SizedBox(
                           width: 18.w,
@@ -1269,26 +1406,59 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
+                        avatar: const Icon(Icons.apps, size: 18),
                         label: Text(ref.tr('all_categories')),
                         selected: _selectedCategory == 'toutes',
                         onSelected: (_) {
                           setState(() => _selectedCategory = 'toutes');
                           _reloadProductsPage();
+                          _refreshSubscriptionStatus();
                         },
                       ),
                     ),
                     ..._categories.map((c) => Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
+                            avatar: Icon(_iconForCategory(c), size: 18),
                             label: Text(c),
                             selected: _selectedCategory == c,
                             onSelected: (_) {
                               setState(() => _selectedCategory = c);
                               _reloadProductsPage();
+                              _refreshSubscriptionStatus();
                             },
                           ),
                         )),
                   ],
+                ),
+              ),
+            ),
+
+          if (_selectedUnitId != null && _selectedCategory != 'toutes')
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ActionChip(
+                    avatar: Icon(
+                      _isSubscribedToCategory
+                          ? Icons.notifications_active
+                          : Icons.notifications_none,
+                      size: 18,
+                      color: _isSubscribedToCategory
+                          ? theme.colorScheme.primary
+                          : null,
+                    ),
+                    label: Text(
+                      _isSubscribedToCategory
+                          ? 'Abonné aux nouveautés'
+                          : 'S\'abonner aux nouveautés',
+                    ),
+                    onPressed: _isTogglingSubscription
+                        ? null
+                        : _toggleCategorySubscription,
+                  ),
                 ),
               ),
             ),
@@ -1660,6 +1830,141 @@ class _Tag extends StatelessWidget {
               : theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+/// Rectangle qui pulse doucement (dégradé animé) — remplace le spinner
+/// plein écran pendant le tout premier chargement du catalogue, pour
+/// donner une impression de rapidité plutôt qu'un écran vide. Fait main
+/// plutôt qu'un package tiers (`shimmer`) pour ne pas ajouter de
+/// dépendance non testable sans SDK Flutter local.
+class _ShimmerBox extends StatefulWidget {
+  final double? width;
+  final double? height;
+  final BorderRadius borderRadius;
+
+  const _ShimmerBox({
+    this.width,
+    this.height,
+    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+  });
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final base = theme.colorScheme.surfaceContainerHighest;
+    final highlight = theme.colorScheme.surface;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            gradient: LinearGradient(
+              begin: Alignment(-1 + 2 * _controller.value, 0),
+              end: Alignment(1 + 2 * _controller.value, 0),
+              colors: [base, highlight, base],
+              stops: const [0.35, 0.5, 0.65],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Aperçu de la mise en page de l'accueil pendant le premier chargement
+/// (avant que `_loadData` n'ait de résultat) — reproduit approximativement
+/// la forme de l'en-tête/bannière/grille de produits pour éviter un écran
+/// vide ou un simple spinner central.
+class _CatalogSkeleton extends StatelessWidget {
+  const _CatalogSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+        children: [
+          Row(
+            children: [
+              const _ShimmerBox(
+                width: 44,
+                height: 44,
+                borderRadius: BorderRadius.all(Radius.circular(22)),
+              ),
+              SizedBox(width: 3.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ShimmerBox(width: 40.w, height: 16),
+                    SizedBox(height: 1.h),
+                    _ShimmerBox(width: 28.w, height: 12),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 2.h),
+          _ShimmerBox(
+            width: double.infinity,
+            height: 20.h,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          SizedBox(height: 2.5.h),
+          Row(
+            children: List.generate(
+              4,
+              (i) => Padding(
+                padding: EdgeInsets.only(right: 3.w),
+                child: _ShimmerBox(
+                  width: 15.w,
+                  height: 15.w,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 2.5.h),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 3.w,
+            mainAxisSpacing: 2.h,
+            childAspectRatio: 0.72,
+            children: List.generate(
+              4,
+              (i) => _ShimmerBox(
+                width: double.infinity,
+                height: double.infinity,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

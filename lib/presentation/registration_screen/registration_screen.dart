@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
+import './email_otp_verification_screen.dart';
 
 /// Écran d'inscription pour les clients (hôtel, hôpital, entreprise,
 /// particulier), en 2 étapes :
@@ -171,23 +172,47 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         },
       );
 
-      final userId = response.user?.id;
-      if (userId != null) {
-        // Complète le profil créé automatiquement par le trigger SQL
-        // avec le type de client, le nom de société et le téléphone.
-        await SupabaseConfig.client.from('profiles').update({
-          'client_type': _clientType,
-          'company_name': _companyNameController.text.trim().isEmpty
-              ? null
-              : _companyNameController.text.trim(),
-          'phone': _phoneController.text.trim().isEmpty
-              ? null
-              : _phoneController.text.trim(),
-          'birth_date': _birthDate?.toIso8601String().split('T').first,
-        }).eq('id', userId);
-      }
+      // Champs du profil à appliquer une fois une session établie —
+      // impossible de le faire tout de suite si la confirmation par email
+      // est activée (pas encore de session -> RLS refuse l'écriture).
+      final pendingProfileUpdate = {
+        'client_type': _clientType,
+        'company_name': _companyNameController.text.trim().isEmpty
+            ? null
+            : _companyNameController.text.trim(),
+        'phone': _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        'birth_date': _birthDate?.toIso8601String().split('T').first,
+      };
 
       if (!mounted) return;
+
+      if (response.session == null) {
+        // "Confirm email" activé côté Supabase : aucune session tant que
+        // le code reçu par email n'est pas saisi.
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EmailOtpVerificationScreen(
+              email: _emailController.text.trim(),
+              pendingProfileUpdate: pendingProfileUpdate,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Confirmation par email désactivée côté Supabase : session déjà
+      // active, comportement inchangé (connexion immédiate).
+      final userId = response.user?.id;
+      if (userId != null) {
+        await SupabaseConfig.client
+            .from('profiles')
+            .update(pendingProfileUpdate)
+            .eq('id', userId);
+      }
+
       HapticFeedback.mediumImpact();
 
       ScaffoldMessenger.of(context).showSnackBar(
