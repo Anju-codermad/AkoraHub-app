@@ -2615,6 +2615,45 @@ requêtes indépendantes enchaînées en séquentiel (au lieu d'un
 Item 1 de la checklist perf/sécurité (31/07) désormais entièrement traité
 pour tous les écrans audités.
 
+## 3vingthuittrentecies. Pagination / infinite scroll — Commandes, Mur, Produits Admin (31/07) ✅ FAIT (item 2 de l'audit, partiel)
+
+Item 2 de la checklist perf/sécurité (31/07) : les listes longues
+chargeaient la table entière sans limite. Chargement par pages de 20
+(scroll vers le bas = page suivante automatique) implémenté pour :
+
+- **Commandes** (`order_management_real.dart`) : le filtre de statut
+  (Toutes/Reçue/.../Annulée) passe désormais **côté serveur**
+  (`.eq('status', ...)`), compatible avec la pagination. Le filtre
+  "Paiement à vérifier" reste côté client car sa logique (valeurs
+  nulles traitées comme 'paiement_livraison'/'en_attente') ne se traduit
+  pas proprement en filtre Postgrest simple (`<>` exclut les NULL, alors
+  que le code traite un NULL comme la valeur par défaut) — dans ce mode
+  précis, tout est chargé sans pagination pour ne rater aucune commande à
+  vérifier (sous-ensemble nettement plus petit en pratique).
+- **Mur** (`wall_tab.dart`) : le plafond fixe de 50 posts (sans suite
+  possible) remplacé par une vraie pagination. Les filtres secteur/"mes
+  publications" passent aussi côté serveur — le filtre secteur (basé sur
+  `profiles.client_type`, une autre table) via une résolution en 2 temps :
+  requête sur la vue `public_profiles` pour obtenir les `author_id` du
+  secteur, puis `inFilter` sur `posts.author_id`. Les deux filtres se
+  combinent correctement (ET logique, comme avant).
+- **Produits Admin** (`product_management_real.dart`) : pas de filtre de
+  recherche sur cet écran (contrairement au catalogue client), donc cas
+  simple — pagination directe sans complication. Piliers/catégories/
+  suggestions de matières premières restent chargés en entier (petites
+  tables de référence pour les menus déroulants, pas concernées par la
+  pagination).
+
+⚠️ **Catalogue client (`catalog_tab.dart`) volontairement pas encore
+traité** — contrairement aux écrans ci-dessus, il a une recherche texte
+ET un filtre catégorie appliqués en mémoire sur la liste complète. Le
+convertir en pagination correcte nécessite de passer la recherche et le
+filtre catégorie côté serveur (recherche avec debounce au lieu
+d'instantanée à chaque frappe) — un changement d'UX sur l'écran le plus
+critique de l'app (l'écran d'achat principal des clients), à valider
+avec l'utilisateur avant de l'implémenter plutôt que de le faire
+silencieusement.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
