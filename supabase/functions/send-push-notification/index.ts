@@ -274,6 +274,35 @@ Deno.serve(async (req) => {
         : `Votre paiement n'a pas abouti${orderNumber}. Réessayez depuis votre commande.`;
       const payerCustomerId = record.customer_id as string | undefined;
       if (payerCustomerId) recipientIds = [payerCustomerId];
+    } else if (payload.table === "orders_manual_payment_submitted") {
+      // Client vient de soumettre un paiement manuel (référence et/ou
+      // photo) à vérifier — virement bancaire, ou Mvola/Orange/Airtel en
+      // mode manuel de secours (voir
+      // supabase/phase39_patch_manual_payment_staff_notification.sql).
+      // Notifie toute l'équipe (Admin/Commercial), pour réduire le délai
+      // de vérification humaine plutôt que de compter sur une
+      // consultation manuelle de la liste des commandes.
+      category = "commande";
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      const methodLabels: Record<string, string> = {
+        virement_bancaire: "virement bancaire",
+        mvola: "Mvola",
+        orange_money: "Orange Money",
+        airtel_money: "Airtel Money",
+      };
+      const methodLabel =
+        methodLabels[record.payment_method as string] ?? "paiement manuel";
+      const orderNumber = record.order_number ? ` ${record.order_number}` : "";
+      title = "Paiement à vérifier";
+      body = `Commande${orderNumber} — ${methodLabel} en attente de vérification.`;
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "quotes") {
       // Le client vient d'accepter/refuser un devis -> notifie toute
       // l'équipe (Admin/Commercial), pas juste le staff qui avait répondu.

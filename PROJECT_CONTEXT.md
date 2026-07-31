@@ -3398,6 +3398,56 @@ affichait le statut de livraison (Reçue → Expédiée → Livrée) mais jamais
   admin, retombant sur un gris neutre peu visible pour un paiement Papi
   refusé.
 
+**Estimation des frais de retrait Mvola (31/07, suite)** : l'utilisateur a
+fourni la grille tarifaire officielle Mvola ("Auprès d'un Cash Point
+Mvola") et a demandé qu'elle soit visible **par le client**, à titre
+purement informatif (le client continue de payer le même montant — ce
+n'est pas ajouté au prix, contrairement à la piste "commission Papi
+répercutée sur le client" écartée plus tôt). Décision explicite via
+AskUserQuestion (3 options : admin seul / transparence client / ajouté au
+prix client → **transparence client** choisie).
+
+**⚠️ Limite connue, assumée** : le palier de frais Mvola dépend du montant
+**total retiré en une fois** par le marchand (qui peut cumuler plusieurs
+commandes avant un seul retrait), pas du montant d'une commande isolée —
+et si le paiement passe par **Papi** plutôt que par un vrai retrait Mvola
+manuel, l'argent atterrit peut-être directement sur un compte bancaire
+(pas via un retrait Mvola), rendant ce frais non pertinent. Le calcul
+implémenté est donc une **approximation** (suppose que cette commande
+serait retirée seule), affichée uniquement pour Mvola en **mode manuel**
+(jamais pour Mvola via Papi) — libellé explicitement "à titre indicatif".
+
+- **Nouveau** `lib/core/payment/mvola_withdrawal_fee.dart` :
+  `MvolaWithdrawalFee.estimate(montant)`, grille de paliers (100 Ar pour
+  100-1 000 Ar, jusqu'à 100 000 Ar pour 19-20M Ar) codée en dur depuis la
+  capture fournie.
+- **`cart_tab.dart`** : note affichée sous les coordonnées Mvola
+  (uniquement si `_paymentMethod == PaymentMethod.mvola` et mode manuel
+  actif), calculée sur `total + frais de livraison`.
+
+**Notification push immédiate au staff (31/07, suite)** ✅ CODE PRÊT, PAS
+ENCORE DÉPLOYÉ — l'utilisateur a validé la recommandation (réduire le
+délai humain de vérification plutôt que du polish visuel supplémentaire).
+
+**Nouveau** `supabase/phase39_patch_manual_payment_staff_notification.sql`
+(**PAS ENCORE EXÉCUTÉ**) : trigger `on_order_manual_payment_submitted_push`
+sur `orders`, **after insert**, `when (NEW.payment_reference is not null or
+NEW.payment_proof_path is not null)` — ne se déclenche donc que pour
+virement bancaire ou Mvola/Orange/Airtel en mode manuel de secours (voir
+`_showManualPaymentFields` dans `cart_tab.dart`), jamais pour paiement à
+la livraison ni Papi. Table synthétique `orders_manual_payment_submitted`
+(même modèle que `orders_payment_status`) pour ne pas se confondre avec
+les triggers existants sur la même table `orders`.
+
+**Modifié** `supabase/functions/send-push-notification/index.ts` :
+nouvelle branche `payload.table === "orders_manual_payment_submitted"`,
+notifie toute l'équipe (Admin/Commercial, même modèle que la branche
+`quotes`) — titre "Paiement à vérifier", corps mentionnant le numéro de
+commande et le mode de paiement.
+
+**Reste à faire** : exécuter phase39 (remplacer `<WEBHOOK_SECRET>` par la
+valeur réelle) et redéployer `send-push-notification`.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
