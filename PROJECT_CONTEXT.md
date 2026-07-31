@@ -3094,14 +3094,17 @@ Manage secrets → WEBHOOK_SECRET — retrouvée cette fois-ci en lisant
 `pg_proc.prosrc` du trigger messages existant, faute de secret déjà
 enregistré nommé ainsi côté Dashboard).
 
-**Nouveau** `supabase/functions/generate-agora-token/index.ts` : seule
-fonction ayant accès à `AGORA_APP_CERTIFICATE` (jamais côté client) —
-génère un token via le package npm `agora-token` (importé directement
-depuis esm.sh, pas de réimplémentation de l'algorithme de signature
-Agora). `uid=0` volontairement (laisse le SDK choisir un uid à la
-connexion) plutôt qu'un uid par utilisateur, pour simplifier — l'accès au
-canal reste conditionné à une ligne `call_invitations` valide et à une
-session Supabase authentifiée.
+**Nouveau** `supabase/functions/super-endpoint/index.ts` (contenu
+"generate-agora-token", **nom déployé imposé par le Dashboard** — même
+situation que hyper-endpoint/secure-login plus tôt dans la session) :
+seule fonction ayant accès à `AGORA_APP_CERTIFICATE` (jamais côté
+client) — génère un token via le package npm `agora-token` (importé
+directement depuis esm.sh, pas de réimplémentation de l'algorithme de
+signature Agora). `uid=0` volontairement (laisse le SDK choisir un uid à
+la connexion) plutôt qu'un uid par utilisateur, pour simplifier — l'accès
+au canal reste conditionné à une ligne `call_invitations` valide et à une
+session Supabase authentifiée. "Verify JWT with legacy secret" désactivé
+dans ses Settings, comme pour hyper-endpoint.
 
 **Modifié** `supabase/functions/send-push-notification/index.ts` :
 nouvelle branche `payload.table === "call_invitations"` — n'utilise PAS
@@ -3112,7 +3115,7 @@ consommé côté client pour afficher l'écran d'appel entrant plutôt qu'une
 notification classique.
 
 **Nouveau** côté app :
-- `lib/core/calls/agora_token_repo.dart` — appelle `generate-agora-token`.
+- `lib/core/calls/agora_token_repo.dart` — appelle `super-endpoint`.
 - `lib/core/calls/call_repo.dart` — `createInvitation`/`updateStatus`.
 - `lib/presentation/calls/call_screen.dart` — écran d'appel en cours
   (`agora_rtc_engine`), vue vidéo locale/distante ou avatar pour l'audio,

@@ -3,6 +3,12 @@
 // client (il permettrait de générer des tokens pour n'importe quel
 // canal) — cette fonction est le seul endroit qui le lit.
 //
+// ⚠️ Nom déployé : `super-endpoint`, pas `generate-agora-token` — le
+// Dashboard Supabase (déploiement via l'éditeur en ligne) a de nouveau
+// assigné un nom aléatoire malgré une tentative de nommage explicite
+// (même situation que hyper-endpoint/secure-login) ; l'app appelle ce
+// nom tel quel (voir lib/core/calls/agora_token_repo.dart).
+//
 // Secrets nécessaires (Supabase Dashboard -> Edge Functions -> Manage
 // secrets) :
 // - AGORA_APP_ID
