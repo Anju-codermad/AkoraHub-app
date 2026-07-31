@@ -3425,12 +3425,28 @@ serait retirée seule), affichée uniquement pour Mvola en **mode manuel**
   (uniquement si `_paymentMethod == PaymentMethod.mvola` et mode manuel
   actif), calculée sur `total + frais de livraison`.
 
-**Reste à trancher** : l'utilisateur a aussi redemandé une idée pour
-rendre le flux manuel "aussi pro qu'une API" — recommandation donnée
-(notification push immédiate au staff dès soumission
-référence+photo, pour réduire le délai humain de confirmation, plutôt que
-du polish visuel supplémentaire) — **pas encore implémentée, en attente
-de confirmation de l'utilisateur**.
+**Notification push immédiate au staff (31/07, suite)** ✅ CODE PRÊT, PAS
+ENCORE DÉPLOYÉ — l'utilisateur a validé la recommandation (réduire le
+délai humain de vérification plutôt que du polish visuel supplémentaire).
+
+**Nouveau** `supabase/phase39_patch_manual_payment_staff_notification.sql`
+(**PAS ENCORE EXÉCUTÉ**) : trigger `on_order_manual_payment_submitted_push`
+sur `orders`, **after insert**, `when (NEW.payment_reference is not null or
+NEW.payment_proof_path is not null)` — ne se déclenche donc que pour
+virement bancaire ou Mvola/Orange/Airtel en mode manuel de secours (voir
+`_showManualPaymentFields` dans `cart_tab.dart`), jamais pour paiement à
+la livraison ni Papi. Table synthétique `orders_manual_payment_submitted`
+(même modèle que `orders_payment_status`) pour ne pas se confondre avec
+les triggers existants sur la même table `orders`.
+
+**Modifié** `supabase/functions/send-push-notification/index.ts` :
+nouvelle branche `payload.table === "orders_manual_payment_submitted"`,
+notifie toute l'équipe (Admin/Commercial, même modèle que la branche
+`quotes`) — titre "Paiement à vérifier", corps mentionnant le numéro de
+commande et le mode de paiement.
+
+**Reste à faire** : exécuter phase39 (remplacer `<WEBHOOK_SECRET>` par la
+valeur réelle) et redéployer `send-push-notification`.
 
 ## 4. Ce qui N'EST PAS encore fait
 
