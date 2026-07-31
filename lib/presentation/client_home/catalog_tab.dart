@@ -10,6 +10,7 @@ import 'package:sizer/sizer.dart';
 import '../../core/localization/app_translations.dart';
 import '../../core/navigation/product_detail_route.dart';
 import '../../core/providers/cart_provider.dart';
+import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
 import 'community/public_profiles_repo.dart';
@@ -35,7 +36,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   String? _selectedUnitId;
   String _selectedCategory = 'toutes';
   String _searchQuery = '';
-  Set<String> _inactiveCategoryNames = {};
 
   // Pagination : la grille produits n'avait pas de limite (catalogue
   // entier chargé d'un coup) — remplacé par un chargement par pages de
@@ -247,20 +247,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       // de réapprovisionnement) — on les lance en parallèle plutôt qu'à la
       // suite, pour ne pas cumuler leurs temps de réseau. Chacun gère déjà
       // son propre repli silencieux en cas d'échec.
-      Future<Set<String>> loadInactiveCategories() async {
-        try {
-          final catRows = await SupabaseConfig.client
-              .from('categories')
-              .select('name')
-              .eq('active', false);
-          return List<Map<String, dynamic>>.from(catRows)
-              .map((c) => c['name'] as String)
-              .toSet();
-        } catch (_) {
-          return <String>{};
-        }
-      }
-
       Future<List<_PromoSlide>> loadBanners() async {
         try {
           final bannerRows = await SupabaseConfig.client
@@ -406,19 +392,17 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       }
 
       final parallel = await Future.wait([
-        loadInactiveCategories(),
         loadBanners(),
         loadUnreadCount(),
         loadActivityFeed(),
         loadReorderSuggestions(),
         loadFlashInfo(),
       ]);
-      final inactiveCategoryNames = parallel[0] as Set<String>;
-      final loadedSlides = parallel[1] as List<_PromoSlide>;
-      final unreadMessages = parallel[2] as int;
-      final activityFeed = parallel[3] as List<_ActivityItem>;
-      final reorderSuggestions = parallel[4] as List<Map<String, dynamic>>;
-      final flashInfo = parallel[5] as String?;
+      final loadedSlides = parallel[0] as List<_PromoSlide>;
+      final unreadMessages = parallel[1] as int;
+      final activityFeed = parallel[2] as List<_ActivityItem>;
+      final reorderSuggestions = parallel[3] as List<Map<String, dynamic>>;
+      final flashInfo = parallel[4] as String?;
 
       final productsPage = List<Map<String, dynamic>>.from(results[1] as List);
       setState(() {
@@ -432,7 +416,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _unreadMessagesCount = unreadMessages;
         _activityFeed = activityFeed;
         _reorderSuggestions = reorderSuggestions;
-        _inactiveCategoryNames = inactiveCategoryNames;
         _flashInfo = flashInfo;
         _isLoading = false;
       });
@@ -591,9 +574,17 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         ? _allProductsForReference
         : _allProductsForReference
             .where((p) => p['business_unit_id'] == _selectedUnitId);
+    // Catégories désactivées par l'Admin (voir category_management.dart) —
+    // via le cache partagé plutôt qu'une requête dédiée à chaque ouverture
+    // du catalogue (lib/core/reference_data/reference_table_cache.dart).
+    final inactiveCategoryNames = ref
+        .watch(categoriesCacheProvider)
+        .where((c) => c['active'] == false)
+        .map((c) => c['name'] as String)
+        .toSet();
     final cats = relevant
         .map((p) => (p['category'] ?? '').toString())
-        .where((c) => c.isNotEmpty && !_inactiveCategoryNames.contains(c))
+        .where((c) => c.isNotEmpty && !inactiveCategoryNames.contains(c))
         .toSet()
         .toList();
     cats.sort();
