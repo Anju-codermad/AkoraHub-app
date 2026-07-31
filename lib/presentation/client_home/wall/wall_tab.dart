@@ -74,23 +74,38 @@ class _WallTabState extends State<WallTab> {
           .limit(50);
 
       final list = List<Map<String, dynamic>>.from(posts);
+      final postIds = list.map((p) => p['id'] as String).toList();
 
-      for (final p in list) {
-        final likes = await SupabaseConfig.client
-            .from('post_likes')
-            .select('user_id')
-            .eq('post_id', p['id']);
-        final likesList = List<Map<String, dynamic>>.from(likes);
-        _likeCounts[p['id']] = likesList.length;
-        _likedByMe[p['id']] =
-            likesList.any((l) => l['user_id'] == _myId);
+      // Ex-boucle "1 requête like + 1 requête commentaire PAR post" (jusqu'à
+      // ~100 allers-retours réseau séquentiels pour 50 posts) remplacée par
+      // un seul `inFilter` groupé pour chacun, lancés en parallèle avec les
+      // profils auteurs et les produits mentionnés — même logique que
+      // catalog_tab.dart (blocs indépendants, chacun avec son repli
+      // silencieux en cas d'échec).
+      Future<List<Map<String, dynamic>>> loadLikes() async {
+        if (postIds.isEmpty) return [];
+        try {
+          final rows = await SupabaseConfig.client
+              .from('post_likes')
+              .select('post_id, user_id')
+              .inFilter('post_id', postIds);
+          return List<Map<String, dynamic>>.from(rows);
+        } catch (_) {
+          return [];
+        }
+      }
 
-        final comments = await SupabaseConfig.client
-            .from('post_comments')
-            .select('id')
-            .eq('post_id', p['id']);
-        _commentCounts[p['id']] =
-            List<Map<String, dynamic>>.from(comments).length;
+      Future<List<Map<String, dynamic>>> loadComments() async {
+        if (postIds.isEmpty) return [];
+        try {
+          final rows = await SupabaseConfig.client
+              .from('post_comments')
+              .select('post_id')
+              .inFilter('post_id', postIds);
+          return List<Map<String, dynamic>>.from(rows);
+        } catch (_) {
+          return [];
+        }
       }
 
       // Profils auteurs : jointure PostgREST `profiles(...)` impossible ici
@@ -100,31 +115,67 @@ class _WallTabState extends State<WallTab> {
       // clients, pas seulement le sien.
       final authorIds =
           list.map((p) => p['author_id'] as String?).whereType<String>().toSet();
-      final profiles = await PublicProfilesRepo.fetchByIds(authorIds);
 
       // Produits mentionnés (tags) dans les posts (item "tags/mentions" du
-      // 23/07) : chargés séparément par simplicité (peu de posts en ont).
+      // 23/07).
       final mentionedIds = list
           .map((p) => p['mentioned_product_id'] as String?)
           .whereType<String>()
           .toSet();
-      Map<String, Map<String, dynamic>> mentionedProducts = {};
-      if (mentionedIds.isNotEmpty) {
+
+      Future<Map<String, Map<String, dynamic>>> loadMentionedProducts() async {
+        if (mentionedIds.isEmpty) return {};
         try {
           final products = await SupabaseConfig.client
               .from('products')
               .select('id, name, price_detail, image_url')
               .inFilter('id', mentionedIds.toList());
-          for (final row in List<Map<String, dynamic>>.from(products)) {
-            mentionedProducts[row['id'] as String] = row;
-          }
+          return {
+            for (final row in List<Map<String, dynamic>>.from(products))
+              row['id'] as String: row,
+          };
         } catch (_) {
           // Repli silencieux : le tag produit ne s'affichera juste pas.
+          return {};
         }
+      }
+
+      final results = await Future.wait([
+        loadLikes(),
+        loadComments(),
+        PublicProfilesRepo.fetchByIds(authorIds),
+        loadMentionedProducts(),
+      ]);
+      final likesRows = results[0] as List<Map<String, dynamic>>;
+      final commentsRows = results[1] as List<Map<String, dynamic>>;
+      final profiles = results[2] as Map<String, Map<String, dynamic>>;
+      final mentionedProducts =
+          results[3] as Map<String, Map<String, dynamic>>;
+
+      final likeCounts = <String, int>{};
+      final likedByMe = <String, bool>{};
+      for (final l in likesRows) {
+        final postId = l['post_id'] as String;
+        likeCounts[postId] = (likeCounts[postId] ?? 0) + 1;
+        if (l['user_id'] == _myId) likedByMe[postId] = true;
+      }
+      final commentCounts = <String, int>{};
+      for (final c in commentsRows) {
+        final postId = c['post_id'] as String;
+        commentCounts[postId] = (commentCounts[postId] ?? 0) + 1;
       }
 
       setState(() {
         _posts = list;
+        _likeCounts
+          ..clear()
+          ..addAll(likeCounts);
+        _likedByMe
+          ..clear()
+          ..addAll(likedByMe);
+        _commentCounts
+          ..clear()
+          ..addAll(commentCounts);
         _authorProfiles = profiles;
         _mentionedProducts = mentionedProducts;
         _isLoading = false;

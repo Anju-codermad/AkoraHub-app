@@ -2406,7 +2406,7 @@ appareil réel.
   pas de risque de collision équivalente entre Catalogue et Favoris (deux
   routes différentes, jamais montées simultanément).
 
-## 3vingtquatretrentecies. Catalogue de sons de notification géré par l'Admin (31/07) ⚠️ SCRIPT SQL PAS ENCORE EXÉCUTÉ
+## 3vingtquatretrentecies. Catalogue de sons de notification géré par l'Admin (31/07) ✅ FAIT (script exécuté)
 
 Demande utilisateur : pouvoir "ajouter et organiser manuellement les sons
 pour chaque notification... supprimer le son que je n'aime pas", côté
@@ -2458,7 +2458,7 @@ personnel a un repli silencieux sur la liste complète, donc pas
 bloquant pour les utilisateurs classiques, mais l'écran de gestion Admin
 ne fonctionnerait pas).
 
-## 3vingtcinqtrentecies. Suggestions de noms de matières premières (chimiques + alimentaires) (31/07) ⚠️ SCRIPT SQL PAS ENCORE EXÉCUTÉ
+## 3vingtcinqtrentecies. Suggestions de noms de matières premières (chimiques + alimentaires) (31/07) ✅ FAIT (script exécuté)
 
 L'utilisateur a fourni un fichier HTML (prototype Rocket.new antérieur,
 `Akora_Hub_Complet_INTEGRE_1.html`) contenant deux grosses bases de
@@ -2539,6 +2539,58 @@ ici aussi.
 continue de fonctionner en champ 100% libre (repli silencieux), donc pas
 bloquant, mais les suggestions n'apparaîtront pas tant que la migration
 n'est pas passée.
+
+## 3vingtsixtrentecies. Audit performance/sécurité + correctif N+1 sur le Mur (31/07) ✅ FAIT (1er chantier)
+
+L'utilisateur a proposé une checklist de 6 points (Performance :
+optimisation réseau, pagination, cache des données de référence ;
+Sécurité : rate limiting, journalisation, RLS). Audit du code réel
+(pas de suppositions) avant tout correctif :
+
+1. **Optimisation réseau** ⚠️ partiel — `catalog_tab.dart` bien
+   parallélisé (confirmé), mais dashboard Admin
+   (`metrics_cards_widget.dart`, `recent_activity_feed_widget.dart`,
+   `analytics_dashboard_real.dart`) et `product_management_real.dart`
+   enchaînent des requêtes indépendantes en séquentiel. **Pire cas
+   trouvé : `wall_tab.dart`** — pour chaque post du Mur (jusqu'à 50), 2
+   requêtes séparées (likes puis commentaires) l'une après l'autre → 
+   jusqu'à ~100 allers-retours réseau séquentiels par ouverture. Corrigé
+   dans la foulée (voir plus bas).
+2. **Pagination** ❌ pas fait — produits, commandes chargés sans limite ;
+   Mur plafonné à 50 (`.limit(50)`) mais pas de "charger plus".
+3. **Cache formats/parfums/catégories** ❌ pas fait — requêtés à neuf à
+   chaque écran (4+ points d'appel pour `categories` seul), aucune
+   couche de cache (SharedPreferences/Riverpod).
+4. **Rate limiting connexion/reset** ❌ pas fait — dépend entièrement des
+   limites par défaut de la plateforme Supabase Auth.
+5. **Journalisation des actions sensibles** ❌ pas fait — aucune table
+   d'audit log nulle part dans le schéma.
+6. **RLS sur toutes les tables** ✅ fait — 31 tables créées au total sur
+   tous les fichiers `supabase/*.sql`, toutes ont RLS activé + au moins
+   une policy, vérifié une par une. Seule exception notable : la vue
+   `public_profiles` (phase9) contourne volontairement RLS par design
+   (documenté dans son propre commentaire), pas un oubli.
+
+**Discussion complémentaire** (organisation de l'app / "zone de confort
+pour la communauté", demandée avant d'exécuter) : suggestions données —
+regrouper les 12 entrées à plat du menu "Plus" Admin (Bannière hero,
+Flash infos, Modes de paiement, Sons de notification → un seul sous-menu
+"Vitrine & réglages") ; miser sur le Mur comme vraie fonctionnalité
+communauté (réactions, post épinglé) ; visage humain dans la messagerie
+staff (avatar/nom plutôt que "Support" anonyme) ; visibilité humaine du
+suivi de livraison. Pas encore implémenté, l'utilisateur a demandé de
+continuer sur les correctifs techniques.
+
+**Correctif appliqué — `wall_tab.dart`** : la boucle "1 requête like + 1
+requête commentaire PAR post" remplacée par un seul `inFilter` groupé
+pour chacun (2 requêtes au total au lieu de jusqu'à ~100), lancés en
+parallèle avec les profils auteurs et les produits mentionnés via
+`Future.wait` (même style que `catalog_tab.dart` : fonctions locales avec
+repli silencieux individuel). Comptage des likes/commentaires reconstruit
+côté client à partir des lignes groupées.
+
+**Reste à faire de cette checklist** (items 1 restant partiellement,
+2, 3, 4, 5) — voir section 4.
 
 ## 4. Ce qui N'EST PAS encore fait
 
