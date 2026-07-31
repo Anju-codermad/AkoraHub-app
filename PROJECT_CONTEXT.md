@@ -2070,7 +2070,7 @@ architecturale réelle, mais pas un "bug" au sens propre — à signaler à
 l'utilisateur avant d'entreprendre une unification, gros chantier hors
 du périmètre de cette demande.
 
-## 3quinzetrentecies. Connexion Google réelle (30/07) ✅ FAIT (Facebook toujours en attente)
+## 3quinzetrentecies. Connexion Google réelle (30/07) ✅ FAIT, code Facebook ajouté le 31/07 (reste la config Meta)
 
 Suite à 3quatorzetrentecies (nettoyage des faux boutons sociaux), demande
 explicite de l'utilisateur : rendre la connexion Google réellement
@@ -2119,14 +2119,27 @@ projet "AkoraHub" déjà existant (créé pour la clé Maps).
   aucun risque qu'un premier login Google (sans passer par l'écran
   d'inscription) se retrouve sans ligne dans `profiles`.
 
-**Reste à faire** :
-1. Passer l'app Google en production (ou ajouter des utilisateurs de
-   test) pour que n'importe quel client puisse réellement se connecter.
-2. Configurer Facebook (Meta for Developers → App ID/Secret → Supabase)
-   sur le même modèle, si l'utilisateur le souhaite.
-3. Tester la connexion Google de bout en bout sur un vrai build (le
-   nouveau schéma de deep link nécessite un nouveau build APK/IPA, pas
-   testable en hot-reload).
+**Reste à faire (31/07)** — l'utilisateur a demandé de rendre Google/Facebook
+réellement fonctionnels avant publication (au lieu de masquer les boutons,
+l'autre option proposée) :
+1. **Code Facebook ajouté** (31/07) : `_handleSocialLogin()` gérait
+   auparavant uniquement `'google'` (Facebook tombait toujours sur le
+   message "bientôt disponible"). Refactor minimal — un `switch` mappe
+   `'google'`/`'facebook'` vers `OAuthProvider.google`/`.facebook`, le
+   reste de la fonction (déjà générique) est inchangé. Aucun SDK Facebook
+   natif nécessaire : le flux passe par le navigateur externe + Supabase,
+   comme Google.
+2. **Reste à faire côté comptes externes** :
+   - **Google** : passer l'app de "Testing" à "Production" dans Google
+     Cloud Console (OAuth consent screen) pour que n'importe quel client
+     puisse se connecter, pas seulement les testeurs ajoutés manuellement.
+   - **Facebook** : créer une app Meta for Developers, produit "Facebook
+     Login", Redirect URI = `https://lmnprtwelmmoiuygvgmf.supabase.co/auth/v1/callback`
+     (même URI que Google), App ID + App Secret → Supabase (Authentication
+     → Sign In/Providers → Facebook).
+3. Tester les deux connexions de bout en bout sur un vrai build (déjà fait
+   pour Google le 31/07 via `GlobalAuthListener`, voir section suivante ;
+   Facebook reste à tester une fois configuré).
 
 ## 3seizetrentecies. Pièces jointes dans la messagerie — photo/vidéo/vocal/fichier (30/07) ✅ FAIT
 
@@ -2933,6 +2946,12 @@ SMTP configuré** (Authentication → Emails → SMTP Settings :
 `smtp.gmail.com:587`, mot de passe d'application Google généré côté
 Dashboard Google, pas le mot de passe du compte). Sender : AkoraHub
 `<julioandrinirina95@gmail.com>`.
+
+**Changé (31/07, plus tard)** : expéditeur passé du Gmail personnel du
+gérant à une adresse dédiée à l'entreprise —
+`akorafanadiovana@gmail.com` (Sender email + SMTP username), avec son
+propre mot de passe d'application Google (validation en 2 étapes activée
+sur ce compte pour l'occasion). Host/port/Sender name inchangés.
 
 ## 3trentequatretrentecies. Vérification du téléphone par SMS après l'email (31/07) ⚠️ CODE PRÊT, PROVIDER PHONE + TWILIO PAS ENCORE CONFIGURÉS
 
