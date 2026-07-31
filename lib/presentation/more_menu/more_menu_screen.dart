@@ -13,6 +13,7 @@ import '../payment_methods_management/payment_methods_management.dart';
 import '../quotes_management/quotes_management.dart';
 import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
+import '../security_audit_log/security_audit_log_screen.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
@@ -141,6 +142,16 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const NotificationSoundsCatalogAdminScreen()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.security_outlined,
+            label: 'Journal de sécurité',
+            subtitle: 'Connexions, changements de mot de passe et de rôle',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const SecurityAuditLogScreen()),
             ),
           ),
           _MenuTile(

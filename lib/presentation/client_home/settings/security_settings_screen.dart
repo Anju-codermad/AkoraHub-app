@@ -75,6 +75,15 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                           UserAttributes(
                               password: newPasswordController.text),
                         );
+                        // Journalisation (revue de sécurité Admin) — voir
+                        // supabase/phase34_patch_security_audit_log.sql.
+                        // Best-effort : n'empêche jamais le changement de
+                        // mot de passe lui-même si l'appel échoue.
+                        try {
+                          await SupabaseConfig.client.rpc(
+                              'log_security_event',
+                              params: {'p_event_type': 'password_changed'});
+                        } catch (_) {}
                         if (context.mounted) Navigator.pop(context);
                         if (mounted) {
                           ScaffoldMessenger.of(this.context).showSnackBar(
