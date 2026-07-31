@@ -2853,9 +2853,21 @@ contenu si on retombe dessus).
 **Modifié** `lib/presentation/authentication_screen/authentication_screen.dart` :
 `_handleLogin()` appelle désormais `functions.invoke('hyper-endpoint', ...)`
 au lieu de `auth.signInWithPassword` directement ; en cas de succès,
-`auth.setSession(refresh_token)` établit la session côté client (déclenche
-`onAuthStateChange` → `signedIn` comme avant, donc `_onAuthenticated()`
-n'a pas eu besoin de changer).
+`auth.setSession(refresh_token)` établit la session côté client.
+
+**🐛 Bug découvert le 31/07 (après merge/test réel) et corrigé** :
+l'hypothèse ci-dessus était fausse — `setSession()` restaure une session
+existante, GoTrue émet `tokenRefreshed`, **jamais** `signedIn`. Or
+`_onAuthenticated()` n'était déclenché que sur `signedIn` (écoute
+`onAuthStateChange` de `initState()`, commune avec la connexion OAuth).
+Résultat : la connexion email/mot de passe réussissait bien côté serveur
+(token obtenu, session posée) mais l'app ne réagissait pas du tout —
+aucune erreur, aucune navigation, écran de connexion qui reste figé.
+**Corrigé** en appelant `_onAuthenticated()` directement après un
+`setSession()` réussi dans `_handleLogin()`, au lieu de compter sur
+`onAuthStateChange` (qui reste nécessaire uniquement pour Google/Facebook,
+dont le flux se termine par une vraie redirection externe et émet bien
+`signedIn`).
 
 **Terminé (31/07)** : script phase35 exécuté avec succès, Edge Function
 déployée (sous le nom `hyper-endpoint`, voir ci-dessus) — reste à

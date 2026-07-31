@@ -233,6 +233,12 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
         if (data['ok'] == true) {
           await SupabaseConfig.client.auth
               .setSession(data['refresh_token'] as String);
+          // `setSession` restaure une session existante : GoTrue émet
+          // `tokenRefreshed`, jamais `signedIn` — l'écoute `onAuthStateChange`
+          // posée dans `initState()` (qui ne réagit qu'à `signedIn`, pour la
+          // connexion OAuth) ne se déclenche donc pas ici. On appelle la
+          // suite directement.
+          if (mounted) await _onAuthenticated();
         } else {
           errorMessage =
               data['error'] as String? ?? 'Email ou mot de passe incorrect';
@@ -242,11 +248,10 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       }
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
-
-    if (!mounted) return;
 
     if (errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -258,9 +263,11 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
         ),
       );
     }
-    // Le cas de succès est géré par `_onAuthenticated()`, déclenché par
-    // l'écoute `onAuthStateChange` posée dans `initState()` — commun avec
-    // la connexion Google/Facebook (voir `_handleSocialLogin`).
+    // Le cas de succès email/mot de passe est déjà géré ci-dessus (appel
+    // direct à `_onAuthenticated()`). Pour Google/Facebook (voir
+    // `_handleSocialLogin`), c'est l'écoute `onAuthStateChange` posée dans
+    // `initState()` qui s'en charge — ce flux-là se termine par une
+    // redirection externe et émet bien `signedIn`.
   }
 
   /// Suite commune à toute connexion réussie (email/mot de passe ou
