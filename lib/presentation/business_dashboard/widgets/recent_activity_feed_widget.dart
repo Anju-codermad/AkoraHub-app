@@ -37,17 +37,24 @@ class _RecentActivityFeedWidgetState extends State<RecentActivityFeedWidget> {
       return;
     }
     try {
-      final orders = await SupabaseConfig.client
-          .from('orders')
-          .select('id, order_number, created_at, profiles(full_name, company_name)')
-          .order('created_at', ascending: false)
-          .limit(3);
-      final clients = await SupabaseConfig.client
-          .from('profiles')
-          .select('id, full_name, company_name, created_at')
-          .eq('role', 'client')
-          .order('created_at', ascending: false)
-          .limit(3);
+      // Les 2 requêtes sont indépendantes — lancées en parallèle plutôt
+      // qu'à la suite pour ne pas cumuler leurs temps de réseau.
+      final results = await Future.wait([
+        SupabaseConfig.client
+            .from('orders')
+            .select(
+                'id, order_number, created_at, profiles(full_name, company_name)')
+            .order('created_at', ascending: false)
+            .limit(3),
+        SupabaseConfig.client
+            .from('profiles')
+            .select('id, full_name, company_name, created_at')
+            .eq('role', 'client')
+            .order('created_at', ascending: false)
+            .limit(3),
+      ]);
+      final orders = results[0];
+      final clients = results[1];
 
       final List<Map<String, dynamic>> combined = [];
 

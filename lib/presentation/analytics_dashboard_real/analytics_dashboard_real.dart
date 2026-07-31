@@ -51,22 +51,27 @@ class _AnalyticsDashboardRealState extends State<AnalyticsDashboardReal> {
           .subtract(Duration(days: _daysRange))
           .toIso8601String();
 
-      final orders = await SupabaseConfig.client
-          .from('orders')
-          .select('total_amount, created_at')
-          .gte('created_at', since);
-      final ordersList = List<Map<String, dynamic>>.from(orders);
-
-      final customers = await SupabaseConfig.client
-          .from('profiles')
-          .select('id')
-          .eq('role', 'client')
-          .gte('created_at', since);
-
-      final orderItems = await SupabaseConfig.client
-          .from('order_items')
-          .select('product_name, quantity, orders!inner(created_at)')
-          .gte('orders.created_at', since);
+      // Les 3 requêtes sont indépendantes (même filtre "since") — lancées
+      // en parallèle plutôt qu'à la suite pour ne pas cumuler leurs temps
+      // de réseau.
+      final results = await Future.wait([
+        SupabaseConfig.client
+            .from('orders')
+            .select('total_amount, created_at')
+            .gte('created_at', since),
+        SupabaseConfig.client
+            .from('profiles')
+            .select('id')
+            .eq('role', 'client')
+            .gte('created_at', since),
+        SupabaseConfig.client
+            .from('order_items')
+            .select('product_name, quantity, orders!inner(created_at)')
+            .gte('orders.created_at', since),
+      ]);
+      final ordersList = List<Map<String, dynamic>>.from(results[0]);
+      final customers = results[1];
+      final orderItems = results[2];
 
       final Map<String, int> productCounts = {};
       for (final item in List<Map<String, dynamic>>.from(orderItems)) {

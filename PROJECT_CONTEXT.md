@@ -2592,6 +2592,29 @@ côté client à partir des lignes groupées.
 **Reste à faire de cette checklist** (items 1 restant partiellement,
 2, 3, 4, 5) — voir section 4.
 
+## 3vingtseptrentecies. Parallélisation des requêtes séquentielles restantes (item 1 de l'audit) (31/07) ✅ FAIT
+
+Suite de 3vingtsixtrentecies : les 3 autres écrans identifiés avec des
+requêtes indépendantes enchaînées en séquentiel (au lieu d'un
+`Future.wait`) sont maintenant corrigés, même style que
+`catalog_tab.dart`/`wall_tab.dart` :
+
+- `business_dashboard/widgets/metrics_cards_widget.dart` : 4 `.count()`
+  (produits, commandes en attente, clients, messages non lus)
+  parallélisés.
+- `business_dashboard/widgets/recent_activity_feed_widget.dart` :
+  commandes récentes + nouveaux clients parallélisés.
+- `analytics_dashboard_real.dart` : commandes, nouveaux clients, articles
+  vendus (même filtre "depuis N jours") parallélisés.
+- `product_management_real.dart` : produits, piliers, catégories,
+  suggestions de matières premières (phase33) — 4 requêtes
+  parallélisées ; catégories et suggestions gardent chacune leur repli
+  silencieux individuel (fonctions locales, comme dans
+  `catalog_tab.dart`) si leur table n'est pas encore créée.
+
+Item 1 de la checklist perf/sécurité (31/07) désormais entièrement traité
+pour tous les écrans audités.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
