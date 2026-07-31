@@ -2870,6 +2870,42 @@ du projet, et l'abus possible (spam d'emails) est moins critique qu'une
 attaque par force brute sur un mot de passe. La journalisation
 `password_reset_requested` (phase34) reste en place.
 
+## 3trentetroistrentecies. Code de vérification manquant à l'inscription (31/07) ⚠️ CODE PRÊT, 2 RÉGLAGES MANUELS SUPABASE REQUIS
+
+L'utilisateur a remarqué qu'aucun code de vérification n'était envoyé
+lors de la création d'un compte — normal : `auth.signUp` connectait
+directement l'utilisateur (`response.session` non nul), signe que
+"Confirm email" est désactivé côté Supabase. Aucune notion de code
+n'existait avant dans l'app.
+
+**⚠️ 2 réglages manuels obligatoires** (ne peuvent pas être faits en
+SQL) :
+1. Dashboard → Authentication → Providers → Email → activer **"Confirm
+   email"**.
+2. Dashboard → Authentication → Email Templates → **"Confirm signup"** →
+   ajouter `{{ .Token }}` dans le corps du template (le template par
+   défaut n'affiche que le lien `{{ .ConfirmationURL }}`, pas de code à 6
+   chiffres, tant qu'on ne l'ajoute pas explicitement).
+
+**Nouveau** `lib/presentation/registration_screen/email_otp_verification_screen.dart` :
+écran de saisie du code à 6 chiffres, `auth.verifyOTP(type: OtpType.signup,
+email, token)`, bouton "Renvoyer le code" avec cooldown 60s
+(`auth.resend(type: OtpType.signup, email)`). C'est seulement APRÈS ce
+succès (une fois la session établie) que le profil est complété
+(`client_type`/`company_name`/`phone`/`birth_date`) — impossible de le
+faire avant, RLS refuse toute écriture sans session valide.
+
+**Modifié** `lib/presentation/registration_screen/registration_screen.dart` :
+`_handleRegister()` vérifie `response.session == null` après `signUp()` —
+si oui (confirmation requise), redirige vers `EmailOtpVerificationScreen`
+avec l'email + les champs de profil en attente ; sinon (confirmation
+désactivée), ancien comportement inchangé (connexion immédiate).
+
+**Reste à faire** : l'utilisateur doit activer les 2 réglages Dashboard
+ci-dessus, puis tester une inscription réelle de bout en bout (réception
+du code par email, saisie, activation du compte) avant de merger sur
+`main`.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
