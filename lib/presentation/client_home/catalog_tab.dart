@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/localization/app_translations.dart';
+import '../../core/navigation/product_detail_route.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
@@ -874,10 +875,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           onTap: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    ProductDetailClient(product: p),
-                              ),
+                              productDetailRoute(
+                                  ProductDetailClient(product: p)),
                             );
                           },
                           onQuickAdd: () => _quickAddToCart(p),
@@ -941,10 +940,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                               } else {
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ProductDetailClient(
-                                        product: item.product!),
-                                  ),
+                                  productDetailRoute(ProductDetailClient(
+                                      product: item.product!)),
                                 );
                               }
                             },
@@ -1200,10 +1197,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           onTap: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    ProductDetailClient(product: p),
-                              ),
+                              productDetailRoute(
+                                  ProductDetailClient(product: p)),
                             );
                           },
                           onQuickAdd: () => _quickAddToCart(p),
@@ -1429,12 +1424,12 @@ class _QuickAddButtonState extends State<_QuickAddButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 220),
+    duration: const Duration(milliseconds: 500),
   );
   late final Animation<double> _scale = TweenSequence<double>([
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 1),
-    TweenSequenceItem(tween: Tween(begin: 1.35, end: 1.0), weight: 1),
-  ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 1),
+    TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 1),
+  ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
   @override
   void dispose() {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/navigation/product_detail_route.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'favorites_provider.dart';
@@ -136,10 +137,8 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      ProductDetailClient(product: p),
-                                ),
+                                productDetailRoute(
+                                    ProductDetailClient(product: p)),
                               );
                             },
                             onRemove: () => ref

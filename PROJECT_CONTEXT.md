@@ -2226,8 +2226,29 @@ SnackBar discret d'une seconde — facile à manquer. Ajout d'un petit
 - Limité à ce seul bouton — les favoris (`favorites_screen.dart`) n'ont
   pas de bouton d'ajout rapide équivalent, rien à changer là-bas.
 
-**Prochaines étapes possibles restantes** : transitions de page
-personnalisées, écrans de chargement squelettes.
+**Prochaines étapes possibles restantes** : écrans de chargement
+squelettes.
+
+## 3dixneuftrentecies. Animations — ralenties après retour de test réel (30/07) ✅ FAIT
+
+Suite au test sur appareil réel des deux animations précédentes
+(3dixseptrentecies/3dixhuittrentecies) : les deux fonctionnaient bien,
+mais étaient trop rapides pour être clairement perçues ("comme avant" au
+premier retour, puis précisé : juste trop rapide, pas absentes).
+
+- **Rebond du bouton "+"** (`_QuickAddButton`, `catalog_tab.dart`) :
+  durée 220ms → **500ms**, amplitude 1,35 → **1,4**, courbe `easeOut` →
+  **`easeOutBack`** (léger dépassement avant de se stabiliser, effet
+  "classique" plus marqué).
+- **Transition Hero vers la fiche produit** : le `MaterialPageRoute` par
+  défaut (~300ms, transition zoom de Material 3 qui a tendance à
+  recouvrir/masquer le vol du Hero) remplacé par une route personnalisée
+  **`productDetailRoute()`** (nouveau `lib/core/navigation/
+  product_detail_route.dart`, `PageRouteBuilder` avec un simple fondu,
+  **500ms** à l'aller/400ms au retour — un fondu plutôt qu'un zoom pour
+  ne pas concurrencer visuellement le Hero). Appliquée aux 4 endroits qui
+  ouvrent la fiche produit : grille catalogue, "Vous recommandez
+  souvent", fil "Pour vous", et favoris.
 
 ## 4. Ce qui N'EST PAS encore fait
 
