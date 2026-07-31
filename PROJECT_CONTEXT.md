@@ -2934,6 +2934,12 @@ SMTP configuré** (Authentication → Emails → SMTP Settings :
 Dashboard Google, pas le mot de passe du compte). Sender : AkoraHub
 `<julioandrinirina95@gmail.com>`.
 
+**Changé (31/07, plus tard)** : expéditeur passé du Gmail personnel du
+gérant à une adresse dédiée à l'entreprise —
+`akorafanadiovana@gmail.com` (Sender email + SMTP username), avec son
+propre mot de passe d'application Google (validation en 2 étapes activée
+sur ce compte pour l'occasion). Host/port/Sender name inchangés.
+
 ## 3trentequatretrentecies. Vérification du téléphone par SMS après l'email (31/07) ⚠️ CODE PRÊT, PROVIDER PHONE + TWILIO PAS ENCORE CONFIGURÉS
 
 Suite logique du point précédent : l'utilisateur a remarqué que le
