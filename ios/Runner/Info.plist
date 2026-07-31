@@ -53,9 +53,9 @@
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>AkoraHub utilise votre position pour faciliter la saisie de votre adresse de livraison.</string>
     <key>NSCameraUsageDescription</key>
-    <string>AkoraHub utilise la caméra pour scanner le QR code de traçabilité des produits.</string>
+    <string>AkoraHub utilise la caméra pour scanner le QR code de traçabilité des produits et pour les appels vidéo dans la messagerie.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>AkoraHub utilise le microphone pour enregistrer des messages vocaux dans la messagerie.</string>
+    <string>AkoraHub utilise le microphone pour enregistrer des messages vocaux et pour les appels audio/vidéo dans la messagerie.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>AkoraHub utilise votre galerie pour envoyer des photos et vidéos dans la messagerie.</string>
     <key>CFBundleURLTypes</key>

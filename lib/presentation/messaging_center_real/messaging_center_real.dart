@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/calls/call_repo.dart';
 import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../calls/call_screen.dart';
 
 /// Messagerie côté staff : liste de toutes les conversations clients,
 /// triées par message le plus récent.
@@ -146,6 +148,7 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
                                     builder: (_) => _AdminConversationThread(
                                       conversationId: c['id'],
                                       customerName: name,
+                                      customerId: c['customer_id'],
                                     ),
                                   ),
                                 );
@@ -162,10 +165,12 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
 class _AdminConversationThread extends ConsumerStatefulWidget {
   final String conversationId;
   final String customerName;
+  final String customerId;
 
   const _AdminConversationThread({
     required this.conversationId,
     required this.customerName,
+    required this.customerId,
   });
 
   @override
@@ -195,6 +200,35 @@ class _AdminConversationThreadState
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _startCall(String callType) async {
+    try {
+      final invitation = await CallRepo.createInvitation(
+        conversationId: widget.conversationId,
+        calleeId: widget.customerId,
+        callType: callType,
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CallScreen(
+            channelName: invitation.channelName,
+            callType: callType,
+            peerName: widget.customerName,
+            invitationId: invitation.id,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de démarrer l\'appel. Réessayez.'),
+        ),
+      );
+    }
   }
 
   Future<void> _loadMessages() async {
@@ -296,7 +330,21 @@ class _AdminConversationThreadState
     final bubbleStyle = ref.watch(chatBubbleStyleProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.customerName)),
+      appBar: AppBar(
+        title: Text(widget.customerName),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.call_outlined),
+            tooltip: 'Appel audio',
+            onPressed: () => _startCall('audio'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam_outlined),
+            tooltip: 'Appel vidéo',
+            onPressed: () => _startCall('video'),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(

@@ -4,8 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/global_auth_listener.dart';
 import '../supabase/supabase_config.dart';
+import '../../presentation/calls/incoming_call_screen.dart';
 import 'notification_sounds.dart';
+
+/// Nom du canal Android dédié aux appels entrants — volontairement en
+/// dehors du système catégorie/son personnalisable (message/devis/
+/// commande/produit) : un appel doit toujours utiliser un son d'appel
+/// reconnaissable, pas une préférence utilisateur.
+const _callsChannelId = 'akorahub_calls';
 
 /// Gère l'enregistrement du token FCM (Firebase Cloud Messaging) de
 /// l'appareil et l'affichage des notifications reçues pendant que l'app
@@ -75,11 +83,16 @@ class PushNotificationService {
       final soundId = await getSoundPreference(category);
       await ensureAndroidChannel(category, soundId);
     }
+    await _ensureCallsChannel();
 
     // Affiche une notification locale quand un message arrive pendant
     // que l'app est au premier plan (sinon, rien ne s'afficherait tant
     // que l'utilisateur ne quitte pas l'app).
     FirebaseMessaging.onMessage.listen((message) async {
+      // Appel entrant : app déjà ouverte -> on affiche directement
+      // l'écran d'appel entrant plutôt qu'une notification classique.
+      if (await _handleCallInvite(message)) return;
+
       final notification = message.notification;
       if (notification == null) return;
 
@@ -106,9 +119,61 @@ class PushNotificationService {
       );
     });
 
+    // App en arrière-plan, notification tapée -> ouvre l'écran d'appel
+    // entrant si c'en est un.
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleCallInvite);
+
+    // App complètement fermée, ouverte via le tap sur la notification.
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      await _handleCallInvite(initialMessage);
+    }
+
     await _registerToken();
     await _syncSoundPreferencesFromServer();
     messaging.onTokenRefresh.listen((_) => _registerToken());
+  }
+
+  static Future<void> _ensureCallsChannel() async {
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
+    try {
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _callsChannelId,
+          'AkoraHub — Appels',
+          importance: Importance.max,
+        ),
+      );
+    } catch (_) {
+      // Pas grave si la création échoue (ex: appareil non-Android).
+    }
+  }
+
+  /// Détecte un message "appel entrant" (`data.type == 'call_invite'`) et
+  /// pousse `IncomingCallScreen` par-dessus l'écran actuel, quel qu'il
+  /// soit (via le navigateur global — ce service n'a pas son propre
+  /// `BuildContext`). Retourne `true` si le message était bien un appel
+  /// (pour que l'appelant sache s'arrêter là plutôt que d'afficher aussi
+  /// une notification classique).
+  static Future<bool> _handleCallInvite(RemoteMessage message) async {
+    if (message.data['type'] != 'call_invite') return false;
+    final navigator = GlobalAuthListener.navigatorKey.currentState;
+    if (navigator == null) return true;
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => IncomingCallScreen(
+          invitationId: message.data['invitation_id'] as String,
+          channelName: message.data['channel_name'] as String,
+          callType: message.data['call_type'] as String? ?? 'audio',
+          callerId: '',
+          callerName: message.data['caller_name'] as String?,
+        ),
+      ),
+    );
+    return true;
   }
 
   /// Crée (ou confirme l'existence de) le canal Android pour ce couple

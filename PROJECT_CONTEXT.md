@@ -3067,6 +3067,102 @@ Tout dans `lib/presentation/client_home/catalog_tab.dart`, aucun
 changement SQL — mergeable indépendamment du reste de la branche dès
 que testé visuellement.
 
+## 3trentesepttrentecies. Appels audio/vidéo dans la messagerie — Agora (31/07) ⚠️ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ, `flutter pub get` NÉCESSAIRE
+
+Demandé par l'utilisateur en même temps que les améliorations d'accueil.
+Compte Agora créé par l'utilisateur (mode "Secure", 10 000 min gratuites/
+mois), secrets `AGORA_APP_ID`/`AGORA_APP_CERTIFICATE` déjà ajoutés dans
+Edge Functions → Manage secrets.
+
+**⚠️ Limite MVP assumée** (documentée dans le script SQL) : sans
+intégration CallKit (iOS)/ConnectionService (Android), l'appel ne sonne
+pas comme un vrai appel téléphonique tant que l'app est fermée — une
+notification push classique arrive, l'écran d'appel entrant et la
+sonnerie ne s'affichent qu'au tap dessus ou si l'app est déjà ouverte.
+Suffisant pour un usage normal, pas un remplacement d'un appel GSM.
+
+**Nouveau** `supabase/phase37_patch_calls.sql` (**PAS ENCORE EXÉCUTÉ**) :
+table `call_invitations` (conversation_id, caller_id, callee_id, call_type
+'audio'|'video', channel_name, status 'ringing'|'accepted'|'declined'|
+'ended'|'missed') — signalisation uniquement, aucun flux audio/vidéo n'y
+transite (ça, c'est Agora directement entre les 2 téléphones). RLS : les
+2 parties (appelant/appelé) peuvent lire/mettre à jour, seul l'appelant
+peut créer. Trigger `after insert` réutilise `send-push-notification`
+(même schéma que phase17/18/36) — **remplacer `<WEBHOOK_SECRET>`** par la
+valeur réelle avant d'exécuter (Edge Functions → send-push-notification →
+Manage secrets → WEBHOOK_SECRET — retrouvée cette fois-ci en lisant
+`pg_proc.prosrc` du trigger messages existant, faute de secret déjà
+enregistré nommé ainsi côté Dashboard).
+
+**Nouveau** `supabase/functions/generate-agora-token/index.ts` : seule
+fonction ayant accès à `AGORA_APP_CERTIFICATE` (jamais côté client) —
+génère un token via le package npm `agora-token` (importé directement
+depuis esm.sh, pas de réimplémentation de l'algorithme de signature
+Agora). `uid=0` volontairement (laisse le SDK choisir un uid à la
+connexion) plutôt qu'un uid par utilisateur, pour simplifier — l'accès au
+canal reste conditionné à une ligne `call_invitations` valide et à une
+session Supabase authentifiée.
+
+**Modifié** `supabase/functions/send-push-notification/index.ts` :
+nouvelle branche `payload.table === "call_invitations"` — n'utilise PAS
+le système de son par catégorie personnalisable (message/devis/commande/
+produit) puisqu'un appel doit toujours sonner de façon reconnaissable,
+pas selon une préférence ; construit `data: {type: 'call_invite', ...}`
+consommé côté client pour afficher l'écran d'appel entrant plutôt qu'une
+notification classique.
+
+**Nouveau** côté app :
+- `lib/core/calls/agora_token_repo.dart` — appelle `generate-agora-token`.
+- `lib/core/calls/call_repo.dart` — `createInvitation`/`updateStatus`.
+- `lib/presentation/calls/call_screen.dart` — écran d'appel en cours
+  (`agora_rtc_engine`), vue vidéo locale/distante ou avatar pour l'audio,
+  contrôles (micro, haut-parleur/caméra selon le type, raccrocher).
+- `lib/presentation/calls/incoming_call_screen.dart` — écran "appel
+  entrant", sonnerie en boucle (réutilise l'asset son `notif_radar.wav`
+  déjà intégré, pas de nouveau fichier), accepter/refuser, expire après
+  45s sans réponse ("missed").
+
+**Modifié** `lib/core/notifications/push_notification_service.dart` :
+canal Android dédié `akorahub_calls` (en dehors du système de son
+personnalisable) ; détection `data.type == 'call_invite'` dans les 3 états
+possibles de l'app — `onMessage` (ouverte, pousse directement
+`IncomingCallScreen` au lieu d'une notification classique via le
+`navigatorKey` global `GlobalAuthListener`), `onMessageOpenedApp`
+(arrière-plan, tap sur la notification) et `getInitialMessage()` (app
+totalement fermée). Pas de canal Realtime Postgres séparé : le message
+FCM en premier plan (`onMessage`) suffit déjà à couvrir le cas "app
+ouverte", inutile de dupliquer avec un flux Realtime.
+
+**Modifié** `lib/presentation/client_home/chat_screen.dart` (client) et
+`lib/presentation/messaging_center_real/messaging_center_real.dart`
+(`_AdminConversationThread`, staff) : boutons appel audio/vidéo dans
+l'AppBar. Côté client, comme une conversation n'a pas de membre du staff
+assigné (`conversations` n'a pas de colonne `staff_id`), l'appel cible en
+priorité le dernier membre du staff ayant répondu dans cette conversation,
+sinon n'importe quel Admin/Commercial (`_resolveCalleeStaffId`). Côté
+staff, `_AdminConversationThread` a gagné un paramètre `customerId`
+(absent avant ce chantier — seuls `conversationId`/`customerName`
+existaient) passé depuis la liste des conversations qui l'avait déjà en
+base (`conversations.customer_id`).
+
+**Modifié** `pubspec.yaml` : ajout de `agora_rtc_engine: ^6.6.3`.
+**`flutter pub get` (ou un build Codemagic) est nécessaire** — pas
+vérifiable localement dans cet environnement (pas de SDK Flutter/Dart
+installé ici).
+
+**Modifié** permissions : `AndroidManifest.xml` (ajout
+`MODIFY_AUDIO_SETTINGS`, `BLUETOOTH`, `BLUETOOTH_CONNECT`, `WAKE_LOCK` —
+`CAMERA`/`RECORD_AUDIO`/`INTERNET` existaient déjà) ; `Info.plist`
+(descriptions `NSCameraUsageDescription`/`NSMicrophoneUsageDescription`
+élargies pour mentionner aussi les appels, en plus du scan QR/messages
+vocaux déjà couverts).
+
+**Reste à faire** : remplacer `<WEBHOOK_SECRET>` dans phase37 et
+l'exécuter, lancer un build (Codemagic ou `flutter pub get` local) pour
+vérifier que `agora_rtc_engine` se résout sans conflit, puis tester un
+appel réel de bout en bout (audio ET vidéo, dans les 2 sens
+client→staff et staff→client) avant de merger sur `main`.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
