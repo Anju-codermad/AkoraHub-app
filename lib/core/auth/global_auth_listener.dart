@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../routes/app_routes.dart';
 import '../supabase/auth_helpers.dart';
 import '../supabase/supabase_config.dart';
 
@@ -39,6 +40,16 @@ class GlobalAuthListener {
     if (_listening || !SupabaseConfig.isConfigured) return;
     _listening = true;
     SupabaseConfig.client.auth.onAuthStateChange.listen((data) async {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        // Lien "Mot de passe oublié" ouvert (email) — même situation que
+        // le retour OAuth : peut arriver après un redémarrage à froid,
+        // donc on navigue depuis cet écouteur global plutôt que depuis un
+        // écran qui ne serait peut-être plus monté. Sans condition de
+        // route pré-connexion : ce lien peut s'ouvrir depuis n'importe où.
+        navigatorKey.currentState
+            ?.pushNamedAndRemoveUntil(AppRoutes.resetPassword, (r) => false);
+        return;
+      }
       if (data.event != AuthChangeEvent.signedIn) return;
       if (!_isOnPreAuthRoute()) return;
       final route = await AuthRouting.homeRouteForCurrentUser();

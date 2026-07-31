@@ -5,6 +5,7 @@ import '../presentation/business_dashboard/business_dashboard.dart';
 import '../presentation/splash_screen/splash_screen.dart';
 import '../presentation/messaging_center_real/messaging_center_real.dart';
 import '../presentation/authentication_screen/authentication_screen.dart';
+import '../presentation/authentication_screen/reset_password_screen.dart';
 import '../presentation/onboarding_flow/onboarding_flow.dart';
 import '../presentation/registration_screen/registration_screen.dart';
 import '../presentation/business_units_management/business_units_management.dart';
@@ -41,6 +42,7 @@ class AppRoutes {
   static const String splash = '/splash-screen';
   static const String messagingCenter = '/messaging-center';
   static const String authentication = '/authentication-screen';
+  static const String resetPassword = '/reset-password-screen';
   static const String onboardingFlow = '/onboarding-flow';
   static const String moreMenu = '/more-menu';
 
@@ -52,6 +54,7 @@ class AppRoutes {
     splash: (context) => const SplashScreen(),
     messagingCenter: (context) => const MessagingCenterReal(),
     authentication: (context) => const AuthenticationScreen(),
+    resetPassword: (context) => const ResetPasswordScreen(),
     onboardingFlow: (context) => const OnboardingFlow(),
     registration: (context) => const RegistrationScreen(),
     businessUnitsManagement: (context) => const BusinessUnitsManagement(),

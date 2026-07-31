@@ -415,7 +415,10 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     }
 
     try {
-      await SupabaseConfig.client.auth.resetPasswordForEmail(email);
+      await SupabaseConfig.client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'io.supabase.akorahub://login-callback/',
+      );
       // Journalisation (revue de sécurité Admin) — voir
       // supabase/phase34_patch_security_audit_log.sql. Best-effort :
       // n'affecte jamais l'envoi de l'email lui-même si l'appel échoue.

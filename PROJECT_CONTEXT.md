@@ -672,6 +672,19 @@ commencée sauf mention contraire :
 - **"Mot de passe oublié ?"** : remplacé par un vrai envoi d'email de
   réinitialisation via `Supabase.auth.resetPasswordForEmail()` (dialogue
   de saisie d'email + confirmation d'envoi).
+  **🐛 Bug découvert et corrigé le 31/07** : l'appel n'avait pas de
+  `redirectTo` (contrairement à la connexion Google) — le lien de l'email
+  retombait donc sur le "Site URL" par défaut du Dashboard Supabase
+  (`localhost:3000`, jamais changé pour ce projet), inaccessible depuis un
+  téléphone (`ERR_CONNECTION_REFUSED`). Corrigé : `redirectTo:
+  'io.supabase.akorahub://login-callback/'` (même schéma que l'OAuth) +
+  nouvel écran `reset_password_screen.dart` (nouveau mot de passe +
+  confirmation, `auth.updateUser`) poussé par `GlobalAuthListener` sur
+  `AuthChangeEvent.passwordRecovery`. **⚠️ Reste à faire côté Dashboard** :
+  ajouter `io.supabase.akorahub://login-callback/` à la liste blanche
+  Authentication → URL Configuration → Redirect URLs (sinon Supabase
+  refuse le `redirectTo` et retombe silencieusement sur `localhost:3000`
+  comme avant).
 - **Connexion Google/Facebook** : toujours des boutons non fonctionnels
   (nécessiteraient la création de comptes développeur Google Cloud/Meta,
   démarche externe hors périmètre code), mais le message au clic est
@@ -694,14 +707,13 @@ demandé par l'utilisateur — merci de confirmer la faisabilité de chacun
 d'ici la date visée, ou de signaler si l'un d'eux doit repousser le
 lancement.
 
-1. **Écran de connexion — 2 boutons non fonctionnels** (périmètre
+1. **Écran de connexion — 1 bouton non fonctionnel** (périmètre
    Backend/Infra, voir section 3ter pour le détail) : "Mot de passe
-   oublié ?" affiche une popup "sera implémenté" au lieu de réinitialiser
-   réellement le mot de passe ; les boutons de connexion sociale
-   Google/Facebook ne font rien non plus. **Recommandation si le temps
+   oublié ?" est **réglé** depuis le 31/07 (email + lien + écran de
+   nouveau mot de passe, bout en bout) ; les boutons de connexion sociale
+   Google/Facebook ne font toujours rien. **Recommandation si le temps
    manque** : au minimum masquer les boutons sociaux non fonctionnels
-   plutôt que les laisser tromper l'utilisateur ; le vrai "mot de passe
-   oublié" (reset email natif Supabase) est prioritaire à corriger.
+   plutôt que les laisser tromper l'utilisateur.
 2. **Pré-requis techniques Google Play Store** (indépendant du code
    Flutter) : icône haute résolution (512×512), feature graphic
    (1024×500), politique de confidentialité (obligatoire — l'app demande
