@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
 import '../core/app_export.dart';
+import '../core/auth/global_auth_listener.dart';
 import '../core/notifications/push_notification_service.dart';
 import '../core/providers/theme_provider.dart';
 import '../core/supabase/supabase_config.dart';
@@ -36,6 +37,11 @@ void main() async {
   // "hors-ligne" plutôt que de planter (utile pour du dev sans backend).
   await SupabaseConfig.initialize();
 
+  // Écoute de connexion active pour toute la durée de vie de l'app (voir
+  // global_auth_listener.dart) — capte la connexion Google même si le
+  // retour du navigateur a fait redémarrer l'app à froid sur le splash.
+  GlobalAuthListener.init();
+
   // Notifications push (Firebase). Volontairement PAS "await" ici :
   // l'initialisation inclut la demande d'autorisation de notifications
   // (popup système), qui bloquerait sinon l'affichage du tout premier
@@ -60,6 +66,8 @@ class MyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     return Sizer(builder: (context, orientation, screenType) {
       return MaterialApp(
+        navigatorKey: GlobalAuthListener.navigatorKey,
+        navigatorObservers: [GlobalAuthListener.routeObserver],
         title: 'AkoraHub',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

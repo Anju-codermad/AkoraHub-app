@@ -2250,6 +2250,59 @@ premier retour, puis précisé : juste trop rapide, pas absentes).
   ouvrent la fiche produit : grille catalogue, "Vous recommandez
   souvent", fil "Pour vous", et favoris.
 
+## 3vingttrentecies. Connexion Google : diagnostic + correctif de fond via écouteur global (31/07) ✅ FAIT
+
+Après 3quinzetrentecies (mise en place initiale), l'utilisateur a signalé
+que le flux OAuth Google atteignait bien l'écran de consentement, revenait
+bien dans l'app automatiquement après validation (confirmant que le lien
+profond Android était correctement délivré), mais **sans aucun effet
+visible** — écran de connexion inchangé, aucune erreur.
+
+**Diagnostic** : les logs Supabase (`/logs/auth-logs`, consultés par
+l'utilisateur sans accès à l'appareil) montraient des entrées `Login` et
+`/token | request completed` en `INFO` sans aucune erreur — la preuve que
+Supabase créait bien la session côté serveur (l'échange PKCE aboutissait).
+Le problème était donc **côté client Flutter**, pas dans le flux OAuth
+lui-même.
+
+**Cause réelle identifiée** : `authentication_screen.dart` n'écoutait
+`onAuthStateChange` que localement, dans son propre `initState`. Or,
+pendant le long délai de consentement Google (souvent 10-20s en usage
+réel), Android tue fréquemment le processus Flutter en arrière-plan pour
+libérer de la mémoire. Le retour du lien profond relance alors l'app **à
+froid** sur `SplashScreen`, qui vérifie `currentSession` de façon
+synchrone après un délai fixe (1200ms + 300ms) — mais l'échange PKCE du
+lien de redirection (appel réseau asynchrone déclenché par
+`supabase_flutter` à l'initialisation) n'est pas forcément terminé à ce
+moment-là. Résultat : `SplashScreen` ne voit encore aucune session,
+retombe sur `/authentication-screen`, dont l'écouteur local — monté après
+coup — arrive trop tard pour l'événement `signedIn` qui suit quelques
+instants plus tard sur un flux diffusé (`Stream.broadcast`) qui ne rejoue
+jamais les événements passés aux nouveaux abonnés.
+
+**Correctif** : nouveau `lib/core/auth/global_auth_listener.dart` —
+`GlobalAuthListener`, initialisé une seule fois dans `main()` juste après
+`SupabaseConfig.initialize()` (donc bien avant `runApp()`, avant même que
+`SplashScreen` existe), reste abonné à `onAuthStateChange` **pendant toute
+la durée de vie de l'app**. Sur un événement `signedIn`, s'il détecte
+(via un `NavigatorObserver` dédié qui garde en mémoire le nom de la route
+active) que l'app est encore sur un écran "pré-connexion" (`/`,
+`/splash-screen`, `/authentication-screen`, `/onboarding-flow`), il
+redirige lui-même vers l'accueil (`AuthRouting.homeRouteForCurrentUser()`)
+via un `GlobalKey<NavigatorState>` désormais posé sur le `MaterialApp`
+(`navigatorKey:`/`navigatorObservers:` dans `main.dart`). Une revérification
+juste avant la navigation évite un double redirect si l'écouteur local de
+`authentication_screen` (toujours présent, utile pour "se souvenir de
+moi"/notification de bienvenue quand l'app n'a pas été tuée) a déjà agi
+entre-temps.
+
+Ce correctif élimine la dépendance à un timing precis : peu importe
+combien de temps prend l'échange PKCE après un redémarrage à froid,
+l'écouteur global sera déjà abonné et ne peut pas rater l'événement.
+
+⚠️ **Pas encore confirmé sur appareil réel** — prochain test à faire par
+l'utilisateur après le prochain build Codemagic.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
