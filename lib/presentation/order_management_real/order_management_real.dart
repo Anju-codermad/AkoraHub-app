@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/payment/payment_methods.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -213,6 +214,32 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                     );
                   }),
                   const Divider(),
+                  Text('Adresse de livraison indiquée par le client',
+                      style: theme.textTheme.labelLarge),
+                  SizedBox(height: 0.5.h),
+                  Text(
+                    (order['delivery_address'] as String?)
+                                ?.trim()
+                                .isNotEmpty ==
+                            true
+                        ? order['delivery_address'] as String
+                        : 'Adresse non précisée — seules les coordonnées '
+                            'GPS ci-dessous sont disponibles.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  if (order['latitude'] != null &&
+                      order['longitude'] != null) ...[
+                    SizedBox(height: 0.5.h),
+                    TextButton.icon(
+                      onPressed: () => _openInMaps(
+                        (order['latitude'] as num).toDouble(),
+                        (order['longitude'] as num).toDouble(),
+                      ),
+                      icon: const Icon(Icons.map_outlined, size: 18),
+                      label: const Text('Ouvrir dans Google Maps'),
+                    ),
+                  ],
+                  const Divider(),
                   Text('Position du livreur (suivi de livraison)',
                       style: theme.textTheme.labelLarge),
                   SizedBox(height: 0.5.h),
@@ -282,6 +309,12 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
         const SnackBar(content: Text('Erreur lors de la mise à jour.')),
       );
     }
+  }
+
+  Future<void> _openInMaps(double lat, double lon) async {
+    final uri =
+        Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lon');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   /// Capture la position GPS actuelle du staff (livreur) et la sauvegarde

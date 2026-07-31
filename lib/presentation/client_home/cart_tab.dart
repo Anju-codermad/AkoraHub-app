@@ -43,6 +43,8 @@ class _CartTabState extends ConsumerState<CartTab> {
   final _paymentReferenceController = TextEditingController();
   File? _paymentProofFile;
 
+  final _deliveryAddressController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +55,7 @@ class _CartTabState extends ConsumerState<CartTab> {
   @override
   void dispose() {
     _paymentReferenceController.dispose();
+    _deliveryAddressController.dispose();
     super.dispose();
   }
 
@@ -78,7 +81,31 @@ class _CartTabState extends ConsumerState<CartTab> {
     });
   }
 
-  Future<void> _estimateDelivery() async {
+  /// Géocodage inverse best-effort (aucune erreur ne doit bloquer le
+  /// checkout — l'adresse reste modifiable/saisissable à la main si ça
+  /// échoue).
+  Future<String?> _reverseGeocode(double lat, double lon) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(lat, lon);
+      if (placemarks.isEmpty) return null;
+      final p = placemarks.first;
+      final parts = {
+        if ((p.street ?? '').trim().isNotEmpty) p.street!.trim(),
+        if ((p.subLocality ?? '').trim().isNotEmpty) p.subLocality!.trim(),
+        if ((p.locality ?? '').trim().isNotEmpty) p.locality!.trim(),
+      }.toList();
+      return parts.isEmpty ? null : parts.join(', ');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// [overwriteAddress] : true quand l'utilisateur appuie explicitement sur
+  /// "Utiliser ma position actuelle" (on remplace alors le texte déjà
+  /// saisi) ; false lors de l'estimation automatique au chargement, où l'on
+  /// ne pré-remplit que si le champ est encore vide, pour ne jamais écraser
+  /// une adresse déjà tapée par le client.
+  Future<void> _estimateDelivery({bool overwriteAddress = false}) async {
     setState(() {
       _isEstimatingDelivery = true;
       _deliveryError = null;
@@ -166,6 +193,12 @@ class _CartTabState extends ConsumerState<CartTab> {
       _deliveryLat = lat;
       _deliveryLon = lon;
     });
+
+    final address = await _reverseGeocode(lat, lon);
+    if (!mounted || address == null) return;
+    if (overwriteAddress || _deliveryAddressController.text.trim().isEmpty) {
+      setState(() => _deliveryAddressController.text = address);
+    }
   }
 
   String _generateNumber(String prefix) {
@@ -182,6 +215,17 @@ class _CartTabState extends ConsumerState<CartTab> {
     if (userId == null || !SupabaseConfig.isConfigured) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vous devez être connecté.')),
+      );
+      return;
+    }
+
+    if (!asQuote && _deliveryAddressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Indiquez l\'adresse de livraison (ou utilisez votre position actuelle).'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -243,6 +287,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                     : null,
                 'latitude': _deliveryLat,
                 'longitude': _deliveryLon,
+                'delivery_address': _deliveryAddressController.text.trim(),
                 'payment_method': _paymentMethod.id,
                 'payment_reference':
                     _paymentReferenceController.text.trim().isEmpty
@@ -340,6 +385,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                   : null,
               'latitude': _deliveryLat,
               'longitude': _deliveryLon,
+              'delivery_address': _deliveryAddressController.text.trim(),
               'payment_method': _paymentMethod.id,
               'payment_reference':
                   _paymentReferenceController.text.trim().isEmpty
@@ -366,6 +412,7 @@ class _CartTabState extends ConsumerState<CartTab> {
 
       ref.read(cartProvider.notifier).clear();
       _paymentReferenceController.clear();
+      _deliveryAddressController.clear();
       _paymentProofFile = null;
 
       if (!mounted) return;
@@ -526,6 +573,32 @@ class _CartTabState extends ConsumerState<CartTab> {
                         ?.copyWith(color: theme.colorScheme.error),
                   ),
                 ),
+              SizedBox(height: 1.5.h),
+              Text('Adresse de livraison', style: theme.textTheme.labelLarge),
+              SizedBox(height: 0.5.h),
+              TextField(
+                controller: _deliveryAddressController,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'Ex : Lot II M 12 Ter Ankorondrano, près de la '
+                      'pharmacie...',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  suffixIcon: IconButton(
+                    icon: _isEstimatingDelivery
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location, size: 20),
+                    tooltip: 'Utiliser ma position actuelle',
+                    onPressed: _isEstimatingDelivery
+                        ? null
+                        : () => _estimateDelivery(overwriteAddress: true),
+                  ),
+                ),
+              ),
               const Divider(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
