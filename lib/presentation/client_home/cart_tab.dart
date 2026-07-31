@@ -8,9 +8,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
+import '../../core/payment/papi_payment_repo.dart';
 import '../../core/payment/payment_method_selector.dart';
 import '../../core/payment/payment_method_settings_repo.dart';
 import '../../core/payment/payment_methods.dart';
@@ -43,6 +45,20 @@ class _CartTabState extends ConsumerState<CartTab> {
   final _paymentReferenceController = TextEditingController();
   File? _paymentProofFile;
 
+  // Réglage Admin (voir payment_methods_management.dart) : quand false
+  // (par défaut), Mvola/Orange Money/Airtel Money passent par Papi
+  // (paiement en ligne automatique) au lieu du flux manuel référence +
+  // photo ci-dessous.
+  bool _manualFallback = false;
+
+  /// Le flux manuel (encadré coordonnées + référence + photo) ne
+  /// s'affiche que pour les méthodes sans confirmation automatique
+  /// (virement bancaire), ou pour Mvola/Orange/Airtel si le secours
+  /// manuel est activé par l'Admin.
+  bool get _showManualPaymentFields =>
+      _paymentMethod.instructions != null &&
+      (!_paymentMethod.isPapiCapable || _manualFallback);
+
   final _deliveryAddressController = TextEditingController();
 
   @override
@@ -72,9 +88,12 @@ class _CartTabState extends ConsumerState<CartTab> {
   /// jamais bloquer le checkout.
   Future<void> _loadAvailablePaymentMethods() async {
     final available = await PaymentMethodSettingsRepo.fetchEnabled();
+    final manualFallback =
+        await PaymentMethodSettingsRepo.isManualFallbackEnabled();
     if (!mounted) return;
     setState(() {
       _availableMethods = available;
+      _manualFallback = manualFallback;
       if (!available.contains(_paymentMethod) && available.isNotEmpty) {
         _paymentMethod = available.first;
       }
@@ -231,7 +250,7 @@ class _CartTabState extends ConsumerState<CartTab> {
     }
 
     if (!asQuote &&
-        _paymentMethod != PaymentMethod.paiementLivraison &&
+        _showManualPaymentFields &&
         _paymentReferenceController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -247,6 +266,9 @@ class _CartTabState extends ConsumerState<CartTab> {
 
     final total = ref.read(cartProvider.notifier).total;
     final online = await isCurrentlyOnline();
+    final usesPapi = !asQuote &&
+        _paymentMethod.isPapiCapable &&
+        !_manualFallback;
 
     // Hors-ligne : on ne tente même pas l'appel réseau, on met
     // directement en file d'attente locale pour un envoi automatique dès
@@ -359,7 +381,7 @@ class _CartTabState extends ConsumerState<CartTab> {
         final orderNumber = _generateNumber('CMD');
 
         String? proofPath;
-        if (_paymentProofFile != null) {
+        if (!usesPapi && _paymentProofFile != null) {
           try {
             proofPath = '$userId/$orderNumber.jpg';
             await SupabaseConfig.client.storage
@@ -387,10 +409,10 @@ class _CartTabState extends ConsumerState<CartTab> {
               'longitude': _deliveryLon,
               'delivery_address': _deliveryAddressController.text.trim(),
               'payment_method': _paymentMethod.id,
-              'payment_reference':
-                  _paymentReferenceController.text.trim().isEmpty
-                      ? null
-                      : _paymentReferenceController.text.trim(),
+              'payment_reference': (!usesPapi &&
+                      _paymentReferenceController.text.trim().isNotEmpty)
+                  ? _paymentReferenceController.text.trim()
+                  : null,
               'payment_proof_path': proofPath,
             })
             .select()
@@ -408,6 +430,34 @@ class _CartTabState extends ConsumerState<CartTab> {
                       })
                   .toList(),
             );
+
+        // Paiement en ligne automatique via Papi (voir
+        // supabase/phase38_patch_papi_payment.sql) : la commande existe
+        // déjà (payment_status reste "en_attente" tant que Papi n'a pas
+        // confirmé par webhook) — on récupère un lien de paiement et on
+        // l'ouvre dans le navigateur. Un échec ici n'annule pas la
+        // commande : elle reste consultable, le client pourra réessayer
+        // depuis le suivi de commande.
+        if (usesPapi) {
+          try {
+            final paymentLink =
+                await PapiPaymentRepo.createPaymentLink(order['id'] as String);
+            final uri = Uri.parse(paymentLink);
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } catch (_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Commande créée, mais le paiement en ligne n\'a pas pu '
+                      'démarrer. Réessayez depuis le suivi de commande.'),
+                  behavior: SnackBarBehavior.floating,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            }
+          }
+        }
       }
 
       ref.read(cartProvider.notifier).clear();
@@ -420,7 +470,10 @@ class _CartTabState extends ConsumerState<CartTab> {
         SnackBar(
           content: Text(asQuote
               ? 'Demande de devis envoyée !'
-              : 'Commande passée avec succès !'),
+              : usesPapi
+                  ? 'Commande créée ! Finalisez le paiement dans la page '
+                      'qui vient de s\'ouvrir.'
+                  : 'Commande passée avec succès !'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -622,7 +675,32 @@ class _CartTabState extends ConsumerState<CartTab> {
                 onSelected: (method) =>
                     setState(() => _paymentMethod = method),
               ),
-              if (_paymentMethod.instructions != null) ...[
+              if (_paymentMethod.isPapiCapable && !_manualFallback) ...[
+                Container(
+                  margin: EdgeInsets.only(top: 1.h),
+                  padding: EdgeInsets.all(3.w),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer
+                        .withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock_outline,
+                          size: 18, color: theme.colorScheme.primary),
+                      SizedBox(width: 2.w),
+                      Expanded(
+                        child: Text(
+                          'Vous serez redirigé vers une page de paiement '
+                          'sécurisée après validation de la commande.',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (_showManualPaymentFields) ...[
                 Container(
                   margin: EdgeInsets.only(top: 1.h),
                   padding: EdgeInsets.all(3.w),

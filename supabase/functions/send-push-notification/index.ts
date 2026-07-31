@@ -259,6 +259,21 @@ Deno.serve(async (req) => {
           "Le statut de votre commande a changé") + orderNumber;
       const customerId = record.customer_id as string | undefined;
       if (customerId) recipientIds = [customerId];
+    } else if (payload.table === "orders_payment_status") {
+      // Papi a confirmé ou rejeté un paiement en ligne (voir
+      // supabase/phase38_patch_papi_payment.sql) — table synthétique
+      // distincte de "orders" (livraison) pour ne pas mélanger les deux
+      // notifications possibles sur la même ligne.
+      category = "commande";
+      const orderNumber = record.order_number ? ` (${record.order_number})` : "";
+      title = record.payment_status === "paye"
+        ? "Paiement confirmé"
+        : "Paiement échoué";
+      body = record.payment_status === "paye"
+        ? `Votre paiement a été confirmé${orderNumber}.`
+        : `Votre paiement n'a pas abouti${orderNumber}. Réessayez depuis votre commande.`;
+      const payerCustomerId = record.customer_id as string | undefined;
+      if (payerCustomerId) recipientIds = [payerCustomerId];
     } else if (payload.table === "quotes") {
       // Le client vient d'accepter/refuser un devis -> notifie toute
       // l'équipe (Admin/Commercial), pas juste le staff qui avait répondu.

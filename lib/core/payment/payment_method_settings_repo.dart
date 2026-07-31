@@ -37,4 +37,34 @@ class PaymentMethodSettingsRepo {
       'updated_at': DateTime.now().toIso8601String(),
     });
   }
+
+  /// Réglage spécial (pas un `PaymentMethod`, voir
+  /// supabase/phase38_patch_papi_payment.sql) : quand activé, Mvola/
+  /// Orange Money/Airtel Money reviennent au flux manuel historique
+  /// (référence + photo) au lieu du paiement en ligne automatique via
+  /// Papi — utile en secours si Papi est indisponible. Désactivé par
+  /// défaut (le paiement Papi est le comportement normal).
+  static const manualFallbackId = 'manuel_fallback';
+
+  static Future<bool> isManualFallbackEnabled() async {
+    if (!SupabaseConfig.isConfigured) return false;
+    try {
+      final row = await SupabaseConfig.client
+          .from('payment_method_settings')
+          .select('enabled')
+          .eq('method_id', manualFallbackId)
+          .maybeSingle();
+      return row?['enabled'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> setManualFallbackEnabled(bool enabled) async {
+    await SupabaseConfig.client.from('payment_method_settings').upsert({
+      'method_id': manualFallbackId,
+      'enabled': enabled,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
 }
