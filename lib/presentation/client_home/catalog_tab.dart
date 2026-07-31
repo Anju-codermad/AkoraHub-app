@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -35,6 +36,26 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   String _selectedCategory = 'toutes';
   String _searchQuery = '';
   Set<String> _inactiveCategoryNames = {};
+
+  // Pagination : la grille produits n'avait pas de limite (catalogue
+  // entier chargé d'un coup) — remplacé par un chargement par pages de
+  // 20, filtré côté serveur (pilier/catégorie/recherche), la suite
+  // arrivant en scrollant vers le bas. La recherche attend une courte
+  // pause après la dernière frappe avant de relancer la requête (pas une
+  // requête réseau par lettre tapée).
+  //
+  // `_allProductsForReference` reste un chargement complet séparé (en
+  // arrière-plan, sans bloquer l'affichage) : les puces de catégorie et
+  // le cache hors-ligne ont besoin de connaître TOUT le catalogue, pas
+  // seulement la page actuellement affichée à l'écran.
+  static const _pageSize = 20;
+  int _page = 0;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  bool _isLoadingProducts = false;
+  Timer? _searchDebounce;
+  List<Map<String, dynamic>> _allProductsForReference = [];
+  final _scrollController = ScrollController();
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -85,12 +106,111 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   void initState() {
     super.initState();
     _loadData();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _bannerController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      _loadMoreProducts();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchProductsPage(int page) async {
+    var query =
+        SupabaseConfig.client.from('products').select().eq('visibility', true);
+    if (_selectedUnitId != null) {
+      query = query.eq('business_unit_id', _selectedUnitId!);
+    }
+    if (_selectedCategory != 'toutes') {
+      query = query.eq('category', _selectedCategory);
+    }
+    if (_searchQuery.trim().isNotEmpty) {
+      query = query.ilike('name', '%${_searchQuery.trim()}%');
+    }
+    final data = await query
+        .order('name')
+        .range(page * _pageSize, page * _pageSize + _pageSize - 1);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Relance la page 0 avec les filtres actuels (changement de pilier,
+  /// catégorie ou recherche) — ne recharge que la grille produits, pas le
+  /// reste de l'écran (bannières, fil d'activité...).
+  Future<void> _reloadProductsPage() async {
+    setState(() {
+      _page = 0;
+      _hasMore = true;
+      _isLoadingProducts = true;
+    });
+    try {
+      final rows = await _fetchProductsPage(0);
+      if (!mounted) return;
+      setState(() {
+        _products = rows;
+        _hasMore = rows.length == _pageSize;
+        _isLoadingProducts = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingProducts = false);
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final nextPage = _page + 1;
+      final rows = await _fetchProductsPage(nextPage);
+      if (!mounted) return;
+      setState(() {
+        _products = [..._products, ...rows];
+        _page = nextPage;
+        _hasMore = rows.length == _pageSize;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    _searchDebounce?.cancel();
+    _searchDebounce =
+        Timer(const Duration(milliseconds: 400), _reloadProductsPage);
+  }
+
+  /// Chargement complet du catalogue (arrière-plan, sans bloquer l'écran) —
+  /// alimente les puces de catégorie (`_categories`) et le cache
+  /// hors-ligne, qui ont besoin de connaître tout le catalogue, pas juste
+  /// la page actuellement affichée.
+  Future<void> _refreshFullCatalogReference() async {
+    try {
+      final data = await SupabaseConfig.client
+          .from('products')
+          .select()
+          .eq('visibility', true)
+          .order('name');
+      if (!mounted) return;
+      setState(() {
+        _allProductsForReference = List<Map<String, dynamic>>.from(data);
+      });
+      _cacheCatalogOffline();
+    } catch (_) {
+      // Pas grave : les puces de catégorie et le cache hors-ligne restent
+      // sur leur dernière valeur connue.
+    }
   }
 
   Future<void> _loadData() async {
@@ -104,16 +224,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _page = 0;
+      _hasMore = true;
     });
     try {
       final userId = SupabaseConfig.client.auth.currentUser?.id;
       final results = await Future.wait([
         SupabaseConfig.client.from('business_units').select().eq('active', true),
-        SupabaseConfig.client
-            .from('products')
-            .select()
-            .eq('visibility', true)
-            .order('name'),
+        _fetchProductsPage(0),
         if (userId != null)
           SupabaseConfig.client
               .from('profiles')
@@ -302,9 +420,11 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       final reorderSuggestions = parallel[4] as List<Map<String, dynamic>>;
       final flashInfo = parallel[5] as String?;
 
+      final productsPage = List<Map<String, dynamic>>.from(results[1] as List);
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
-        _products = List<Map<String, dynamic>>.from(results[1] as List);
+        _products = productsPage;
+        _hasMore = productsPage.length == _pageSize;
         _clientName = profile?['full_name'] as String?;
         _clientAvatarUrl = profile?['avatar_url'] as String?;
         _clientLocation = profile?['location'] as String?;
@@ -317,11 +437,11 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _isLoading = false;
       });
 
-      // Sauvegarde locale du catalogue pour consultation hors-ligne — le
-      // panier et les commandes restent utilisables sans réseau grâce à
-      // ce cache, même si le reste (mur, messages, suggestions) ne l'est
-      // pas (moins critique, pas mis en cache).
-      _cacheCatalogOffline();
+      // Chargement complet du catalogue en arrière-plan (sans bloquer
+      // l'affichage de cette première page) : alimente les puces de
+      // catégorie et le cache hors-ligne, qui ont besoin de connaître
+      // tout le catalogue — voir _refreshFullCatalogReference.
+      _refreshFullCatalogReference();
     } catch (e) {
       final cached = await _loadCatalogFromCache();
       if (cached) {
@@ -344,7 +464,10 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _offlineCacheKey,
         jsonEncode({
           'businessUnits': _businessUnits,
-          'products': _products,
+          // Le catalogue COMPLET (pas juste la page affichée) — voir
+          // _refreshFullCatalogReference, seule source fiable de "tout
+          // le catalogue" depuis que _products est paginé.
+          'products': _allProductsForReference,
           'cachedAt': DateTime.now().toIso8601String(),
         }),
       );
@@ -355,6 +478,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   }
 
   /// Retourne `true` si un catalogue en cache a bien été chargé (hors-ligne).
+  /// Hors-ligne, pas de pagination possible (pas de réseau pour charger la
+  /// suite) : on affiche directement tout le catalogue mis en cache.
   Future<bool> _loadCatalogFromCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -362,10 +487,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       if (raw == null) return false;
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       final cachedAt = DateTime.tryParse(decoded['cachedAt'] ?? '');
+      final cachedProducts =
+          List<Map<String, dynamic>>.from(decoded['products'] ?? []);
       setState(() {
         _businessUnits =
             List<Map<String, dynamic>>.from(decoded['businessUnits'] ?? []);
-        _products = List<Map<String, dynamic>>.from(decoded['products'] ?? []);
+        _products = cachedProducts;
+        _allProductsForReference = cachedProducts;
+        _hasMore = false;
       });
       if (mounted && cachedAt != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -455,9 +584,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   }
 
   List<String> get _categories {
+    // Basé sur le catalogue complet (_allProductsForReference), pas sur
+    // _products qui n'est plus qu'une page — sinon les puces
+    // apparaîtraient/disparaîtraient au fil du scroll infini.
     final relevant = _selectedUnitId == null
-        ? _products
-        : _products.where((p) => p['business_unit_id'] == _selectedUnitId);
+        ? _allProductsForReference
+        : _allProductsForReference
+            .where((p) => p['business_unit_id'] == _selectedUnitId);
     final cats = relevant
         .map((p) => (p['category'] ?? '').toString())
         .where((c) => c.isNotEmpty && !_inactiveCategoryNames.contains(c))
@@ -521,6 +654,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     return RefreshIndicator(
       onRefresh: _loadData,
       child: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           // --- En-tête personnalisé : avatar, salutation, localisation, notifs ---
           SliverToBoxAdapter(
@@ -713,7 +847,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   ),
                   isDense: true,
                 ),
-                onChanged: (v) => setState(() => _searchQuery = v),
+                onChanged: _onSearchChanged,
               ),
             ),
           ),
@@ -1055,10 +1189,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     Text(ref.tr('our_activities'), style: theme.textTheme.titleMedium),
                     if (_selectedUnitId != null)
                       TextButton(
-                        onPressed: () => setState(() {
-                          _selectedUnitId = null;
-                          _selectedCategory = 'toutes';
-                        }),
+                        onPressed: () {
+                          setState(() {
+                            _selectedUnitId = null;
+                            _selectedCategory = 'toutes';
+                          });
+                          _reloadProductsPage();
+                        },
                         child: const Text('Voir tout'),
                       ),
                   ],
@@ -1080,10 +1217,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       padding: EdgeInsets.only(right: 4.w),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(32),
-                        onTap: () => setState(() {
-                          _selectedUnitId = selected ? null : unit['id'];
-                          _selectedCategory = 'toutes';
-                        }),
+                        onTap: () {
+                          setState(() {
+                            _selectedUnitId = selected ? null : unit['id'];
+                            _selectedCategory = 'toutes';
+                          });
+                          _reloadProductsPage();
+                        },
                         child: SizedBox(
                           width: 18.w,
                           child: Column(
@@ -1140,8 +1280,10 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       child: ChoiceChip(
                         label: Text(ref.tr('all_categories')),
                         selected: _selectedCategory == 'toutes',
-                        onSelected: (_) =>
-                            setState(() => _selectedCategory = 'toutes'),
+                        onSelected: (_) {
+                          setState(() => _selectedCategory = 'toutes');
+                          _reloadProductsPage();
+                        },
                       ),
                     ),
                     ..._categories.map((c) => Padding(
@@ -1149,8 +1291,10 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           child: ChoiceChip(
                             label: Text(c),
                             selected: _selectedCategory == c,
-                            onSelected: (_) =>
-                                setState(() => _selectedCategory = c),
+                            onSelected: (_) {
+                              setState(() => _selectedCategory = c);
+                              _reloadProductsPage();
+                            },
                           ),
                         )),
                   ],
@@ -1212,6 +1356,19 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     ),
                   ),
                 ),
+          if (_hasMore || _isLoadingMore || _isLoadingProducts)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 2.h),
+                child: const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+            ),
           SliverToBoxAdapter(child: SizedBox(height: 4.h)),
         ],
       ),
