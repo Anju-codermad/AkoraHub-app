@@ -3336,6 +3336,34 @@ exige `ffi ^2.1.2` — pub échoue à résoudre les dépendances
 d'appel (`call_screen.dart`) n'utilise que des API stables présentes
 dans cette version, aucun changement de code nécessaire.
 
+**Grille tarifaire Papi (PDF fourni par l'utilisateur, 31/07)** — frais
+côté **marchand**, déduits de ce qui est reversé à AkoraHub, **pas**
+ajoutés à ce que le client paie au checkout :
+- **Mode Direct** (AkoraHub a déjà ses propres comptes marchands
+  Mvola/Orange/Airtel/banque — statut non confirmé à ce jour, voir
+  section 3trentecies) : **1,20 %** quel que soit le moyen de paiement
+  (Visa/Mastercard, Mvola, Orange Money, Airtel Money), + les frais de
+  l'opérateur/de la banque facturés séparément par eux.
+- **Mode Transit** (Papi encaisse d'abord, puis reverse à AkoraHub —
+  c'est très probablement le mode actuel, faute de comptes marchands
+  propres) : Visa/Mastercard 4,20 %, Mvola 3,80 %, Orange Money 3,60 %,
+  Airtel Money 3,60 % — tout compris (opérateurs inclus).
+- Exemple concret : commande de 11 000 MGA en Mode Transit/Mvola (3,80%)
+  → le client paie bien 11 000 MGA, mais AkoraHub ne reçoit que
+  ~10 582 MGA net (Papi garde 418 MGA).
+- **Contexte** : l'utilisateur a remarqué (sans chiffres précis à
+  l'appui) que "le total d'achat est plus élevé en utilisant Papi" —
+  cette grille ne l'explique probablement pas telle quelle (frais
+  marchand, pas surcharge client), l'hypothèse retenue reste que le
+  "Total" affiché inclut déjà les frais de livraison (`total +
+  delivery_fee`, même formule quel que soit le mode de paiement, voir
+  `cart_tab.dart`) — à confirmer avec un exemple chiffré précis
+  (Total panier vs montant demandé par Papi) si le doute persiste.
+- **Reste à vérifier** : si le dashboard Papi permet de répercuter ces
+  frais sur le client plutôt que de les déduire du versement — non vu
+  dans cette documentation, à checker si le doute persiste après un
+  test chiffré.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
