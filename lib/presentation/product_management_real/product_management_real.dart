@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'product_variants_screen.dart';
 import 'batch_list_screen.dart';
@@ -13,17 +15,18 @@ import 'batch_list_screen.dart';
 /// Gestion réelle des produits : tarification Gros/Détail par seuil de
 /// quantité, stock, et lots de production (n° lot, fabrication, DLC).
 /// Remplace progressivement l'ancien écran basé sur des données fictives.
-class ProductManagementReal extends StatefulWidget {
+class ProductManagementReal extends ConsumerStatefulWidget {
   const ProductManagementReal({super.key});
 
   @override
-  State<ProductManagementReal> createState() => _ProductManagementRealState();
+  ConsumerState<ProductManagementReal> createState() =>
+      _ProductManagementRealState();
 }
 
-class _ProductManagementRealState extends State<ProductManagementReal> {
+class _ProductManagementRealState
+    extends ConsumerState<ProductManagementReal> {
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _businessUnits = [];
-  List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _nameSuggestions = [];
   bool _isLoading = true;
   String? _error;
@@ -78,23 +81,12 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
       _hasMore = true;
     });
     try {
-      // Les 4 requêtes sont indépendantes — lancées en parallèle plutôt
+      // Les requêtes sont indépendantes — lancées en parallèle plutôt
       // qu'à la suite pour ne pas cumuler leurs temps de réseau (chacune
-      // garde son propre repli silencieux en cas d'échec).
-      Future<List<Map<String, dynamic>>> loadCategories() async {
-        try {
-          final result = await SupabaseConfig.client
-              .from('categories')
-              .select()
-              .order('name');
-          return List<Map<String, dynamic>>.from(result);
-        } catch (_) {
-          // Table `categories` pas encore créée (migration phase6 non
-          // exécutée) : on continue sans bloquer le reste de l'écran.
-          return [];
-        }
-      }
-
+      // garde son propre repli silencieux en cas d'échec). Les catégories
+      // passent désormais par le cache partagé (formats/parfums/catégories
+      // — lib/core/reference_data/reference_table_cache.dart) plutôt
+      // qu'une requête dédiée à chaque ouverture de cet écran.
       Future<List<Map<String, dynamic>>> loadNameSuggestions() async {
         try {
           final result = await SupabaseConfig.client
@@ -109,26 +101,27 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
         }
       }
 
-      final results = await Future.wait([
+      Future<void> refreshCategoriesCache() =>
+          ref.read(categoriesCacheProvider.notifier).refresh();
+
+      final results = await Future.wait<dynamic>([
         SupabaseConfig.client
             .from('products')
             .select()
             .order('created_at', ascending: false)
             .range(0, _pageSize - 1),
         SupabaseConfig.client.from('business_units').select(),
-        loadCategories(),
         loadNameSuggestions(),
+        refreshCategoriesCache(),
       ]);
       final products = results[0];
       final units = results[1];
-      final categories = results[2];
-      final nameSuggestions = results[3];
+      final nameSuggestions = results[2];
       final productsList = List<Map<String, dynamic>>.from(products);
       setState(() {
         _products = productsList;
         _businessUnits = List<Map<String, dynamic>>.from(units);
-        _categories = categories;
-        _nameSuggestions = nameSuggestions;
+        _nameSuggestions = List<Map<String, dynamic>>.from(nameSuggestions);
         _isLoading = false;
         _hasMore = productsList.length == _pageSize;
       });
@@ -189,14 +182,13 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     if (name == null || name.isEmpty) return null;
 
     try {
-      final result = await SupabaseConfig.client
+      await SupabaseConfig.client
           .from('categories')
-          .insert({'business_unit_id': businessUnitId, 'name': name})
-          .select()
-          .single();
-      setState(() {
-        _categories = [..._categories, Map<String, dynamic>.from(result)];
-      });
+          .insert({'business_unit_id': businessUnitId, 'name': name});
+      // Invalide le cache partagé (force: true, ignore le TTL) pour que
+      // cette catégorie fraîchement créée apparaisse immédiatement dans le
+      // menu déroulant, plutôt que d'attendre jusqu'à 6h.
+      await ref.read(categoriesCacheProvider.notifier).refresh(force: true);
       return name;
     } catch (e) {
       if (!mounted) return null;
@@ -421,7 +413,8 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                 }),
                 const SizedBox(height: 8),
                 Builder(builder: (context) {
-                  final categoriesForUnit = _categories
+                  final categoriesForUnit = ref
+                      .read(categoriesCacheProvider)
                       .where((c) =>
                           c['business_unit_id'] == selectedUnitId &&
                           c['active'] != false)

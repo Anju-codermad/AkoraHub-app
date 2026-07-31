@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Gestion des variantes d'un produit (combinaisons Format x Parfum),
 /// chacune avec son propre prix Gros/Détail et son propre stock.
-class ProductVariantsScreen extends StatefulWidget {
+class ProductVariantsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> product;
 
   const ProductVariantsScreen({super.key, required this.product});
 
   @override
-  State<ProductVariantsScreen> createState() => _ProductVariantsScreenState();
+  ConsumerState<ProductVariantsScreen> createState() =>
+      _ProductVariantsScreenState();
 }
 
-class _ProductVariantsScreenState extends State<ProductVariantsScreen> {
+class _ProductVariantsScreenState
+    extends ConsumerState<ProductVariantsScreen> {
   List<Map<String, dynamic>> _variants = [];
-  List<Map<String, dynamic>> _formats = [];
-  List<Map<String, dynamic>> _parfums = [];
   bool _isLoading = true;
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
@@ -32,19 +34,20 @@ class _ProductVariantsScreenState extends State<ProductVariantsScreen> {
   Future<void> _loadAll() async {
     setState(() => _isLoading = true);
     try {
-      final variants = await SupabaseConfig.client
-          .from('product_variants')
-          .select('*, formats(name), parfums(name)')
-          .eq('product_id', widget.product['id'])
-          .order('created_at');
-      final formats =
-          await SupabaseConfig.client.from('formats').select().order('name');
-      final parfums =
-          await SupabaseConfig.client.from('parfums').select().order('name');
+      // Formats/parfums passent par le cache partagé (rarement modifiés —
+      // voir lib/core/reference_data/reference_table_cache.dart) plutôt
+      // qu'une requête dédiée à chaque ouverture de cet écran.
+      final results = await Future.wait<dynamic>([
+        SupabaseConfig.client
+            .from('product_variants')
+            .select('*, formats(name), parfums(name)')
+            .eq('product_id', widget.product['id'])
+            .order('created_at'),
+        ref.read(formatsCacheProvider.notifier).refresh(),
+        ref.read(parfumsCacheProvider.notifier).refresh(),
+      ]);
       setState(() {
-        _variants = List<Map<String, dynamic>>.from(variants);
-        _formats = List<Map<String, dynamic>>.from(formats);
-        _parfums = List<Map<String, dynamic>>.from(parfums);
+        _variants = List<Map<String, dynamic>>.from(results[0]);
         _isLoading = false;
       });
     } catch (e) {
@@ -87,6 +90,13 @@ class _ProductVariantsScreenState extends State<ProductVariantsScreen> {
           .insert({'name': name})
           .select()
           .single();
+      // Invalide le cache partagé (force: true, ignore le TTL) pour que ce
+      // format/parfum fraîchement créé apparaisse immédiatement dans le
+      // menu déroulant, plutôt que d'attendre jusqu'à 6h.
+      final notifier = table == 'formats'
+          ? ref.read(formatsCacheProvider.notifier)
+          : ref.read(parfumsCacheProvider.notifier);
+      await notifier.refresh(force: true);
       return result['id'] as String;
     } catch (e) {
       return null;
@@ -122,7 +132,8 @@ class _ProductVariantsScreenState extends State<ProductVariantsScreen> {
                       child: DropdownButtonFormField<String>(
                         initialValue: selectedFormatId,
                         decoration: const InputDecoration(labelText: 'Format'),
-                        items: _formats
+                        items: ref
+                            .read(formatsCacheProvider)
                             .map((f) => DropdownMenuItem(
                                   value: f['id'] as String,
                                   child: Text(f['name']),
@@ -138,7 +149,6 @@ class _ProductVariantsScreenState extends State<ProductVariantsScreen> {
                       onPressed: () async {
                         final id = await _addNewReference('formats', 'Format');
                         if (id != null) {
-                          await _loadAll();
                           setDialogState(() => selectedFormatId = id);
                         }
                       },
@@ -157,7 +167,8 @@ class _ProductVariantsScreenState extends State<ProductVariantsScreen> {
                             value: null,
                             child: Text('Aucun'),
                           ),
-                          ..._parfums.map((p) => DropdownMenuItem(
+                          ...ref.read(parfumsCacheProvider).map((p) =>
+                              DropdownMenuItem(
                                 value: p['id'] as String,
                                 child: Text(p['name']),
                               )),
@@ -172,7 +183,6 @@ class _ProductVariantsScreenState extends State<ProductVariantsScreen> {
                       onPressed: () async {
                         final id = await _addNewReference('parfums', 'Parfum');
                         if (id != null) {
-                          await _loadAll();
                           setDialogState(() => selectedParfumId = id);
                         }
                       },

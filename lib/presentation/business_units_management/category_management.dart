@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Gestion des catégories (sous-catalogues) d'un pilier donné : activer /
@@ -10,7 +12,7 @@ import '../../core/supabase/supabase_config.dart';
 /// produit et du catalogue client, sans supprimer les produits qui la
 /// portent déjà — pratique pour préparer une nouvelle gamme (ex:
 /// Anti-Nuisibles) à l'avance et la "lancer" d'un coup plus tard.
-class CategoryManagement extends StatefulWidget {
+class CategoryManagement extends ConsumerStatefulWidget {
   final String businessUnitId;
   final String businessUnitName;
 
@@ -21,10 +23,11 @@ class CategoryManagement extends StatefulWidget {
   });
 
   @override
-  State<CategoryManagement> createState() => _CategoryManagementState();
+  ConsumerState<CategoryManagement> createState() =>
+      _CategoryManagementState();
 }
 
-class _CategoryManagementState extends State<CategoryManagement> {
+class _CategoryManagementState extends ConsumerState<CategoryManagement> {
   List<Map<String, dynamic>> _categories = [];
   bool _isLoading = true;
   String? _error;
@@ -112,6 +115,11 @@ class _CategoryManagementState extends State<CategoryManagement> {
       }
       if (!mounted) return;
       _loadCategories();
+      // Invalide le cache partagé (utilisé par le formulaire produit et le
+      // catalogue client — voir lib/core/reference_data/reference_table_cache.dart)
+      // pour que ce changement soit visible immédiatement ailleurs, sans
+      // attendre jusqu'à 6h.
+      ref.read(categoriesCacheProvider.notifier).refresh(force: true);
     } on PostgrestException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,6 +135,7 @@ class _CategoryManagementState extends State<CategoryManagement> {
           .update({'active': !(category['active'] as bool? ?? true)}).eq(
               'id', category['id']);
       _loadCategories();
+      ref.read(categoriesCacheProvider.notifier).refresh(force: true);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

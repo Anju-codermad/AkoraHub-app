@@ -2695,6 +2695,56 @@ Item 2 de la checklist perf/sécurité (31/07) maintenant entièrement traité
 pour toutes les listes longues identifiées (Commandes, Mur, Produits
 Admin, Catalogue client).
 
+## 3trentetrentecies. Cache local des données de référence — formats/parfums/catégories (31/07) ✅ FAIT — item 3 de l'audit complet
+
+Item 3 de la checklist perf/sécurité (31/07) : `formats`, `parfums`,
+`categories` étaient requêtées à neuf à chaque écran qui en avait besoin
+(jusqu'à 7 points d'appel différents cumulés). Ces 3 tables n'ont pas de
+colonne `updated_at` pour détecter un changement à distance, donc la
+fraîcheur repose sur une durée de vie (TTL) + invalidation explicite
+après une écriture faite depuis l'app — pas de diff ligne par ligne
+possible.
+
+**Nouveau** `lib/core/reference_data/reference_table_cache.dart` :
+`ReferenceTableCache` (un `StateNotifier` générique, même schéma
+Riverpod + `SharedPreferences` que `theme_provider.dart`/langue) —
+hydratation immédiate depuis `SharedPreferences` au démarrage (affichage
+instantané, pas d'attente réseau), puis rafraîchissement en arrière-plan
+si la dernière donnée connue a plus de 6h. `refresh(force: true)` permet
+d'ignorer ce délai juste après une écriture (ajout/renommage/activation),
+pour que l'Admin voie son changement immédiatement plutôt que d'attendre
+jusqu'à 6h. Trois providers : `formatsCacheProvider`,
+`parfumsCacheProvider`, `categoriesCacheProvider` (ce dernier contient
+TOUTES les catégories tous piliers confondus, avec leur `business_unit_id`
+et `active` — chaque écran filtre côté client selon son besoin, comme
+c'était déjà fait avant ce chantier).
+
+**Écrans mis à jour** (tous convertis en `ConsumerStatefulWidget` pour
+accéder au cache) :
+- `catalog_tab.dart` : la requête dédiée "catégories désactivées"
+  (`loadInactiveCategories`) supprimée, dérivée à la place du cache
+  partagé dans le getter `_categories`.
+- `product_management_real.dart` : la requête `categories` dans
+  `_loadData` remplacée par un `refresh()` du cache ; `_addNewCategory`
+  invalide le cache (`force: true`) après l'insertion au lieu de gérer sa
+  propre copie locale.
+- `product_variants_screen.dart` (formats/parfums) : mêmes principes —
+  `_loadAll` ne recharge plus que les variantes (spécifiques au produit,
+  pas cacheables globalement) + rafraîchit les 2 caches en parallèle ;
+  `_addNewReference` invalide le cache concerné (formats OU parfums)
+  après l'insertion.
+- `category_management.dart` (écran Admin dédié à la gestion des
+  catégories d'un pilier) : garde sa propre requête directe (c'est
+  l'écran de référence pour cette donnée, la fraîcheur prime sur
+  l'économie de requête ici), mais invalide désormais le cache partagé
+  après chaque écriture (ajout/renommage/activation) pour que les autres
+  écrans (formulaire produit, catalogue client) voient le changement sans
+  attendre.
+
+Item 3 de la checklist perf/sécurité maintenant traité. Il reste les 2
+items sécurité : rate limiting connexion/reset, et journalisation des
+actions sensibles.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
