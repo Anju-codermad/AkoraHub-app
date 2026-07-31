@@ -328,7 +328,12 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   Future<void> _handleSocialLogin(String provider) async {
     HapticFeedback.selectionClick();
 
-    if (provider != 'google') {
+    final oauthProvider = switch (provider) {
+      'google' => OAuthProvider.google,
+      'facebook' => OAuthProvider.facebook,
+      _ => null,
+    };
+    if (oauthProvider == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -348,19 +353,21 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     }
 
     try {
-      // Ouvre le navigateur externe pour l'écran de consentement Google ;
-      // Supabase gère la redirection et émet `AuthChangeEvent.signedIn`
-      // (capté par l'écoute posée dans `initState()`) une fois la
-      // connexion terminée — pas de résultat direct à traiter ici.
+      // Ouvre le navigateur externe pour l'écran de consentement
+      // Google/Facebook ; Supabase gère la redirection et émet
+      // `AuthChangeEvent.signedIn` (capté par l'écoute posée dans
+      // `initState()`) une fois la connexion terminée — pas de résultat
+      // direct à traiter ici.
       await SupabaseConfig.client.auth.signInWithOAuth(
-        OAuthProvider.google,
+        oauthProvider,
         redirectTo: 'io.supabase.akorahub://login-callback/',
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Impossible de lancer la connexion Google.')),
+        SnackBar(
+            content:
+                Text('Impossible de lancer la connexion $provider.')),
       );
     }
   }
