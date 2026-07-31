@@ -2803,6 +2803,73 @@ merger sur `main` avant confirmation d'exécution du script par
 l'utilisateur, et lui rappeler explicitement l'étape manuelle du
 Dashboard.**
 
+**Script phase34 exécuté avec succès par l'utilisateur (31/07).**
+
+## 3trentedeuxtrentecies. Hook Auth réservé au plan Team/Enterprise — proxy de connexion via Edge Function (31/07) ✅ FAIT (script exécuté, reste à déployer l'Edge Function)
+
+En tentant d'activer le hook "Password Verification Attempt" dans
+Authentication → Hooks, l'utilisateur a découvert qu'il est grisé avec la
+mention **"Team or Enterprise Plan required"** — indisponible sur le plan
+Supabase actuel. La fonction `hook_password_verification_attempt` créée
+par phase34 reste dans la base mais ne sera jamais appelée par GoTrue tant
+que ce hook n'est pas activable (upgrade de plan, ou suppression plus
+tard) — elle ne gêne pas, elle est juste inerte.
+
+**Solution alternative retenue** (choisie par l'utilisateur parmi 3
+options proposées : proxy Edge Function / rester sans blocage / upgrader
+le plan) : une Edge Function fait office de proxy de connexion.
+
+**Nouveau** `supabase/phase35_patch_login_rate_limit.sql` (**exécuté avec
+succès par l'utilisateur, 31/07**) : table `login_rate_limit` (email,
+failed_count, last_attempt_at, locked_until) — RLS activée SANS AUCUNE
+policy, donc invisible pour `anon`/`authenticated`, seule la clé
+service_role (utilisée par l'Edge Function) peut y accéder.
+
+**Nouveau** `supabase/functions/hyper-endpoint/index.ts` (contenu
+"secure-login", **nom déployé imposé par le Dashboard**) : reçoit
+`{email, password}`, vérifie d'abord `login_rate_limit` (si verrouillé,
+renvoie directement un message d'erreur sans même contacter GoTrue),
+sinon relaie la tentative au vrai endpoint GoTrue
+(`/auth/v1/token?grant_type=password`) avec la clé anon — c'est bien
+Supabase Auth qui valide le mot de passe, cette fonction ajoute
+uniquement la vérification avant et la journalisation après (insert dans
+`security_audit_log`, réutilise la table du phase34). Verrouille 15
+minutes après 5 échecs pour un même email. Répond toujours en HTTP 200
+avec `{ok: true/false, ...}` pour simplifier la lecture côté client (sauf
+erreur interne inattendue → 500).
+
+**⚠️ Nom réel de la fonction (31/07)** : déployée via l'éditeur en ligne du
+Dashboard sur mobile, qui a assigné un nom aléatoire à la création malgré
+plusieurs tentatives explicites pour taper `secure-login` — d'abord
+`rapid-worker`, puis `hyper-endpoint` (supprimé/recommencé une fois,
+sans succès sur le nommage). Décision : garder `hyper-endpoint` tel
+quel plutôt que de continuer à lutter contre cette UI — le dossier local
+et l'appel `functions.invoke` ont été renommés en conséquence. Si une
+future conversation redéploie proprement sous `secure-login` via la CLI,
+renommer le dossier + l'appel `functions.invoke` en conséquence (ou
+inversement, ne pas être surpris par ce nom qui ne correspond pas au
+contenu si on retombe dessus).
+
+**Modifié** `lib/presentation/authentication_screen/authentication_screen.dart` :
+`_handleLogin()` appelle désormais `functions.invoke('hyper-endpoint', ...)`
+au lieu de `auth.signInWithPassword` directement ; en cas de succès,
+`auth.setSession(refresh_token)` établit la session côté client (déclenche
+`onAuthStateChange` → `signedIn` comme avant, donc `_onAuthenticated()`
+n'a pas eu besoin de changer).
+
+**Terminé (31/07)** : script phase35 exécuté avec succès, Edge Function
+déployée (sous le nom `hyper-endpoint`, voir ci-dessus) — reste à
+désactiver "Verify JWT with legacy secret" dans ses Settings (recommandé
+par Supabase pour une fonction avec sa propre logique d'auth) et à tester
+une connexion réelle avant de merger sur `main`.
+
+**Volontairement laissé de côté** : `resetPasswordForEmail` continue
+d'appeler directement GoTrue (pas de proxy) — Supabase applique déjà une
+limitation par défaut sur l'envoi d'emails d'authentification au niveau
+du projet, et l'abus possible (spam d'emails) est moins critique qu'une
+attaque par force brute sur un mot de passe. La journalisation
+`password_reset_requested` (phase34) reste en place.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
