@@ -214,13 +214,16 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
           'Connexion au serveur indisponible. Vérifiez votre connexion internet.';
     } else {
       try {
-        // Passe par l'Edge Function `secure-login` plutôt que d'appeler
-        // signInWithPassword directement : elle seule permet de bloquer un
-        // compte après 5 échecs en 15 minutes (voir
+        // Passe par l'Edge Function `hyper-endpoint` (nom imposé par le
+        // Dashboard Supabase lors du déploiement via l'éditeur en ligne —
+        // le contenu correspond à ce qu'on appelle "secure-login" dans le
+        // code source, voir supabase/functions/hyper-endpoint/index.ts)
+        // plutôt que d'appeler signInWithPassword directement : elle seule
+        // permet de bloquer un compte après 5 échecs en 15 minutes (voir
         // supabase/phase35_patch_login_rate_limit.sql — le hook officiel
         // Supabase Auth équivalent est réservé aux plans Team/Enterprise).
         final response = await SupabaseConfig.client.functions.invoke(
-          'secure-login',
+          'hyper-endpoint',
           body: {
             'email': _emailController.text.trim(),
             'password': _passwordController.text,

@@ -2825,7 +2825,8 @@ failed_count, last_attempt_at, locked_until) — RLS activée SANS AUCUNE
 policy, donc invisible pour `anon`/`authenticated`, seule la clé
 service_role (utilisée par l'Edge Function) peut y accéder.
 
-**Nouveau** `supabase/functions/secure-login/index.ts` : reçoit
+**Nouveau** `supabase/functions/hyper-endpoint/index.ts` (contenu
+"secure-login", **nom déployé imposé par le Dashboard**) : reçoit
 `{email, password}`, vérifie d'abord `login_rate_limit` (si verrouillé,
 renvoie directement un message d'erreur sans même contacter GoTrue),
 sinon relaie la tentative au vrai endpoint GoTrue
@@ -2837,17 +2838,30 @@ minutes après 5 échecs pour un même email. Répond toujours en HTTP 200
 avec `{ok: true/false, ...}` pour simplifier la lecture côté client (sauf
 erreur interne inattendue → 500).
 
+**⚠️ Nom réel de la fonction (31/07)** : déployée via l'éditeur en ligne du
+Dashboard sur mobile, qui a assigné un nom aléatoire à la création malgré
+plusieurs tentatives explicites pour taper `secure-login` — d'abord
+`rapid-worker`, puis `hyper-endpoint` (supprimé/recommencé une fois,
+sans succès sur le nommage). Décision : garder `hyper-endpoint` tel
+quel plutôt que de continuer à lutter contre cette UI — le dossier local
+et l'appel `functions.invoke` ont été renommés en conséquence. Si une
+future conversation redéploie proprement sous `secure-login` via la CLI,
+renommer le dossier + l'appel `functions.invoke` en conséquence (ou
+inversement, ne pas être surpris par ce nom qui ne correspond pas au
+contenu si on retombe dessus).
+
 **Modifié** `lib/presentation/authentication_screen/authentication_screen.dart` :
-`_handleLogin()` appelle désormais `functions.invoke('secure-login', ...)`
+`_handleLogin()` appelle désormais `functions.invoke('hyper-endpoint', ...)`
 au lieu de `auth.signInWithPassword` directement ; en cas de succès,
 `auth.setSession(refresh_token)` établit la session côté client (déclenche
 `onAuthStateChange` → `signedIn` comme avant, donc `_onAuthenticated()`
 n'a pas eu besoin de changer).
 
-**Reste à faire par l'utilisateur** : déployer l'Edge Function
-`secure-login` (`supabase functions deploy secure-login` ou via le
-Dashboard) — sans ce déploiement, le bouton de connexion échouera
-puisque la fonction n'existera pas encore côté serveur.
+**Terminé (31/07)** : script phase35 exécuté avec succès, Edge Function
+déployée (sous le nom `hyper-endpoint`, voir ci-dessus) — reste à
+désactiver "Verify JWT with legacy secret" dans ses Settings (recommandé
+par Supabase pour une fonction avec sa propre logique d'auth) et à tester
+une connexion réelle avant de merger sur `main`.
 
 **Volontairement laissé de côté** : `resetPasswordForEmail` continue
 d'appeler directement GoTrue (pas de proxy) — Supabase applique déjà une

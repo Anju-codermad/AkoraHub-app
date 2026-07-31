@@ -1,6 +1,13 @@
 // Edge Function : proxy de connexion email/mot de passe, avec blocage
 // après 5 échecs en 15 minutes pour un même email.
 //
+// ⚠️ Nom déployé : `hyper-endpoint`, pas `secure-login`. Le Dashboard
+// Supabase (déploiement via l'éditeur en ligne, sur mobile) a assigné un
+// nom aléatoire à la création malgré plusieurs tentatives pour le nommer
+// explicitement — plutôt que de continuer à lutter contre l'UI, l'app
+// appelle ce nom tel quel (voir authentication_screen.dart, `_handleLogin`).
+// Le dossier local a été renommé pour correspondre.
+//
 // Contexte (31/07) : le hook officiel Supabase Auth "Password
 // Verification Attempt" (voir supabase/phase34_patch_security_audit_log.sql)
 // s'est révélé réservé aux plans Team/Enterprise — indisponible sur notre
