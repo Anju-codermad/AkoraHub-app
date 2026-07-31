@@ -20,7 +20,7 @@ import 'notification_sounds.dart';
 /// risque de sécurité).
 ///
 /// Depuis la Phase 24, chaque utilisateur choisit son propre son de
-/// notification par catégorie (Message/Devis/Commande, voir
+/// notification par catégorie (Message/Devis/Commande/Produit, voir
 /// core/notifications/notification_sounds.dart) — un canal Android est
 /// créé pour chaque combinaison (catégorie, son) choisie, puisqu'un canal
 /// est immuable une fois créé.
@@ -181,7 +181,7 @@ class PushNotificationService {
       final row = await SupabaseConfig.client
           .from('profiles')
           .select(
-              'notification_sound_message, notification_sound_devis, notification_sound_commande')
+              'notification_sound_message, notification_sound_devis, notification_sound_commande, notification_sound_produit')
           .eq('id', userId)
           .single();
       final prefs = await SharedPreferences.getInstance();

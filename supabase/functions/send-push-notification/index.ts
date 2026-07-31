@@ -30,13 +30,14 @@ interface WebhookPayload {
   record: Record<string, unknown>;
 }
 
-type Category = "message" | "devis" | "commande";
+type Category = "message" | "devis" | "commande" | "produit";
 
 const soundColumn = (category: Category) => `notification_sound_${category}`;
 const defaultSound: Record<Category, string> = {
   message: "notif_message_classique",
   devis: "notif_devis_classique",
   commande: "notif_commande_classique",
+  produit: "notif_bulle_eau",
 };
 const channelId = (category: Category, soundId: string) =>
   `akorahub_${category}_${soundId}`;
@@ -276,6 +277,24 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "products") {
+      // Nouveau produit visible -> notifie les clients abonnés à cette
+      // catégorie précise de ce pilier (voir
+      // supabase/phase36_patch_product_category_subscriptions.sql).
+      category = "produit";
+      const businessUnitId = record.business_unit_id as string | undefined;
+      const categoryName = record.category as string | undefined;
+      if (!businessUnitId || !categoryName) return new Response("ok");
+      const { data: subs } = await supabase
+        .from("product_category_subscriptions")
+        .select("customer_id")
+        .eq("business_unit_id", businessUnitId)
+        .eq("category_name", categoryName);
+      recipientIds = (subs ?? []).map((s: Record<string, unknown>) =>
+        s.customer_id as string
+      );
+      title = "Nouveau produit disponible";
+      body = `${record.name ?? "Un nouveau produit"} vient d'être ajouté dans "${categoryName}".`;
     }
 
     for (const id of recipientIds) {

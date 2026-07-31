@@ -9,6 +9,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/localization/app_translations.dart';
 import '../../core/navigation/product_detail_route.dart';
+import '../../core/notifications/category_subscription_repo.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -36,6 +37,12 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   String? _selectedUnitId;
   String _selectedCategory = 'toutes';
   String _searchQuery = '';
+
+  // Abonnement aux notifications pour la catégorie actuellement
+  // sélectionnée (uniquement pertinent quand un pilier ET une catégorie
+  // précis sont choisis — voir CategorySubscriptionRepo).
+  bool _isSubscribedToCategory = false;
+  bool _isTogglingSubscription = false;
 
   // Pagination : la grille produits n'avait pas de limite (catalogue
   // entier chargé d'un coup) — remplacé par un chargement par pages de
@@ -589,6 +596,53 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         .toList();
     cats.sort();
     return cats;
+  }
+
+  /// Recharge le statut d'abonnement pour le (pilier, catégorie)
+  /// actuellement sélectionnés — pas pertinent si l'un des deux vaut
+  /// "tous" (une catégorie choisie sans pilier précis pourrait exister
+  /// dans plusieurs piliers, donc ambigu pour l'abonnement).
+  Future<void> _refreshSubscriptionStatus() async {
+    if (_selectedUnitId == null || _selectedCategory == 'toutes') {
+      if (_isSubscribedToCategory) {
+        setState(() => _isSubscribedToCategory = false);
+      }
+      return;
+    }
+    final subscribed = await CategorySubscriptionRepo.isSubscribed(
+        _selectedUnitId!, _selectedCategory);
+    if (!mounted) return;
+    setState(() => _isSubscribedToCategory = subscribed);
+  }
+
+  Future<void> _toggleCategorySubscription() async {
+    if (_selectedUnitId == null ||
+        _selectedCategory == 'toutes' ||
+        _isTogglingSubscription) {
+      return;
+    }
+    setState(() => _isTogglingSubscription = true);
+    try {
+      if (_isSubscribedToCategory) {
+        await CategorySubscriptionRepo.unsubscribe(
+            _selectedUnitId!, _selectedCategory);
+      } else {
+        await CategorySubscriptionRepo.subscribe(
+            _selectedUnitId!, _selectedCategory);
+      }
+      if (!mounted) return;
+      setState(() => _isSubscribedToCategory = !_isSubscribedToCategory);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Une erreur est survenue. Réessayez.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isTogglingSubscription = false);
+    }
   }
 
   List<Map<String, dynamic>> get _filteredProducts {
@@ -1186,6 +1240,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             _selectedCategory = 'toutes';
                           });
                           _reloadProductsPage();
+                          _refreshSubscriptionStatus();
                         },
                         child: const Text('Voir tout'),
                       ),
@@ -1214,6 +1269,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             _selectedCategory = 'toutes';
                           });
                           _reloadProductsPage();
+                          _refreshSubscriptionStatus();
                         },
                         child: SizedBox(
                           width: 18.w,
@@ -1274,6 +1330,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                         onSelected: (_) {
                           setState(() => _selectedCategory = 'toutes');
                           _reloadProductsPage();
+                          _refreshSubscriptionStatus();
                         },
                       ),
                     ),
@@ -1285,10 +1342,40 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             onSelected: (_) {
                               setState(() => _selectedCategory = c);
                               _reloadProductsPage();
+                              _refreshSubscriptionStatus();
                             },
                           ),
                         )),
                   ],
+                ),
+              ),
+            ),
+
+          if (_selectedUnitId != null && _selectedCategory != 'toutes')
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ActionChip(
+                    avatar: Icon(
+                      _isSubscribedToCategory
+                          ? Icons.notifications_active
+                          : Icons.notifications_none,
+                      size: 18,
+                      color: _isSubscribedToCategory
+                          ? theme.colorScheme.primary
+                          : null,
+                    ),
+                    label: Text(
+                      _isSubscribedToCategory
+                          ? 'Abonné aux nouveautés'
+                          : 'S\'abonner aux nouveautés',
+                    ),
+                    onPressed: _isTogglingSubscription
+                        ? null
+                        : _toggleCategorySubscription,
+                  ),
                 ),
               ),
             ),

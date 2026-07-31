@@ -2954,6 +2954,82 @@ la même erreur).
 puis tester une inscription réelle de bout en bout (email → SMS → les
 deux vérifiés → compte activé) avant de merger sur `main`.
 
+**⏸️ Mis en pause (31/07)** : blocage rencontré sur la validation MFA du
+compte Twilio de l'utilisateur (SMS de vérification Twilio non reçu,
+malgré plusieurs tentatives dont un appel vocal). Reporté à plus tard sur
+demande explicite de l'utilisateur — le code applicatif ci-dessus reste
+en l'état, prêt à être repris dès que Twilio sera configurable. **Le
+provider Phone Supabase n'est toujours pas activé** : tant que ce n'est
+pas fait, toute nouvelle inscription reste bloquée à l'écran de
+vérification SMS (aucune façon de terminer une inscription) — raison de
+plus pour NE PAS merger cette branche sur `main` avant que Twilio soit
+opérationnel et testé.
+
+## 3trentecinqtrentecies. Abonnement aux notifications par catégorie de produit (31/07) ⚠️ CODE PRÊT, SCRIPT SQL PAS ENCORE EXÉCUTÉ (secret webhook à renseigner)
+
+3e des nouvelles fonctionnalités notées plus tôt dans la session
+(parrainage / export RGPD / abonnement notifications — les deux premières
+restent non commencées). Un client peut s'abonner à une catégorie précise
+d'un pilier (ex: Anti-nuisibles → Insecticides) et reçoit une notification
+push quand un nouveau produit y est ajouté.
+
+**Nouveau** `supabase/phase36_patch_product_category_subscriptions.sql`
+(**PAS ENCORE EXÉCUTÉ**) :
+- Table `product_category_subscriptions` (customer_id, business_unit_id,
+  category_name, unique sur le triplet) — RLS : chacun ne gère que ses
+  propres abonnements (select/insert/delete, pas d'update nécessaire).
+- 4e catégorie de notification **"produit"** (même plomberie que
+  message/devis/commande, phase24+phase32) : colonne
+  `profiles.notification_sound_produit` (défaut `notif_bulle_eau`,
+  réservoir commun de sons déjà intégrés, pas de nouveau fichier audio
+  nécessaire), contrainte `notification_sound_catalog` élargie, 20 lignes
+  seedées pour cette catégorie.
+- Trigger `on_new_product_push` (`after insert on products, when
+  (NEW.visibility = true)`) — même modèle que phase17/phase18, réutilise
+  l'Edge Function `send-push-notification` existante.
+
+**⚠️ Avant d'exécuter ce script** : remplacer `<WEBHOOK_SECRET>` dans le
+fichier par la même valeur secrète déjà utilisée pour les triggers
+messages/commandes/devis (Edge Functions → send-push-notification →
+Manage secrets → WEBHOOK_SECRET).
+
+**Modifié** `supabase/functions/send-push-notification/index.ts` :
+`Category` élargi à `"produit"` ; nouvelle branche `payload.table ===
+"products"` — résout les abonnés via
+`product_category_subscriptions.eq(business_unit_id,
+category_name).select(customer_id)`, construit `recipientIds` à partir de
+ça (contrairement aux autres branches qui connaissent déjà un destinataire
+unique), rejoint la boucle d'envoi générique existante.
+
+**Modifié** `lib/core/notifications/notification_sounds.dart` : ajout de
+`NotificationCategory.produit` (label "Nouveaux produits", son par défaut
+`notif_bulle_eau`) — se propage automatiquement à l'écran de choix des
+sons (`notification_sounds_screen.dart`, déjà piloté par l'énumération) et
+à la création des canaux Android au démarrage
+(`push_notification_service.dart`, boucle déjà pilotée par l'énumération).
+Seul point non piloté par l'énumération et corrigé manuellement : la
+liste de colonnes codée en dur dans
+`_syncSoundPreferencesFromServer()` (ajout de
+`notification_sound_produit`).
+
+**Nouveau** `lib/core/notifications/category_subscription_repo.dart` :
+`isSubscribed`/`subscribe`/`unsubscribe`, CRUD simple sans cache (faible
+fréquence d'utilisation).
+
+**Modifié** `lib/presentation/client_home/catalog_tab.dart` : un
+`ActionChip` "S'abonner aux nouveautés" / "Abonné aux nouveautés" apparaît
+sous les puces de catégorie, **uniquement quand un pilier ET une
+catégorie précis sont sélectionnés** (pas "tous piliers"/"toutes
+catégories") — une catégorie choisie sans pilier précis pourrait exister
+dans plusieurs piliers différents, ambigu pour l'abonnement. Statut
+rechargé (`_refreshSubscriptionStatus`) à chaque changement de pilier/
+catégorie.
+
+**Reste à faire** : renseigner le `WEBHOOK_SECRET` dans le script SQL,
+l'exécuter, puis tester (s'abonner à une catégorie, faire publier un
+produit dans cette catégorie depuis l'écran Admin, vérifier la réception
+de la notification) avant de merger sur `main`.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
