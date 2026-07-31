@@ -473,7 +473,11 @@ class _CartTabState extends ConsumerState<CartTab> {
               : usesPapi
                   ? 'Commande créée ! Finalisez le paiement dans la page '
                       'qui vient de s\'ouvrir.'
-                  : 'Commande passée avec succès !'),
+                  : _showManualPaymentFields
+                      ? 'Commande passée avec succès ! Nous vérifions votre '
+                          'paiement sous 24h ouvrées et vous notifierons '
+                          'dès confirmation.'
+                      : 'Commande passée avec succès !'),
           behavior: SnackBarBehavior.floating,
         ),
       );

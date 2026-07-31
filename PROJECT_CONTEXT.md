@@ -3364,6 +3364,40 @@ ajoutés à ce que le client paie au checkout :
   dans cette documentation, à checker si le doute persiste après un
   test chiffré.
 
+## 3trenteneuftrentecies. Rendre le paiement manuel plus "pro" (31/07) ✅ FAIT
+
+Après la mise en place de Papi, l'utilisateur a demandé si le flux manuel
+restant (virement bancaire, paiement à la livraison) pouvait devenir aussi
+"pro" qu'un flux API. Distinction posée avant tout code : paiement à la
+livraison ne pourra jamais devenir une API (argent liquide remis en main
+propre) ; virement bancaire pourrait en théorie le devenir si BNI
+Madagascar proposait une API entreprise, mais c'est un nouveau projet
+externe (à explorer plus tard si besoin) — **l'utilisateur a choisi de
+polir l'existant plutôt que d'explorer cette piste bancaire**.
+
+Point précis identifié après relecture du code existant (déjà assez
+soigné côté client — bouton copier les coordonnées, aperçu photo — et
+côté admin — chips colorés, bouton rapide "Confirmer le paiement reçu",
+filtre paiements en attente) : **le client n'avait aucune visibilité sur
+le statut de son paiement** une fois la commande passée — `orders_tab.dart`
+affichait le statut de livraison (Reçue → Expédiée → Livrée) mais jamais
+`payment_status`.
+
+- **`lib/presentation/client_home/orders_tab.dart`** : ajout d'un badge
+  coloré (point + libellé) sous le mode de paiement dans chaque carte de
+  commande — "Paiement en attente"/"Paiement confirmé"/"Paiement
+  échoué"/etc. Pour les méthodes non-Papi en attente, ajoute
+  "· vérification sous 24h ouvrées" pour fixer une attente claire.
+- **`lib/presentation/client_home/cart_tab.dart`** : le message de succès
+  après une commande nécessitant vérification manuelle (référence+photo)
+  annonce maintenant explicitement ce délai de 24h et qu'une notification
+  suivra.
+- **`lib/presentation/order_management_real/order_management_real.dart`** :
+  bug corrigé au passage — le statut `'echoue'` (ajouté avec Papi) n'avait
+  ni libellé (`_paymentStatusLabels`) ni couleur (`_paymentColor`) côté
+  admin, retombant sur un gris neutre peu visible pour un paiement Papi
+  refusé.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
