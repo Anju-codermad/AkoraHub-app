@@ -24,6 +24,7 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _businessUnits = [];
   List<Map<String, dynamic>> _categories = [];
+  List<Map<String, dynamic>> _nameSuggestions = [];
   bool _isLoading = true;
   String? _error;
   final _currency = NumberFormat.currency(
@@ -65,10 +66,22 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
         // Table `categories` pas encore créée (migration phase6 non
         // exécutée) : on continue sans bloquer le reste de l'écran.
       }
+      List<Map<String, dynamic>> nameSuggestions = [];
+      try {
+        final result = await SupabaseConfig.client
+            .from('raw_material_name_suggestions')
+            .select()
+            .order('name');
+        nameSuggestions = List<Map<String, dynamic>>.from(result);
+      } catch (_) {
+        // Table pas encore créée (migration phase33 non exécutée) : le
+        // champ nom reste un simple texte libre, rien de bloquant.
+      }
       setState(() {
         _products = List<Map<String, dynamic>>.from(products);
         _businessUnits = List<Map<String, dynamic>>.from(units);
         _categories = categories;
+        _nameSuggestions = nameSuggestions;
         _isLoading = false;
       });
     } catch (e) {
@@ -183,10 +196,64 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Nom du produit'),
-                ),
+                Builder(builder: (context) {
+                  // Suggestions de noms de matières premières (chimiques +
+                  // alimentaires), scopées au pilier sélectionné, pour
+                  // éviter de tout taper à la main — voir
+                  // supabase/phase33_patch_raw_material_name_suggestions.sql.
+                  // Reste un champ texte libre : on peut toujours taper un
+                  // nom qui n'est pas dans la liste.
+                  final selectedSlug = _businessUnits.firstWhere(
+                    (u) => u['id'] == selectedUnitId,
+                    orElse: () => <String, dynamic>{},
+                  )['slug'];
+                  final suggestionsForUnit = selectedSlug == null
+                      ? const <Map<String, dynamic>>[]
+                      : _nameSuggestions
+                          .where((s) => s['business_unit_slug'] == selectedSlug)
+                          .toList();
+                  return Autocomplete<String>(
+                    optionsBuilder: (textEditingValue) {
+                      if (textEditingValue.text.trim().isEmpty) {
+                        return const Iterable<String>.empty();
+                      }
+                      final query = textEditingValue.text.toLowerCase();
+                      return suggestionsForUnit
+                          .map((s) => s['name'] as String)
+                          .where((n) => n.toLowerCase().contains(query));
+                    },
+                    onSelected: (selection) {
+                      nameCtrl.text = selection;
+                      // Pré-remplit aussi la catégorie si on la connaît et
+                      // qu'aucune n'est encore choisie — gain de temps,
+                      // reste modifiable ensuite.
+                      final match = suggestionsForUnit.firstWhere(
+                        (s) => s['name'] == selection,
+                        orElse: () => <String, dynamic>{},
+                      );
+                      final matchedCategory = match['category_name'] as String?;
+                      if (matchedCategory != null &&
+                          (selectedCategoryName == null ||
+                              selectedCategoryName!.isEmpty)) {
+                        setDialogState(
+                            () => selectedCategoryName = matchedCategory);
+                      }
+                    },
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onSubmitted) {
+                      controller.text = nameCtrl.text;
+                      controller.selection = TextSelection.collapsed(
+                          offset: controller.text.length);
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: const InputDecoration(
+                            labelText: 'Nom du produit'),
+                        onChanged: (v) => nameCtrl.text = v,
+                      );
+                    },
+                  );
+                }),
                 const SizedBox(height: 8),
                 TextField(
                   controller: descCtrl,

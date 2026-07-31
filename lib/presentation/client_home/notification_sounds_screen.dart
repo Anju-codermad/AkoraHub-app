@@ -2,6 +2,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/notifications/notification_sound_catalog_repo.dart';
 import '../../core/notifications/notification_sounds.dart';
 import '../../core/notifications/push_notification_service.dart';
 
@@ -23,6 +24,7 @@ class NotificationSoundsScreen extends StatefulWidget {
 class _NotificationSoundsScreenState extends State<NotificationSoundsScreen> {
   final _player = AudioPlayer();
   final Map<NotificationCategory, String> _selected = {};
+  final Map<NotificationCategory, List<NotificationSoundOption>> _options = {};
   bool _isLoading = true;
   String? _playingId;
 
@@ -42,6 +44,11 @@ class _NotificationSoundsScreenState extends State<NotificationSoundsScreen> {
     for (final category in NotificationCategory.values) {
       _selected[category] =
           await PushNotificationService.getSoundPreference(category);
+      // Ne propose que les sons que l'Admin n'a pas masqués pour cette
+      // catégorie (voir notification_sounds_catalog_admin_screen.dart) —
+      // repli sur la liste complète si le catalogue n'est pas configuré.
+      _options[category] =
+          await NotificationSoundCatalogRepo.visibleSounds(category);
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -89,7 +96,7 @@ class _NotificationSoundsScreenState extends State<NotificationSoundsScreen> {
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
-                        for (final sound in kNotificationSounds) ...[
+                        for (final sound in _options[category]!) ...[
                           RadioListTile<String>(
                             value: sound.id,
                             groupValue: _selected[category],
@@ -107,7 +114,7 @@ class _NotificationSoundsScreenState extends State<NotificationSoundsScreen> {
                               onPressed: () => _preview(sound.id),
                             ),
                           ),
-                          if (sound != kNotificationSounds.last)
+                          if (sound != _options[category]!.last)
                             const Divider(height: 1),
                         ],
                       ],
