@@ -872,6 +872,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           currency: _currency,
                           isFavorite:
                               ref.watch(favoritesProvider).contains(p['id']),
+                          enableHero: false,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -1249,6 +1250,38 @@ class _ActivityItem {
   bool get isPost => post != null;
 }
 
+/// Image produit avec loader/repli d'erreur, `Hero` optionnel (voir
+/// `_ProductCard.enableHero`).
+Widget _productImage({
+  required ThemeData theme,
+  required String imageUrl,
+  required bool enableHero,
+  required String tag,
+}) {
+  final image = Image.network(
+    imageUrl,
+    fit: BoxFit.cover,
+    errorBuilder: (context, error, stack) => Icon(
+      Icons.inventory_2_outlined,
+      size: 36,
+      color: theme.colorScheme.outline,
+    ),
+    loadingBuilder: (context, child, progress) => progress == null
+        ? child
+        : Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ),
+  );
+  return enableHero ? Hero(tag: tag, child: image) : image;
+}
+
 class _ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
   final NumberFormat currency;
@@ -1256,6 +1289,14 @@ class _ProductCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onQuickAdd;
   final VoidCallback onToggleFavorite;
+  /// Un même produit peut apparaître à la fois dans la grille principale
+  /// et dans "Vous recommandez souvent" (juste au-dessus) : deux `Hero`
+  /// avec le même tag simultanément visibles sur le même écran cassent le
+  /// vol (assertion Flutter ignorée en release — l'animation ne se
+  /// déclenche simplement plus, sans erreur visible). Un seul des deux
+  /// affichages doit donc porter le Hero ; la grille principale (entrée
+  /// canonique) le garde, ce carrousel secondaire le désactive.
+  final bool enableHero;
 
   const _ProductCard({
     required this.product,
@@ -1264,6 +1305,7 @@ class _ProductCard extends StatelessWidget {
     required this.onTap,
     required this.onQuickAdd,
     required this.onToggleFavorite,
+    this.enableHero = true,
   });
 
   @override
@@ -1312,34 +1354,11 @@ class _ProductCard extends StatelessWidget {
                                 size: 36,
                                 color: theme.colorScheme.outline,
                               )
-                            : Hero(
+                            : _productImage(
+                                theme: theme,
+                                imageUrl: imageUrl,
+                                enableHero: enableHero,
                                 tag: 'product-image-${product['id']}',
-                                child: Image.network(
-                                  imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stack) =>
-                                      Icon(
-                                    Icons.inventory_2_outlined,
-                                    size: 36,
-                                    color: theme.colorScheme.outline,
-                                  ),
-                                  loadingBuilder:
-                                      (context, child, progress) =>
-                                          progress == null
-                                              ? child
-                                              : Center(
-                                                  child: SizedBox(
-                                                    width: 20,
-                                                    height: 20,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      color: theme
-                                                          .colorScheme.outline,
-                                                    ),
-                                                  ),
-                                                ),
-                                ),
                               ),
                       ),
                     ),

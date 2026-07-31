@@ -2375,6 +2375,37 @@ bulle du groupe" qui porte l'horodatage.
   client ET staff choisissent chacun le style qui leur convient,
   indépendamment l'un de l'autre.
 
+## 3vingttroistrentecies. Vraie cause du Hero catalogue qui n'animait jamais (31/07) ✅ FAIT
+
+Retour utilisateur : après le ralentissement des animations
+(3dixneuftrentecies), le rebond du bouton "+" fonctionnait, mais le Hero
+photo (catalogue/favoris → fiche produit) n'animait toujours pas du tout —
+pas juste trop rapide, réellement absent.
+
+**Cause réelle** : `catalog_tab.dart` réutilise le même widget
+`_ProductCard` (avec son `Hero(tag: 'product-image-<id>')`) à la fois
+pour la grille principale ET pour le carrousel horizontal "Vous
+recommandez souvent" juste au-dessus. Ce carrousel n'étant qu'un
+sous-ensemble du même catalogue, un produit y apparaît quasi toujours
+aussi dans la grille — donc **deux `Hero` avec le même tag visibles sur
+le même écran en même temps**. Flutter interdit ça
+(`There are multiple heroes that share the same tag`), mais via un
+`assert()` **compilé hors des builds release** — donc aucune erreur
+visible sur un APK réel, juste le vol qui ne se déclenche silencieusement
+plus. Exactement le genre de bug invisible en dev mais présent sur
+appareil réel.
+
+- **Correctif** : nouveau paramètre `_ProductCard.enableHero` (`true` par
+  défaut). La grille principale (entrée canonique) garde le Hero ; l'appel
+  du carrousel "Vous recommandez souvent" passe `enableHero: false`. Le
+  rendu de l'image extrait dans une fonction `_productImage()` partagée
+  (loader/repli d'erreur communs, Hero conditionnel) pour éviter la
+  duplication de code entre les deux chemins.
+- Vérifié que les onglets client (`client_home.dart`) sont bien échangés
+  (`pages[_currentIndex]`), pas gardés vivants via `IndexedStack` — donc
+  pas de risque de collision équivalente entre Catalogue et Favoris (deux
+  routes différentes, jamais montées simultanément).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
