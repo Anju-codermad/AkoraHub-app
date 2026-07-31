@@ -204,7 +204,7 @@ class _WallTabState extends State<WallTab> {
         }
       }
 
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         loadLikes(),
         loadComments(),
         PublicProfilesRepo.fetchByIds(authorIds),
@@ -312,7 +312,7 @@ class _WallTabState extends State<WallTab> {
         }
       }
 
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         loadLikes(),
         loadComments(),
         PublicProfilesRepo.fetchByIds(authorIds),

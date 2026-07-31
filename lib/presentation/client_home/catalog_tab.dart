@@ -229,7 +229,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     });
     try {
       final userId = SupabaseConfig.client.auth.currentUser?.id;
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         SupabaseConfig.client.from('business_units').select().eq('active', true),
         _fetchProductsPage(0),
         if (userId != null)
