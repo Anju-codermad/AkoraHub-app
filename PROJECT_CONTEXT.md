@@ -3170,11 +3170,102 @@ installé ici).
 élargies pour mentionner aussi les appels, en plus du scan QR/messages
 vocaux déjà couverts).
 
-**Reste à faire** : remplacer `<WEBHOOK_SECRET>` dans phase37 et
-l'exécuter, lancer un build (Codemagic ou `flutter pub get` local) pour
-vérifier que `agora_rtc_engine` se résout sans conflit, puis tester un
-appel réel de bout en bout (audio ET vidéo, dans les 2 sens
-client→staff et staff→client) avant de merger sur `main`.
+**Terminé (31/07)** : script phase37 exécuté avec succès (secret
+substitué avec la vraie valeur), Edge Function de génération de token
+déployée (sous le nom `super-endpoint` — même situation de nommage
+imposé par le Dashboard que hyper-endpoint/secure-login, "Verify JWT with
+legacy secret" désactivé). **Reste à tester** : un appel réel de bout en
+bout (audio ET vidéo, dans les 2 sens client→staff et staff→client).
+
+## 3trentehuittrentecies. Paiement en ligne automatique — Papi.mg (31/07) ⚠️ CODE PRÊT, SCRIPT SQL + 2 EDGE FUNCTIONS PAS ENCORE DÉPLOYÉS
+
+L'utilisateur a reçu un accès (clé API test) à **Papi.mg**, agrégateur de
+paiement malgache (MVola/Orange Money/Airtel Money/Visa via BRED),
+identifié comme piste depuis longtemps (voir sections 4 et 3trentecies —
+"statut marchand MVola non confirmé"). Doc technique complète fournie en
+PDF (flux de paiement par lien + webhook de confirmation).
+
+**Décision utilisateur sur l'intégration** (parmi 2 options proposées) :
+Mvola/Orange Money/Airtel Money passent maintenant par Papi
+**automatiquement** (le client est redirigé vers une page de paiement
+sécurisée, confirmation automatique par webhook) — **plus besoin** de
+taper une référence ni d'uploader une preuve, plus de vérification
+manuelle par le staff pour ces 3 méthodes. Nouveau réglage Admin **"Mode
+manuel (secours)"**, désactivé par défaut : permet de revenir
+temporairement à l'ancien flux manuel (référence + photo) si Papi est
+indisponible. Virement bancaire et paiement à la livraison restent
+toujours manuels (Papi ne les gère pas).
+
+**Nouveau** `supabase/phase38_patch_papi_payment.sql` (**PAS ENCORE
+EXÉCUTÉ**) :
+- `orders.papi_notification_token`/`orders.papi_payment_link` (nouvelles
+  colonnes).
+- `orders_payment_status_check` élargi avec `'echoue'` (paiement Papi
+  rejeté — différent de "en_attente" qui veut dire "jamais tenté").
+- `payment_method_settings` : nouvelle ligne `manuel_fallback` (pas un
+  `PaymentMethod` de l'app — un interrupteur Admin, invisible du
+  sélecteur client, désactivé par défaut).
+- Trigger `on_order_payment_confirmed_push` (table synthétique
+  `orders_payment_status`, même modèle que phase17/18/36/37) — notifie
+  le client dès que Papi confirme/rejette (réutilise la catégorie de son
+  "commande" existante).
+
+**⚠️ Avant d'exécuter** : remplacer `<WEBHOOK_SECRET>` par la valeur
+réelle (`ABwYFNXH_gey3LMR2hMVpLb_NQn41aEXuJFzOHiepu8`, la même que pour
+tous les autres triggers push cette session).
+
+**Nouveau** `supabase/functions/create-papi-payment-link/index.ts`
+(**PAS ENCORE DÉPLOYÉ**) : reçoit `{orderId}`, vérifie que la commande
+appartient bien à l'appelant, appelle
+`POST https://app.papi.mg/dashboard/api/payment-links` avec la clé API
+Papi (secret `PAPI_API_KEY`, jamais côté client), stocke le
+`notificationToken` reçu sur la commande (nécessaire pour vérifier
+l'authenticité du webhook plus tard), retourne le `paymentLink` à
+l'app.
+
+**Nouveau** `supabase/functions/papi-payment-notification/index.ts`
+(**PAS ENCORE DÉPLOYÉ**) : endpoint public appelé directement par Papi
+(pas par l'app) à la fin du paiement. Vérifie que `paymentReference`
+correspond à une commande ET que `notificationToken` correspond à celui
+stocké — sans ça, n'importe qui connaissant un numéro de commande
+pourrait forger une fausse confirmation. Met à jour `payment_status`
+('paye' ou 'echoue'). Répond toujours HTTP 200 même en cas de rejet
+d'authenticité (pour ne pas déclencher de réessais infinis côté Papi) —
+les tentatives suspectes sont seulement journalisées dans les Logs de
+la fonction.
+
+**Modifié** `supabase/functions/send-push-notification/index.ts` :
+nouvelle branche `payload.table === "orders_payment_status"`.
+
+**Nouveau/Modifié côté app** :
+- `lib/core/payment/papi_payment_repo.dart` — appelle
+  `create-papi-payment-link` (nom réel à vérifier après déploiement, vu
+  le précédent avec hyper-endpoint/super-endpoint).
+- `lib/core/payment/payment_methods.dart` — nouveau getter
+  `isPapiCapable` (true pour mvola/orange_money/airtel_money).
+- `lib/core/payment/payment_method_settings_repo.dart` —
+  `isManualFallbackEnabled`/`setManualFallbackEnabled`.
+- `lib/presentation/payment_methods_management/payment_methods_management.dart` —
+  nouvelle carte "Mode manuel (secours)" sous la liste des méthodes.
+- `lib/presentation/client_home/cart_tab.dart` — `_showManualPaymentFields`
+  détermine si l'encadré référence+photo s'affiche ; sinon, message
+  "vous serez redirigé..." ; après création de la commande, si Papi
+  s'applique, génère le lien et l'ouvre via `url_launcher`
+  (`LaunchMode.externalApplication`) — un échec à cette étape n'annule
+  pas la commande (déjà créée, payment_status reste "en_attente", le
+  client peut réessayer plus tard).
+
+**Limite connue (offline)** : si le client passe commande hors-ligne
+avec Mvola/Orange/Airtel et Papi actif, la commande est mise en file
+d'attente normalement mais **aucun lien de paiement n'est généré**
+(impossible sans réseau) — elle nécessitera un suivi manuel une fois
+synchronisée. Cas marginal, non traité pour l'instant.
+
+**Reste à faire** : créer le secret `PAPI_API_KEY` (Edge Functions →
+Manage secrets), exécuter phase38, déployer les 2 nouvelles Edge
+Functions + redéployer `send-push-notification`, puis tester un paiement
+complet en sandbox (utiliser les numéros de test documentés par Papi,
+ex: `0341230001` pour un succès Mvola) avant de merger sur `main`.
 
 ## 4. Ce qui N'EST PAS encore fait
 

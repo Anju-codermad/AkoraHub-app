@@ -22,6 +22,9 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
   bool _isLoading = true;
   final Set<PaymentMethod> _pending = {};
 
+  bool _manualFallback = false;
+  bool _manualFallbackPending = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,11 +33,32 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
 
   Future<void> _load() async {
     final enabled = await PaymentMethodSettingsRepo.fetchEnabled();
+    final manualFallback =
+        await PaymentMethodSettingsRepo.isManualFallbackEnabled();
     if (!mounted) return;
     setState(() {
       _enabled = enabled;
+      _manualFallback = manualFallback;
       _isLoading = false;
     });
+  }
+
+  Future<void> _toggleManualFallback(bool value) async {
+    setState(() {
+      _manualFallbackPending = true;
+      _manualFallback = value;
+    });
+    try {
+      await PaymentMethodSettingsRepo.setManualFallbackEnabled(value);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _manualFallback = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de modifier ce réglage.')),
+      );
+    } finally {
+      if (mounted) setState(() => _manualFallbackPending = false);
+    }
   }
 
   Future<void> _toggle(PaymentMethod method, bool value) async {
@@ -78,41 +102,74 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Modes de paiement')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.separated(
+          : ListView(
               padding: EdgeInsets.all(4.w),
-              itemCount: PaymentMethod.values.length,
-              separatorBuilder: (_, __) => SizedBox(height: 1.h),
-              itemBuilder: (context, index) {
-                final method = PaymentMethod.values[index];
-                final enabled = _enabled.contains(method);
-                return Card(
-                  child: ListTile(
-                    leading: method.logoAsset != null
-                        ? CircleAvatar(
-                            backgroundImage: AssetImage(method.logoAsset!))
-                        : Icon(method.icon),
-                    title: Text(method.label),
-                    subtitle: Text(
-                      method.instructions?.split('\n').first ??
-                          'Confirmé par le staff à la livraison',
+              children: [
+                for (final method in PaymentMethod.values) ...[
+                  Card(
+                    child: ListTile(
+                      leading: method.logoAsset != null
+                          ? CircleAvatar(
+                              backgroundImage: AssetImage(method.logoAsset!))
+                          : Icon(method.icon),
+                      title: Text(method.label),
+                      subtitle: Text(
+                        method.instructions?.split('\n').first ??
+                            'Confirmé par le staff à la livraison',
+                      ),
+                      trailing: _pending.contains(method)
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Switch(
+                              value: _enabled.contains(method),
+                              onChanged: (v) => _toggle(method, v),
+                            ),
                     ),
-                    trailing: _pending.contains(method)
+                  ),
+                  SizedBox(height: 1.h),
+                ],
+                SizedBox(height: 2.h),
+                Text(
+                  'Mvola, Orange Money et Airtel Money passent normalement '
+                  'par Papi (paiement en ligne confirmé automatiquement). '
+                  'Ce réglage permet de revenir au flux manuel (référence + '
+                  'photo, vérifiée par le staff) en cas de problème avec '
+                  'Papi.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                SizedBox(height: 1.h),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.build_outlined),
+                    title: const Text('Mode manuel (secours)'),
+                    subtitle: Text(
+                      _manualFallback
+                          ? 'Activé — Papi désactivé, vérification manuelle'
+                          : 'Désactivé — paiement Papi automatique actif',
+                    ),
+                    trailing: _manualFallbackPending
                         ? const SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Switch(
-                            value: enabled,
-                            onChanged: (v) => _toggle(method, v),
+                            value: _manualFallback,
+                            onChanged: _toggleManualFallback,
                           ),
                   ),
-                );
-              },
+                ),
+              ],
             ),
     );
   }

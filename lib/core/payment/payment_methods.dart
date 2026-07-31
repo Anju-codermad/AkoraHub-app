@@ -98,6 +98,21 @@ extension PaymentMethodX on PaymentMethod {
     }
   }
 
+  /// `true` pour les modes que Papi.mg peut confirmer automatiquement
+  /// (voir supabase/phase38_patch_papi_payment.sql) — le virement
+  /// bancaire et le paiement à la livraison restent toujours manuels.
+  bool get isPapiCapable {
+    switch (this) {
+      case PaymentMethod.mvola:
+      case PaymentMethod.orangeMoney:
+      case PaymentMethod.airtelMoney:
+        return true;
+      case PaymentMethod.paiementLivraison:
+      case PaymentMethod.virementBancaire:
+        return false;
+    }
+  }
+
   static PaymentMethod fromId(String? id) {
     for (final m in PaymentMethod.values) {
       if (m.id == id) return m;
