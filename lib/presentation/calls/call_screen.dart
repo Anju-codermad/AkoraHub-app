@@ -1,5 +1,7 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/calls/agora_token_repo.dart';
@@ -50,6 +52,18 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _setup() async {
     try {
+      final statuses = await [
+        Permission.microphone,
+        if (_isVideo) Permission.camera,
+      ].request();
+      if (statuses.values.any((s) => !s.isGranted)) {
+        if (mounted) {
+          setState(() => _error =
+              'Autorisez le micro${_isVideo ? ' et la caméra' : ''} dans les paramètres pour passer l\'appel.');
+        }
+        return;
+      }
+
       final token = await AgoraTokenRepo.fetchToken(widget.channelName);
 
       final engine = createAgoraRtcEngine();
@@ -98,6 +112,7 @@ class _CallScreenState extends State<CallScreen> {
 
       if (mounted) setState(() => _engine = engine);
     } catch (e) {
+      debugPrint('CallScreen._setup error: $e');
       if (mounted) setState(() => _error = 'Impossible de démarrer l\'appel.');
     }
   }
