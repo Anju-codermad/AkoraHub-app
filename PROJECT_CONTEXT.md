@@ -2303,7 +2303,7 @@ l'écouteur global sera déjà abonné et ne peut pas rater l'événement.
 ⚠️ **Pas encore confirmé sur appareil réel** — prochain test à faire par
 l'utilisateur après le prochain build Codemagic.
 
-## 3vingtuntrentecies. Adresse de livraison précisée par le client (31/07) ⚠️ SCRIPT SQL PAS ENCORE EXÉCUTÉ
+## 3vingtuntrentecies. Adresse de livraison précisée par le client (31/07) ✅ FAIT (script exécuté)
 
 Constat de l'utilisateur (capture d'écran du détail commande côté Admin) :
 le staff ne voyait que "Position du livreur" (sa propre position, mise à
@@ -2333,12 +2333,8 @@ forme lisible, et sans que le client puisse la corriger.
   commandes créées avant cette migration), repli sur un message explicite
   + le bouton Maps reste disponible si des coordonnées existent.
 
-⚠️ **Script SQL à exécuter par l'utilisateur avant de fusionner/tester** —
-sans la colonne `delivery_address`, **toute nouvelle commande (pas les
-devis) échouera à l'insertion** puisque le champ est maintenant envoyé
-systématiquement par `cart_tab.dart`. Exécuter
-`supabase/phase31_patch_orders_delivery_address.sql` dans l'éditeur SQL
-Supabase et confirmer avant la fusion vers `main`.
+✅ Script exécuté par l'utilisateur ("Success. No rows returned") et
+fusionné dans `main`.
 
 ## 4. Ce qui N'EST PAS encore fait
 
