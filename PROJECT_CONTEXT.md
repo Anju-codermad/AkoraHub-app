@@ -2303,6 +2303,43 @@ l'écouteur global sera déjà abonné et ne peut pas rater l'événement.
 ⚠️ **Pas encore confirmé sur appareil réel** — prochain test à faire par
 l'utilisateur après le prochain build Codemagic.
 
+## 3vingtuntrentecies. Adresse de livraison précisée par le client (31/07) ⚠️ SCRIPT SQL PAS ENCORE EXÉCUTÉ
+
+Constat de l'utilisateur (capture d'écran du détail commande côté Admin) :
+le staff ne voyait que "Position du livreur" (sa propre position, mise à
+jour manuellement) — rien n'indiquait **où livrer**. `orders.latitude`/
+`longitude` (phase5) existaient déjà et étaient bien envoyées à la
+commande, mais détectées **silencieusement** (GPS → profil → géocodage du
+texte du profil) sans jamais être montrées ni au client ni au staff sous
+forme lisible, et sans que le client puisse la corriger.
+
+- **Nouvelle colonne** `orders.delivery_address` (texte) —
+  `supabase/phase31_patch_orders_delivery_address.sql`, aucun changement
+  RLS nécessaire (déjà couvert par les policies existantes sur `orders`).
+- **Côté client** (`cart_tab.dart`) : `_estimateDelivery()` fait maintenant
+  un géocodage inverse (`placemarkFromCoordinates`, package `geocoding`
+  déjà présent) de la position détectée et pré-remplit un nouveau champ
+  texte "Adresse de livraison", modifiable par le client avant de valider.
+  Une icône 📍 ("Utiliser ma position actuelle") permet de relocaliser et
+  ré-écrire le champ à tout moment. **Obligatoire** pour toute commande
+  (pas pour un devis) — même validation bloquante que la référence de
+  paiement (3onziemetrentecies). Champ envoyé sur l'insertion `orders`
+  (en ligne) et dans le payload de la file d'attente hors-ligne.
+- **Côté staff** (`order_management_real.dart`) : nouvelle section
+  "Adresse de livraison indiquée par le client" dans le dialogue détail
+  commande (avant "Position du livreur"), avec un bouton "Ouvrir dans
+  Google Maps" (`url_launcher`, déjà présent) construit à partir de
+  `latitude`/`longitude`. Si l'adresse texte est absente (anciennes
+  commandes créées avant cette migration), repli sur un message explicite
+  + le bouton Maps reste disponible si des coordonnées existent.
+
+⚠️ **Script SQL à exécuter par l'utilisateur avant de fusionner/tester** —
+sans la colonne `delivery_address`, **toute nouvelle commande (pas les
+devis) échouera à l'insertion** puisque le champ est maintenant envoyé
+systématiquement par `cart_tab.dart`. Exécuter
+`supabase/phase31_patch_orders_delivery_address.sql` dans l'éditeur SQL
+Supabase et confirmer avant la fusion vers `main`.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
