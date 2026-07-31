@@ -54,6 +54,7 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     'acompte_verse': 'Acompte versé',
     'paye': 'Payée',
     'facture_30j': 'Facturée (30j)',
+    'echoue': 'Échouée',
   };
 
   @override
@@ -499,6 +500,8 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
         return Colors.orange;
       case 'facture_30j':
         return Colors.blue;
+      case 'echoue':
+        return theme.colorScheme.error;
       default:
         return theme.colorScheme.outline;
     }

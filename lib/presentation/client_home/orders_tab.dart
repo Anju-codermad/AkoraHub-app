@@ -109,6 +109,29 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
     return i < 0 ? 0 : i;
   }
 
+  static const _paymentStatusLabels = {
+    'en_attente': 'Paiement en attente',
+    'acompte_verse': 'Acompte versé',
+    'paye': 'Paiement confirmé',
+    'facture_30j': 'Facturée (30j)',
+    'echoue': 'Paiement échoué',
+  };
+
+  Color _paymentStatusColor(String paymentStatus, ThemeData theme) {
+    switch (paymentStatus) {
+      case 'paye':
+        return Colors.green;
+      case 'acompte_verse':
+        return Colors.orange;
+      case 'facture_30j':
+        return Colors.blue;
+      case 'echoue':
+        return theme.colorScheme.error;
+      default:
+        return theme.colorScheme.outline;
+    }
+  }
+
   Future<void> _downloadInvoice(Map<String, dynamic> order) async {
     try {
       final customer = SupabaseConfig.client.auth.currentUser;
@@ -184,6 +207,10 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
           final status = order['status'] ?? 'recue';
           final step = _statusStep(status);
           final cancelled = status == 'annulee';
+          final paymentStatus =
+              (order['payment_status'] ?? 'en_attente') as String;
+          final paymentMethod =
+              PaymentMethodX.fromId(order['payment_method'] as String?);
 
           return Card(
             child: Padding(
@@ -203,23 +230,53 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                   Row(
                     children: [
                       Icon(
-                        PaymentMethodX.fromId(
-                                order['payment_method'] as String?)
-                            .icon,
+                        paymentMethod.icon,
                         size: 14,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        PaymentMethodX.fromId(
-                                order['payment_method'] as String?)
-                            .label,
+                        paymentMethod.label,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
+                  if (!cancelled) ...[
+                    SizedBox(height: 0.8.h),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _paymentStatusColor(paymentStatus, theme),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _paymentStatusLabels[paymentStatus] ??
+                              paymentStatus,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _paymentStatusColor(paymentStatus, theme),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (paymentStatus == 'en_attente' &&
+                            !paymentMethod.isPapiCapable) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '· vérification sous 24h ouvrées',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                   SizedBox(height: 1.5.h),
                   if (!cancelled)
                     Row(
