@@ -49,34 +49,50 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
       _error = null;
     });
     try {
-      final products = await SupabaseConfig.client
-          .from('products')
-          .select()
-          .order('created_at', ascending: false);
-      final units =
-          await SupabaseConfig.client.from('business_units').select();
-      List<Map<String, dynamic>> categories = [];
-      try {
-        final result = await SupabaseConfig.client
-            .from('categories')
-            .select()
-            .order('name');
-        categories = List<Map<String, dynamic>>.from(result);
-      } catch (_) {
-        // Table `categories` pas encore créée (migration phase6 non
-        // exécutée) : on continue sans bloquer le reste de l'écran.
+      // Les 4 requêtes sont indépendantes — lancées en parallèle plutôt
+      // qu'à la suite pour ne pas cumuler leurs temps de réseau (chacune
+      // garde son propre repli silencieux en cas d'échec).
+      Future<List<Map<String, dynamic>>> loadCategories() async {
+        try {
+          final result = await SupabaseConfig.client
+              .from('categories')
+              .select()
+              .order('name');
+          return List<Map<String, dynamic>>.from(result);
+        } catch (_) {
+          // Table `categories` pas encore créée (migration phase6 non
+          // exécutée) : on continue sans bloquer le reste de l'écran.
+          return [];
+        }
       }
-      List<Map<String, dynamic>> nameSuggestions = [];
-      try {
-        final result = await SupabaseConfig.client
-            .from('raw_material_name_suggestions')
-            .select()
-            .order('name');
-        nameSuggestions = List<Map<String, dynamic>>.from(result);
-      } catch (_) {
-        // Table pas encore créée (migration phase33 non exécutée) : le
-        // champ nom reste un simple texte libre, rien de bloquant.
+
+      Future<List<Map<String, dynamic>>> loadNameSuggestions() async {
+        try {
+          final result = await SupabaseConfig.client
+              .from('raw_material_name_suggestions')
+              .select()
+              .order('name');
+          return List<Map<String, dynamic>>.from(result);
+        } catch (_) {
+          // Table pas encore créée (migration phase33 non exécutée) : le
+          // champ nom reste un simple texte libre, rien de bloquant.
+          return [];
+        }
       }
+
+      final results = await Future.wait([
+        SupabaseConfig.client
+            .from('products')
+            .select()
+            .order('created_at', ascending: false),
+        SupabaseConfig.client.from('business_units').select(),
+        loadCategories(),
+        loadNameSuggestions(),
+      ]);
+      final products = results[0];
+      final units = results[1];
+      final categories = results[2];
+      final nameSuggestions = results[3];
       setState(() {
         _products = List<Map<String, dynamic>>.from(products);
         _businessUnits = List<Map<String, dynamic>>.from(units);

@@ -38,25 +38,33 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
       return;
     }
     try {
-      final products =
-          await SupabaseConfig.client.from('products').select('id').count();
-      final pendingOrders = await SupabaseConfig.client
-          .from('orders')
-          .select('id')
-          .inFilter('status', ['recue', 'en_preparation', 'expediee']).count();
-      final clients = await SupabaseConfig.client
-          .from('profiles')
-          .select('id')
-          .eq('role', 'client')
-          .count();
-      // Messages client non lus par le staff — même filtre que
-      // messaging_center_real.dart pour rester cohérent.
-      final unreadMessages = await SupabaseConfig.client
-          .from('messages')
-          .select('id')
-          .eq('sender_role', 'client')
-          .eq('read_by_staff', false)
-          .count();
+      // Les 4 requêtes sont indépendantes — lancées en parallèle plutôt
+      // qu'à la suite pour ne pas cumuler leurs temps de réseau.
+      final results = await Future.wait([
+        SupabaseConfig.client.from('products').select('id').count(),
+        SupabaseConfig.client
+            .from('orders')
+            .select('id')
+            .inFilter('status', ['recue', 'en_preparation', 'expediee'])
+            .count(),
+        SupabaseConfig.client
+            .from('profiles')
+            .select('id')
+            .eq('role', 'client')
+            .count(),
+        // Messages client non lus par le staff — même filtre que
+        // messaging_center_real.dart pour rester cohérent.
+        SupabaseConfig.client
+            .from('messages')
+            .select('id')
+            .eq('sender_role', 'client')
+            .eq('read_by_staff', false)
+            .count(),
+      ]);
+      final products = results[0];
+      final pendingOrders = results[1];
+      final clients = results[2];
+      final unreadMessages = results[3];
 
       if (!mounted) return;
       setState(() {
