@@ -12,6 +12,12 @@
 -- "qualité alimentaire" (convention déjà actée avec l'utilisateur, voir
 -- phase10). Rien n'est retiré/désactivé : juste des suggestions, le nom
 -- reste librement modifiable au moment de créer le produit.
+--
+-- Relecture avant exécution (demandée par l'utilisateur) : 11 doublons
+-- retirés — même substance listée deux fois (une fois nom simple, une
+-- fois variante E-number/cas d'usage), ou carrément le même nom exact
+-- rangé dans deux catégories différentes (Sulfate de sodium, STPP,
+-- Sulfate d'aluminium).
 -- ============================================================
 
 create table if not exists public.raw_material_name_suggestions (
@@ -102,10 +108,8 @@ insert into public.raw_material_name_suggestions (business_unit_slug, category_n
   ('matieres-premieres', 'Acides & Bases', 'Acide oxalique', 'Detachant rouille, blanchiment bois | Danger: Toxique, usage encadre'),
   ('matieres-premieres', 'Acides & Bases', 'Acide borique', 'Conservateur, antifongique, insecticide leger | Danger: Modere, toxique a forte dose'),
   ('matieres-premieres', 'Acides & Bases', 'Acide tartrique', 'Agroalimentaire, cosmetique (pH) | Danger: Faible'),
-  ('matieres-premieres', 'Acides & Bases', 'Acide ascorbique', 'Antioxydant alimentaire et cosmetique | Danger: Faible'),
   ('matieres-premieres', 'Acides & Bases', 'Acide benzoique', 'Conservateur (base benzoate) | Danger: Faible'),
   ('matieres-premieres', 'Acides & Bases', 'Acide gluconique', 'Sequestrant, anticalcaire doux | Danger: Faible'),
-  ('matieres-premieres', 'Acides & Bases', 'Sulfate de sodium', 'Charge/texture poudre, neutralisant'),
   ('matieres-premieres', 'Acides & Bases', 'Sel de Glauber', 'Regulateur pH industriel'),
   ('matieres-premieres', 'Acides & Bases', 'Chlorure de calcium', 'Traitement eau, antigel, dessiccant'),
   ('matieres-premieres', 'Acides & Bases', 'Sulfate d''aluminium (Alun)', 'Floculant traitement de l''eau'),
@@ -130,7 +134,6 @@ insert into public.raw_material_name_suggestions (business_unit_slug, category_n
   ('anti-nuisibles', 'Anti-Moustiques & Mouches', 'DEET (concentre)', 'Base repulsif corporel | Danger: Modere'),
   ('matieres-premieres', 'Désinfectants', 'TCCA (Trichloroisocyanurate)', 'Chlore stabilise piscine | Danger: Oxydant'),
   ('anti-nuisibles', 'Produits Agrivet', 'Sulfate de cuivre', 'Base algicide | Danger: Toxique aquatique'),
-  ('matieres-premieres', 'Chélatants', 'Sulfate d''aluminium', 'Base floculant | Danger: Modere'),
   ('matieres-premieres', 'Polymères & Résines', 'Polymeres floculants', 'Clarification eau | Danger: Faible'),
   ('matieres-premieres', 'Charges Minérales', 'Charbon actif (vrac)', 'Filtration | Danger: Faible'),
   ('matieres-premieres', 'Charges Minérales', 'Ceramique filtrante (vrac)', 'Filtration | Danger: Faible'),
@@ -149,20 +152,16 @@ insert into public.raw_material_name_suggestions (business_unit_slug, category_n
   ('matieres-premieres', 'Acides & Bases', 'Acide tartrique L(+) (E334)', 'Acidifiant vin / levant chimique (avec bicarbonate) / confiserie (qualité alimentaire)'),
   ('matieres-premieres', 'Acides & Bases', 'Acide citrique anhydre (E330)', 'Version anhydre — plus concentrée, hygroscopique moindre (qualité alimentaire)'),
   ('matieres-premieres', 'Acides & Bases', 'Acide malique DL (E296)', 'Acidifiant fruité / arôme pomme-poire / vinification (qualité alimentaire)'),
-  ('matieres-premieres', 'Acides & Bases', 'Acide lactique (E270)', 'Acidifiant naturel / conservateur / régulateur pH fermentation (qualité alimentaire)'),
   ('matieres-premieres', 'Acides & Bases', 'Acide phosphorique H₃PO₄ (E338)', 'Acidifiant signature des colas / correction pH eau de brassage (qualité alimentaire)'),
   ('matieres-premieres', 'Acides & Bases', 'Acide acétique / Vinaigre blanc (E260)', 'Conservation par acidification / arôme vinaigrette / formation esters (qualité alimentaire)'),
   ('matieres-premieres', 'Acides & Bases', 'Carbonate de calcium CaCO₃ (E170)', 'Désacidifiant / antiagglomérant / source de calcium (qualité alimentaire)'),
   ('matieres-premieres', 'Acides & Bases', 'Bicarbonate de sodium NaHCO₃ (E500ii)', 'Agent levant / régulateur pH / désacidifiant doux (qualité alimentaire)'),
-  ('matieres-premieres', 'Conservateurs & Antioxydants', 'Sorbate de potassium (E202)', 'Antifongique et antilévurien — le conservateur le plus utilisé (qualité alimentaire)'),
-  ('matieres-premieres', 'Conservateurs & Antioxydants', 'Benzoate de sodium (E211)', 'Conservateur antibactérien et antifongique acide (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Métabisulfite de potassium (E224) — ''Meta K''', 'Antiseptique / antioxydant majeur vin et jus (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Acide ascorbique / Ascorbate Na (E300/E301)', 'Antioxydant universel / fixateur couleur / acidifiant doux (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Acide sorbique (E200)', 'Conservateur antifongique naturel / forme acide du sorbate (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Nitrite de sodium / Sel nitrité (E250)', 'Conservation charcuterie / couleur rose / anti-botulisme (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Salpêtre / Nitrate de potassium (E252)', 'Conservation traditionnelle charcuterie / maturation saucisses sèches (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Lysozyme (E1105)', 'Inhibiteur bactéries lactiques vin / conservateur fromage (qualité alimentaire)'),
-  ('matieres-premieres', 'Épaississants', 'Gomme xanthane (E415)', 'Épaississant pseudoplastique / stabilisant émulsions / suspensions (qualité alimentaire)'),
   ('matieres-premieres', 'Épaississants', 'Gélatine alimentaire en poudre (200 Bloom)', 'Gélifiant animal thermoreversible / clarification / texture (qualité alimentaire)'),
   ('matieres-premieres', 'Épaississants', 'Agar-Agar (E406)', 'Gélifiant végétal algues rouges / gel ferme thermostable (qualité alimentaire)'),
   ('matieres-premieres', 'Épaississants', 'Carraghénanes (E407)', 'Épaississant algues rouges / stabilisant lait / gel laitier (qualité alimentaire)'),
@@ -196,7 +195,6 @@ insert into public.raw_material_name_suggestions (business_unit_slug, category_n
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Sel nitrité (0.6% NaNO₂ dans NaCl)', 'Salaison / conservation / couleur rose / anti-botulisme (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Salpêtre (Nitrate de potassium KNO₃ E252)', 'Conservation longue durée / jambon sec / saucissons à maturation (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Ascorbate de sodium (E301)', 'Fixateur couleur charcuterie / accélérateur salaison / antioxydant (qualité alimentaire)'),
-  ('matieres-premieres', 'Conservateurs & Antioxydants', 'Tripolyphosphate de sodium STPP (E451)', 'Rétention eau / amélioration rendement cuisson / texture (qualité alimentaire)'),
   ('matieres-premieres', 'Parfums & Additifs', 'Levure chimique (poudre à lever)', 'Agent levant / développement texture aérée gâteaux (qualité alimentaire)'),
   ('matieres-premieres', 'Parfums & Additifs', 'Crème de tartre (Tartrate acide de potassium E336)', 'Stabilisant blancs en neige / acide pour levant / régulateur pH meringue (qualité alimentaire)'),
   ('matieres-premieres', 'Parfums & Additifs', 'Tylose CMC (Pâtisserie décorative)', 'Durcissant pâte à sucre / fleurs en sucre / modelage décoratif (qualité alimentaire)'),
@@ -216,7 +214,6 @@ insert into public.raw_material_name_suggestions (business_unit_slug, category_n
   ('matieres-premieres', 'Parfums & Additifs', 'Extrait de malt liquide / poudre', 'Base sucrée et aromatique / corps de la bière (qualité alimentaire)'),
   ('matieres-premieres', 'Épaississants', 'Pectine HM rapide (Extra-Rapide/Rapide)', 'Gélifiant confiture haute teneur en sucre / prise rapide (qualité alimentaire)'),
   ('matieres-premieres', 'Épaississants', 'Pectine LM (Faible méthylation) / Amidée', 'Gélifiant confitures allégées / produits sans sucre / laitier (qualité alimentaire)'),
-  ('matieres-premieres', 'Acides & Bases', 'Acide citrique (ajustement confiture)', 'Correction pH / déclencheur gélification pectine HM / conservation (qualité alimentaire)'),
   ('matieres-premieres', 'Acides & Bases', 'Chlorure de calcium CaCl₂ (texturation conserves)', 'Raffermissement légumes en conserve / activation pectinique (qualité alimentaire)'),
   ('matieres-premieres', 'Acides & Bases', 'Vinaigre blanc / Acide acétique (acidification conserves)', 'Conservation par acidification / cornichons / pickles (qualité alimentaire)'),
   ('matieres-premieres', 'Conservateurs & Antioxydants', 'Benzoate de sodium + Sorbate de K (combo conserves)', 'Conservation élargie anti-moisissures + antibactérien (qualité alimentaire)'),
@@ -226,9 +223,7 @@ insert into public.raw_material_name_suggestions (business_unit_slug, category_n
   ('matieres-premieres', 'Parfums & Additifs', 'Saccharose inverti (Trimoline)', 'Abaissement point de congélation / texture souple à froid (qualité alimentaire)'),
   ('matieres-premieres', 'Parfums & Additifs', 'Dextrose (glucose anhydre pour glaces)', 'Abaissement point congélation / anticristallisant / texture (qualité alimentaire)'),
   ('matieres-premieres', 'Parfums & Additifs', 'Sirop de glucose (DE 38–42)', 'Anticristallisant / épaississant / corps / tenue à la fonte (qualité alimentaire)'),
-  ('matieres-premieres', 'Épaississants', 'Polysorbate 80 (E433) — glaces', 'Émulsifiant / déstabilisation contrôlée des globules gras / onctuosité (qualité alimentaire)'),
   ('matieres-premieres', 'Charges Minérales', 'Bentonite œnologique (clarification vin)', 'Clarification protéique / collage / stabilisation thermique vin (qualité alimentaire)'),
-  ('matieres-premieres', 'Acides & Bases', 'Acide tartrique (vin) — ajout après fermentation', 'Correction acidité vin / stabilisation pH / tartrate (qualité alimentaire)'),
   ('matieres-premieres', 'Épaississants', 'CMC alimentaire (stabilisation tartrique vin)', 'Inhibiteur cristallisation tartrate / alternative réfrigération (qualité alimentaire)'),
   ('matieres-premieres', 'Charges Minérales', 'Diatomite / Kieselguhr (filtration)', 'Filtration fine / clarification finale avant mise en bouteille (qualité alimentaire)'),
   ('matieres-premieres', 'Charges Minérales', 'Charbon actif œnologique (décoloration)', 'Décoloration / déodorisation / élimination excès tanins (qualité alimentaire)'),

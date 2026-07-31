@@ -2488,7 +2488,7 @@ ingrédient alimentaire va dans sa famille chimique avec une note "qualité
 alimentaire", pas dans une catégorie "Agroalimentaire" séparée — appliquée
 ici aussi.
 
-**Tri effectué avant intégration** (203 noms retenus sur ~400 candidats) :
+**Tri effectué avant intégration** (192 noms retenus sur ~400 candidats) :
 - Exclus entièrement : les 165 fiches INCI cosmétiques génériques (dossier
   de référence type "ingrédient de shampoing/coloration capillaire", sans
   rapport avec l'activité réelle de l'entreprise, plusieurs marqués
@@ -2507,6 +2507,17 @@ ici aussi.
   (édulcorants, acidifiants, conservateurs, épaississants, émulsifiants,
   colorants, arômes...) répartis dans les mêmes 12 catégories + Anti-
   Nuisibles + Matières Premières Peinture.
+- **Relecture demandée par l'utilisateur avant exécution** : audit
+  programmatique (noms identiques ou quasi-identiques désignant la même
+  substance) a trouvé 11 doublons — 2 cas du même nom exact rangé dans
+  deux catégories différentes (`Sulfate de sodium`, `Tripolyphosphate de
+  sodium STPP`) et 9 cas de la même substance listée deux fois sous un nom
+  simple et une variante E-number/cas d'usage (ex : `Acide ascorbique` /
+  `Acide ascorbique (Vitamine C)`, `Gomme xanthane` / `Gomme xanthane
+  (E415)`). Tous retirés, un seul exemplaire gardé à chaque fois. Un faux
+  positif détecté et volontairement gardé : `Sirop de glucose-fructose
+  (HFCS)` et `Sirop de glucose (DE 38–42)` sont deux produits réellement
+  différents malgré un nom proche.
 
 **Implémentation** :
 - Nouvelle table `raw_material_name_suggestions`
