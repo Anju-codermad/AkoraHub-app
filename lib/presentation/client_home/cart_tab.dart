@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
+import '../../core/payment/mvola_withdrawal_fee.dart';
 import '../../core/payment/papi_payment_repo.dart';
 import '../../core/payment/payment_method_selector.dart';
 import '../../core/payment/payment_method_settings_repo.dart';
@@ -751,6 +752,19 @@ class _CartTabState extends ConsumerState<CartTab> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      if (_paymentMethod == PaymentMethod.mvola) ...[
+                        SizedBox(height: 0.8.h),
+                        Text(
+                          'Frais de retrait Mvola estimés pour ce montant : '
+                          '~${_currency.format(MvolaWithdrawalFee.estimate(total + (_deliveryFee ?? 0)))} '
+                          '(à titre indicatif, dépend du montant total '
+                          'retiré en une fois).',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
