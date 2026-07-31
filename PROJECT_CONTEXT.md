@@ -2458,6 +2458,77 @@ personnel a un repli silencieux sur la liste complète, donc pas
 bloquant pour les utilisateurs classiques, mais l'écran de gestion Admin
 ne fonctionnerait pas).
 
+## 3vingtcinqtrentecies. Suggestions de noms de matières premières (chimiques + alimentaires) (31/07) ⚠️ SCRIPT SQL PAS ENCORE EXÉCUTÉ
+
+L'utilisateur a fourni un fichier HTML (prototype Rocket.new antérieur,
+`Akora_Hub_Complet_INTEGRE_1.html`) contenant deux grosses bases de
+données jamais utilisées par l'app réelle : `LAB_PRODUCTS_BASE` (268
+fiches, dont 165 ingrédients cosmétiques INCI génériques hors-sujet — y
+compris des colorants capillaires **interdits en Europe**, volontairement
+exclus) et un catalogue "Ingrédients Agroalimentaires" encodé en base64
+dans `CAT_AGRO_B64` (129 ingrédients alimentaires, 18 catégories,
+decodé pour extraction). Demande : intégrer cette liste dans l'app comme
+suggestions, organisées par catégorie, pour que le staff puisse
+sélectionner un nom au lieu de le taper, avant d'ajouter prix/stock/
+photos/format et publier.
+
+**Clarification du concept avant d'implémenter** : la table `raw_materials`
+(schema phase1) existe mais n'est utilisée nulle part dans l'app (aucun
+écran, 0 référence Flutter) — code mort. Le concept qui correspond
+réellement à "prix, stockage, photos, format... publié" est celui déjà en
+place : les matières premières sont des **`products`** (table catalogue
+standard) rattachés au pilier **"Matières Premières"** (12 catégories :
+Acides & Bases, Chélatants, Désinfectants, Épaississants, Charges
+Minérales, Colorants, Conservateurs & Antioxydants, Huiles & Beurres
+Cosmétiques, Parfums & Additifs, Polymères & Résines, Solvants,
+Tensioactifs — phase10), avec aussi une partie mappée sur "Matières
+Premières Peinture" (peinture/encre) et "Anti-Nuisibles" (biocides/
+insecticides). Convention déjà actée avec l'utilisateur (phase10) : un
+ingrédient alimentaire va dans sa famille chimique avec une note "qualité
+alimentaire", pas dans une catégorie "Agroalimentaire" séparée — appliquée
+ici aussi.
+
+**Tri effectué avant intégration** (203 noms retenus sur ~400 candidats) :
+- Exclus entièrement : les 165 fiches INCI cosmétiques génériques (dossier
+  de référence type "ingrédient de shampoing/coloration capillaire", sans
+  rapport avec l'activité réelle de l'entreprise, plusieurs marqués
+  "INTERDIT EN EUROPE" dans leur propre description) ; la catégorie
+  "Analyse & Contrôle Qualité" du catalogue alimentaire (réactifs de
+  laboratoire — soude étalon, réactif de Fehling, nitrate d'argent... —
+  pas des matières premières stockables/revendables) ; "Ferments &
+  Cultures Microbiennes" et une poignée d'intrants très spécifiques à la
+  vinification/fromagerie (présure, colle de poisson, tanins œnologiques,
+  ferments yaourt...) hors du métier de l'entreprise.
+- Conservé et réparti par catégorie chimique la plus proche (mapping
+  manuel item par item, pas un mapping en bloc, pour éviter les
+  contresens) : 98 matières premières chimiques/industrielles
+  (détergents, acides/bases, solvants, cires, colorants, biocides,
+  traitement de l'eau, peinture) + 105 ingrédients alimentaires
+  (édulcorants, acidifiants, conservateurs, épaississants, émulsifiants,
+  colorants, arômes...) répartis dans les mêmes 12 catégories + Anti-
+  Nuisibles + Matières Premières Peinture.
+
+**Implémentation** :
+- Nouvelle table `raw_material_name_suggestions`
+  (`supabase/phase33_patch_raw_material_name_suggestions.sql`) :
+  `business_unit_slug`, `category_name`, `name`, `note` (description/
+  dosage d'origine + "qualité alimentaire" pour les ingrédients
+  alimentaires). Lecture staff, écriture Admin (même schéma RLS que
+  `payment_method_settings`/`notification_sound_catalog`). Ce ne sont que
+  des **suggestions** — rien n'est retiré, le nom reste un champ texte
+  libre, modifiable à tout moment.
+- `lib/presentation/product_management_real/product_management_real.dart` :
+  le champ "Nom du produit" (jusqu'ici un `TextField` 100% libre) devient
+  un `Autocomplete<String>`, scopé au pilier actuellement sélectionné dans
+  le formulaire (filtré par `business_unit_slug`). Sélectionner une
+  suggestion pré-remplit aussi la catégorie correspondante si aucune n'est
+  encore choisie (gain de temps, reste modifiable).
+
+⚠️ **Script SQL à exécuter avant fusion** — sans la table, l'écran
+continue de fonctionner en champ 100% libre (repli silencieux), donc pas
+bloquant, mais les suggestions n'apparaîtront pas tant que la migration
+n'est pas passée.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
