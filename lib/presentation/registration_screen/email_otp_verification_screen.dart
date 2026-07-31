@@ -11,7 +11,8 @@ import '../../core/supabase/supabase_config.dart';
 /// Étape de vérification par code après inscription (`auth.signUp`) —
 /// nécessite que "Confirm email" soit activé côté Supabase (Authentication
 /// -> Providers -> Email) ET que le template "Confirm signup" affiche
-/// `{{ .Token }}` (code à 6 chiffres) plutôt qu'un simple lien, sinon le
+/// `{{ .Token }}` (code à 8 chiffres — voir Authentication -> Providers ->
+/// Email -> "Email OTP length") plutôt qu'un simple lien, sinon le
 /// client ne reçoit jamais aucun code (voir demande utilisateur du 31/07).
 ///
 /// Le profil (type de client, société, téléphone, date de naissance) ne
@@ -73,8 +74,8 @@ class _EmailOtpVerificationScreenState
 
   Future<void> _verify() async {
     final code = _codeController.text.trim();
-    if (code.length != 6) {
-      _showError('Le code doit contenir 6 chiffres.');
+    if (code.length != 8) {
+      _showError('Le code doit contenir 8 chiffres.');
       return;
     }
 
@@ -158,7 +159,7 @@ class _EmailOtpVerificationScreenState
                   size: 48, color: theme.colorScheme.primary),
               SizedBox(height: 2.h),
               Text(
-                'Un code à 6 chiffres a été envoyé à ${widget.email}. '
+                'Un code à 8 chiffres a été envoyé à ${widget.email}. '
                 'Saisissez-le ci-dessous pour activer votre compte.',
                 style: theme.textTheme.bodyMedium,
               ),
@@ -167,13 +168,13 @@ class _EmailOtpVerificationScreenState
                 controller: _codeController,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                maxLength: 6,
+                maxLength: 8,
                 style: theme.textTheme.headlineSmall
-                    ?.copyWith(letterSpacing: 8),
+                    ?.copyWith(letterSpacing: 4),
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(
                   counterText: '',
-                  hintText: '000000',
+                  hintText: '00000000',
                 ),
                 onSubmitted: (_) => _verify(),
               ),
