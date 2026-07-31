@@ -43,6 +43,18 @@ class _WallTabState extends State<WallTab> {
     'particulier': 'Particuliers',
   };
 
+  // Pagination : le Mur était plafonné à 50 posts (limit(50)) sans moyen
+  // d'aller plus loin — remplacé par un chargement par pages de 20, la
+  // suite arrivant en scrollant vers le bas. Les filtres (secteur, "mes
+  // publications") passent désormais côté serveur pour rester compatibles
+  // avec la pagination (sinon une page filtrée pourrait sembler vide alors
+  // que des posts correspondants existent plus loin, pas encore chargés).
+  static const _pageSize = 20;
+  int _page = 0;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  final _scrollController = ScrollController();
+
   String? get _myId => SupabaseConfig.isConfigured
       ? SupabaseConfig.client.auth.currentUser?.id
       : null;
@@ -51,6 +63,62 @@ class _WallTabState extends State<WallTab> {
   void initState() {
     super.initState();
     _onlyMine = widget.initialOnlyMine;
+    _loadPosts();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      _loadMorePosts();
+    }
+  }
+
+  /// Liste des `author_id` du secteur choisi (null si "Tous" — pas de
+  /// restriction), pour traduire le filtre secteur (basé sur
+  /// `profiles.client_type`, une table à part) en filtre Postgrest sur
+  /// `posts.author_id`.
+  Future<List<String>?> _sectorAuthorIds() async {
+    if (_sectorFilter == 'tous') return null;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('public_profiles')
+          .select('id')
+          .eq('client_type', _sectorFilter);
+      return List<Map<String, dynamic>>.from(rows)
+          .map((r) => r['id'] as String)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchPostsPage(int page) async {
+    if (_onlyMine && _myId == null) return [];
+    var query = SupabaseConfig.client.from('posts').select();
+    if (_onlyMine) {
+      query = query.eq('author_id', _myId!);
+    }
+    final sectorIds = await _sectorAuthorIds();
+    if (sectorIds != null) {
+      if (sectorIds.isEmpty) return [];
+      query = query.inFilter('author_id', sectorIds);
+    }
+    final data = await query
+        .order('created_at', ascending: false)
+        .range(page * _pageSize, page * _pageSize + _pageSize - 1);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  void _onFilterChanged() {
     _loadPosts();
   }
 
@@ -65,15 +133,11 @@ class _WallTabState extends State<WallTab> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _page = 0;
+      _hasMore = true;
     });
     try {
-      final posts = await SupabaseConfig.client
-          .from('posts')
-          .select()
-          .order('created_at', ascending: false)
-          .limit(50);
-
-      final list = List<Map<String, dynamic>>.from(posts);
+      final list = await _fetchPostsPage(0);
       final postIds = list.map((p) => p['id'] as String).toList();
 
       // Ex-boucle "1 requête like + 1 requête commentaire PAR post" (jusqu'à
@@ -179,6 +243,7 @@ class _WallTabState extends State<WallTab> {
         _authorProfiles = profiles;
         _mentionedProducts = mentionedProducts;
         _isLoading = false;
+        _hasMore = list.length == _pageSize;
       });
     } catch (e) {
       setState(() {
@@ -188,19 +253,110 @@ class _WallTabState extends State<WallTab> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredPosts {
-    Iterable<Map<String, dynamic>> result = _posts;
-    if (_sectorFilter != 'tous') {
-      result = result.where((p) {
-        final author = _authorProfiles[p['author_id']];
-        return author != null && author['client_type'] == _sectorFilter;
+  Future<void> _loadMorePosts() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final nextPage = _page + 1;
+      final list = await _fetchPostsPage(nextPage);
+      final postIds = list.map((p) => p['id'] as String).toList();
+
+      Future<List<Map<String, dynamic>>> loadLikes() async {
+        if (postIds.isEmpty) return [];
+        try {
+          final rows = await SupabaseConfig.client
+              .from('post_likes')
+              .select('post_id, user_id')
+              .inFilter('post_id', postIds);
+          return List<Map<String, dynamic>>.from(rows);
+        } catch (_) {
+          return [];
+        }
+      }
+
+      Future<List<Map<String, dynamic>>> loadComments() async {
+        if (postIds.isEmpty) return [];
+        try {
+          final rows = await SupabaseConfig.client
+              .from('post_comments')
+              .select('post_id')
+              .inFilter('post_id', postIds);
+          return List<Map<String, dynamic>>.from(rows);
+        } catch (_) {
+          return [];
+        }
+      }
+
+      final authorIds = list
+          .map((p) => p['author_id'] as String?)
+          .whereType<String>()
+          .toSet();
+      final mentionedIds = list
+          .map((p) => p['mentioned_product_id'] as String?)
+          .whereType<String>()
+          .toSet();
+
+      Future<Map<String, Map<String, dynamic>>> loadMentionedProducts() async {
+        if (mentionedIds.isEmpty) return {};
+        try {
+          final products = await SupabaseConfig.client
+              .from('products')
+              .select('id, name, price_detail, image_url')
+              .inFilter('id', mentionedIds.toList());
+          return {
+            for (final row in List<Map<String, dynamic>>.from(products))
+              row['id'] as String: row,
+          };
+        } catch (_) {
+          return {};
+        }
+      }
+
+      final results = await Future.wait([
+        loadLikes(),
+        loadComments(),
+        PublicProfilesRepo.fetchByIds(authorIds),
+        loadMentionedProducts(),
+      ]);
+      final likesRows = results[0] as List<Map<String, dynamic>>;
+      final commentsRows = results[1] as List<Map<String, dynamic>>;
+      final profiles = results[2] as Map<String, Map<String, dynamic>>;
+      final mentionedProducts =
+          results[3] as Map<String, Map<String, dynamic>>;
+
+      final likeCounts = <String, int>{};
+      final likedByMe = <String, bool>{};
+      for (final l in likesRows) {
+        final postId = l['post_id'] as String;
+        likeCounts[postId] = (likeCounts[postId] ?? 0) + 1;
+        if (l['user_id'] == _myId) likedByMe[postId] = true;
+      }
+      final commentCounts = <String, int>{};
+      for (final c in commentsRows) {
+        final postId = c['post_id'] as String;
+        commentCounts[postId] = (commentCounts[postId] ?? 0) + 1;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _posts = [..._posts, ...list];
+        _likeCounts.addAll(likeCounts);
+        _likedByMe.addAll(likedByMe);
+        _commentCounts.addAll(commentCounts);
+        _authorProfiles = {..._authorProfiles, ...profiles};
+        _mentionedProducts = {..._mentionedProducts, ...mentionedProducts};
+        _page = nextPage;
+        _hasMore = list.length == _pageSize;
+        _isLoadingMore = false;
       });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
-    if (_onlyMine) {
-      result = result.where((p) => p['author_id'] == _myId);
-    }
-    return result.toList();
   }
+
+  // Le filtre secteur/"mes publications" est désormais appliqué côté
+  // serveur (_fetchPostsPage) — _posts ne contient déjà que les posts
+  // correspondants, plus besoin de filtrer ici.
 
   Future<void> _toggleLike(String postId) async {
     final myId = _myId;
@@ -288,6 +444,7 @@ class _WallTabState extends State<WallTab> {
               : RefreshIndicator(
                   onRefresh: _loadPosts,
                   child: CustomScrollView(
+                    controller: _scrollController,
                     slivers: [
                       SliverToBoxAdapter(
                         child: SizedBox(
@@ -303,8 +460,10 @@ class _WallTabState extends State<WallTab> {
                                       size: 16),
                                   label: const Text('Mes publications'),
                                   selected: _onlyMine,
-                                  onSelected: (v) =>
-                                      setState(() => _onlyMine = v),
+                                  onSelected: (v) {
+                                    setState(() => _onlyMine = v);
+                                    _onFilterChanged();
+                                  },
                                 ),
                               ),
                               Padding(
@@ -312,8 +471,10 @@ class _WallTabState extends State<WallTab> {
                                 child: ChoiceChip(
                                   label: const Text('Tous'),
                                   selected: _sectorFilter == 'tous',
-                                  onSelected: (_) =>
-                                      setState(() => _sectorFilter = 'tous'),
+                                  onSelected: (_) {
+                                    setState(() => _sectorFilter = 'tous');
+                                    _onFilterChanged();
+                                  },
                                 ),
                               ),
                               ..._sectorLabels.entries.map((e) => Padding(
@@ -321,15 +482,17 @@ class _WallTabState extends State<WallTab> {
                                     child: ChoiceChip(
                                       label: Text(e.value),
                                       selected: _sectorFilter == e.key,
-                                      onSelected: (_) => setState(
-                                          () => _sectorFilter = e.key),
+                                      onSelected: (_) {
+                                        setState(() => _sectorFilter = e.key);
+                                        _onFilterChanged();
+                                      },
                                     ),
                                   )),
                             ],
                           ),
                         ),
                       ),
-                      if (_filteredPosts.isEmpty)
+                      if (_posts.isEmpty)
                         SliverFillRemaining(
                           child: Center(
                               child: Text(_onlyMine
@@ -340,7 +503,21 @@ class _WallTabState extends State<WallTab> {
                         SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {
-                              final post = _filteredPosts[index];
+                              if (index >= _posts.length) {
+                                return Padding(
+                                  padding:
+                                      EdgeInsets.symmetric(vertical: 2.h),
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    ),
+                                  ),
+                                );
+                              }
+                              final post = _posts[index];
                               final author = _authorProfiles[post['author_id']];
                               final authorName =
                                   PublicProfilesRepo.displayName(author);
@@ -529,7 +706,8 @@ class _WallTabState extends State<WallTab> {
                                 ),
                               );
                             },
-                            childCount: _filteredPosts.length,
+                            childCount:
+                                _posts.length + (_hasMore ? 1 : 0),
                           ),
                         ),
                       SliverToBoxAdapter(child: SizedBox(height: 10.h)),

@@ -25,6 +25,22 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
+  // Pagination : la liste des commandes n'a plus de limite (toutes
+  // chargées d'un coup) — remplacé par un chargement par pages de 20, la
+  // suite arrivant automatiquement en scrollant vers le bas. Le filtre de
+  // statut passe désormais côté serveur (une page = déjà le bon statut).
+  // "Paiement à vérifier" reste un filtre côté client car sa logique
+  // (valeurs nulles traitées comme 'paiement_livraison'/'en_attente') ne
+  // se traduit pas proprement en filtre Postgrest — dans ce mode, on
+  // charge donc tout (sans pagination) pour ne rater aucune commande à
+  // vérifier, ce sous-ensemble restant nettement plus petit que la liste
+  // complète en pratique.
+  static const _pageSize = 20;
+  int _page = 0;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  final _scrollController = ScrollController();
+
   final Map<String, String> _statusLabels = const {
     'recue': 'Reçue',
     'en_preparation': 'En préparation',
@@ -44,6 +60,22 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   void initState() {
     super.initState();
     _loadOrders();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      _loadMoreOrders();
+    }
   }
 
   Future<void> _loadOrders() async {
@@ -57,15 +89,28 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _page = 0;
+      _hasMore = true;
     });
     try {
-      final data = await SupabaseConfig.client
+      var query = SupabaseConfig.client
           .from('orders')
-          .select('*, profiles(full_name, company_name)')
-          .order('created_at', ascending: false);
+          .select('*, profiles(full_name, company_name)');
+      if (_statusFilter != 'toutes') {
+        query = query.eq('status', _statusFilter);
+      }
+      final builder = query.order('created_at', ascending: false);
+      // "Paiement à vérifier" : filtre pas traduisible en Postgrest simple
+      // (voir commentaire sur _onlyPaymentToVerify) — on charge tout d'un
+      // coup dans ce mode, sans pagination.
+      final data = _onlyPaymentToVerify
+          ? await builder
+          : await builder.range(0, _pageSize - 1);
+      final rows = List<Map<String, dynamic>>.from(data);
       setState(() {
-        _orders = List<Map<String, dynamic>>.from(data);
+        _orders = rows;
         _isLoading = false;
+        _hasMore = !_onlyPaymentToVerify && rows.length == _pageSize;
       });
     } catch (e) {
       setState(() {
@@ -73,6 +118,37 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
         _error = 'Impossible de charger les commandes.';
       });
     }
+  }
+
+  Future<void> _loadMoreOrders() async {
+    if (_isLoadingMore || !_hasMore || _onlyPaymentToVerify) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final nextPage = _page + 1;
+      var query = SupabaseConfig.client
+          .from('orders')
+          .select('*, profiles(full_name, company_name)');
+      if (_statusFilter != 'toutes') {
+        query = query.eq('status', _statusFilter);
+      }
+      final data = await query
+          .order('created_at', ascending: false)
+          .range(nextPage * _pageSize, nextPage * _pageSize + _pageSize - 1);
+      final rows = List<Map<String, dynamic>>.from(data);
+      if (!mounted) return;
+      setState(() {
+        _orders = [..._orders, ...rows];
+        _page = nextPage;
+        _hasMore = rows.length == _pageSize;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  void _onFilterChanged() {
+    _loadOrders();
   }
 
   Future<void> _updateStatus(Map<String, dynamic> order) async {
@@ -361,19 +437,17 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     }
   }
 
+  // Le filtre de statut est désormais appliqué côté serveur (_loadOrders) —
+  // _orders ne contient déjà que le bon statut. Seul "Paiement à
+  // vérifier" reste filtré ici, côté client (voir commentaire plus haut).
   List<Map<String, dynamic>> get _filteredOrders {
-    var orders = _statusFilter == 'toutes'
-        ? _orders
-        : _orders.where((o) => o['status'] == _statusFilter).toList();
-    if (_onlyPaymentToVerify) {
-      orders = orders
-          .where((o) =>
-              (o['payment_method'] ?? 'paiement_livraison') !=
-                  'paiement_livraison' &&
-              (o['payment_status'] ?? 'en_attente') != 'paye')
-          .toList();
-    }
-    return orders;
+    if (!_onlyPaymentToVerify) return _orders;
+    return _orders
+        .where((o) =>
+            (o['payment_method'] ?? 'paiement_livraison') !=
+                'paiement_livraison' &&
+            (o['payment_status'] ?? 'en_attente') != 'paye')
+        .toList();
   }
 
   /// Ouvre la capture de paiement jointe par le client (bucket privé
@@ -451,8 +525,10 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                           ChoiceChip(
                             label: const Text('Toutes'),
                             selected: _statusFilter == 'toutes',
-                            onSelected: (_) =>
-                                setState(() => _statusFilter = 'toutes'),
+                            onSelected: (_) {
+                              setState(() => _statusFilter = 'toutes');
+                              _onFilterChanged();
+                            },
                           ),
                           SizedBox(width: 2.w),
                           ..._statusLabels.entries.map((entry) => Padding(
@@ -460,8 +536,10 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                 child: ChoiceChip(
                                   label: Text(entry.value),
                                   selected: _statusFilter == entry.key,
-                                  onSelected: (_) => setState(
-                                      () => _statusFilter = entry.key),
+                                  onSelected: (_) {
+                                    setState(() => _statusFilter = entry.key);
+                                    _onFilterChanged();
+                                  },
                                 ),
                               )),
                           FilterChip(
@@ -469,8 +547,10 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                             avatar: const Icon(Icons.receipt_long_outlined,
                                 size: 16),
                             selected: _onlyPaymentToVerify,
-                            onSelected: (v) =>
-                                setState(() => _onlyPaymentToVerify = v),
+                            onSelected: (v) {
+                              setState(() => _onlyPaymentToVerify = v);
+                              _onFilterChanged();
+                            },
                           ),
                         ],
                       ),
@@ -487,11 +567,29 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                 ],
                               )
                             : ListView.separated(
+                                controller: _scrollController,
                                 padding: EdgeInsets.all(4.w),
-                                itemCount: _filteredOrders.length,
+                                itemCount: _filteredOrders.length +
+                                    (_hasMore && !_onlyPaymentToVerify
+                                        ? 1
+                                        : 0),
                                 separatorBuilder: (_, __) =>
                                     SizedBox(height: 1.h),
                                 itemBuilder: (context, index) {
+                                  if (index >= _filteredOrders.length) {
+                                    return Padding(
+                                      padding: EdgeInsets.symmetric(
+                                          vertical: 2.h),
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        ),
+                                      ),
+                                    );
+                                  }
                                   final order = _filteredOrders[index];
                                   final status = order['status'] ?? 'recue';
                                   final paymentStatus =

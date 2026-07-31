@@ -30,10 +30,37 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
   final _currency = NumberFormat.currency(
       locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
+  // Pagination : la liste des produits n'avait pas de limite (toute la
+  // table chargée d'un coup) — remplacé par un chargement par pages de
+  // 20, la suite arrivant en scrollant vers le bas. Piliers/catégories/
+  // suggestions de matières premières restent chargés en entier (petites
+  // tables de référence utilisées par les menus déroulants du formulaire).
+  static const _pageSize = 20;
+  int _page = 0;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  final _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      _loadMoreProducts();
+    }
   }
 
   Future<void> _loadData() async {
@@ -47,6 +74,8 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _page = 0;
+      _hasMore = true;
     });
     try {
       // Les 4 requêtes sont indépendantes — lancées en parallèle plutôt
@@ -84,7 +113,8 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
         SupabaseConfig.client
             .from('products')
             .select()
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .range(0, _pageSize - 1),
         SupabaseConfig.client.from('business_units').select(),
         loadCategories(),
         loadNameSuggestions(),
@@ -93,18 +123,43 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
       final units = results[1];
       final categories = results[2];
       final nameSuggestions = results[3];
+      final productsList = List<Map<String, dynamic>>.from(products);
       setState(() {
-        _products = List<Map<String, dynamic>>.from(products);
+        _products = productsList;
         _businessUnits = List<Map<String, dynamic>>.from(units);
         _categories = categories;
         _nameSuggestions = nameSuggestions;
         _isLoading = false;
+        _hasMore = productsList.length == _pageSize;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
         _error = 'Impossible de charger les produits.';
       });
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final nextPage = _page + 1;
+      final data = await SupabaseConfig.client
+          .from('products')
+          .select()
+          .order('created_at', ascending: false)
+          .range(nextPage * _pageSize, nextPage * _pageSize + _pageSize - 1);
+      final rows = List<Map<String, dynamic>>.from(data);
+      if (!mounted) return;
+      setState(() {
+        _products = [..._products, ...rows];
+        _page = nextPage;
+        _hasMore = rows.length == _pageSize;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -704,10 +759,24 @@ class _ProductManagementRealState extends State<ProductManagementReal> {
                           ],
                         )
                       : ListView.separated(
+                          controller: _scrollController,
                           padding: EdgeInsets.all(4.w),
-                          itemCount: _products.length,
+                          itemCount: _products.length + (_hasMore ? 1 : 0),
                           separatorBuilder: (_, __) => SizedBox(height: 1.h),
                           itemBuilder: (context, index) {
+                            if (index >= _products.length) {
+                              return Padding(
+                                padding: EdgeInsets.symmetric(vertical: 2.h),
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                ),
+                              );
+                            }
                             final p = _products[index];
                             final lowStock = (p['stock_quantity'] ?? 0) <=
                                 (p['low_stock_threshold'] ?? 5);
