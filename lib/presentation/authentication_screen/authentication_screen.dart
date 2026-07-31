@@ -214,12 +214,26 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
           'Connexion au serveur indisponible. Vérifiez votre connexion internet.';
     } else {
       try {
-        await SupabaseConfig.client.auth.signInWithPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
+        // Passe par l'Edge Function `secure-login` plutôt que d'appeler
+        // signInWithPassword directement : elle seule permet de bloquer un
+        // compte après 5 échecs en 15 minutes (voir
+        // supabase/phase35_patch_login_rate_limit.sql — le hook officiel
+        // Supabase Auth équivalent est réservé aux plans Team/Enterprise).
+        final response = await SupabaseConfig.client.functions.invoke(
+          'secure-login',
+          body: {
+            'email': _emailController.text.trim(),
+            'password': _passwordController.text,
+          },
         );
-      } on AuthException catch (e) {
-        errorMessage = e.message;
+        final data = response.data as Map;
+        if (data['ok'] == true) {
+          await SupabaseConfig.client.auth
+              .setSession(data['refresh_token'] as String);
+        } else {
+          errorMessage =
+              data['error'] as String? ?? 'Email ou mot de passe incorrect';
+        }
       } catch (e) {
         errorMessage = 'Une erreur est survenue. Réessayez.';
       }
