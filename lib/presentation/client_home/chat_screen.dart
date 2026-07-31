@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
+import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
 import '../../core/supabase/supabase_config.dart';
 
@@ -18,14 +20,14 @@ import '../../core/supabase/supabase_config.dart';
 /// périmètre, l'écran Admin correspondant (déjà présent mais 100% mock,
 /// `lib/presentation/messaging_center/`) reste à brancher côté
 /// Backend/Infra sur ce même schéma.
-class ChatScreen extends StatefulWidget {
+class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   String? _conversationId;
   bool _isLoading = true;
   String? _error;
@@ -34,16 +36,61 @@ class _ChatScreenState extends State<ChatScreen> {
   final _dateFormat = DateFormat('HH:mm');
   Stream<List<Map<String, dynamic>>>? _messagesStream;
 
+  final _scrollController = ScrollController();
+  int _lastMessageCount = 0;
+  bool _showJumpToLatest = false;
+
   @override
   void initState() {
     super.initState();
     _init();
+    // Liste inversée (reverse: true) : offset 0 = tout en bas. Si le
+    // client remonte dans l'historique, on masque la pastille "Nouveau
+    // message" dès qu'il revient naturellement près du bas.
+    _scrollController.addListener(() {
+      if (_showJumpToLatest &&
+          _scrollController.hasClients &&
+          _scrollController.position.pixels <= 80) {
+        setState(() => _showJumpToLatest = false);
+      }
+    });
   }
 
   @override
   void dispose() {
     _textController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToLatest() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  /// Appelé à chaque nouvelle liste reçue du flux temps réel. Si le client
+  /// est déjà en bas (ou vient d'ouvrir la conversation), on le fait
+  /// défiler automatiquement vers le nouveau message. S'il est remonté
+  /// dans l'historique, on affiche une petite pastille "Nouveau message"
+  /// plutôt que de le faire défiler de force.
+  void _handleIncomingMessages(int count) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (count > _lastMessageCount) {
+        final atBottom = !_scrollController.hasClients ||
+            _scrollController.position.pixels <= 80;
+        if (atBottom) {
+          _scrollToLatest();
+        } else if (_lastMessageCount != 0) {
+          setState(() => _showJumpToLatest = true);
+        }
+      }
+      _lastMessageCount = count;
+    });
   }
 
   Future<void> _init() async {
@@ -202,6 +249,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bubbleStyle = ref.watch(chatBubbleStyleProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Messagerie')),
@@ -217,7 +265,9 @@ class _ChatScreenState extends State<ChatScreen> {
               : Column(
                   children: [
                     Expanded(
-                      child: StreamBuilder<List<Map<String, dynamic>>>(
+                      child: Stack(
+                        children: [
+                          StreamBuilder<List<Map<String, dynamic>>>(
                         stream: _messagesStream,
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
@@ -225,6 +275,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 child: CircularProgressIndicator());
                           }
                           final messages = snapshot.data!;
+                          _handleIncomingMessages(messages.length);
                           if (messages.isEmpty) {
                             return Center(
                               child: Padding(
@@ -242,6 +293,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             );
                           }
                           return ListView.builder(
+                            controller: _scrollController,
                             reverse: true,
                             padding: EdgeInsets.all(4.w),
                             itemCount: messages.length,
@@ -273,9 +325,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                     ? Alignment.centerRight
                                     : Alignment.centerLeft,
                                 child: Container(
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
+                                  margin: EdgeInsets.only(
+                                      bottom: bubbleStyle.bubbleSpacing),
+                                  padding: bubbleStyle.bubblePadding,
                                   constraints: BoxConstraints(
                                       maxWidth: 75.w),
                                   decoration: BoxDecoration(
@@ -283,7 +335,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                         ? theme.colorScheme.primary
                                         : theme
                                             .colorScheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(
+                                        bubbleStyle.borderRadius),
                                   ),
                                   child: Column(
                                     crossAxisAlignment:
@@ -332,6 +385,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                         Text(
                                           m['content'],
                                           style: TextStyle(
+                                            fontSize: bubbleStyle.fontSize,
                                             color: isClient
                                                 ? theme.colorScheme.onPrimary
                                                 : theme.colorScheme.onSurface,
@@ -362,6 +416,52 @@ class _ChatScreenState extends State<ChatScreen> {
                             },
                           );
                         },
+                          ),
+                          if (_showJumpToLatest)
+                            Positioned(
+                              bottom: 12,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Material(
+                                  color: theme.colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(20),
+                                  elevation: 2,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    onTap: () {
+                                      _scrollToLatest();
+                                      setState(
+                                          () => _showJumpToLatest = false);
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 8),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.arrow_downward,
+                                              size: 16,
+                                              color:
+                                                  theme.colorScheme.onPrimary),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Nouveau message',
+                                            style: TextStyle(
+                                              color:
+                                                  theme.colorScheme.onPrimary,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     SafeArea(
