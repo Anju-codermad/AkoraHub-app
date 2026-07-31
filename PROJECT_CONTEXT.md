@@ -2654,6 +2654,47 @@ critique de l'app (l'écran d'achat principal des clients), à valider
 avec l'utilisateur avant de l'implémenter plutôt que de le faire
 silencieusement.
 
+## 3vingtneuftrentecies. Pagination du catalogue client (31/07) ✅ FAIT — item 2 de l'audit désormais complet
+
+Suite de 3vingthuittrentecies : le catalogue client (`catalog_tab.dart`),
+volontairement laissé de côté car plus complexe (recherche texte +
+filtre catégorie + filtre pilier appliqués en mémoire, ET dépendance du
+mode hors-ligne + des puces de catégorie sur la liste complète). Deux
+options proposées à l'utilisateur — paginer quand même (2 requêtes au
+lieu d'une) vs laisser tel quel — **l'utilisateur a choisi de paginer**.
+
+- **Grille visible** (`_products`) : chargée par pages de 20,
+  filtrée **côté serveur** (pilier `.eq('business_unit_id', ...)`,
+  catégorie `.eq('category', ...)`, recherche `.ilike('name', '%...%')`),
+  suite automatique en scrollant vers le bas.
+- **Recherche** : passée d'instantanée (une requête par lettre tapée) à
+  différée de 400ms après la dernière frappe (validé avec l'utilisateur
+  au préalable) — imperceptible à l'usage, évite une requête réseau par
+  caractère.
+- **Puces de catégorie + cache hors-ligne** : nouveau champ
+  `_allProductsForReference`, alimenté par un chargement complet du
+  catalogue **en arrière-plan** (`_refreshFullCatalogReference`, ne
+  bloque pas l'affichage de la première page). Les puces de catégorie et
+  `_cacheCatalogOffline` utilisent désormais ce champ plutôt que
+  `_products` (paginé), pour ne jamais perdre en cohérence au fil du
+  scroll infini.
+- **Mode hors-ligne** : au chargement depuis le cache local (pas de
+  réseau disponible), `_products` ET `_allProductsForReference` reçoivent
+  directement tout le catalogue mis en cache (pas de pagination possible
+  sans réseau pour charger la suite) — `_filteredProducts` (filtre
+  client existant, inchangé) s'applique alors normalement dessus, exactement
+  comme avant ce chantier.
+- La logique de filtre client-side existante (`_filteredProducts`) a été
+  **conservée telle quelle** plutôt que supprimée : en ligne, elle
+  ré-applique un filtre déjà satisfait par le serveur (no-op, sans
+  risque) ; hors-ligne, elle redevient la seule ligne de défense sur
+  l'ensemble complet mis en cache — un seul getter qui marche
+  correctement dans les deux cas, sans dupliquer la logique de filtre.
+
+Item 2 de la checklist perf/sécurité (31/07) maintenant entièrement traité
+pour toutes les listes longues identifiées (Commandes, Mur, Produits
+Admin, Catalogue client).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :
