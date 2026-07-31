@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
+import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
 import '../../core/supabase/supabase_config.dart';
 
@@ -157,7 +159,7 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
   }
 }
 
-class _AdminConversationThread extends StatefulWidget {
+class _AdminConversationThread extends ConsumerStatefulWidget {
   final String conversationId;
   final String customerName;
 
@@ -167,11 +169,12 @@ class _AdminConversationThread extends StatefulWidget {
   });
 
   @override
-  State<_AdminConversationThread> createState() =>
+  ConsumerState<_AdminConversationThread> createState() =>
       _AdminConversationThreadState();
 }
 
-class _AdminConversationThreadState extends State<_AdminConversationThread> {
+class _AdminConversationThreadState
+    extends ConsumerState<_AdminConversationThread> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   List<Map<String, dynamic>> _messages = [];
@@ -290,6 +293,7 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bubbleStyle = ref.watch(chatBubbleStyleProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.customerName)),
@@ -311,9 +315,9 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
                             ? Alignment.centerRight
                             : Alignment.centerLeft,
                         child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
+                          margin: EdgeInsets.symmetric(
+                              vertical: bubbleStyle.bubbleSpacing / 2),
+                          padding: bubbleStyle.bubblePadding,
                           constraints: BoxConstraints(
                             maxWidth: MediaQuery.of(context).size.width * 0.75,
                           ),
@@ -321,7 +325,8 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
                             color: isMine
                                 ? theme.colorScheme.primary
                                 : theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius:
+                                BorderRadius.circular(bubbleStyle.borderRadius),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,6 +368,7 @@ class _AdminConversationThreadState extends State<_AdminConversationThread> {
                                 Text(
                                   m['content'],
                                   style: TextStyle(
+                                    fontSize: bubbleStyle.fontSize,
                                     color: isMine
                                         ? theme.colorScheme.onPrimary
                                         : theme.colorScheme.onSurface,

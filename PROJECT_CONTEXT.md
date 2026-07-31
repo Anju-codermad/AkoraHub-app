@@ -2336,6 +2336,45 @@ forme lisible, et sans que le client puisse la corriger.
 ✅ Script exécuté par l'utilisateur ("Success. No rows returned") et
 fusionné dans `main`.
 
+## 3vingtdeuxtrentecies. Messagerie : indicateur "Nouveau message" + styles de bulles au choix (31/07) ✅ FAIT
+
+Retour utilisateur sur capture d'écran (messagerie client, plusieurs
+pièces jointes envoyées d'affilée) : aucun horodatage visible sur les
+bulles. Diagnostic — ce n'était pas un bug d'affichage de l'heure
+(3octovicies groupe déjà l'horodatage sur la dernière bulle d'une série
+du même expéditeur, logique correcte), mais l'absence totale
+d'auto-scroll/notification : `chat_screen.dart` utilisait un
+`ListView.builder(reverse: true)` sans `ScrollController`, donc si le
+client n'était pas physiquement tout en bas au moment où un nouveau
+message arrivait via le flux temps réel, rien ne l'avertissait ni ne
+l'y ramenait — il restait sur d'anciens messages, jamais sur "la dernière
+bulle du groupe" qui porte l'horodatage.
+
+- **Correctif** (`chat_screen.dart`) : ajout d'un `ScrollController`.
+  `_handleIncomingMessages()` compare le nombre de messages à chaque
+  émission du flux ; si le client est déjà en bas (offset ≤ 80, liste
+  inversée), défilement automatique vers le nouveau message ; sinon,
+  affichage d'une pastille flottante "Nouveau message ↓" (au-dessus du
+  composeur) qui ramène en bas au tap. La pastille se masque aussi
+  automatiquement si le client revient en bas manuellement.
+  Périmètre : côté client uniquement (le fil admin,
+  `messaging_center_real.dart`, n'a pas encore de flux temps réel — reste
+  un chargement ponctuel avec `jumpTo` manuel, hors périmètre de ce
+  correctif).
+
+- **Styles de bulles au choix** (nouveau
+  `lib/core/chat/chat_bubble_style.dart`) : enum `ChatBubbleStyle`
+  (`classique`/`compact`/`confort`) avec padding/rayon/taille de police/
+  espacement propres à chacun, persistés via `SharedPreferences`
+  (même schéma que `theme_provider.dart`/langue — préférence personnelle,
+  pas liée au rôle). Nouveau réglage "Style des messages" dans l'écran
+  Paramètres (`settings_screen.dart`), au même endroit que Langue/Mode
+  sombre. Appliqué aux deux fils de discussion — client
+  (`chat_screen.dart`) et staff (`messaging_center_real.dart`,
+  `_AdminConversationThread` converti en `ConsumerStatefulWidget`) — donc
+  client ET staff choisissent chacun le style qui leur convient,
+  indépendamment l'un de l'autre.
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../../core/chat/chat_bubble_style.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../notification_sounds_screen.dart';
@@ -23,6 +24,7 @@ class SettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
+    final bubbleStyle = ref.watch(chatBubbleStyleProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
@@ -72,6 +74,57 @@ class SettingsScreen extends ConsumerWidget {
                     );
                     if (selected != null) {
                       ref.read(localeProvider.notifier).setLocale(selected);
+                    }
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.chat_bubble_outline),
+                  title: const Text('Style des messages'),
+                  trailing: Text(
+                    bubbleStyle.label,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  onTap: () async {
+                    final selected = await showDialog<ChatBubbleStyle>(
+                      context: context,
+                      builder: (context) => SimpleDialog(
+                        title: const Text('Style des messages'),
+                        children: ChatBubbleStyle.values.map((style) {
+                          return SimpleDialogOption(
+                            onPressed: () => Navigator.pop(context, style),
+                            child: Row(
+                              children: [
+                                if (style == bubbleStyle)
+                                  const Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: Icon(Icons.check, size: 18),
+                                  )
+                                else
+                                  const SizedBox(width: 26),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(style.label,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600)),
+                                      Text(style.description,
+                                          style: theme.textTheme.bodySmall),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                    if (selected != null) {
+                      ref
+                          .read(chatBubbleStyleProvider.notifier)
+                          .setStyle(selected);
                     }
                   },
                 ),
