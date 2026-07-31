@@ -3025,10 +3025,47 @@ dans plusieurs piliers différents, ambigu pour l'abonnement. Statut
 rechargé (`_refreshSubscriptionStatus`) à chaque changement de pilier/
 catégorie.
 
-**Reste à faire** : renseigner le `WEBHOOK_SECRET` dans le script SQL,
-l'exécuter, puis tester (s'abonner à une catégorie, faire publier un
-produit dans cette catégorie depuis l'écran Admin, vérifier la réception
-de la notification) avant de merger sur `main`.
+**Terminé (31/07)** : script exécuté, `WEBHOOK_SECRET` créé comme secret
+Edge Function (il n'existait pas du tout auparavant — découverte au
+passage : les triggers phase17/phase18 utilisaient déjà une valeur
+"réelle" trouvée en lisant `pg_proc.prosrc` du trigger messages existant,
+réutilisée ici pour cohérence), fonction `send-push-notification`
+redéployée avec la 4e catégorie. **Reste à tester** (s'abonner à une
+catégorie, publier un produit dedans depuis l'Admin, vérifier la
+notification) avant de merger sur `main`.
+
+## 3trentesixtrentecies. Améliorations de l'accueil client (31/07) ✅ FAIT (pas de SQL)
+
+Suite à une session de retours visuels sur l'accueil client (capture
+d'écran fournie par l'utilisateur), 5 pistes ont été proposées puis
+validées (sauf la bannière hero, volontairement laissée telle quelle —
+contenu de test, pas un problème de design). Constat en cours de route :
+2 des 5 étaient **déjà implémentées** (badge panier avec compteur, badge
+"notifications" avec compteur — ce dernier réutilise en fait le nombre de
+messages non lus, il n'existe pas de flux de notifications distinct).
+Seuls 3 points restaient réellement à faire :
+
+- **Salutation dynamique** : "Bonjour"/"Bonsoir" selon `DateTime.now().hour`
+  (avant 5h ou après 18h → "Bonsoir") au lieu de "Bonjour" figé.
+- **Icônes par catégorie** : nouvelle fonction `_iconForCategory` (mots-clés
+  sur le nom, ex: "peinture"→pinceau, "carrelage"→grille, "insecticide"→
+  anti-nuisible), même principe que `_iconForUnit` déjà existant pour les
+  piliers — appliquée via `avatar:` sur les `ChoiceChip` de catégorie.
+- **Bouton "Recommander" visible** : la carte "Vous recommandez souvent"
+  avait déjà un bouton d'ajout rapide (icône "+" seule) — ajout d'un
+  badge "🔁 Recommander" en haut à gauche de chaque carte, plus visible
+  et explicite, qui ajoute directement au panier en 1 tap (même logique
+  `_quickAddToCart`).
+- **Écran de chargement (skeleton)** : remplace le spinner plein écran par
+  un aperçu de la mise en page (en-tête, bannière, piliers, grille de
+  produits) avec des rectangles qui pulsent doucement — fait main
+  (`_ShimmerBox`/`_CatalogSkeleton` dans `catalog_tab.dart`) plutôt qu'un
+  package tiers (`shimmer`), pour ne pas ajouter de dépendance non
+  testable sans SDK Flutter local dans cet environnement.
+
+Tout dans `lib/presentation/client_home/catalog_tab.dart`, aucun
+changement SQL — mergeable indépendamment du reste de la branche dès
+que testé visuellement.
 
 ## 4. Ce qui N'EST PAS encore fait
 
