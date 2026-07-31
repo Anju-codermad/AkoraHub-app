@@ -692,7 +692,9 @@ class _CartTabState extends ConsumerState<CartTab> {
                       Expanded(
                         child: Text(
                           'Vous serez redirigé vers une page de paiement '
-                          'sécurisée après validation de la commande.',
+                          'sécurisée après validation de la commande. '
+                          'Montant demandé : ${_currency.format(total + (_deliveryFee ?? 0))} '
+                          '(produits + livraison), sans frais supplémentaire.',
                           style: theme.textTheme.bodySmall,
                         ),
                       ),
