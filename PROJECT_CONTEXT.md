@@ -3177,7 +3177,7 @@ imposé par le Dashboard que hyper-endpoint/secure-login, "Verify JWT with
 legacy secret" désactivé). **Reste à tester** : un appel réel de bout en
 bout (audio ET vidéo, dans les 2 sens client→staff et staff→client).
 
-## 3trentehuittrentecies. Paiement en ligne automatique — Papi.mg (31/07) ⚠️ CODE PRÊT, SCRIPT SQL + 2 EDGE FUNCTIONS PAS ENCORE DÉPLOYÉS
+## 3trentehuittrentecies. Paiement en ligne automatique — Papi.mg (31/07) ✅ DÉPLOYÉ ET MERGÉ SUR MAIN, TEST SANDBOX EN COURS
 
 L'utilisateur a reçu un accès (clé API test) à **Papi.mg**, agrégateur de
 paiement malgache (MVola/Orange Money/Airtel Money/Visa via BRED),
@@ -3261,11 +3261,29 @@ d'attente normalement mais **aucun lien de paiement n'est généré**
 (impossible sans réseau) — elle nécessitera un suivi manuel une fois
 synchronisée. Cas marginal, non traité pour l'instant.
 
-**Reste à faire** : créer le secret `PAPI_API_KEY` (Edge Functions →
-Manage secrets), exécuter phase38, déployer les 2 nouvelles Edge
-Functions + redéployer `send-push-notification`, puis tester un paiement
-complet en sandbox (utiliser les numéros de test documentés par Papi,
-ex: `0341230001` pour un succès Mvola) avant de merger sur `main`.
+**Fait** : secret `PAPI_API_KEY` créé, phase38 exécuté, les 2 nouvelles
+Edge Functions déployées (avec leurs vrais noms cette fois, pas de
+renommage nécessaire) + `send-push-notification` redéployé, branche
+mergée sur `main` (commit `40b8aaf`, build Codemagic relancé).
+
+**Précision du support Papi (mail du 31/07, à retenir pour la mise en
+prod)** : une "boutique" Papi n'a qu'**une seule clé API**, valable à la
+fois en test et en production — c'est le **Mode de la boutique**
+(Test/Production) qui détermine si l'argent bougé est réel, pas la clé
+elle-même. Papi recommande **deux boutiques séparées** (une "Test", une
+"Production") plutôt qu'un simple bouton bascule sur une boutique
+unique. Concrètement : la clé `PAPI_API_KEY` actuellement configurée
+correspond à la boutique "Akora Fanadiovana" en **Mode test** — elle ne
+traitera donc jamais de vrai argent, seulement les scénarios simulés
+(numéros de test documentés). Le jour de la mise en prod : créer une
+**seconde** boutique en Mode production sur le dashboard Papi, récupérer
+sa clé API dédiée, et **remplacer** la valeur du secret `PAPI_API_KEY`
+par celle-ci (pas de bascule de mode sur la boutique existante).
+
+**Reste à faire** : tester un paiement complet en sandbox (numéros de
+test documentés par Papi, ex: `0341230001` pour un succès Mvola,
+`0341230002` pour un échec) via le build Codemagic, puis vérifier le
+toggle "Mode manuel (secours)".
 
 ## 4. Ce qui N'EST PAS encore fait
 
