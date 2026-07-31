@@ -2406,6 +2406,58 @@ appareil réel.
   pas de risque de collision équivalente entre Catalogue et Favoris (deux
   routes différentes, jamais montées simultanément).
 
+## 3vingtquatretrentecies. Catalogue de sons de notification géré par l'Admin (31/07) ⚠️ SCRIPT SQL PAS ENCORE EXÉCUTÉ
+
+Demande utilisateur : pouvoir "ajouter et organiser manuellement les sons
+pour chaque notification... supprimer le son que je n'aime pas", côté
+Admin.
+
+**Contrainte technique expliquée à l'utilisateur avant d'implémenter** :
+un vrai "ajout" de fichier son personnalisé (ex: importer un MP3 depuis
+le téléphone) est **impossible** pour une notification push, sur Android
+ET iOS — le son d'un canal de notification doit être une ressource
+intégrée à l'app à la compilation (`res/raw/...` Android, bundle iOS),
+jamais un fichier arbitraire déposé après coup, sans reconstruire et
+publier une nouvelle version de l'app. Ce n'est pas un choix, c'est une
+limite des deux OS.
+
+**Ce qui est réellement construit** — réordonner/masquer les 20 sons déjà
+intégrés (3neuvicies), PAR catégorie, décision validée par l'utilisateur
+("Curation globale par l'Admin") :
+
+- **Nouvelle table** `notification_sound_catalog` (catégorie, sound_id,
+  sort_order, enabled) —
+  `supabase/phase32_patch_notification_sound_catalog.sql`. Même modèle
+  RLS que `payment_method_settings` (phase28) : lecture publique
+  (`current_role_is_admin()` en écriture uniquement), tout le monde doit
+  pouvoir lire pour afficher son propre sélecteur. Seedée avec les 20 sons
+  × 3 catégories (60 lignes), ordre initial = ordre actuel du réservoir
+  commun.
+- **Repo** `lib/core/notifications/notification_sound_catalog_repo.dart` :
+  `visibleSounds()` (sons actifs triés, pour le sélecteur personnel —
+  repli sur la liste complète si la table est vide/inaccessible),
+  `fullCatalog()` (avec les masqués, pour l'écran Admin), `setEnabled()`,
+  `reorder()`.
+- **Sélecteur personnel** (`notification_sounds_screen.dart`, partagé
+  client/staff comme avant) : n'affiche plus `kNotificationSounds` brut
+  mais `NotificationSoundCatalogRepo.visibleSounds(category)` — respecte
+  donc désormais la curation de l'Admin.
+- **Nouvel écran Admin**
+  `lib/presentation/notification_sounds_catalog_admin/notification_sounds_catalog_admin_screen.dart` :
+  un onglet par catégorie, `ReorderableListView` (glisser pour réordonner)
+  + `Switch` par son (masquer/réafficher) + aperçu ▶. Accessible depuis le
+  menu "Plus" du staff (`more_menu_screen.dart`, section Entreprise, entre
+  "Modes de paiement" et "Profil entreprise") — visible pour tous les
+  rôles staff comme les autres entrées de gestion, la vraie barrière
+  restant la RLS `current_role_is_admin()` côté serveur (même logique que
+  "Modes de paiement").
+
+⚠️ **Script SQL à exécuter avant fusion vers main** — sans la table,
+`fullCatalog()`/`visibleSounds()` échoueraient côté Admin (le sélecteur
+personnel a un repli silencieux sur la liste complète, donc pas
+bloquant pour les utilisateurs classiques, mais l'écran de gestion Admin
+ne fonctionnerait pas).
+
 ## 4. Ce qui N'EST PAS encore fait
 
 - **Nettoyage "fonctionnalités bidon" (audit demandé par l'utilisateur, fait)** :

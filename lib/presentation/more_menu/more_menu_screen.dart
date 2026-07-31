@@ -8,6 +8,7 @@ import '../invoicing/invoicing_screen.dart';
 import '../alerts_center/alerts_center.dart';
 import '../flash_infos_management/flash_infos_management.dart';
 import '../home_banners_management/home_banners_management.dart';
+import '../notification_sounds_catalog_admin/notification_sounds_catalog_admin_screen.dart';
 import '../payment_methods_management/payment_methods_management.dart';
 import '../quotes_management/quotes_management.dart';
 import '../order_management_real/order_management_real.dart';
@@ -130,6 +131,16 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const PaymentMethodsManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.music_note_outlined,
+            label: 'Sons de notification',
+            subtitle: 'Réordonner/masquer les sons proposés à tous',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const NotificationSoundsCatalogAdminScreen()),
             ),
           ),
           _MenuTile(
