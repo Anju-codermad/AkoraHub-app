@@ -23,6 +23,11 @@ import '../../core/supabase/supabase_config.dart';
 /// le flux de connexion par téléphone : l'utilisateur a déjà une session
 /// (email vérifié juste avant), on ne fait qu'attacher et confirmer son
 /// numéro à ce compte existant.
+///
+/// ⚠️ Bouton "Passer pour l'instant" (31/07) : mesure temporaire tant que
+/// Twilio n'est pas configuré — à retirer une fois la vérification SMS
+/// opérationnelle, pour que cette étape redevienne réellement obligatoire
+/// (voir `_skip`).
 class PhoneOtpVerificationScreen extends StatefulWidget {
   final String phone;
 
@@ -152,6 +157,18 @@ class _PhoneOtpVerificationScreenState
     }
   }
 
+  /// Passe l'étape sans téléphone vérifié — mesure temporaire tant que
+  /// Twilio n'est pas configuré côté Supabase (31/07), pour ne pas
+  /// bloquer complètement les inscriptions. `profiles.phone` reste vide
+  /// (pas écrit ici) : à retirer une fois la vérification SMS
+  /// opérationnelle, pour qu'elle redevienne réellement obligatoire.
+  Future<void> _skip() async {
+    PushNotificationService.onUserSignedIn();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(
+        context, '/client-home', (route) => false);
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -187,6 +204,11 @@ class _PhoneOtpVerificationScreenState
                 OutlinedButton(
                   onPressed: _sendInitialCode,
                   child: const Text('Réessayer d\'envoyer le SMS'),
+                ),
+                SizedBox(height: 2.h),
+                TextButton(
+                  onPressed: _skip,
+                  child: const Text('Passer pour l\'instant'),
                 ),
               ] else ...[
                 Text(
@@ -229,6 +251,10 @@ class _PhoneOtpVerificationScreenState
                         ? 'Renvoyer le code (${_resendCooldown}s)'
                         : 'Renvoyer le code',
                   ),
+                ),
+                TextButton(
+                  onPressed: _skip,
+                  child: const Text('Passer pour l\'instant'),
                 ),
               ],
             ],

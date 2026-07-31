@@ -2944,6 +2944,16 @@ compte Twilio (externe, payant à l'usage — coût par SMS envoyé). Sans ce
 réglage, `updateUser(phone: ...)` échouera et l'écran affichera une
 erreur au lieu d'envoyer un SMS.
 
+**⏸️ Twilio mis en pause (31/07)** : blocage sur la validation MFA du
+compte Twilio (SMS non reçu). Pour ne pas bloquer complètement les
+inscriptions en attendant, **la vérification SMS est devenue
+optionnelle** : bouton **"Passer pour l'instant"** ajouté sur
+`PhoneOtpVerificationScreen` (visible que l'envoi du SMS échoue ou
+réussisse) qui envoie directement vers `/client-home` sans écrire
+`profiles.phone` — mesure temporaire, explicitement documentée dans le
+code (`_skip`) pour être retirée une fois Twilio opérationnel, sinon
+l'étape ne protège plus vraiment contre les faux comptes.
+
 **Non déterminé** : le nombre de chiffres du code SMS (l'écran accepte
 jusqu'à 8 chiffres sans vérifier une longueur exacte, contrairement à
 l'écran email qui avait dû être corrigé une fois la vraie longueur
