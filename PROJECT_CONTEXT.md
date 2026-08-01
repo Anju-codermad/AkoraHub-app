@@ -4397,3 +4397,31 @@ l'instant (pas de connexion Git↔Netlify configurée).
 Les buckets/dossiers abandonnés (bucket Supabase Storage `formation-web`,
 réglage GitHub Pages non activé) sont laissés tels quels — aucune donnée
 sensible dedans, pas nécessaire de les nettoyer.
+
+## Retouches design de l'écran d'accueil (01/08)
+
+Demande : peaufiner le design avant de prendre les captures d'écran pour
+la fiche Play Store. Trois retouches sur `catalog_tab.dart`, à partir de
+captures réelles de l'app fournies par l'utilisatrice :
+
+- **Palette "Nos activités"** (`_unitColors`) : les 6 couleurs Material
+  par défaut (vert/bleu/orange/violet/rouge/cyan saturés, sans tonalité
+  commune) remplacées par une palette dérivée du vert de marque
+  (`app_theme.dart`, `primaryLight` #085041) — 6 tons apparentés
+  (marque, sauge, ocre, terracotta, ardoise, prune).
+- **Mot "AkoraHub" en haut à droite de l'accueil** : supprimé (redondant
+  avec l'app elle-même, ne servait à rien).
+- **Badge "Recommander"** (section "Vous recommandez souvent") :
+  chevauchait l'étiquette de catégorie de `_ProductCard` — les deux
+  étaient positionnées au même repère (top:8/left:8) mais dans deux
+  `Stack` différents (un superposé par-dessus la carte, l'autre interne
+  à la carte), d'où la collision visuelle. Corrigé en passant
+  `reorderBadge: true` à `_ProductCard`, qui l'affiche désormais dans
+  son propre `Stack` interne, au seul coin resté libre (bas-gauche —
+  catégorie en haut-gauche, favori en haut-droite, ajout rapide en
+  bas-droite).
+
+⚠️ **Point de vigilance signalé, pas un bug à corriger** : la carte
+"Pour vous" de l'accueil peut afficher de vraies données d'un autre
+client (nom, téléphone) — utiliser un compte de test pour les captures
+d'écran finales, jamais un compte avec de vrais contacts/commandes.
