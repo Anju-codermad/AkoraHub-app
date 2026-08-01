@@ -4305,3 +4305,54 @@ en plus du script SQL — même remarque que pour la Phase 47.
 - `wall_tab.dart` : icône "Amis" dans l'AppBar de la Communauté (badge =
   nombre de demandes reçues en attente), point d'entrée unique vers
   `FriendsListScreen`.
+
+## Formation : achat déplacé hors de l'app (conformité Google Play) (01/08)
+
+**Demande** : préparer AkoraHub pour la publication sur le Play Store.
+Analyse du flux de paiement Formation (déblocage de fiches ingrédients,
+Phase 45) : même en paiement manuel (référence + preuve), débloquer un
+contenu numérique consommé dans l'app contre un paiement effectué hors
+Google Play reste dans le champ de la "Payments policy" de Google — un
+motif de rejet possible à la revue. Les commandes de produits physiques
+(Akora Fanadiovana) ne sont, elles, pas concernées : Google n'impose
+jamais Play Billing pour des biens physiques livrés.
+
+**Solution retenue** : le modèle "reader app", déjà utilisé par de
+nombreuses apps de contenu (Kindle et consorts) — sortir l'écran d'achat
+de l'application Android et le déplacer sur une page web ouverte dans le
+navigateur externe (jamais une WebView intégrée). Le backend
+(`formation_purchases`, validation manuelle par le staff, déblocage)
+reste strictement inchangé ; seul le point d'entrée du paiement change.
+Rien à payer à Google avec cette approche (contrairement à Play Billing,
+explicitement écarté par l'utilisatrice pour son coût).
+
+**SQL** : `supabase/phase49_patch_formation_web_bucket.sql` — crée
+uniquement le bucket Storage public `formation-web` qui héberge la page.
+Le fichier HTML lui-même est déposé manuellement dans ce bucket depuis
+le Dashboard (pas de mécanisme de déploiement automatique pour ça).
+
+**Nouvelle page web** : `web/formation-access/index.html` — page
+autonome (HTML/CSS/JS vanilla, aucune dépendance externe), qui
+réimplémente exactement le même flux que l'ancien
+`formation_purchase_screen.dart` : connexion (même email/mot de passe
+que l'app, via l'API Auth Supabase), catalogue avec prix dégressif par
+palier, sélection multi-produits, choix du mode de paiement manuel
+(mêmes coordonnées que dans l'app), upload de preuve, envoi de la
+demande (même table, même RLS que l'app — aucun accès privilégié, la clé
+utilisée est la clé publique `anon`).
+
+**Modifications Dart :**
+- `core/utils/formation_web_link.dart` (nouveau) : ouvre la page dans le
+  navigateur externe (`LaunchMode.externalApplication`).
+- `formation_catalog_screen.dart`, `raw_material_detail_client.dart` :
+  les 3 boutons "Acheter" ouvrent désormais la page web au lieu de
+  naviguer vers un écran intégré.
+- `formation_purchase_screen.dart` **supprimé** (plus aucune référence,
+  devenu du code mort).
+
+⚠️ **Limite assumée** : la page web est un fichier statique déposé
+manuellement — toute évolution du flux d'achat (nouveau champ, nouvelle
+règle de prix) devra être répercutée à la main dans ce fichier en plus
+de l'app. Le formulaire "Sécurité des données" du Play Store reste à
+compléter séparément (voir le guide fourni précédemment, mis de côté
+pour l'instant à la demande de l'utilisatrice).
