@@ -13,15 +13,14 @@ import 'raw_material_detail_client.dart';
 /// complètes (description, dosages, conditionnement, prix) ne s'ouvrent
 /// qu'avec un abonnement Formation actif ; sinon, un cadenas invite à
 /// s'abonner.
+///
+/// Point d'accès unique, indépendant des piliers "Produits" (voir
+/// profile_tab.dart) — regroupe les matières premières de tous les
+/// piliers (Akora Pro, Peinture Pro, Akora Protect...) au même endroit,
+/// plutôt que d'accrocher cette base à un pilier "Produits" détourné de
+/// son rôle (décision du 01/08, voir PROJECT_CONTEXT.md).
 class FormationCatalogScreen extends StatefulWidget {
-  final String businessUnitId;
-  final String businessUnitName;
-
-  const FormationCatalogScreen({
-    super.key,
-    required this.businessUnitId,
-    required this.businessUnitName,
-  });
+  const FormationCatalogScreen({super.key});
 
   @override
   State<FormationCatalogScreen> createState() => _FormationCatalogScreenState();
@@ -29,9 +28,11 @@ class FormationCatalogScreen extends StatefulWidget {
 
 class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
   List<Map<String, dynamic>> _materials = [];
+  Map<String, String> _unitNames = {};
   bool _isLoading = true;
   String? _error;
   String _search = '';
+  String _selectedUnitId = 'tous';
   String _selectedCategory = 'toutes';
   bool _isSubscribed = false;
 
@@ -48,16 +49,17 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
     });
     try {
       final results = await Future.wait<dynamic>([
-        SupabaseConfig.client
-            .from('raw_materials_preview')
-            .select()
-            .eq('business_unit_id', widget.businessUnitId)
-            .order('name'),
+        SupabaseConfig.client.from('raw_materials_preview').select().order('name'),
+        SupabaseConfig.client.from('business_units').select('id, name'),
         FormationRepo.fetchMySubscription(),
       ]);
+      final units = List<Map<String, dynamic>>.from(results[1] as List);
       setState(() {
         _materials = List<Map<String, dynamic>>.from(results[0] as List);
-        _isSubscribed = FormationRepo.isActive(results[1] as Map<String, dynamic>?);
+        _unitNames = {
+          for (final u in units) u['id'] as String: u['name'] as String? ?? ''
+        };
+        _isSubscribed = FormationRepo.isActive(results[2] as Map<String, dynamic>?);
         _isLoading = false;
       });
     } catch (e) {
@@ -69,18 +71,33 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
     }
   }
 
-  List<String> get _categories =>
-      _materials.map((m) => m['category_name'] as String? ?? '').toSet().toList()
-        ..sort();
+  List<Map<String, String>> get _units {
+    final ids = _materials.map((m) => m['business_unit_id'] as String).toSet();
+    final list = ids
+        .map((id) => {'id': id, 'name': _unitNames[id] ?? ''})
+        .toList();
+    list.sort((a, b) => (a['name'] ?? '').compareTo(b['name'] ?? ''));
+    return list;
+  }
+
+  List<String> get _categories => _materials
+      .where((m) =>
+          _selectedUnitId == 'tous' || m['business_unit_id'] == _selectedUnitId)
+      .map((m) => m['category_name'] as String? ?? '')
+      .toSet()
+      .toList()
+    ..sort();
 
   List<Map<String, dynamic>> get _filtered => _materials.where((m) {
+        final matchesUnit = _selectedUnitId == 'tous' ||
+            m['business_unit_id'] == _selectedUnitId;
         final matchesCategory = _selectedCategory == 'toutes' ||
             m['category_name'] == _selectedCategory;
         final matchesSearch = _search.isEmpty ||
             (m['name'] as String? ?? '')
                 .toLowerCase()
                 .contains(_search.toLowerCase());
-        return matchesCategory && matchesSearch;
+        return matchesUnit && matchesCategory && matchesSearch;
       }).toList();
 
   void _openMaterial(Map<String, dynamic> material) {
@@ -105,7 +122,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
     final filtered = _filtered;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.businessUnitName)),
+      appBar: AppBar(title: const Text('Formation')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -159,6 +176,38 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                           onChanged: (v) => setState(() => _search = v),
                         ),
                       ),
+                      if (_units.length > 1)
+                        SizedBox(
+                          height: 5.h,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.symmetric(horizontal: 4.w),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: const Text('Tous les piliers'),
+                                  selected: _selectedUnitId == 'tous',
+                                  onSelected: (_) => setState(() {
+                                    _selectedUnitId = 'tous';
+                                    _selectedCategory = 'toutes';
+                                  }),
+                                ),
+                              ),
+                              ..._units.map((u) => Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Text(u['name'] ?? ''),
+                                      selected: _selectedUnitId == u['id'],
+                                      onSelected: (_) => setState(() {
+                                        _selectedUnitId = u['id']!;
+                                        _selectedCategory = 'toutes';
+                                      }),
+                                    ),
+                                  )),
+                            ],
+                          ),
+                        ),
                       if (_categories.isNotEmpty)
                         SizedBox(
                           height: 5.h,
@@ -169,7 +218,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
-                                  label: const Text('Toutes'),
+                                  label: const Text('Toutes les catégories'),
                                   selected: _selectedCategory == 'toutes',
                                   onSelected: (_) =>
                                       setState(() => _selectedCategory = 'toutes'),
@@ -208,6 +257,8 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                                   final m = filtered[index];
                                   final status =
                                       m['stock_status'] as String? ?? 'en_stock';
+                                  final unitName =
+                                      _unitNames[m['business_unit_id']] ?? '';
                                   return Card(
                                     child: ListTile(
                                       leading: Stack(
@@ -257,7 +308,10 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                                         ],
                                       ),
                                       title: Text(m['name'] ?? ''),
-                                      subtitle: Text(m['category_name'] ?? ''),
+                                      subtitle: Text([
+                                        m['category_name'],
+                                        if (unitName.isNotEmpty) unitName,
+                                      ].where((e) => e != null && e != '').join(' · ')),
                                       trailing: Chip(
                                         label: Text(
                                             rawMaterialStatusLabel(status),

@@ -3699,3 +3699,32 @@ détail des ~150 SKU produits, ~24 prestations services, ~40 modules
 formation) — redemander le fichier à l'utilisatrice si une future session
 doit reprendre ce chantier, il n'est pas commité dans le dépôt.
 
+**Renommage effectué par l'utilisatrice (01/08)** : Akora Fanadiovana →
+**Akora Home**, Matières Premières → **Akora Pro**, Anti-Nuisibles →
+**Akora Protect**, ARCA PAINTS → **Peinture**, Matières Premières
+Peinture → **Peinture Pro** (nom choisi ensemble, "Arca" écarté — pas
+encore confirmé comme marque). Elle a aussi créé elle-même le pilier
+**AkoraFormation** (`akoraformation`), actuellement vide (le vrai système
+de cours n'existe pas encore, voir point 4 ci-dessus).
+
+**⚠️ Refonte de l'accès Formation (01/08, faite)** : en renommant, l'utilisatrice
+a repéré un vrai problème de conception, pas juste un souci de nom —
+3 piliers "Produits" (Akora Pro, Peinture Pro, Akora Protect) étaient
+détournés de leur rôle : taper dessus ouvrait TOUJOURS l'écran Formation
+(matières premières), jamais un catalogue de produits, même si de vrais
+produits finis y étaient ajoutés un jour (ex: Akora Protect doit pouvoir
+vendre de vrais insecticides finis). Corrigé :
+- `catalog_tab.dart` : le cas spécial par `slug` (`rawMaterialSlugs`) est
+  **supprimé** — tous les piliers filtrent maintenant la grille produits
+  de la même façon, sans exception.
+- `FormationCatalogScreen` (`client_home/formation/formation_catalog_screen.dart`) :
+  ne prend plus `businessUnitId`/`businessUnitName` en paramètre — charge
+  **toute** la vue `raw_materials_preview` (tous piliers confondus), avec
+  un double filtre par puces (pilier d'origine + catégorie chimique).
+  Titre fixe "Formation".
+- **Nouveau point d'entrée unique** : `client_home/profile_tab.dart`,
+  entrée de menu "Formation" (sous "Messagerie", au-dessus de "Scanner un
+  produit") → `Navigator.push(FormationCatalogScreen())` sans argument.
+  C'est désormais le seul chemin pour atteindre la base Formation côté
+  client — plus aucun pilier de l'Accueil n'y mène.
+
