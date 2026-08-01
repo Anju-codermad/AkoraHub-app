@@ -1346,14 +1346,25 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(32),
                         onTap: () {
-                          // Le pilier "Formation" n'a pas de produits
-                          // vendables — c'est la base de référence des
-                          // matières premières (voir
-                          // supabase/phase40_schema.sql), accès payant.
-                          // Ouvre son propre écran plutôt que de filtrer
-                          // la grille produits comme les autres piliers.
+                          // Les piliers matières premières (Akora Pro /
+                          // Matières Premières Peinture / Anti-Nuisibles —
+                          // voir supabase/phase10_patch_new_business_units.sql
+                          // et phase40/41) n'ont pas de produits vendables :
+                          // ils ouvrent la base de référence Formation
+                          // (accès payant) plutôt que de filtrer la grille
+                          // produits comme les autres piliers. Détection
+                          // par `slug` (identifiant technique, stable même
+                          // si le nom affiché du pilier est renommé —
+                          // ex: "Matières Premières" → "Akora Pro" — voir
+                          // business_units_management.dart : un rename ne
+                          // change que `name`, jamais `slug`).
                           final slug = (unit['slug'] ?? '').toString();
-                          if (slug.contains('formation')) {
+                          const rawMaterialSlugs = {
+                            'matieres-premieres',
+                            'matieres-premieres-peinture',
+                            'anti-nuisibles',
+                          };
+                          if (rawMaterialSlugs.contains(slug)) {
                             Navigator.push(
                               context,
                               MaterialPageRoute(

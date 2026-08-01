@@ -3624,15 +3624,36 @@ complète — icônes/couleurs par famille chimique et par domaine d'usage,
 badge danger, courbe d'évolution du prix dessinée à la main avec
 `CustomPainter`, pas de nouvelle dépendance), `FormationSubscriptionScreen`
 (choix du plan, mode de paiement manuel, référence + preuve optionnelle).
-Le pilier "Formation" n'a **pas de produits vendables** : dans
-`catalog_tab.dart`, taper ce pilier (détecté par mot-clé `formation` dans
-le `slug`, icône 🎓 déjà mappée) ouvre `FormationCatalogScreen` au lieu de
-filtrer la grille produits comme les autres piliers.
+**⚠️ Correction (02/08) — la base de matières premières n'est PAS le vrai
+"AkoraFormation"** : l'utilisatrice a fourni un document
+("Akora_Activites_Piliers.md") détaillant les 3 piliers réels du Groupe
+Akora — Produits (Akora Home/Pro/Soins/Protect + Peinture), Services
+(Akora Services), Formations (AkoraFormation, vrais cours/modules e-
+learning, ex: "Eau de Javel — 8 modules déjà développés"). La base de
+matières premières construite ci-dessus correspond en réalité à **"Akora
+Pro"** (matières premières/emballages B2B — ses 11 catégories recoupent
+presque exactement celles déjà seedées), PAS à "AkoraFormation" (qui est
+un système de cours à part, pas encore construit). Décision actée avec
+l'utilisatrice : ne pas tout restructurer maintenant (gros chantier
+séparé — Akora Home/Soins/Protect, Services, vraies Formations à créer
+plus tard) ; corriger seulement le code pour qu'il ne dépende plus du mot
+"formation". `catalog_tab.dart` détecte maintenant directement les 3
+piliers existants par leur `slug` stable (`matieres-premieres`,
+`matieres-premieres-peinture`, `anti-nuisibles`) plutôt que par mot-clé
+"formation" — un rename de pilier (ex: "Matières Premières" → "Akora
+Pro") ne change que `name`, jamais `slug` (voir
+`business_units_management.dart`), donc renommer l'affichage ne casse
+rien. L'icône 🎓 mappée sur le mot-clé `formation` (inchangée) reste prête
+pour le futur vrai pilier AkoraFormation (cours), pas encore créé.
 
 **⚠️ Action requise côté utilisatrice** : exécuter
-`phase40_schema.sql` puis `phase41_patch_seed_raw_materials.sql` dans
-Supabase SQL Editor (dans cet ordre), puis créer le pilier "Formation"
-depuis "Piliers d'entreprise" (même écran que les autres piliers — le nom
-doit contenir "formation" pour que l'icône/le routage spécial
-s'appliquent, ex: "Formation" ou "AkoraFormation").
+`phase40_schema.sql` (version corrigée du 02/08 — l'ordre de création a
+été corrigé, `has_active_formation_subscription()` doit exister avant les
+policies qui la référencent) puis `phase41_patch_seed_raw_materials.sql`
+dans Supabase SQL Editor (dans cet ordre). **Aucun nouveau pilier à
+créer** : les piliers "Matières Premières", "Matières Premières Peinture"
+et "Anti-Nuisibles" existent déjà (phase10) et déclenchent automatiquement
+l'écran Formation au tap — juste les activer depuis "Piliers
+d'entreprise" s'ils ne le sont pas déjà. Renommer "Matières Premières" en
+"Akora Pro" est optionnel, purement cosmétique.
 
