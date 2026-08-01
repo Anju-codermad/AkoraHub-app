@@ -1,25 +1,16 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
-import '../../core/payment/mobile_money_withdrawal_fee.dart';
-import '../../core/payment/papi_payment_repo.dart';
-import '../../core/payment/payment_method_selector.dart';
-import '../../core/payment/payment_method_settings_repo.dart';
-import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'delivery_pricing.dart';
+import 'payment_screen.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
 
 class CartTab extends ConsumerStatefulWidget {
@@ -30,7 +21,7 @@ class CartTab extends ConsumerStatefulWidget {
 }
 
 class _CartTabState extends ConsumerState<CartTab> {
-  bool _isSubmitting = false;
+  bool _isSubmittingQuote = false;
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -41,71 +32,18 @@ class _CartTabState extends ConsumerState<CartTab> {
   double? _deliveryLon;
   String? _deliveryError;
 
-  PaymentMethod _paymentMethod = PaymentMethod.paiementLivraison;
-  Set<PaymentMethod> _availableMethods = PaymentMethod.values.toSet();
-  final _paymentReferenceController = TextEditingController();
-  File? _paymentProofFile;
-
-  // Réglage Admin (voir payment_methods_management.dart) : secours
-  // d'urgence (ex: Papi indisponible) — quand activé, force TOUS les
-  // clients en manuel pour Mvola/Orange Money/Airtel Money, sans leur
-  // laisser le choix. Cas normal (false) : les deux options coexistent,
-  // voir `_payAutomatically` ci-dessous.
-  bool _manualFallback = false;
-
-  /// Choix du client (pas de l'Admin) entre paiement automatique (Papi)
-  /// et manuel (référence + preuve), pour les méthodes qui supportent les
-  /// deux — demande explicite de l'utilisatrice (01/08) : les deux modes
-  /// doivent être disponibles en même temps, au client de choisir.
-  bool _payAutomatically = true;
-
-  /// Le flux manuel (encadré coordonnées + référence + photo) s'affiche
-  /// pour les méthodes sans confirmation automatique (virement bancaire),
-  /// ou pour Mvola/Orange/Airtel si le secours manuel est forcé par
-  /// l'Admin, ou si le client a lui-même choisi le paiement manuel.
-  bool get _showManualPaymentFields =>
-      _paymentMethod.instructions != null &&
-      (!_paymentMethod.isPapiCapable || _manualFallback || !_payAutomatically);
-
   final _deliveryAddressController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _estimateDelivery();
-    _loadAvailablePaymentMethods();
   }
 
   @override
   void dispose() {
-    _paymentReferenceController.dispose();
     _deliveryAddressController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickPaymentProof() async {
-    final picked = await ImagePicker()
-        .pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (picked == null) return;
-    setState(() => _paymentProofFile = File(picked.path));
-  }
-
-  /// Modes de paiement activés par l'Admin (voir
-  /// `payment_methods_management.dart`) — repli sur tous les modes actifs
-  /// tant que le chargement n'est pas terminé ou en cas d'échec, pour ne
-  /// jamais bloquer le checkout.
-  Future<void> _loadAvailablePaymentMethods() async {
-    final available = await PaymentMethodSettingsRepo.fetchEnabled();
-    final manualFallback =
-        await PaymentMethodSettingsRepo.isManualFallbackEnabled();
-    if (!mounted) return;
-    setState(() {
-      _availableMethods = available;
-      _manualFallback = manualFallback;
-      if (!available.contains(_paymentMethod) && available.isNotEmpty) {
-        _paymentMethod = available.first;
-      }
-    });
   }
 
   /// Géocodage inverse best-effort (aucune erreur ne doit bloquer le
@@ -234,7 +172,10 @@ class _CartTabState extends ConsumerState<CartTab> {
     return '$prefix-${DateFormat('yyyyMM').format(now)}-$ms';
   }
 
-  Future<void> _submit({required bool asQuote}) async {
+  /// Un devis n'a besoin ni d'adresse de livraison ni de mode de paiement
+  /// — soumission directe depuis le panier, pas de passage par la page de
+  /// paiement.
+  Future<void> _submitQuote() async {
     final cart = ref.read(cartProvider);
     if (cart.isEmpty) return;
 
@@ -246,7 +187,91 @@ class _CartTabState extends ConsumerState<CartTab> {
       return;
     }
 
-    if (!asQuote && _deliveryAddressController.text.trim().isEmpty) {
+    setState(() => _isSubmittingQuote = true);
+
+    final total = ref.read(cartProvider.notifier).total;
+    final online = await isCurrentlyOnline();
+
+    if (!online) {
+      try {
+        await OfflineOrderQueue.enqueue(
+          type: 'quote',
+          payload: {
+            'header': {
+              'quote_number': _generateNumber('DEV'),
+              'customer_id': userId,
+              'total_amount': total,
+            },
+            'items': cart
+                .map((item) => {
+                      'product_id': item.productId,
+                      'product_name': item.name,
+                      'quantity': item.quantity,
+                      'unit_price': item.unitPrice,
+                    })
+                .toList(),
+          },
+        );
+        ref.read(cartProvider.notifier).clear();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Pas de connexion — votre demande de devis sera envoyée automatiquement dès que le réseau revient.'),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isSubmittingQuote = false);
+      }
+      return;
+    }
+
+    try {
+      final quoteNumber = _generateNumber('DEV');
+      final quote = await SupabaseConfig.client
+          .from('quotes')
+          .insert({
+            'quote_number': quoteNumber,
+            'customer_id': userId,
+            'total_amount': total,
+          })
+          .select()
+          .single();
+
+      await SupabaseConfig.client.from('quote_items').insert(
+            cart
+                .map((item) => {
+                      'quote_id': quote['id'],
+                      'product_id': item.productId,
+                      'product_name': item.name,
+                      'quantity': item.quantity,
+                      'unit_price': item.unitPrice,
+                    })
+                .toList(),
+          );
+
+      ref.read(cartProvider.notifier).clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Demande de devis envoyée !'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de l\'envoi. Réessayez.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmittingQuote = false);
+    }
+  }
+
+  Future<void> _goToPayment() async {
+    if (_deliveryAddressController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -257,246 +282,29 @@ class _CartTabState extends ConsumerState<CartTab> {
       return;
     }
 
-    if (!asQuote &&
-        _showManualPaymentFields &&
-        _paymentReferenceController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Indiquez la référence du paiement ou le nom du kiosque.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
     final total = ref.read(cartProvider.notifier).total;
-    final online = await isCurrentlyOnline();
-    final usesPapi = !asQuote &&
-        _paymentMethod.isPapiCapable &&
-        !_manualFallback &&
-        _payAutomatically;
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaymentScreen(
+          subtotal: total,
+          deliveryFee: _deliveryFee,
+          deliveryDistanceKm: _deliveryDistanceKm,
+          deliveryLat: _deliveryLat,
+          deliveryLon: _deliveryLon,
+          deliveryAddress: _deliveryAddressController.text.trim(),
+        ),
+      ),
+    );
 
-    // Hors-ligne : on ne tente même pas l'appel réseau, on met
-    // directement en file d'attente locale pour un envoi automatique dès
-    // que la connexion revient (voir OfflineOrderQueue.trySync, déclenché
-    // par le listener de connectivité dans client_home.dart).
-    if (!online) {
-      try {
-        if (asQuote) {
-          await OfflineOrderQueue.enqueue(
-            type: 'quote',
-            payload: {
-              'header': {
-                'quote_number': _generateNumber('DEV'),
-                'customer_id': userId,
-                'total_amount': total,
-              },
-              'items': cart
-                  .map((item) => {
-                        'product_id': item.productId,
-                        'product_name': item.name,
-                        'quantity': item.quantity,
-                        'unit_price': item.unitPrice,
-                      })
-                  .toList(),
-            },
-          );
-        } else {
-          await OfflineOrderQueue.enqueue(
-            type: 'order',
-            payload: {
-              'header': {
-                'order_number': _generateNumber('CMD'),
-                'customer_id': userId,
-                'total_amount': total + (_deliveryFee ?? 0),
-                'delivery_fee': _deliveryFee ?? 0,
-                'delivery_zone': _deliveryDistanceKm != null
-                    ? '≈ ${_deliveryDistanceKm!.toStringAsFixed(1)} km'
-                    : null,
-                'latitude': _deliveryLat,
-                'longitude': _deliveryLon,
-                'delivery_address': _deliveryAddressController.text.trim(),
-                'payment_method': _paymentMethod.id,
-                'payment_reference':
-                    _paymentReferenceController.text.trim().isEmpty
-                        ? null
-                        : _paymentReferenceController.text.trim(),
-              },
-              'items': cart
-                  .map((item) => {
-                        'product_id': item.productId,
-                        'product_name': item.name,
-                        'quantity': item.quantity,
-                        'unit_price': item.unitPrice,
-                        'is_gros_price': item.isGrosPrice,
-                      })
-                  .toList(),
-            },
-          );
-        }
-
-        ref.read(cartProvider.notifier).clear();
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              [
-                asQuote
-                    ? 'Pas de connexion — votre demande de devis sera envoyée automatiquement dès que le réseau revient.'
-                    : 'Pas de connexion — votre commande sera envoyée automatiquement dès que le réseau revient.',
-                if (!asQuote && _paymentProofFile != null)
-                  ' La capture de paiement n\'a pas pu être jointe (nécessite une connexion) — vous pourrez l\'envoyer par message.',
-              ].join(),
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      } finally {
-        if (mounted) setState(() => _isSubmitting = false);
-      }
-      return;
-    }
-
-    try {
-      if (asQuote) {
-        final quoteNumber = _generateNumber('DEV');
-        final quote = await SupabaseConfig.client
-            .from('quotes')
-            .insert({
-              'quote_number': quoteNumber,
-              'customer_id': userId,
-              'total_amount': total,
-            })
-            .select()
-            .single();
-
-        await SupabaseConfig.client.from('quote_items').insert(
-              cart
-                  .map((item) => {
-                        'quote_id': quote['id'],
-                        'product_id': item.productId,
-                        'product_name': item.name,
-                        'quantity': item.quantity,
-                        'unit_price': item.unitPrice,
-                      })
-                  .toList(),
-            );
-      } else {
-        final orderNumber = _generateNumber('CMD');
-
-        String? proofPath;
-        if (!usesPapi && _paymentProofFile != null) {
-          try {
-            proofPath = '$userId/$orderNumber.jpg';
-            await SupabaseConfig.client.storage
-                .from('payment-proofs')
-                .upload(proofPath, _paymentProofFile!);
-          } catch (_) {
-            // Repli tolérant : la commande part quand même sans preuve
-            // jointe (ex: migration phase29 pas encore exécutée) — le
-            // staff pourra la demander par message si besoin.
-            proofPath = null;
-          }
-        }
-
-        final order = await SupabaseConfig.client
-            .from('orders')
-            .insert({
-              'order_number': orderNumber,
-              'customer_id': userId,
-              'total_amount': total + (_deliveryFee ?? 0),
-              'delivery_fee': _deliveryFee ?? 0,
-              'delivery_zone': _deliveryDistanceKm != null
-                  ? '≈ ${_deliveryDistanceKm!.toStringAsFixed(1)} km'
-                  : null,
-              'latitude': _deliveryLat,
-              'longitude': _deliveryLon,
-              'delivery_address': _deliveryAddressController.text.trim(),
-              'payment_method': _paymentMethod.id,
-              'payment_reference': (!usesPapi &&
-                      _paymentReferenceController.text.trim().isNotEmpty)
-                  ? _paymentReferenceController.text.trim()
-                  : null,
-              'payment_proof_path': proofPath,
-            })
-            .select()
-            .single();
-
-        await SupabaseConfig.client.from('order_items').insert(
-              cart
-                  .map((item) => {
-                        'order_id': order['id'],
-                        'product_id': item.productId,
-                        'product_name': item.name,
-                        'quantity': item.quantity,
-                        'unit_price': item.unitPrice,
-                        'is_gros_price': item.isGrosPrice,
-                      })
-                  .toList(),
-            );
-
-        // Paiement en ligne automatique via Papi (voir
-        // supabase/phase38_patch_papi_payment.sql) : la commande existe
-        // déjà (payment_status reste "en_attente" tant que Papi n'a pas
-        // confirmé par webhook) — on récupère un lien de paiement et on
-        // l'ouvre dans le navigateur. Un échec ici n'annule pas la
-        // commande : elle reste consultable, le client pourra réessayer
-        // depuis le suivi de commande.
-        if (usesPapi) {
-          try {
-            final paymentLink =
-                await PapiPaymentRepo.createPaymentLink(order['id'] as String);
-            final uri = Uri.parse(paymentLink);
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } catch (_) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Commande créée, mais le paiement en ligne n\'a pas pu '
-                      'démarrer. Réessayez depuis le suivi de commande.'),
-                  behavior: SnackBarBehavior.floating,
-                  duration: Duration(seconds: 5),
-                ),
-              );
-            }
-          }
-        }
-      }
-
-      ref.read(cartProvider.notifier).clear();
-      _paymentReferenceController.clear();
+    if (result != null && mounted) {
       _deliveryAddressController.clear();
-      _paymentProofFile = null;
-
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(asQuote
-              ? 'Demande de devis envoyée !'
-              : usesPapi
-                  ? 'Commande créée ! Finalisez le paiement dans la page '
-                      'qui vient de s\'ouvrir.'
-                  : _showManualPaymentFields
-                      ? 'Commande passée avec succès ! Nous vérifions votre '
-                          'paiement sous 24h ouvrées et vous notifierons '
-                          'dès confirmation.'
-                      : 'Commande passée avec succès !'),
+          content: Text(result['message'] as String),
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur lors de l\'envoi. Réessayez.')),
-      );
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -678,195 +486,6 @@ class _CartTabState extends ConsumerState<CartTab> {
                 ],
               ),
               SizedBox(height: 1.5.h),
-              Text('Mode de paiement', style: theme.textTheme.labelLarge),
-              SizedBox(height: 1.h),
-              PaymentMethodSelector(
-                methods: PaymentMethod.values
-                    .where((m) => _availableMethods.contains(m))
-                    .toList(),
-                selected: _paymentMethod,
-                onSelected: (method) =>
-                    setState(() => _paymentMethod = method),
-              ),
-              if (_paymentMethod.isPapiCapable && !_manualFallback) ...[
-                SizedBox(height: 1.h),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    ChoiceChip(
-                      avatar: const Icon(Icons.bolt_outlined, size: 18),
-                      label: const Text('Paiement automatique en ligne'),
-                      selected: _payAutomatically,
-                      onSelected: (_) =>
-                          setState(() => _payAutomatically = true),
-                    ),
-                    ChoiceChip(
-                      avatar: const Icon(Icons.edit_note_outlined, size: 18),
-                      label: const Text('Paiement manuel (référence)'),
-                      selected: !_payAutomatically,
-                      onSelected: (_) =>
-                          setState(() => _payAutomatically = false),
-                    ),
-                  ],
-                ),
-                if (_payAutomatically)
-                  Container(
-                    margin: EdgeInsets.only(top: 1.h),
-                    padding: EdgeInsets.all(3.w),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer
-                          .withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.lock_outline,
-                                size: 18, color: theme.colorScheme.primary),
-                            SizedBox(width: 2.w),
-                            Expanded(
-                              child: Text(
-                                'Vous serez redirigé vers une page de paiement '
-                                'sécurisée après validation de la commande. '
-                                'Montant demandé : ${_currency.format(total + (_deliveryFee ?? 0))} '
-                                '(produits + livraison), sans frais supplémentaire.',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_paymentMethod == PaymentMethod.mvola ||
-                            _paymentMethod == PaymentMethod.orangeMoney) ...[
-                          SizedBox(height: 0.8.h),
-                          Text(
-                            'Frais de retrait ${_paymentMethod.label} estimés pour ce montant : '
-                            '~${_currency.format(MobileMoneyWithdrawalFee.estimate(total + (_deliveryFee ?? 0)))} '
-                            '(à titre indicatif, dépend du montant total '
-                            'retiré en une fois).',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-              ],
-              if (_showManualPaymentFields) ...[
-                Container(
-                  margin: EdgeInsets.only(top: 1.h),
-                  padding: EdgeInsets.all(3.w),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer
-                        .withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Effectuez ce paiement puis validez votre '
-                              'commande — nous confirmons dès réception :',
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy_outlined, size: 18),
-                            tooltip: 'Copier les coordonnées',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(
-                                  text: _paymentMethod.instructions!));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Coordonnées copiées.'),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                      SelectableText(
-                        _paymentMethod.instructions!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (_paymentMethod == PaymentMethod.mvola ||
-                          _paymentMethod == PaymentMethod.orangeMoney) ...[
-                        SizedBox(height: 0.8.h),
-                        Text(
-                          'Frais de retrait ${_paymentMethod.label} estimés pour ce montant : '
-                          '~${_currency.format(MobileMoneyWithdrawalFee.estimate(total + (_deliveryFee ?? 0)))} '
-                          '(à titre indicatif, dépend du montant total '
-                          'retiré en une fois).',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                SizedBox(height: 1.h),
-                TextField(
-                  controller: _paymentReferenceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Référence de paiement ou nom du kiosque *',
-                    hintText: 'Ex : numéro de transaction reçu par SMS, ou '
-                        'nom du kiosque si payé via un agent',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                SizedBox(height: 1.h),
-                if (_paymentProofFile != null)
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          _paymentProofFile!,
-                          height: 120,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: CircleAvatar(
-                          radius: 14,
-                          backgroundColor: Colors.black54,
-                          child: IconButton(
-                            icon: const Icon(Icons.close,
-                                size: 16, color: Colors.white),
-                            padding: EdgeInsets.zero,
-                            onPressed: () =>
-                                setState(() => _paymentProofFile = null),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  OutlinedButton.icon(
-                    onPressed: _pickPaymentProof,
-                    icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                    label:
-                        const Text('Joindre une capture du paiement (facultatif)'),
-                  ),
-              ],
-              SizedBox(height: 1.5.h),
               Center(
                 child: TextButton.icon(
                   onPressed: () {
@@ -887,24 +506,22 @@ class _CartTabState extends ConsumerState<CartTab> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed:
-                          _isSubmitting ? null : () => _submit(asQuote: true),
-                      child: const Text('Demander un devis'),
-                    ),
-                  ),
-                  SizedBox(width: 2.w),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => _submit(asQuote: false),
-                      child: _isSubmitting
+                      onPressed: _isSubmittingQuote ? null : _submitQuote,
+                      child: _isSubmittingQuote
                           ? const SizedBox(
                               height: 18,
                               width: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Commander'),
+                          : const Text('Demander un devis'),
+                    ),
+                  ),
+                  SizedBox(width: 2.w),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _goToPayment,
+                      icon: const Icon(Icons.lock_outline, size: 18),
+                      label: const Text('Payer'),
                     ),
                   ),
                 ],

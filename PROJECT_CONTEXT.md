@@ -3844,3 +3844,46 @@ override explicite en `theme.colorScheme.onSurface` + graisse `w700`.
 Au passage, le fond de chaque icône (auparavant une couleur plate à
 alpha fixe) est passé à un dégradé (`LinearGradient`, du plus opaque au
 plus transparent) pour un rendu plus "charmant" comme demandé.
+
+## Page de paiement dédiée et sécurisée (01/08)
+
+Demande explicite : "J'aimerais qu'on crée une nouvelle page spéciale
+pour le paiement. Page bien sécurisée !" — le choix de la méthode de
+paiement et la confirmation de commande étaient jusqu'ici mélangés au
+reste de l'écran Panier. Nouvel écran dédié
+`client_home/payment_screen.dart` (`PaymentScreen`), poussé via
+`Navigator.push` depuis `cart_tab.dart` (nouveau bouton "Payer",
+`Icons.lock_outline`, remplace l'ancien bouton "Commander").
+
+Répartition des responsabilités :
+- `CartTab` garde : liste des articles, estimation/adresse de livraison,
+  et la demande de devis (`_submitQuote`, qui ne nécessite ni adresse ni
+  paiement). Le nouveau `_goToPayment()` valide juste que l'adresse est
+  renseignée puis pousse `PaymentScreen` avec le sous-total et les
+  informations de livraison déjà calculées (pas besoin de repasser le
+  panier lui-même : `PaymentScreen` relit `cartProvider`, état global
+  Riverpod accessible depuis n'importe quel écran).
+- `PaymentScreen` reçoit désormais tout ce qui concerne le paiement :
+  sélection de méthode (`PaymentMethodSelector`), choix client
+  automatique/manuel (`_payAutomatically`), secours admin
+  (`_manualFallback`), champ référence + preuve photo, et
+  `_submitOrder()` (logique de création de commande adaptée telle
+  quelle depuis l'ancien `cart_tab.dart` : file d'attente hors-ligne,
+  insertion `orders`/`order_items`, lien de paiement Papi, upload de la
+  preuve dans le bucket `payment-proofs`).
+
+Éléments de confiance visuelle ajoutés (l'essentiel de la demande) :
+AppBar avec icône cadenas + titre "Paiement sécurisé", bandeau vert
+"Connexion sécurisée..." en haut de page, récapitulatif de commande dans
+une Card séparée, et un pied de page "🔒 Paiement chiffré · Opérateurs
+officiels Papi, Mvola, Orange Money, Airtel Money" sous le bouton de
+confirmation.
+
+⚠️ Important à comprendre : aucune donnée bancaire sensible n'est saisie
+dans l'app (Papi gère le paiement en ligne sur sa propre page externe ;
+le mode manuel ne demande qu'une référence de transaction + une photo
+facultative). Cette page n'ajoute donc pas de nouvelle protection
+technique — c'est avant tout un travail de présentation et de
+réassurance visuelle, comme expliqué à l'utilisatrice avant de
+construire. Aucun script SQL n'était nécessaire pour ce changement (pur
+Flutter/Dart, aucune modification de schéma).
