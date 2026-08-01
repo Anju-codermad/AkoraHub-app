@@ -356,3 +356,6 @@
 
 ## 2026-08-01 09:36 UTC — Claude
 - Merge: onglet A-Formation dans la barre de navigation client (`f4928e0`)
+
+## 2026-08-01 09:47 UTC — Claude
+- Merge: lisibilité des piliers + dégradé icônes (`7c38a6d`)
