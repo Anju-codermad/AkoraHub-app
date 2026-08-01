@@ -335,3 +335,6 @@
 
 ## 2026-07-28 07:51 UTC — Claude
 - merge: intégrer les changements distants avant push du correctif espace disque CI (`d5ba48c`)
+
+## 2026-08-01 05:43 UTC — Claude
+- Docs: documenter la décision de reporter Services/AkoraFormation (`9244669`)
