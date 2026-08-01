@@ -16,9 +16,10 @@ import 'profile_tab.dart';
 ///
 /// Schéma de navigation : le Panier n'a pas d'onglet dans la barre du bas
 /// (accessible via l'icône dans l'en-tête de l'écran Accueil, à côté des
-/// notifications). L'onglet "Mur" a été retiré du menu — le mur social
-/// reste dans le code (wall/wall_tab.dart) en vue de son intégration future
-/// dans le Profil (voir PROJECT_CONTEXT.md, plan profil étape 3).
+/// notifications). L'onglet "Communauté" (ex-"Mur", renommé 01/08) a été
+/// retiré du menu — le code reste dans wall/wall_tab.dart en vue de son
+/// intégration future dans le Profil (voir PROJECT_CONTEXT.md, plan profil
+/// étape 3).
 /// **Académie** (01/08) : 4ᵉ onglet, regroupe en un seul point d'accès
 /// les catégories de cours AkoraFormation et la base de matières
 /// premières (voir `formation/formation_hub_screen.dart`).

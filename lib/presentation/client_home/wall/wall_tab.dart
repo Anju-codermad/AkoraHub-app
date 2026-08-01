@@ -10,11 +10,12 @@ import '../product_detail_client.dart';
 import '../community/public_profile_screen.dart';
 import '../community/public_profiles_repo.dart';
 
-/// Mur social : publications texte + photo, avec likes et commentaires.
-/// Filtrable par secteur (Hôtellerie / Santé / Entreprises / Particuliers)
-/// et par "Mes publications". Accessible depuis le Profil (aucun onglet de
-/// navigation dédié — décision utilisateur du 23/07, voir PROJECT_CONTEXT.md
-/// section 3bis).
+/// Communauté AkoraHub (ex-"Mur", renommé 01/08 — terme plus parlant que le
+/// calque Facebook) : publications texte + photo, avec likes et
+/// commentaires. Filtrable par secteur (Hôtellerie / Santé / Entreprises /
+/// Particuliers) et par "Mes publications". Accessible depuis le Profil
+/// (aucun onglet de navigation dédié — décision utilisateur du 23/07, voir
+/// PROJECT_CONTEXT.md section 3bis).
 class WallTab extends StatefulWidget {
   final bool initialOnlyMine;
 
@@ -248,7 +249,7 @@ class _WallTabState extends State<WallTab> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _error = 'Impossible de charger le mur.';
+        _error = 'Impossible de charger la communauté.';
       });
     }
   }
@@ -430,7 +431,7 @@ class _WallTabState extends State<WallTab> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mur — Communauté AkoraHub'),
+        title: const Text('Communauté AkoraHub'),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createPost,
