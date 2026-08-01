@@ -341,3 +341,6 @@
 
 ## 2026-08-01 07:17 UTC — Claude
 - Merge: centralise l'accès Formation dans le Profil, libère les piliers Produits (`22e644e`)
+
+## 2026-08-01 07:37 UTC — Claude
+- Merge: structure AkoraFormation (cours/modules) (`4799497`)
