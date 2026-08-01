@@ -401,3 +401,6 @@
 
 ## 2026-08-01 20:50 UTC — Claude
 - Merge: Formation web - URL finale Netlify (`5838dbd`)
+
+## 2026-08-01 21:16 UTC — Claude
+- Merge: Accueil - retouches design avant captures Play Store (`d1121c5`)
