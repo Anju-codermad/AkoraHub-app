@@ -398,3 +398,6 @@
 
 ## 2026-08-01 20:02 UTC — Claude
 - Merge: Formation web - hébergement via GitHub Pages (`8acfc19`)
+
+## 2026-08-01 20:50 UTC — Claude
+- Merge: Formation web - URL finale Netlify (`5838dbd`)
