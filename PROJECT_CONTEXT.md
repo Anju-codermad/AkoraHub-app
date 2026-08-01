@@ -3785,3 +3785,19 @@ conséquence.
 - Frais de retrait Mvola (`mvola_withdrawal_fee.dart`) : grille tarifaire
   officielle déjà en place (discutée le 31/07), affichée au client dans
   l'encart de paiement manuel Mvola (`cart_tab.dart`, ligne ~755).
+
+**Frais de retrait aussi affiché en paiement automatique + ajout Orange
+Money (01/08)** : l'estimation du frais de retrait s'affichait
+uniquement en mode manuel — ajoutée aussi dans l'encart de paiement
+automatique (Papi), car le staff retire l'argent de la même façon quelle
+que soit la méthode utilisée par le client. L'utilisatrice a ensuite
+fourni la grille tarifaire officielle Orange Money ("Infos Tarifs",
+capture) : ses paliers "Retrait" sont **identiques** à ceux de Mvola sur
+toute la plage confirmée (200 Ar à 1 000 000 Ar) — `mvola_withdrawal_fee.dart`
+renommé en `mobile_money_withdrawal_fee.dart` (classe
+`MobileMoneyWithdrawalFee`), une seule grille sert désormais aux deux
+opérateurs. Affiché dans `cart_tab.dart` pour Mvola ET Orange Money
+(libellé dynamique selon la méthode choisie). Au-delà de 1 000 000 Ar,
+seuls les paliers Mvola ont été vus en capture ; réutilisés par
+extrapolation pour Orange Money — à corriger si l'utilisatrice fournit
+un jour la grille Orange Money complète au-delà de ce montant.
