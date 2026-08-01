@@ -365,3 +365,6 @@
 
 ## 2026-08-01 09:59 UTC — Claude
 - Merge: page de paiement dédiée et sécurisée (`7286ed5`)
+
+## 2026-08-01 10:10 UTC — Claude
+- Merge remote-tracking branch 'origin/main' (`8bdbf57`)
