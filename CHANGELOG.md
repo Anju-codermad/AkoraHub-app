@@ -368,3 +368,6 @@
 
 ## 2026-08-01 10:10 UTC — Claude
 - Merge remote-tracking branch 'origin/main' (`8bdbf57`)
+
+## 2026-08-01 10:25 UTC — Claude
+- Merge: Paramètres admin remonté + double authentification (2FA) (`837e450`)
