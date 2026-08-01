@@ -395,3 +395,6 @@
 
 ## 2026-08-01 14:07 UTC — Claude
 - Merge: Formation - achat déplacé hors de l'app (conformité Google Play) (`814893f`)
+
+## 2026-08-01 20:02 UTC — Claude
+- Merge: Formation web - hébergement via GitHub Pages (`8acfc19`)
