@@ -434,7 +434,7 @@ async function submitPurchase() {
     renderMaterialList();
     renderPurchaseCard();
   } catch (e) {
-    el('submit-error').textContent = 'Erreur lors de l\'envoi de la demande. Réessayez.';
+    el('submit-error').textContent = 'Erreur : ' + (e && e.message ? e.message : String(e));
     el('submit-error').classList.remove('hidden');
   } finally {
     isSubmitting = false;
