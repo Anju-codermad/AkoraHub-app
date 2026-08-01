@@ -362,3 +362,6 @@
 
 ## 2026-08-01 09:50 UTC — Claude
 - Merge: renomme A-Formation en Académie (`a43a712`)
+
+## 2026-08-01 09:59 UTC — Claude
+- Merge: page de paiement dédiée et sécurisée (`7286ed5`)
