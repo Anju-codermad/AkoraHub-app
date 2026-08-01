@@ -15,7 +15,7 @@
 -- Suite du travail commencé en phase33 (suggestions de noms) : cette
 -- phase crée les vraies fiches, pas juste des suggestions de saisie.
 --
--- ⚠️ Correctif (02/08) : `has_active_formation_subscription` et la table
+-- ⚠️ Correctif (01/08) : `has_active_formation_subscription` et la table
 -- `formation_subscriptions` dont elle dépend doivent être créées EN
 -- PREMIER — contrairement à une fonction PL/pgSQL classique, l'expression
 -- `USING`/`WITH CHECK` d'un `CREATE POLICY` est résolue immédiatement à la

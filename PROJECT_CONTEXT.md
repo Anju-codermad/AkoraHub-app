@@ -3624,7 +3624,7 @@ complète — icônes/couleurs par famille chimique et par domaine d'usage,
 badge danger, courbe d'évolution du prix dessinée à la main avec
 `CustomPainter`, pas de nouvelle dépendance), `FormationSubscriptionScreen`
 (choix du plan, mode de paiement manuel, référence + preuve optionnelle).
-**⚠️ Correction (02/08) — la base de matières premières n'est PAS le vrai
+**⚠️ Correction (01/08) — la base de matières premières n'est PAS le vrai
 "AkoraFormation"** : l'utilisatrice a fourni un document
 ("Akora_Activites_Piliers.md") détaillant les 3 piliers réels du Groupe
 Akora — Produits (Akora Home/Pro/Soins/Protect + Peinture), Services
@@ -3647,7 +3647,7 @@ rien. L'icône 🎓 mappée sur le mot-clé `formation` (inchangée) reste prêt
 pour le futur vrai pilier AkoraFormation (cours), pas encore créé.
 
 **⚠️ Action requise côté utilisatrice** : exécuter
-`phase40_schema.sql` (version corrigée du 02/08 — l'ordre de création a
+`phase40_schema.sql` (version corrigée du 01/08 — l'ordre de création a
 été corrigé, `has_active_formation_subscription()` doit exister avant les
 policies qui la référencent) puis `phase41_patch_seed_raw_materials.sql`
 dans Supabase SQL Editor (dans cet ordre). **Aucun nouveau pilier à
@@ -3657,11 +3657,11 @@ l'écran Formation au tap — juste les activer depuis "Piliers
 d'entreprise" s'ils ne le sont pas déjà. Renommer "Matières Premières" en
 "Akora Pro" est optionnel, purement cosmétique.
 
-**✅ Fait (02/08)** : phase40 (corrigé) + phase41 exécutés avec succès par
+**✅ Fait (01/08)** : phase40 (corrigé) + phase41 exécutés avec succès par
 l'utilisatrice — 192 matières premières confirmées en base (174 Matières
 Premières / 10 Matières Premières Peinture / 8 Anti-Nuisibles).
 
-**Phase 42 — alignement partiel sur le document Groupe Akora (02/08)** :
+**Phase 42 — alignement partiel sur le document Groupe Akora (01/08)** :
 `supabase/phase42_patch_produits_categories.sql`, **écrit, pas encore
 exécuté par l'utilisatrice** (à faire dans le même SQL Editor, une seule
 fois). Volontairement limité au sans-risque : nouveau
@@ -3698,4 +3698,33 @@ Document source complet fourni par l'utilisatrice :
 détail des ~150 SKU produits, ~24 prestations services, ~40 modules
 formation) — redemander le fichier à l'utilisatrice si une future session
 doit reprendre ce chantier, il n'est pas commité dans le dépôt.
+
+**Renommage effectué par l'utilisatrice (01/08)** : Akora Fanadiovana →
+**Akora Home**, Matières Premières → **Akora Pro**, Anti-Nuisibles →
+**Akora Protect**, ARCA PAINTS → **Peinture**, Matières Premières
+Peinture → **Peinture Pro** (nom choisi ensemble, "Arca" écarté — pas
+encore confirmé comme marque). Elle a aussi créé elle-même le pilier
+**AkoraFormation** (`akoraformation`), actuellement vide (le vrai système
+de cours n'existe pas encore, voir point 4 ci-dessus).
+
+**⚠️ Refonte de l'accès Formation (01/08, faite)** : en renommant, l'utilisatrice
+a repéré un vrai problème de conception, pas juste un souci de nom —
+3 piliers "Produits" (Akora Pro, Peinture Pro, Akora Protect) étaient
+détournés de leur rôle : taper dessus ouvrait TOUJOURS l'écran Formation
+(matières premières), jamais un catalogue de produits, même si de vrais
+produits finis y étaient ajoutés un jour (ex: Akora Protect doit pouvoir
+vendre de vrais insecticides finis). Corrigé :
+- `catalog_tab.dart` : le cas spécial par `slug` (`rawMaterialSlugs`) est
+  **supprimé** — tous les piliers filtrent maintenant la grille produits
+  de la même façon, sans exception.
+- `FormationCatalogScreen` (`client_home/formation/formation_catalog_screen.dart`) :
+  ne prend plus `businessUnitId`/`businessUnitName` en paramètre — charge
+  **toute** la vue `raw_materials_preview` (tous piliers confondus), avec
+  un double filtre par puces (pilier d'origine + catégorie chimique).
+  Titre fixe "Formation".
+- **Nouveau point d'entrée unique** : `client_home/profile_tab.dart`,
+  entrée de menu "Formation" (sous "Messagerie", au-dessus de "Scanner un
+  produit") → `Navigator.push(FormationCatalogScreen())` sans argument.
+  C'est désormais le seul chemin pour atteindre la base Formation côté
+  client — plus aucun pilier de l'Accueil n'y mène.
 

@@ -17,7 +17,6 @@ import 'chat_screen.dart';
 import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
 import 'flash_infos_screen.dart';
-import 'formation/formation_catalog_screen.dart';
 import 'product_detail_client.dart';
 import 'wall/wall_tab.dart';
 
@@ -1346,36 +1345,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(32),
                         onTap: () {
-                          // Les piliers matières premières (Akora Pro /
-                          // Matières Premières Peinture / Anti-Nuisibles —
-                          // voir supabase/phase10_patch_new_business_units.sql
-                          // et phase40/41) n'ont pas de produits vendables :
-                          // ils ouvrent la base de référence Formation
-                          // (accès payant) plutôt que de filtrer la grille
-                          // produits comme les autres piliers. Détection
-                          // par `slug` (identifiant technique, stable même
-                          // si le nom affiché du pilier est renommé —
-                          // ex: "Matières Premières" → "Akora Pro" — voir
-                          // business_units_management.dart : un rename ne
-                          // change que `name`, jamais `slug`).
-                          final slug = (unit['slug'] ?? '').toString();
-                          const rawMaterialSlugs = {
-                            'matieres-premieres',
-                            'matieres-premieres-peinture',
-                            'anti-nuisibles',
-                          };
-                          if (rawMaterialSlugs.contains(slug)) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => FormationCatalogScreen(
-                                  businessUnitId: unit['id'],
-                                  businessUnitName: unit['name'] ?? 'Formation',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
+                          // Tous les piliers se comportent maintenant de la
+                          // même façon (filtrent la grille produits) — la
+                          // base Formation (matières premières) n'est plus
+                          // accrochée à un pilier "Produits" détourné de son
+                          // rôle (ex: "Akora Protect" doit pouvoir vendre de
+                          // vrais insecticides finis un jour). Accès à
+                          // Formation centralisé dans un seul point d'entrée
+                          // (voir profile_tab.dart), voir PROJECT_CONTEXT.md.
                           setState(() {
                             _selectedUnitId = selected ? null : unit['id'];
                             _selectedCategory = 'toutes';
