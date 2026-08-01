@@ -377,3 +377,6 @@
 
 ## 2026-08-01 10:58 UTC — Claude
 - Merge: Communauté - modifier/supprimer sa publication + recherche (`6f9f260`)
+
+## 2026-08-01 11:51 UTC — Claude
+- Merge: Formation - abonnement remplacé par l'achat par produit (`c106a2d`)
