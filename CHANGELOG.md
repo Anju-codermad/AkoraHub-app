@@ -386,3 +386,6 @@
 
 ## 2026-08-01 12:21 UTC — Claude
 - Merge: Communauté - compression automatique des photos (`7e37c2d`)
+
+## 2026-08-01 12:35 UTC — Claude
+- Merge: Communauté - signaler une publication + contacter via WhatsApp (`8acac76`)
