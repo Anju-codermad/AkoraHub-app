@@ -338,3 +338,6 @@
 
 ## 2026-08-01 05:43 UTC — Claude
 - Docs: documenter la décision de reporter Services/AkoraFormation (`9244669`)
+
+## 2026-08-01 07:17 UTC — Claude
+- Merge: centralise l'accès Formation dans le Profil, libère les piliers Produits (`22e644e`)
