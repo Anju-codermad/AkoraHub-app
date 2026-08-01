@@ -410,3 +410,6 @@
 
 ## 2026-08-01 22:07 UTC — Claude
 - Merge: AkoraFormation - achat de cours + contenu protégé (`8c81f5f`)
+
+## 2026-08-01 22:38 UTC — Claude
+- Merge: Académie - sections par catégorie + design bibliothèque vidéo (`fd4d392`)
