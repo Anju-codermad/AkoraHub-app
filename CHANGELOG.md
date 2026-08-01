@@ -380,3 +380,6 @@
 
 ## 2026-08-01 11:51 UTC — Claude
 - Merge: Formation - abonnement remplacé par l'achat par produit (`c106a2d`)
+
+## 2026-08-01 12:00 UTC — Claude
+- Merge: Communauté - réponses, réactions emoji, notifications push (`1eb2165`)
