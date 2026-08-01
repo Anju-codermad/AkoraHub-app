@@ -8,8 +8,13 @@ import 'package:url_launcher/url_launcher.dart';
 /// doit pas faire transiter un paiement hors Play Billing pour débloquer
 /// du contenu numérique consommé dans l'app. Le backend (validation par
 /// le staff, déblocage) est inchangé.
+/// Nom de fichier `app.html` (et non `index.html`) : le premier upload
+/// avait été mis en cache par Cloudflare (CDN devant Supabase Storage)
+/// avec un mauvais `Content-Type` (text/plain), et ce cache ignore les
+/// paramètres de requête (`?v=...`) — reprendre une adresse jamais
+/// servie était le seul moyen fiable d'obtenir une version fraîche.
 const String formationPurchaseWebUrl =
-    'https://lmnprtwelmmoiuygvgmf.supabase.co/storage/v1/object/public/formation-web/index.html';
+    'https://lmnprtwelmmoiuygvgmf.supabase.co/storage/v1/object/public/formation-web/app.html';
 
 Future<void> openFormationPurchaseWeb(BuildContext context) async {
   try {
