@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
-import '../formation_subscriptions_management/formation_subscriptions_management.dart';
+import '../formation_purchases_management/formation_purchases_management.dart';
 import 'raw_material_editor_screen.dart';
 import 'raw_material_style.dart';
 
@@ -95,11 +95,11 @@ class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
         actions: [
           IconButton(
             icon: const Icon(Icons.workspace_premium_outlined),
-            tooltip: 'Abonnements Formation',
+            tooltip: 'Achats Formation',
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const FormationSubscriptionsManagement(),
+                builder: (_) => const FormationPurchasesManagement(),
               ),
             ),
           ),
