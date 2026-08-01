@@ -14,7 +14,70 @@
 --
 -- Suite du travail commencé en phase33 (suggestions de noms) : cette
 -- phase crée les vraies fiches, pas juste des suggestions de saisie.
+--
+-- ⚠️ Correctif (02/08) : `has_active_formation_subscription` et la table
+-- `formation_subscriptions` dont elle dépend doivent être créées EN
+-- PREMIER — contrairement à une fonction PL/pgSQL classique, l'expression
+-- `USING`/`WITH CHECK` d'un `CREATE POLICY` est résolue immédiatement à la
+-- création de la policy, pas à chaque exécution : la fonction doit donc
+-- déjà exister avant la première policy qui la référence. Version
+-- précédente de ce script (échec réel constaté : "function
+-- has_active_formation_subscription(uuid) does not exist").
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 0) Abonnement Formation (accès payant global aux fiches détaillées) et
+-- sa fonction de vérification — créés avant tout le reste car les
+-- policies des tables suivantes en dépendent.
+-- ------------------------------------------------------------
+create table if not exists public.formation_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references public.profiles(id) on delete cascade,
+  plan text not null check (plan in ('mensuel','annuel')),
+  amount numeric not null,
+  status text not null default 'en_attente'
+    check (status in ('en_attente','actif','refuse','expire')),
+  payment_method text,
+  payment_reference text,
+  payment_proof_path text,
+  started_at timestamptz,
+  expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists formation_subscriptions_customer_idx
+  on public.formation_subscriptions (customer_id, status);
+
+alter table public.formation_subscriptions enable row level security;
+
+drop policy if exists "formation_subscriptions_select_own_or_staff" on public.formation_subscriptions;
+create policy "formation_subscriptions_select_own_or_staff" on public.formation_subscriptions
+  for select using (auth.uid() = customer_id or public.current_role_is_staff());
+
+drop policy if exists "formation_subscriptions_insert_own" on public.formation_subscriptions;
+create policy "formation_subscriptions_insert_own" on public.formation_subscriptions
+  for insert with check (auth.uid() = customer_id);
+
+drop policy if exists "formation_subscriptions_update_own_or_staff" on public.formation_subscriptions;
+create policy "formation_subscriptions_update_own_or_staff" on public.formation_subscriptions
+  for update using (auth.uid() = customer_id or public.current_role_is_staff())
+  with check (auth.uid() = customer_id or public.current_role_is_staff());
+
+create or replace function public.has_active_formation_subscription(uid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.formation_subscriptions
+    where customer_id = uid
+      and status = 'actif'
+      and (expires_at is null or expires_at > now())
+  );
+$$;
 
 -- ------------------------------------------------------------
 -- 1) Fiche matière première (données complètes, accès restreint).
@@ -213,64 +276,7 @@ create policy "raw_material_price_history_write_staff" on public.raw_material_pr
   with check (public.current_role_is_staff());
 
 -- ------------------------------------------------------------
--- 7) Abonnement Formation (accès payant global aux fiches détaillées).
--- ------------------------------------------------------------
-create table if not exists public.formation_subscriptions (
-  id uuid primary key default gen_random_uuid(),
-  customer_id uuid not null references public.profiles(id) on delete cascade,
-  plan text not null check (plan in ('mensuel','annuel')),
-  amount numeric not null,
-  status text not null default 'en_attente'
-    check (status in ('en_attente','actif','refuse','expire')),
-  payment_method text,
-  payment_reference text,
-  payment_proof_path text,
-  started_at timestamptz,
-  expires_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create index if not exists formation_subscriptions_customer_idx
-  on public.formation_subscriptions (customer_id, status);
-
-alter table public.formation_subscriptions enable row level security;
-
-drop policy if exists "formation_subscriptions_select_own_or_staff" on public.formation_subscriptions;
-create policy "formation_subscriptions_select_own_or_staff" on public.formation_subscriptions
-  for select using (auth.uid() = customer_id or public.current_role_is_staff());
-
-drop policy if exists "formation_subscriptions_insert_own" on public.formation_subscriptions;
-create policy "formation_subscriptions_insert_own" on public.formation_subscriptions
-  for insert with check (auth.uid() = customer_id);
-
-drop policy if exists "formation_subscriptions_update_own_or_staff" on public.formation_subscriptions;
-create policy "formation_subscriptions_update_own_or_staff" on public.formation_subscriptions
-  for update using (auth.uid() = customer_id or public.current_role_is_staff())
-  with check (auth.uid() = customer_id or public.current_role_is_staff());
-
--- Fonction utilisée par toutes les policies ci-dessus : renvoie vrai si
--- l'utilisateur a un abonnement Formation actif et non expiré. Déclarée
--- après la table (elle en dépend), mais référencée plus haut — Postgres
--- résout les policies au moment de leur exécution, pas de leur création,
--- donc l'ordre du fichier n'a pas d'importance ici.
-create or replace function public.has_active_formation_subscription(uid uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.formation_subscriptions
-    where customer_id = uid
-      and status = 'actif'
-      and (expires_at is null or expires_at > now())
-  );
-$$;
-
--- ------------------------------------------------------------
--- 8) Tarifs des plans Formation (modifiables par l'Admin, même modèle que
+-- 7) Tarifs des plans Formation (modifiables par l'Admin, même modèle que
 -- payment_method_settings — phase28).
 -- ------------------------------------------------------------
 create table if not exists public.formation_plan_pricing (
@@ -297,7 +303,7 @@ insert into public.formation_plan_pricing (plan, price, label) values
 on conflict (plan) do nothing;
 
 -- ------------------------------------------------------------
--- 9) Bucket Storage pour les photos de matières premières (public en
+-- 8) Bucket Storage pour les photos de matières premières (public en
 -- lecture — mêmes photos que la liste teaser, écriture réservée au staff).
 -- Le justificatif de paiement de l'abonnement réutilise le bucket privé
 -- existant `payment-proofs` (phase29), pas besoin d'en créer un autre.
