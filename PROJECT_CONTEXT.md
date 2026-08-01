@@ -3757,3 +3757,31 @@ reste un chantier à part entière pour plus tard.
   paywall : le contenu réel des cours "Disponible" n'est pas encore
   consultable depuis l'app, ce n'est qu'une liste/roadmap pour l'instant.
 
+## Paiement Papi + manuel simultanés, choix du client (01/08)
+
+Demande explicite : Mvola/Orange Money/Airtel Money doivent proposer les
+deux modes de paiement **en même temps** (automatique via Papi et manuel
+avec référence/preuve), au client de choisir — jusqu'ici c'était un
+réglage Admin global (`manuel_fallback`, phase38) qui imposait l'un OU
+l'autre à tout le monde.
+
+`cart_tab.dart` : nouveau champ d'état `_payAutomatically` (choix du
+client, pas de l'Admin, défaut `true`). Pour une méthode `isPapiCapable`,
+deux `ChoiceChip` ("Paiement automatique en ligne" / "Paiement manuel
+(référence)") s'affichent tant que le secours manuel Admin n'est pas
+forcé — le client bascule librement, chaque choix affiche l'encart
+correspondant (redirection Papi, ou coordonnées + référence + preuve).
+`_manualFallback` (réglage Admin, `payment_methods_management.dart`)
+garde son rôle de **secours d'urgence** : activé, il force TOUT LE MONDE
+en manuel (ex: Papi en panne) — il ne représente plus le fonctionnement
+normal, juste l'exception. Libellé de l'écran Admin mis à jour en
+conséquence.
+
+**Vérifié au passage (déjà correct, aucun changement nécessaire)** :
+- Frais de livraison (`delivery_pricing.dart`) : formule
+  `max(3000 + 800×distance_corrigée, 4000)` donne déjà ~4120 Ar à 1 km et
+  ~6360 Ar à 3 km — cohérent avec la demande "1 à 3 km à partir de
+  4000 Ar".
+- Frais de retrait Mvola (`mvola_withdrawal_fee.dart`) : grille tarifaire
+  officielle déjà en place (discutée le 31/07), affichée au client dans
+  l'encart de paiement manuel Mvola (`cart_tab.dart`, ligne ~755).
