@@ -3657,3 +3657,45 @@ l'écran Formation au tap — juste les activer depuis "Piliers
 d'entreprise" s'ils ne le sont pas déjà. Renommer "Matières Premières" en
 "Akora Pro" est optionnel, purement cosmétique.
 
+**✅ Fait (02/08)** : phase40 (corrigé) + phase41 exécutés avec succès par
+l'utilisatrice — 192 matières premières confirmées en base (174 Matières
+Premières / 10 Matières Premières Peinture / 8 Anti-Nuisibles).
+
+**Phase 42 — alignement partiel sur le document Groupe Akora (02/08)** :
+`supabase/phase42_patch_produits_categories.sql`, **écrit, pas encore
+exécuté par l'utilisatrice** (à faire dans le même SQL Editor, une seule
+fois). Volontairement limité au sans-risque : nouveau
+pilier **Akora Soins** (cosmétique produit fini, 5 catégories, inactif
+par défaut), + catégories manquantes ajoutées sur Akora Fanadiovana
+(Cire & Bougie, Produits spécialisés) et Anti-Nuisibles (Traitement de
+l'eau & Piscine).
+
+**⚠️ Reste à faire (décision explicite de reporter à une session dédiée,
+pas d'oubli)** :
+1. **Renommage cosmétique des piliers existants** (aucun risque, mais
+   laissé à l'utilisatrice via "Piliers d'entreprise" plutôt qu'un script
+   SQL aveugle sur un nom non vérifié) : Akora Fanadiovana → Akora Home,
+   Matières Premières → Akora Pro, Anti-Nuisibles → Akora Protect, ARCA
+   PAINTS → Peinture.
+2. **Recatégorisation d'Akora Pro** : les 11 catégories du document
+   ("Cosmétique", "Agroalimentaire"...) classent PAR USAGE, alors que les
+   12 catégories déjà en place (Tensioactifs, Solvants, Acides & Bases...)
+   classent PAR FAMILLE CHIMIQUE — pas de correspondance ligne à ligne
+   avec les 192 matières premières déjà seedées. À trancher consciemment
+   avec l'utilisatrice avant de reclasser quoi que ce soit.
+3. **Akora Services** (7 catégories, ~24 prestations) : nouveau pilier de
+   type "service" (pas un produit stocké avec prix/quantité) — modèle de
+   données à concevoir, probablement branché sur le système de devis déjà
+   existant (`quotes`) plutôt qu'un ajout direct au panier.
+4. **Le vrai AkoraFormation** (7 catégories, ~40 modules, dont 12 "déjà
+   développés") : système de cours/e-learning à part entière (modules,
+   suivi de progression, statut développé/à créer) — **distinct de la
+   base de matières premières** (Akora Pro) construite en phase40/41,
+   malgré le nom similaire. Pas commencé.
+
+Document source complet fourni par l'utilisatrice :
+`Akora_Activites_Piliers.md` (3 piliers Produits/Services/Formations,
+détail des ~150 SKU produits, ~24 prestations services, ~40 modules
+formation) — redemander le fichier à l'utilisatrice si une future session
+doit reprendre ce chantier, il n'est pas commité dans le dépôt.
+
