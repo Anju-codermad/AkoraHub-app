@@ -3887,3 +3887,49 @@ technique — c'est avant tout un travail de présentation et de
 réassurance visuelle, comme expliqué à l'utilisatrice avant de
 construire. Aucun script SQL n'était nécessaire pour ce changement (pur
 Flutter/Dart, aucune modification de schéma).
+
+## Checklist publication Google Play Store (01/08)
+
+État des lieux fait suite à la question de l'utilisatrice sur ce qu'il
+reste à faire pour publier l'app. Objectif : cocher au fur et à mesure,
+ne pas repartir de zéro à chaque fois qu'on en reparle.
+
+**✅ Déjà en place côté technique**
+- [x] Build CI compile déjà l'**App Bundle** (`.aab`, format exigé par
+  Google Play), en plus de l'APK (`build-apk.yml`).
+- [x] Signature de release configurée (`android/key.properties` +
+  secrets GitHub `ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD`
+  / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD`) — **à confirmer** que
+  ces secrets sont bien renseignés côté GitHub, sinon les builds
+  actuels sont signés avec la clé debug (inutilisable pour un envoi
+  Play Store, qui exige une vraie clé d'upload conservée précieusement
+  d'une version à l'autre).
+- [x] Icônes d'app présentes (`android/app/src/main/res/mipmap-*`),
+  nom affiché "AkoraHub" dans le manifeste.
+- [x] Politique de confidentialité déjà rédigée
+  (`docs/privacy-policy.html`).
+
+**🔲 Reste à faire (surtout administratif, pas du code)**
+- [ ] Créer le **compte développeur Google Play** (paiement unique
+  ~25$, compte Google) — à faire par l'utilisatrice, pas possible pour
+  Claude de le faire à sa place.
+- [ ] **Héberger** `docs/privacy-policy.html` sur une URL publique (ex :
+  GitHub Pages) — Play Console exige un lien, pas juste un fichier dans
+  le dépôt.
+- [ ] **Fiche de la boutique** : icône haute résolution (512×512), image
+  de couverture (1024×500), captures d'écran réelles de l'app,
+  description courte/longue en français.
+- [ ] **Questionnaire de classification du contenu** + formulaire
+  **"Sécurité des données"** (déclarer précisément ce qui est collecté :
+  localisation pour la livraison, photos de preuve de paiement, etc. —
+  directement lié au contenu de la politique de confidentialité).
+- [ ] **Accès pour la review** : fournir un identifiant de test à
+  Google, une bonne partie de l'app nécessitant un compte.
+- [ ] ⚠️ **Point à trancher en priorité** : les abonnements
+  AkoraFormation (contenu numérique déverrouillé dans l'app) tombent
+  potentiellement sous l'obligation d'utiliser **Google Play Billing**
+  plutôt qu'un paiement externe (Papi/Mvola) — règle réelle de Google
+  Play, risque de rejet si mal géré. À clarifier avant toute
+  soumission.
+- [ ] Recommandé : passer d'abord par la piste **"Test interne"** avant
+  "Production", pour valider l'App Bundle sur de vrais appareils.
