@@ -392,3 +392,6 @@
 
 ## 2026-08-01 12:48 UTC — Claude
 - Merge: Communauté - demandes d'ami + messagerie privée (`80bc7ca`)
+
+## 2026-08-01 14:07 UTC — Claude
+- Merge: Formation - achat déplacé hors de l'app (conformité Google Play) (`814893f`)
