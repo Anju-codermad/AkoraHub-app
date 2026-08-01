@@ -11,6 +11,20 @@ import '../product_detail_client.dart';
 import '../community/public_profile_screen.dart';
 import '../community/public_profiles_repo.dart';
 
+/// Réactions emoji disponibles sur une publication (01/08, demande
+/// explicite : "différents emoji pour la réaction") — même jeu que
+/// Facebook, reconnu sans explication. Limité aux publications pour
+/// cette première version (pas encore sur les commentaires ni la
+/// messagerie privée — voir PROJECT_CONTEXT.md).
+const Map<String, String> kPostReactionEmojis = {
+  'like': '👍',
+  'love': '❤️',
+  'haha': '😂',
+  'wow': '😮',
+  'sad': '😢',
+  'angry': '😡',
+};
+
 /// Communauté AkoraHub (ex-"Mur", renommé 01/08 — terme plus parlant que le
 /// calque Facebook) : publications texte + photo, avec likes et
 /// commentaires. Filtrable par secteur (Hôtellerie / Santé / Entreprises /
@@ -36,7 +50,7 @@ class _WallTabState extends State<WallTab> {
   String _searchQuery = '';
   Timer? _searchDebounce;
   final Map<String, int> _likeCounts = {};
-  final Map<String, bool> _likedByMe = {};
+  final Map<String, String?> _myReactionByPost = {};
   final Map<String, int> _commentCounts = {};
   Map<String, Map<String, dynamic>> _authorProfiles = {};
   Map<String, Map<String, dynamic>> _mentionedProducts = {};
@@ -176,7 +190,7 @@ class _WallTabState extends State<WallTab> {
         try {
           final rows = await SupabaseConfig.client
               .from('post_likes')
-              .select('post_id, user_id')
+              .select('post_id, user_id, reaction_type')
               .inFilter('post_id', postIds);
           return List<Map<String, dynamic>>.from(rows);
         } catch (_) {
@@ -242,11 +256,13 @@ class _WallTabState extends State<WallTab> {
           results[3] as Map<String, Map<String, dynamic>>;
 
       final likeCounts = <String, int>{};
-      final likedByMe = <String, bool>{};
+      final myReactions = <String, String?>{};
       for (final l in likesRows) {
         final postId = l['post_id'] as String;
         likeCounts[postId] = (likeCounts[postId] ?? 0) + 1;
-        if (l['user_id'] == _myId) likedByMe[postId] = true;
+        if (l['user_id'] == _myId) {
+          myReactions[postId] = l['reaction_type'] as String?;
+        }
       }
       final commentCounts = <String, int>{};
       for (final c in commentsRows) {
@@ -259,9 +275,9 @@ class _WallTabState extends State<WallTab> {
         _likeCounts
           ..clear()
           ..addAll(likeCounts);
-        _likedByMe
+        _myReactionByPost
           ..clear()
-          ..addAll(likedByMe);
+          ..addAll(myReactions);
         _commentCounts
           ..clear()
           ..addAll(commentCounts);
@@ -291,7 +307,7 @@ class _WallTabState extends State<WallTab> {
         try {
           final rows = await SupabaseConfig.client
               .from('post_likes')
-              .select('post_id, user_id')
+              .select('post_id, user_id, reaction_type')
               .inFilter('post_id', postIds);
           return List<Map<String, dynamic>>.from(rows);
         } catch (_) {
@@ -350,11 +366,13 @@ class _WallTabState extends State<WallTab> {
           results[3] as Map<String, Map<String, dynamic>>;
 
       final likeCounts = <String, int>{};
-      final likedByMe = <String, bool>{};
+      final myReactions = <String, String?>{};
       for (final l in likesRows) {
         final postId = l['post_id'] as String;
         likeCounts[postId] = (likeCounts[postId] ?? 0) + 1;
-        if (l['user_id'] == _myId) likedByMe[postId] = true;
+        if (l['user_id'] == _myId) {
+          myReactions[postId] = l['reaction_type'] as String?;
+        }
       }
       final commentCounts = <String, int>{};
       for (final c in commentsRows) {
@@ -366,7 +384,7 @@ class _WallTabState extends State<WallTab> {
       setState(() {
         _posts = [..._posts, ...list];
         _likeCounts.addAll(likeCounts);
-        _likedByMe.addAll(likedByMe);
+        _myReactionByPost.addAll(myReactions);
         _commentCounts.addAll(commentCounts);
         _authorProfiles = {..._authorProfiles, ...profiles};
         _mentionedProducts = {..._mentionedProducts, ...mentionedProducts};
@@ -383,35 +401,87 @@ class _WallTabState extends State<WallTab> {
   // serveur (_fetchPostsPage) — _posts ne contient déjà que les posts
   // correspondants, plus besoin de filtrer ici.
 
-  Future<void> _toggleLike(String postId) async {
+  /// Réagit avec [reactionType] à une publication — retape la même
+  /// réaction pour la retirer, ou une réaction différente pour la
+  /// remplacer (suppression + réinsertion, pas de policy UPDATE
+  /// nécessaire côté RLS, voir phase46_patch_communaute_replies_reactions.sql).
+  Future<void> _react(String postId, String reactionType) async {
     final myId = _myId;
     if (myId == null) return;
-    final liked = _likedByMe[postId] ?? false;
+    final previous = _myReactionByPost[postId];
+    final removing = previous == reactionType;
 
     setState(() {
-      _likedByMe[postId] = !liked;
-      _likeCounts[postId] = (_likeCounts[postId] ?? 0) + (liked ? -1 : 1);
+      _myReactionByPost[postId] = removing ? null : reactionType;
+      _likeCounts[postId] = (_likeCounts[postId] ?? 0) +
+          (removing
+              ? -1
+              : previous == null
+                  ? 1
+                  : 0);
     });
 
     try {
-      if (liked) {
+      if (previous != null) {
         await SupabaseConfig.client
             .from('post_likes')
             .delete()
             .eq('post_id', postId)
             .eq('user_id', myId);
-      } else {
-        await SupabaseConfig.client
-            .from('post_likes')
-            .insert({'post_id': postId, 'user_id': myId});
+      }
+      if (!removing) {
+        await SupabaseConfig.client.from('post_likes').insert({
+          'post_id': postId,
+          'user_id': myId,
+          'reaction_type': reactionType,
+        });
       }
     } catch (_) {
       // Revert en cas d'échec réseau.
       setState(() {
-        _likedByMe[postId] = liked;
-        _likeCounts[postId] = (_likeCounts[postId] ?? 0) + (liked ? 1 : -1);
+        _myReactionByPost[postId] = previous;
+        _likeCounts[postId] = (_likeCounts[postId] ?? 0) +
+            (removing
+                ? 1
+                : previous == null
+                    ? -1
+                    : 0);
       });
     }
+  }
+
+  Future<void> _showReactionPicker(String postId) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Center(
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: const [
+              BoxShadow(color: Colors.black26, blurRadius: 12),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: kPostReactionEmojis.entries.map((entry) {
+              return InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () => Navigator.pop(context, entry.key),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Text(entry.value, style: const TextStyle(fontSize: 28)),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+    if (selected != null) _react(postId, selected);
   }
 
   Future<void> _openComments(Map<String, dynamic> post) async {
@@ -515,7 +585,7 @@ class _WallTabState extends State<WallTab> {
       setState(() {
         _posts.removeWhere((p) => p['id'] == post['id']);
         _likeCounts.remove(post['id']);
-        _likedByMe.remove(post['id']);
+        _myReactionByPost.remove(post['id']);
         _commentCounts.remove(post['id']);
       });
       if (!mounted) return;
@@ -670,7 +740,7 @@ class _WallTabState extends State<WallTab> {
                               final sector = author != null
                                   ? _sectorLabels[author['client_type']]
                                   : null;
-                              final liked = _likedByMe[post['id']] ?? false;
+                              final myReaction = _myReactionByPost[post['id']];
                               final mentionedProduct = _mentionedProducts[
                                   post['mentioned_product_id']];
 
@@ -847,18 +917,28 @@ class _WallTabState extends State<WallTab> {
                                       SizedBox(height: 1.h),
                                       Row(
                                         children: [
-                                          IconButton(
-                                            icon: Icon(
-                                              liked
-                                                  ? Icons.favorite
-                                                  : Icons.favorite_border,
-                                              color: liked
-                                                  ? Colors.red
-                                                  : null,
-                                              size: 20,
+                                          GestureDetector(
+                                            onLongPress: () =>
+                                                _showReactionPicker(
+                                                    post['id']),
+                                            child: IconButton(
+                                              icon: myReaction != null
+                                                  ? Text(
+                                                      kPostReactionEmojis[
+                                                              myReaction] ??
+                                                          '👍',
+                                                      style: const TextStyle(
+                                                          fontSize: 18),
+                                                    )
+                                                  : const Icon(
+                                                      Icons.favorite_border,
+                                                      size: 20),
+                                              tooltip:
+                                                  'Maintenir pour choisir une réaction',
+                                              onPressed: () => _react(
+                                                  post['id'],
+                                                  myReaction ?? 'like'),
                                             ),
-                                            onPressed: () =>
-                                                _toggleLike(post['id']),
                                           ),
                                           Text(
                                               '${_likeCounts[post['id']] ?? 0}'),
@@ -1085,11 +1165,26 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   Map<String, Map<String, dynamic>> _authorProfiles = {};
   bool _isLoading = true;
   final _controller = TextEditingController();
+  final _inputFocus = FocusNode();
+
+  /// Commentaire (obligatoirement de premier niveau) auquel la prochaine
+  /// saisie répond — `null` pour un nouveau commentaire "racine" (01/08,
+  /// demande explicite : "répondre un commentaire"). Volontairement
+  /// limité à un seul niveau de profondeur (pas de "répondre à une
+  /// réponse") pour garder l'affichage simple et lisible.
+  Map<String, dynamic>? _replyingTo;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _inputFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -1115,25 +1210,61 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     }
   }
 
+  List<Map<String, dynamic>> get _topLevelComments =>
+      _comments.where((c) => c['parent_comment_id'] == null).toList();
+
+  List<Map<String, dynamic>> _repliesTo(String commentId) => _comments
+      .where((c) => c['parent_comment_id'] == commentId)
+      .toList();
+
+  void _startReply(Map<String, dynamic> comment) {
+    setState(() => _replyingTo = comment);
+    _inputFocus.requestFocus();
+  }
+
   Future<void> _addComment() async {
     final userId = SupabaseConfig.client.auth.currentUser?.id;
     if (userId == null || _controller.text.trim().isEmpty) return;
     final text = _controller.text.trim();
+    final parentId = _replyingTo?['id'] as String?;
     _controller.clear();
+    setState(() => _replyingTo = null);
 
     try {
       await SupabaseConfig.client.from('post_comments').insert({
         'post_id': widget.postId,
         'author_id': userId,
         'content': text,
+        if (parentId != null) 'parent_comment_id': parentId,
       });
       widget.onCommentAdded();
       _load();
     } catch (_) {}
   }
 
+  Widget _buildCommentTile(Map<String, dynamic> c, {bool isReply = false}) {
+    final name =
+        PublicProfilesRepo.displayName(_authorProfiles[c['author_id']]);
+    return Padding(
+      padding: EdgeInsets.only(left: isReply ? 10.w : 0),
+      child: ListTile(
+        dense: true,
+        title: Text(name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(c['content'] ?? ''),
+        trailing: isReply
+            ? null
+            : TextButton(
+                onPressed: () => _startReply(c),
+                child: const Text('Répondre'),
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final topLevel = _topLevelComments;
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -1150,25 +1281,44 @@ class _CommentsSheetState extends State<_CommentsSheet> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _comments.isEmpty
+                  : topLevel.isEmpty
                       ? const Center(child: Text('Aucun commentaire.'))
                       : ListView.builder(
                           padding: EdgeInsets.symmetric(horizontal: 4.w),
-                          itemCount: _comments.length,
+                          itemCount: topLevel.length,
                           itemBuilder: (context, index) {
-                            final c = _comments[index];
-                            final name = PublicProfilesRepo.displayName(
-                                _authorProfiles[c['author_id']]);
-                            return ListTile(
-                              dense: true,
-                              title: Text(name,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600)),
-                              subtitle: Text(c['content'] ?? ''),
+                            final c = topLevel[index];
+                            final replies = _repliesTo(c['id']);
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildCommentTile(c),
+                                ...replies.map((r) =>
+                                    _buildCommentTile(r, isReply: true)),
+                              ],
                             );
                           },
                         ),
             ),
+            if (_replyingTo != null)
+              Padding(
+                padding: EdgeInsets.fromLTRB(3.w, 0, 3.w, 1.h),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Réponse à ${PublicProfilesRepo.displayName(_authorProfiles[_replyingTo!['author_id']])}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() => _replyingTo = null),
+                    ),
+                  ],
+                ),
+              ),
             Padding(
               padding: EdgeInsets.all(3.w),
               child: Row(
@@ -1176,10 +1326,13 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   Expanded(
                     child: TextField(
                       controller: _controller,
-                      decoration: const InputDecoration(
-                        hintText: 'Ajouter un commentaire...',
+                      focusNode: _inputFocus,
+                      decoration: InputDecoration(
+                        hintText: _replyingTo != null
+                            ? 'Écrire une réponse...'
+                            : 'Ajouter un commentaire...',
                         isDense: true,
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ),
