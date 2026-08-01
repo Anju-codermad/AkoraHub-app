@@ -4003,3 +4003,20 @@ possible aujourd'hui est manuel, directement dans le Dashboard Supabase
 (Authentication -> l'utilisateur concerné -> retirer le facteur MFA). À
 améliorer (codes de récupération et/ou outil Admin dédié) si ce cas se
 présente en pratique.
+
+## Renommage "Mur" -> "Communauté" (01/08)
+
+Demande : trouver un terme plus parlant que "Mur" (calque Facebook) pour
+le fil de publications texte/photo avec likes et commentaires,
+filtrable par secteur. Trois options proposées (Communauté / Fil Akora /
+Publications) ; "Communauté" retenu.
+
+Changements de texte visible uniquement (le fichier reste
+`wall/wall_tab.dart`, la classe `WallTab` n'est pas renommée — même
+logique que pour "Académie", pas de renommage de fichier en cours de
+session) : titre de l'écran ("Communauté AkoraHub"), bouton "Voir la
+Communauté" et texte de repli "Nouvelle publication dans la Communauté"
+sur l'Accueil (`catalog_tab.dart`), message d'erreur de chargement.
+Toujours accessible uniquement depuis le Profil ou le fil "Pour vous" de
+l'Accueil — aucun onglet de navigation dédié (décision du 23/07,
+inchangée).

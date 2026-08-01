@@ -1153,8 +1153,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             ),
           ],
 
-          // --- "Pour vous" : fil d'activité mélangeant Mur + nouveaux
-          // produits (23/07). Masqué si vide (repli silencieux en cas
+          // --- "Pour vous" : fil d'activité mélangeant Communauté (ex-Mur)
+          // + nouveaux produits (23/07). Masqué si vide (repli silencieux en cas
           // d'échec de chargement — voir _loadData). ---
           if (_activityFeed.isNotEmpty) ...[
             SliverToBoxAdapter(
@@ -1169,7 +1169,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                         context,
                         MaterialPageRoute(builder: (_) => const WallTab()),
                       ),
-                      child: const Text('Voir le Mur'),
+                      child: const Text('Voir la Communauté'),
                     ),
                   ],
                 ),
@@ -1244,7 +1244,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                                     .isNotEmpty
                                                 ? item.post!['content']
                                                 : 'Nouvelle publication'
-                                                    ' sur le Mur',
+                                                    ' dans la Communauté',
                                             maxLines: 3,
                                             overflow: TextOverflow.ellipsis,
                                             style: theme.textTheme.bodySmall,
@@ -1574,7 +1574,7 @@ class _PromoSlide {
 }
 
 /// Un élément du fil d'activité "Pour vous" de l'Accueil (23/07) : soit une
-/// publication publique du Mur, soit un produit récemment ajouté au
+/// publication publique de la Communauté, soit un produit récemment ajouté au
 /// catalogue. Les deux sources sont mélangées et triées par date.
 class _ActivityItem {
   final Map<String, dynamic>? post;
