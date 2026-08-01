@@ -718,20 +718,38 @@ class _CartTabState extends ConsumerState<CartTab> {
                           .withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.lock_outline,
-                            size: 18, color: theme.colorScheme.primary),
-                        SizedBox(width: 2.w),
-                        Expanded(
-                          child: Text(
-                            'Vous serez redirigé vers une page de paiement '
-                            'sécurisée après validation de la commande. '
-                            'Montant demandé : ${_currency.format(total + (_deliveryFee ?? 0))} '
-                            '(produits + livraison), sans frais supplémentaire.',
-                            style: theme.textTheme.bodySmall,
-                          ),
+                        Row(
+                          children: [
+                            Icon(Icons.lock_outline,
+                                size: 18, color: theme.colorScheme.primary),
+                            SizedBox(width: 2.w),
+                            Expanded(
+                              child: Text(
+                                'Vous serez redirigé vers une page de paiement '
+                                'sécurisée après validation de la commande. '
+                                'Montant demandé : ${_currency.format(total + (_deliveryFee ?? 0))} '
+                                '(produits + livraison), sans frais supplémentaire.',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
                         ),
+                        if (_paymentMethod == PaymentMethod.mvola) ...[
+                          SizedBox(height: 0.8.h),
+                          Text(
+                            'Frais de retrait Mvola estimés pour ce montant : '
+                            '~${_currency.format(MvolaWithdrawalFee.estimate(total + (_deliveryFee ?? 0)))} '
+                            '(à titre indicatif, dépend du montant total '
+                            'retiré en une fois).',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
