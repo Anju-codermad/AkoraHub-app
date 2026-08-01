@@ -114,6 +114,23 @@
 
   .hidden { display: none !important; }
   footer { color: var(--text-faint); font-size: 0.78rem; text-align: center; margin-top: 2rem; }
+
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .tab-btn {
+    flex: 1; background: var(--surface); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 0.6rem; font-size: 0.88rem; font-weight: 600; color: var(--text-muted);
+  }
+  .tab-btn.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+
+  .course-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.7rem;
+    padding: 0.8rem 0.9rem; border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .course-row:last-child { border-bottom: none; }
+  .course-row.selected { background: var(--accent-soft); }
+  .course-name { font-weight: 500; }
+  .course-cat { color: var(--text-faint); font-size: 0.8rem; }
+  .course-price { font-weight: 700; color: var(--accent-strong); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -141,40 +158,78 @@
       <button class="ghost" id="logout-btn">Se déconnecter</button>
     </div>
 
-    <div id="pending-banner" class="pending-banner hidden"></div>
-
-    <div class="card">
-      <div class="search-box">
-        <input type="text" id="search" placeholder="Rechercher une matière première…" />
-      </div>
-      <div id="material-list" class="material-list"></div>
+    <div class="tabs">
+      <button class="tab-btn selected" id="tab-materials">Matières premières</button>
+      <button class="tab-btn" id="tab-courses">Cours AkoraFormation</button>
     </div>
 
-    <div id="purchase-card" class="card hidden">
-      <div class="summary-row">
-        <span id="selected-count"></span>
-        <span id="unit-price"></span>
-      </div>
-      <div class="total-row">
-        <span>Total</span>
-        <span id="total-price"></span>
-      </div>
+    <div id="materials-section">
+      <div id="pending-banner" class="pending-banner hidden"></div>
 
-      <label>Mode de paiement</label>
-      <div id="method-chips" class="method-chips"></div>
-      <div id="method-instructions" class="instructions hidden"></div>
-
-      <label for="reference">Référence de paiement (optionnel)</label>
-      <input type="text" id="reference" placeholder="Ex : numéro de transaction" />
-
-      <div class="file-row">
-        <input type="file" id="proof-file" accept="image/*" />
-        <span>Preuve de paiement (optionnel)</span>
+      <div class="card">
+        <div class="search-box">
+          <input type="text" id="search" placeholder="Rechercher une matière première…" />
+        </div>
+        <div id="material-list" class="material-list"></div>
       </div>
 
-      <div id="submit-error" class="error hidden"></div>
-      <div id="submit-success" class="success-banner hidden"></div>
-      <button class="primary" id="submit-btn">Envoyer la demande</button>
+      <div id="purchase-card" class="card hidden">
+        <div class="summary-row">
+          <span id="selected-count"></span>
+          <span id="unit-price"></span>
+        </div>
+        <div class="total-row">
+          <span>Total</span>
+          <span id="total-price"></span>
+        </div>
+
+        <label>Mode de paiement</label>
+        <div id="method-chips" class="method-chips"></div>
+        <div id="method-instructions" class="instructions hidden"></div>
+
+        <label for="reference">Référence de paiement (optionnel)</label>
+        <input type="text" id="reference" placeholder="Ex : numéro de transaction" />
+
+        <div class="file-row">
+          <input type="file" id="proof-file" accept="image/*" />
+          <span>Preuve de paiement (optionnel)</span>
+        </div>
+
+        <div id="submit-error" class="error hidden"></div>
+        <div id="submit-success" class="success-banner hidden"></div>
+        <button class="primary" id="submit-btn">Envoyer la demande</button>
+      </div>
+    </div>
+
+    <div id="courses-section" class="hidden">
+      <div id="course-pending-banner" class="pending-banner hidden"></div>
+
+      <div class="card">
+        <div id="course-list" class="material-list"></div>
+      </div>
+
+      <div id="course-purchase-card" class="card hidden">
+        <div class="total-row">
+          <span id="course-selected-name"></span>
+          <span id="course-price"></span>
+        </div>
+
+        <label>Mode de paiement</label>
+        <div id="course-method-chips" class="method-chips"></div>
+        <div id="course-method-instructions" class="instructions hidden"></div>
+
+        <label for="course-reference">Référence de paiement (optionnel)</label>
+        <input type="text" id="course-reference" placeholder="Ex : numéro de transaction" />
+
+        <div class="file-row">
+          <input type="file" id="course-proof-file" accept="image/*" />
+          <span>Preuve de paiement (optionnel)</span>
+        </div>
+
+        <div id="course-submit-error" class="error hidden"></div>
+        <div id="course-submit-success" class="success-banner hidden"></div>
+        <button class="primary" id="course-submit-btn">Envoyer la demande</button>
+      </div>
     </div>
   </div>
 
@@ -443,11 +498,191 @@ async function submitPurchase() {
   }
 }
 
+// ------------------------------------------------------------
+// Cours AkoraFormation — même principe que les matières premières,
+// mais un seul cours à la fois (pas de palier dégressif) et écrit dans
+// course_purchases (voir supabase/phase50_patch_course_purchases_and_content.sql).
+// ------------------------------------------------------------
+let courses = [];
+let ownedCourseIds = new Set();
+let pendingCourseIds = new Set();
+let selectedCourseId = null;
+let selectedCourseMethodId = null;
+let isCourseSubmitting = false;
+
+async function loadCourseData() {
+  const uid = session.user.id;
+  const [coursesRes, ownedRes, pendingRes] = await Promise.all([
+    api(`/formation_courses?select=id,title,category,price&status=eq.deja_developpee&price=not.is.null&order=category`),
+    api(`/course_purchases?select=course_id&customer_id=eq.${uid}&status=eq.validee`),
+    api(`/course_purchases?select=course_id&customer_id=eq.${uid}&status=eq.en_attente`),
+  ]);
+  courses = coursesRes || [];
+  ownedCourseIds = new Set((ownedRes || []).map(r => r.course_id));
+  pendingCourseIds = new Set((pendingRes || []).map(r => r.course_id));
+  if (selectedCourseId && (ownedCourseIds.has(selectedCourseId) || pendingCourseIds.has(selectedCourseId))) {
+    selectedCourseId = null;
+  }
+  if (!selectedCourseMethodId || !enabledMethodIds.has(selectedCourseMethodId)) {
+    selectedCourseMethodId = [...enabledMethodIds][0] || null;
+  }
+}
+
+function renderCoursePendingBanner() {
+  const banner = el('course-pending-banner');
+  if (pendingCourseIds.size > 0) {
+    banner.textContent = `${pendingCourseIds.size} cours en attente de vérification par notre équipe.`;
+    banner.classList.remove('hidden');
+  } else {
+    banner.classList.add('hidden');
+  }
+}
+
+function renderCourseList() {
+  const list = el('course-list');
+  const available = courses.filter(c => !ownedCourseIds.has(c.id) && !pendingCourseIds.has(c.id));
+  list.innerHTML = '';
+  if (available.length === 0) {
+    const msg = courses.length === 0
+      ? 'Aucun cours en vente pour le moment.'
+      : 'Vous avez déjà accès à tous les cours disponibles.';
+    list.innerHTML = `<div class="empty-state">${msg}</div>`;
+    return;
+  }
+  for (const c of available) {
+    const row = document.createElement('div');
+    row.className = 'course-row' + (selectedCourseId === c.id ? ' selected' : '');
+    row.innerHTML = `
+      <span>
+        <div class="course-name">${c.title || ''}</div>
+        <div class="course-cat">${c.category || ''}</div>
+      </span>
+      <span class="course-price">${formatAr(c.price)}</span>`;
+    row.addEventListener('click', () => {
+      selectedCourseId = c.id;
+      renderCourseList();
+      renderCoursePurchaseCard();
+    });
+    list.appendChild(row);
+  }
+}
+
+function renderCourseMethodChips() {
+  const wrap = el('course-method-chips');
+  wrap.innerHTML = '';
+  for (const m of PAYMENT_METHODS) {
+    if (!enabledMethodIds.has(m.id)) continue;
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (selectedCourseMethodId === m.id ? ' selected' : '');
+    chip.textContent = m.label;
+    chip.addEventListener('click', () => {
+      selectedCourseMethodId = m.id;
+      renderCoursePurchaseCard();
+    });
+    wrap.appendChild(chip);
+  }
+  const instructionsBox = el('course-method-instructions');
+  const current = PAYMENT_METHODS.find(m => m.id === selectedCourseMethodId);
+  if (current) {
+    instructionsBox.textContent = current.instructions;
+    instructionsBox.classList.remove('hidden');
+  } else {
+    instructionsBox.classList.add('hidden');
+  }
+}
+
+function renderCoursePurchaseCard() {
+  const card = el('course-purchase-card');
+  const selected = courses.find(c => c.id === selectedCourseId);
+  if (!selected) {
+    card.classList.add('hidden');
+    return;
+  }
+  card.classList.remove('hidden');
+  el('course-selected-name').textContent = selected.title;
+  el('course-price').textContent = formatAr(selected.price);
+  renderCourseMethodChips();
+  el('course-submit-btn').disabled = !selectedCourseMethodId || isCourseSubmitting;
+}
+
+async function submitCoursePurchase() {
+  const selected = courses.find(c => c.id === selectedCourseId);
+  if (!selected || !selectedCourseMethodId || isCourseSubmitting) return;
+  isCourseSubmitting = true;
+  el('course-submit-btn').disabled = true;
+  el('course-submit-error').classList.add('hidden');
+  el('course-submit-success').classList.add('hidden');
+  try {
+    const uid = session.user.id;
+    let proofPath = null;
+    const fileInput = el('course-proof-file');
+    const file = fileInput.files[0];
+    if (file) {
+      try {
+        proofPath = `${uid}/course_${Date.now()}.jpg`;
+        const res = await fetch(`${SUPABASE_URL}/storage/v1/object/payment-proofs/${proofPath}`, {
+          method: 'POST',
+          headers: {
+            apikey: ANON_KEY,
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': file.type || 'image/jpeg',
+          },
+          body: file,
+        });
+        if (!res.ok) proofPath = null;
+      } catch (_) { proofPath = null; }
+    }
+
+    const batchId = `COURSE-${Date.now()}`;
+    const reference = el('course-reference').value.trim();
+
+    await api(`/course_purchases?on_conflict=customer_id,course_id`, {
+      method: 'POST',
+      body: [{
+        customer_id: uid,
+        course_id: selected.id,
+        batch_id: batchId,
+        amount: selected.price,
+        status: 'en_attente',
+        payment_method: selectedCourseMethodId,
+        payment_reference: reference || null,
+        payment_proof_path: proofPath,
+      }],
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    });
+
+    el('course-submit-success').textContent = 'Demande envoyée — l\'accès sera débloqué après vérification du paiement.';
+    el('course-submit-success').classList.remove('hidden');
+    selectedCourseId = null;
+    fileInput.value = '';
+    el('course-reference').value = '';
+    await loadCourseData();
+    renderCoursePendingBanner();
+    renderCourseList();
+    renderCoursePurchaseCard();
+  } catch (e) {
+    el('course-submit-error').textContent = 'Erreur : ' + (e && e.message ? e.message : String(e));
+    el('course-submit-error').classList.remove('hidden');
+  } finally {
+    isCourseSubmitting = false;
+    el('course-submit-btn').disabled = false;
+  }
+}
+
+function switchTab(tab) {
+  const isMaterials = tab === 'materials';
+  el('tab-materials').classList.toggle('selected', isMaterials);
+  el('tab-courses').classList.toggle('selected', !isMaterials);
+  el('materials-section').classList.toggle('hidden', !isMaterials);
+  el('courses-section').classList.toggle('hidden', isMaterials);
+}
+
 async function boot() {
   restoreSession();
   if (!session) return;
   try {
     await loadData();
+    await loadCourseData();
   } catch (e) {
     logout();
     return;
@@ -458,6 +693,9 @@ async function boot() {
   renderPendingBanner();
   renderMaterialList();
   renderPurchaseCard();
+  renderCoursePendingBanner();
+  renderCourseList();
+  renderCoursePurchaseCard();
 }
 
 el('login-btn').addEventListener('click', async () => {
@@ -481,6 +719,9 @@ el('login-btn').addEventListener('click', async () => {
 el('logout-btn').addEventListener('click', logout);
 el('search').addEventListener('input', renderMaterialList);
 el('submit-btn').addEventListener('click', submitPurchase);
+el('tab-materials').addEventListener('click', () => switchTab('materials'));
+el('tab-courses').addEventListener('click', () => switchTab('courses'));
+el('course-submit-btn').addEventListener('click', submitCoursePurchase);
 
 boot();
 </script>

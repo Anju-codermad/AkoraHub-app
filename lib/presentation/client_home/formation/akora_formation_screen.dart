@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../../core/formation/course_purchases_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
+import '../../../core/utils/formation_web_link.dart';
+import 'course_content_screen.dart';
 
 String _statusLabel(String status) {
   switch (status) {
@@ -58,9 +62,14 @@ class AkoraFormationScreen extends StatefulWidget {
 
 class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
   List<Map<String, dynamic>> _courses = [];
+  Set<String> _ownedCourseIds = {};
+  Set<String> _pendingCourseIds = {};
   bool _isLoading = true;
   String? _error;
   late String _selectedCategory;
+
+  final _currency =
+      NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
   @override
   void initState() {
@@ -77,13 +86,19 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
       _error = null;
     });
     try {
-      final data = await SupabaseConfig.client
-          .from('formation_courses')
-          .select()
-          .order('category')
-          .order('sort_order');
+      final results = await Future.wait<dynamic>([
+        SupabaseConfig.client
+            .from('formation_courses')
+            .select()
+            .order('category')
+            .order('sort_order'),
+        CoursePurchasesRepo.fetchMyPurchasedCourseIds(),
+        CoursePurchasesRepo.fetchMyPendingCourseIds(),
+      ]);
       setState(() {
-        _courses = List<Map<String, dynamic>>.from(data);
+        _courses = List<Map<String, dynamic>>.from(results[0] as List);
+        _ownedCourseIds = results[1] as Set<String>;
+        _pendingCourseIds = results[2] as Set<String>;
         _isLoading = false;
       });
     } catch (e) {
@@ -168,14 +183,27 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
                                 itemBuilder: (context, index) {
                                   final c = filtered[index];
                                   final status = c['status'] as String;
+                                  final courseId = c['id'] as String;
+                                  final price = c['price'] as num?;
+                                  final isOwned =
+                                      _ownedCourseIds.contains(courseId);
+                                  final isPending =
+                                      _pendingCourseIds.contains(courseId);
+                                  final isPurchasable = status ==
+                                          'deja_developpee' &&
+                                      price != null &&
+                                      !isOwned;
                                   return Card(
                                     child: ListTile(
                                       leading: CircleAvatar(
                                         backgroundColor: _statusColor(status)
                                             .withValues(alpha: 0.15),
                                         child: Icon(
-                                          iconForFormationCategory(
-                                              c['category'] as String? ?? ''),
+                                          isOwned
+                                              ? Icons.lock_open_outlined
+                                              : iconForFormationCategory(
+                                                  c['category'] as String? ??
+                                                      ''),
                                           color: _statusColor(status),
                                         ),
                                       ),
@@ -184,16 +212,59 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
                                         c['category'],
                                         if (c['module_count'] != null)
                                           '${c['module_count']} modules',
+                                        if (isPurchasable)
+                                          _currency.format(price),
                                       ].where((e) => e != null).join(' · ')),
-                                      trailing: Chip(
-                                        label: Text(_statusLabel(status),
-                                            style: const TextStyle(fontSize: 11)),
-                                        backgroundColor:
-                                            _statusColor(status).withValues(alpha: 0.15),
-                                        labelStyle:
-                                            TextStyle(color: _statusColor(status)),
-                                        visualDensity: VisualDensity.compact,
-                                      ),
+                                      trailing: isOwned
+                                          ? FilledButton(
+                                              onPressed: () => Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      CourseContentScreen(
+                                                    courseId: courseId,
+                                                    courseTitle:
+                                                        c['title'] ?? '',
+                                                  ),
+                                                ),
+                                              ),
+                                              child: const Text('Voir'),
+                                            )
+                                          : isPending
+                                              ? const Chip(
+                                                  label: Text(
+                                                      'En attente',
+                                                      style: TextStyle(
+                                                          fontSize: 11)),
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                )
+                                              : isPurchasable
+                                                  ? OutlinedButton(
+                                                      onPressed: () =>
+                                                          openFormationPurchaseWeb(
+                                                              context),
+                                                      child: const Text(
+                                                          'Acheter'),
+                                                    )
+                                                  : Chip(
+                                                      label: Text(
+                                                          _statusLabel(status),
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize:
+                                                                      11)),
+                                                      backgroundColor:
+                                                          _statusColor(status)
+                                                              .withValues(
+                                                                  alpha: 0.15),
+                                                      labelStyle: TextStyle(
+                                                          color: _statusColor(
+                                                              status)),
+                                                      visualDensity:
+                                                          VisualDensity
+                                                              .compact,
+                                                    ),
                                     ),
                                   );
                                 },

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import 'formation_course_modules_management.dart';
 
 const _statusOptions = ['deja_developpee', 'en_projet', 'a_creer'];
 
@@ -94,6 +96,8 @@ class _FormationCoursesManagementState
     final titleCtrl = TextEditingController(text: course?['title'] ?? '');
     final moduleCountCtrl =
         TextEditingController(text: (course?['module_count'] ?? '').toString());
+    final priceCtrl =
+        TextEditingController(text: (course?['price'] ?? '').toString());
     String status = course?['status'] ?? 'a_creer';
     bool isSaving = false;
 
@@ -151,6 +155,17 @@ class _FormationCoursesManagementState
                   decoration: const InputDecoration(
                       labelText: 'Nombre de modules (optionnel)'),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: priceCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Prix (Ar, optionnel)',
+                    helperText:
+                        'Laissez vide tant que le cours n\'est pas en vente — '
+                        'un prix rend le bouton "Acheter" visible côté client.',
+                  ),
+                ),
               ],
             ),
           ),
@@ -173,6 +188,7 @@ class _FormationCoursesManagementState
                         'title': titleCtrl.text.trim(),
                         'status': status,
                         'module_count': int.tryParse(moduleCountCtrl.text),
+                        'price': num.tryParse(priceCtrl.text.trim()),
                       };
                       try {
                         if (isEditing) {
@@ -287,12 +303,20 @@ class _FormationCoursesManagementState
                                   .where((c) => c['category'] == category)
                                   .map((c) {
                                 final status = c['status'] as String;
+                                final price = c['price'] as num?;
                                 return Card(
                                   child: ListTile(
                                     title: Text(c['title'] ?? ''),
-                                    subtitle: c['module_count'] != null
-                                        ? Text('${c['module_count']} modules')
-                                        : null,
+                                    subtitle: Text([
+                                      if (c['module_count'] != null)
+                                        '${c['module_count']} modules',
+                                      if (price != null)
+                                        NumberFormat.currency(
+                                                locale: 'fr_FR',
+                                                symbol: 'Ar',
+                                                decimalDigits: 0)
+                                            .format(price),
+                                    ].join(' · ')),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -304,6 +328,22 @@ class _FormationCoursesManagementState
                                           labelStyle: TextStyle(
                                               color: _statusColor(status)),
                                           visualDensity: VisualDensity.compact,
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                              Icons.video_collection_outlined,
+                                              size: 20),
+                                          tooltip: 'Modules (vidéo/document)',
+                                          onPressed: () => Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  FormationCourseModulesManagement(
+                                                courseId: c['id'],
+                                                courseTitle: c['title'] ?? '',
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                         IconButton(
                                           icon: const Icon(Icons.delete_outline,

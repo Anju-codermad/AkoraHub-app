@@ -51,6 +51,7 @@ dependencies:
   url_launcher: ^6.3.1 # Ouverture des fichiers reçus en message — 30/07
   path_provider: ^2.1.5 # Fichier temporaire d'enregistrement vocal — 30/07
   agora_rtc_engine: ^6.5.4 # Appels audio/vidéo dans la messagerie — 31/07 (version plafonnée : 6.6.x exige ffi ^1.1.2, incompatible avec share_plus qui exige ffi ^2.1.2 — voir PROJECT_CONTEXT.md)
+  screen_protector: ^1.4.2 # FLAG_SECURE (Android) sur les écrans de contenu Formation payant — bloque capture/enregistrement d'écran, voir PROJECT_CONTEXT.md (02/08)
 
   universal_html: ^2.2.4
 
