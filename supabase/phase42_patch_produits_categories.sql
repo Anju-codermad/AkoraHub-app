@@ -1,6 +1,6 @@
 -- ============================================================
 -- AkoraHub - Patch Phase 42 : alignement partiel sur le document
--- "Groupe Akora — Activités (Produits, Services, Formations)" (02/08)
+-- "Groupe Akora — Activités (Produits, Services, Formations)" (01/08)
 --
 -- Contexte : l'utilisatrice a fourni la structure réelle complète du
 -- Groupe Akora (3 piliers : Produits, Services, Formations). Décision

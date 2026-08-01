@@ -3624,7 +3624,7 @@ complète — icônes/couleurs par famille chimique et par domaine d'usage,
 badge danger, courbe d'évolution du prix dessinée à la main avec
 `CustomPainter`, pas de nouvelle dépendance), `FormationSubscriptionScreen`
 (choix du plan, mode de paiement manuel, référence + preuve optionnelle).
-**⚠️ Correction (02/08) — la base de matières premières n'est PAS le vrai
+**⚠️ Correction (01/08) — la base de matières premières n'est PAS le vrai
 "AkoraFormation"** : l'utilisatrice a fourni un document
 ("Akora_Activites_Piliers.md") détaillant les 3 piliers réels du Groupe
 Akora — Produits (Akora Home/Pro/Soins/Protect + Peinture), Services
@@ -3647,7 +3647,7 @@ rien. L'icône 🎓 mappée sur le mot-clé `formation` (inchangée) reste prêt
 pour le futur vrai pilier AkoraFormation (cours), pas encore créé.
 
 **⚠️ Action requise côté utilisatrice** : exécuter
-`phase40_schema.sql` (version corrigée du 02/08 — l'ordre de création a
+`phase40_schema.sql` (version corrigée du 01/08 — l'ordre de création a
 été corrigé, `has_active_formation_subscription()` doit exister avant les
 policies qui la référencent) puis `phase41_patch_seed_raw_materials.sql`
 dans Supabase SQL Editor (dans cet ordre). **Aucun nouveau pilier à
@@ -3657,11 +3657,11 @@ l'écran Formation au tap — juste les activer depuis "Piliers
 d'entreprise" s'ils ne le sont pas déjà. Renommer "Matières Premières" en
 "Akora Pro" est optionnel, purement cosmétique.
 
-**✅ Fait (02/08)** : phase40 (corrigé) + phase41 exécutés avec succès par
+**✅ Fait (01/08)** : phase40 (corrigé) + phase41 exécutés avec succès par
 l'utilisatrice — 192 matières premières confirmées en base (174 Matières
 Premières / 10 Matières Premières Peinture / 8 Anti-Nuisibles).
 
-**Phase 42 — alignement partiel sur le document Groupe Akora (02/08)** :
+**Phase 42 — alignement partiel sur le document Groupe Akora (01/08)** :
 `supabase/phase42_patch_produits_categories.sql`, **écrit, pas encore
 exécuté par l'utilisatrice** (à faire dans le même SQL Editor, une seule
 fois). Volontairement limité au sans-risque : nouveau
