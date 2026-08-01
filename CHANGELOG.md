@@ -359,3 +359,6 @@
 
 ## 2026-08-01 09:47 UTC — Claude
 - Merge: lisibilité des piliers + dégradé icônes (`7c38a6d`)
+
+## 2026-08-01 09:50 UTC — Claude
+- Merge: renomme A-Formation en Académie (`a43a712`)
