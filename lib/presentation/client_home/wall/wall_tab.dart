@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -31,6 +32,9 @@ class _WallTabState extends State<WallTab> {
   String? _error;
   String _sectorFilter = 'tous';
   bool _onlyMine = false;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _searchDebounce;
   final Map<String, int> _likeCounts = {};
   final Map<String, bool> _likedByMe = {};
   final Map<String, int> _commentCounts = {};
@@ -72,7 +76,24 @@ class _WallTabState extends State<WallTab> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  /// Recherche par mot-clé dans le contenu des publications (01/08) —
+  /// débouncée pour ne pas relancer une requête à chaque frappe. Un
+  /// `setState` immédiat sans effet sur la recherche elle-même rafraîchit
+  /// juste l'icône "effacer" pendant que l'utilisateur tape.
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      final trimmed = value.trim();
+      if (trimmed == _searchQuery) return;
+      setState(() => _searchQuery = trimmed);
+      _loadPosts();
+    });
   }
 
   void _onScroll() {
@@ -107,6 +128,9 @@ class _WallTabState extends State<WallTab> {
     var query = SupabaseConfig.client.from('posts').select();
     if (_onlyMine) {
       query = query.eq('author_id', _myId!);
+    }
+    if (_searchQuery.isNotEmpty) {
+      query = query.ilike('content', '%$_searchQuery%');
     }
     final sectorIds = await _sectorAuthorIds();
     if (sectorIds != null) {
@@ -414,6 +438,100 @@ class _WallTabState extends State<WallTab> {
     );
   }
 
+  /// Modifier/Supprimer sa propre publication (01/08) — n'était pas
+  /// possible auparavant, seule l'insertion existait. Les policies RLS
+  /// `posts_update_own`/`posts_delete_own` (Phase 3) autorisent déjà
+  /// l'auteur (ou le staff) à agir sur ses propres lignes, aucun script
+  /// SQL supplémentaire n'est nécessaire.
+  Future<void> _editPost(Map<String, dynamic> post) async {
+    final controller =
+        TextEditingController(text: (post['content'] ?? '').toString());
+
+    final newContent = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Modifier la publication'),
+        content: TextField(
+          controller: controller,
+          maxLines: 5,
+          autofocus: true,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (newContent == null || !mounted) return;
+
+    try {
+      await SupabaseConfig.client
+          .from('posts')
+          .update({'content': newContent}).eq('id', post['id']);
+      setState(() {
+        final index = _posts.indexWhere((p) => p['id'] == post['id']);
+        if (index != -1) _posts[index]['content'] = newContent;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Impossible de modifier la publication. Réessayez.')),
+      );
+    }
+  }
+
+  Future<void> _deletePost(Map<String, dynamic> post) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer la publication'),
+        content: const Text(
+            'Cette action est définitive. Voulez-vous continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await SupabaseConfig.client.from('posts').delete().eq('id', post['id']);
+      setState(() {
+        _posts.removeWhere((p) => p['id'] == post['id']);
+        _likeCounts.remove(post['id']);
+        _likedByMe.remove(post['id']);
+        _commentCounts.remove(post['id']);
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Publication supprimée.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Impossible de supprimer la publication. Réessayez.')),
+      );
+    }
+  }
+
   void _sharePost(Map<String, dynamic> post, String authorName) {
     final content = (post['content'] ?? '').toString();
     final mentioned = _mentionedProducts[post['mentioned_product_id']];
@@ -447,6 +565,31 @@ class _WallTabState extends State<WallTab> {
                   child: CustomScrollView(
                     controller: _scrollController,
                     slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 0),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: _onSearchChanged,
+                            decoration: InputDecoration(
+                              hintText: 'Rechercher (produit, mot-clé...)',
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              suffixIcon: _searchController.text.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      icon: const Icon(Icons.close, size: 18),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        _onSearchChanged('');
+                                      },
+                                    ),
+                              isDense: true,
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ),
                       SliverToBoxAdapter(
                         child: SizedBox(
                           height: 5.h,
@@ -496,9 +639,11 @@ class _WallTabState extends State<WallTab> {
                       if (_posts.isEmpty)
                         SliverFillRemaining(
                           child: Center(
-                              child: Text(_onlyMine
-                                  ? 'Vous n\'avez encore rien publié.'
-                                  : 'Aucune publication pour le moment.')),
+                              child: Text(_searchQuery.isNotEmpty
+                                  ? 'Aucun résultat pour "$_searchQuery".'
+                                  : _onlyMine
+                                      ? 'Vous n\'avez encore rien publié.'
+                                      : 'Aucune publication pour le moment.')),
                         )
                       else
                         SliverList(
@@ -538,58 +683,94 @@ class _WallTabState extends State<WallTab> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      InkWell(
-                                        onTap: post['author_id'] == null
-                                            ? null
-                                            : () => Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) =>
-                                                        PublicProfileScreen(
-                                                      userId:
-                                                          post['author_id'],
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: InkWell(
+                                              onTap: post['author_id'] == null
+                                                  ? null
+                                                  : () => Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              PublicProfileScreen(
+                                                            userId: post[
+                                                                'author_id'],
+                                                          ),
+                                                        ),
+                                                      ),
+                                              child: Row(
+                                                children: [
+                                                  CircleAvatar(
+                                                    backgroundImage: author?[
+                                                                'avatar_url'] !=
+                                                            null
+                                                        ? NetworkImage(author![
+                                                            'avatar_url'])
+                                                        : null,
+                                                    child: author?[
+                                                                'avatar_url'] ==
+                                                            null
+                                                        ? Text(authorName
+                                                                .isNotEmpty
+                                                            ? authorName[0]
+                                                                .toUpperCase()
+                                                            : '?')
+                                                        : null,
+                                                  ),
+                                                  SizedBox(width: 2.w),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(authorName,
+                                                            style: theme
+                                                                .textTheme
+                                                                .bodyMedium
+                                                                ?.copyWith(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600)),
+                                                        if (sector != null)
+                                                          Text(sector,
+                                                              style: theme
+                                                                  .textTheme
+                                                                  .bodySmall),
+                                                      ],
                                                     ),
                                                   ),
-                                                ),
-                                        child: Row(
-                                          children: [
-                                            CircleAvatar(
-                                              backgroundImage: author?[
-                                                          'avatar_url'] !=
-                                                      null
-                                                  ? NetworkImage(
-                                                      author!['avatar_url'])
-                                                  : null,
-                                              child: author?['avatar_url'] ==
-                                                      null
-                                                  ? Text(authorName.isNotEmpty
-                                                      ? authorName[0]
-                                                          .toUpperCase()
-                                                      : '?')
-                                                  : null,
-                                            ),
-                                            SizedBox(width: 2.w),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(authorName,
-                                                      style: theme.textTheme
-                                                          .bodyMedium
-                                                          ?.copyWith(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600)),
-                                                  if (sector != null)
-                                                    Text(sector,
-                                                        style: theme.textTheme
-                                                            .bodySmall),
                                                 ],
                                               ),
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                          if (post['author_id'] == _myId)
+                                            PopupMenuButton<String>(
+                                              icon: const Icon(
+                                                  Icons.more_vert,
+                                                  size: 20),
+                                              onSelected: (value) {
+                                                if (value == 'edit') {
+                                                  _editPost(post);
+                                                } else if (value == 'delete') {
+                                                  _deletePost(post);
+                                                }
+                                              },
+                                              itemBuilder: (context) => const [
+                                                PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Text('Modifier'),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text('Supprimer',
+                                                      style: TextStyle(
+                                                          color: Colors.red)),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
                                       ),
                                       SizedBox(height: 1.h),
                                       if ((post['content'] ?? '')

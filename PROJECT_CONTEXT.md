@@ -4020,3 +4020,32 @@ sur l'Accueil (`catalog_tab.dart`), message d'erreur de chargement.
 Toujours accessible uniquement depuis le Profil ou le fil "Pour vous" de
 l'Accueil — aucun onglet de navigation dédié (décision du 23/07,
 inchangée).
+
+## Communauté : recherche + modifier/supprimer sa publication (01/08)
+
+Demande : rendre la Communauté "plus pratique", avec des suggestions
+d'amélioration (l'utilisatrice proposait notamment une "demande d'amis").
+Écarté volontairement : un système d'ami mutuel ne colle pas à l'usage
+observé (les publications ressemblent à un panneau d'annonces B2B entre
+inconnus organisés par secteur — Hôtellerie/Santé/Entreprises/
+Particuliers — pas un réseau d'amis). Parmi les alternatives proposées
+(Modifier/Supprimer sa publication, Recherche par mot-clé, Contacter via
+WhatsApp opt-in, Signaler une publication), l'utilisatrice a choisi de
+construire maintenant les deux premières ; les deux autres restent en
+réserve (Contacter nécessite d'abord un réglage de confidentialité
+"Afficher mon numéro", actuellement masqué par design — voir
+`public_profile_screen.dart`).
+
+Dans `wall/wall_tab.dart` :
+- **Modifier/Supprimer sa publication** : menu ⋮ visible uniquement sur
+  ses propres posts (`post['author_id'] == _myId`), à côté du nom
+  d'auteur (sorti de l'`InkWell` de navigation vers le profil pour ne
+  pas intercepter le tap). Aucune policy RLS à ajouter :
+  `posts_update_own`/`posts_delete_own` (Phase 3) autorisaient déjà
+  l'auteur à agir sur ses propres lignes, seule l'UI manquait.
+- **Recherche par mot-clé** : champ de recherche en haut du fil,
+  débouncé (400 ms) pour éviter une requête par frappe, filtre côté
+  serveur (`ilike` sur `content`) donc compatible avec la pagination
+  existante — pas de nouvel index nécessaire au volume actuel de posts.
+
+Aucun script SQL requis pour ce changement.
