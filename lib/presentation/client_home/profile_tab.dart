@@ -13,6 +13,7 @@ import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
 import 'favorites_provider.dart';
 import 'favorites_screen.dart';
+import 'formation/akora_formation_screen.dart';
 import 'formation/formation_catalog_screen.dart';
 import 'loyalty/loyalty_screen.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
@@ -582,6 +583,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     context,
                     MaterialPageRoute(
                         builder: (_) => const FormationCatalogScreen())),
+              ),
+              ListTile(
+                leading: const Icon(Icons.school_outlined),
+                title: const Text('AkoraFormation'),
+                subtitle: const Text('Cours et modules de formation'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AkoraFormationScreen())),
               ),
               ListTile(
                 leading: const Icon(Icons.qr_code_scanner),

@@ -3728,3 +3728,32 @@ vendre de vrais insecticides finis). Corrigé :
   C'est désormais le seul chemin pour atteindre la base Formation côté
   client — plus aucun pilier de l'Accueil n'y mène.
 
+## Phase 43 — Première brique du vrai AkoraFormation (cours/modules, 01/08)
+
+Suite directe du point 4 différé plus haut : l'utilisatrice a demandé
+d'ajouter "les listes de modules de formation complète" pour tout
+vérifier ensemble avant de relancer un build. Portée volontairement
+limitée à la **structure** (catégorie, titre, statut, nombre de
+modules) — pas encore le contenu réel des cours (vidéos, leçons), qui
+reste un chantier à part entière pour plus tard.
+
+- `supabase/phase43_patch_formation_courses.sql` : table
+  `formation_courses` (category, title, status
+  `deja_developpee`/`en_projet`/`a_creer`, module_count nullable,
+  sort_order), lecture publique (pas de paywall — c'est une vitrine, pas
+  du contenu sensible comme les matières premières), écriture staff.
+  Seedée avec les 45 formations des 7 catégories du document
+  (Entretien & Hygiène, Soins Capillaires & Beauté, Peinture, Cire &
+  Bougie, Agroalimentaire, Chimie Fondamentale, Coaching Entrepreneur).
+- Admin : `lib/presentation/formation_courses_management/` — liste
+  groupée par catégorie, ajout/édition/suppression, changement de statut
+  par puce colorée. Accessible depuis Menu "Plus" → "AkoraFormation —
+  Cours & Modules".
+- Client : `client_home/formation/akora_formation_screen.dart` — liste
+  filtrable par catégorie avec badge de statut (Disponible/Bientôt
+  disponible/À venir). **Bien distinct** de l'écran "Formation" (matières
+  premières) — accessible depuis une entrée de menu séparée dans le
+  Profil, "AkoraFormation", juste en dessous de "Formation". Pas de
+  paywall : le contenu réel des cours "Disponible" n'est pas encore
+  consultable depuis l'app, ce n'est qu'une liste/roadmap pour l'instant.
+

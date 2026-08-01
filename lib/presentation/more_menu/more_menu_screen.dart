@@ -15,6 +15,7 @@ import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
 import '../security_audit_log/security_audit_log_screen.dart';
 import '../raw_materials_management/raw_materials_management.dart';
+import '../formation_courses_management/formation_courses_management.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
@@ -92,6 +93,16 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const RawMaterialsManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.school_outlined,
+            label: 'AkoraFormation — Cours & Modules',
+            subtitle: 'Liste des formations par catégorie et leur statut',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const FormationCoursesManagement()),
             ),
           ),
           const Divider(height: 24),
