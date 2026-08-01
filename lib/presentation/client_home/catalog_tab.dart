@@ -100,13 +100,18 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
 
   List<_PromoSlide> _promoSlides = _defaultPromoSlides;
 
+  // Palette dérivée du vert de marque AkoraHub (voir app_theme.dart,
+  // primaryLight #085041) plutôt que les couleurs Material par défaut
+  // (vert/bleu/orange/violet/rouge/cyan saturés qui ne partagent aucune
+  // tonalité commune) — tons apparentés (mêmes niveaux de saturation et
+  // de luminosité), pour un ensemble qui se lit comme dessiné ensemble.
   final List<Color> _unitColors = const [
-    Color(0xFF2E7D32),
-    Color(0xFF1565C0),
-    Color(0xFFEF6C00),
-    Color(0xFF6A1B9A),
-    Color(0xFFC62828),
-    Color(0xFF00838F),
+    Color(0xFF085041), // vert de marque
+    Color(0xFF3E7C59), // sauge
+    Color(0xFFB8863B), // ocre
+    Color(0xFF8C5A3C), // terracotta
+    Color(0xFF3D5A6C), // ardoise
+    Color(0xFF6B4C6B), // prune
   ];
 
   @override
@@ -795,17 +800,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4, bottom: 4),
-                        child: Text(
-                          'AkoraHub',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -1086,64 +1080,32 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       padding: EdgeInsets.only(right: 3.w),
                       child: SizedBox(
                         width: 38.w,
-                        child: Stack(
-                          children: [
-                            _ProductCard(
-                              product: p,
-                              currency: _currency,
-                              isFavorite: ref
-                                  .watch(favoritesProvider)
-                                  .contains(p['id']),
-                              enableHero: false,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  productDetailRoute(
-                                      ProductDetailClient(product: p)),
-                                );
-                              },
-                              onQuickAdd: () => _quickAddToCart(p),
-                              onToggleFavorite: () => ref
-                                  .read(favoritesProvider.notifier)
-                                  .toggle(p['id']),
-                            ),
-                            // Achat en 1 tap sans ouvrir la fiche produit —
-                            // c'est tout l'intérêt de cette section (produits
-                            // déjà commandés au moins 2 fois par ce client).
-                            Positioned(
-                              left: 8,
-                              top: 8,
-                              child: Material(
-                                color: theme.colorScheme.primary,
-                                borderRadius: BorderRadius.circular(20),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(20),
-                                  onTap: () => _quickAddToCart(p),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.replay,
-                                            size: 12,
-                                            color: theme.colorScheme.onPrimary),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          'Recommander',
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                            color: theme.colorScheme.onPrimary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                        // "Recommander" passé en badge interne à la carte
+                        // (coin bas-gauche de la photo, seul coin libre :
+                        // catégorie en haut-gauche, favori en haut-droite,
+                        // ajout rapide en bas-droite) plutôt qu'empilé
+                        // par-dessus dans un Stack séparé — évite la
+                        // superposition avec l'étiquette de catégorie que ça
+                        // provoquait auparavant (les deux au même repère
+                        // top:8/left:8, dans deux Stack différents).
+                        child: _ProductCard(
+                          product: p,
+                          currency: _currency,
+                          isFavorite:
+                              ref.watch(favoritesProvider).contains(p['id']),
+                          enableHero: false,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              productDetailRoute(
+                                  ProductDetailClient(product: p)),
+                            );
+                          },
+                          onQuickAdd: () => _quickAddToCart(p),
+                          onToggleFavorite: () => ref
+                              .read(favoritesProvider.notifier)
+                              .toggle(p['id']),
+                          reorderBadge: true,
                         ),
                       ),
                     );
@@ -1639,6 +1601,10 @@ class _ProductCard extends StatelessWidget {
   /// canonique) le garde, ce carrousel secondaire le désactive.
   final bool enableHero;
 
+  /// Affiche un badge "Recommander" en bas à gauche de la photo — utilisé
+  /// uniquement dans la section "Vous recommandez souvent" (catalog_tab).
+  final bool reorderBadge;
+
   const _ProductCard({
     required this.product,
     required this.currency,
@@ -1647,6 +1613,7 @@ class _ProductCard extends StatelessWidget {
     required this.onQuickAdd,
     required this.onToggleFavorite,
     this.enableHero = true,
+    this.reorderBadge = false,
   });
 
   @override
@@ -1737,6 +1704,40 @@ class _ProductCard extends StatelessWidget {
                       bottom: 8,
                       child: _QuickAddButton(onTap: onQuickAdd),
                     ),
+                    if (reorderBadge)
+                      Positioned(
+                        left: 8,
+                        bottom: 8,
+                        child: Material(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(20),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: onQuickAdd,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.replay,
+                                      size: 12,
+                                      color: theme.colorScheme.onPrimary),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Recommander',
+                                    style: theme.textTheme.labelSmall
+                                        ?.copyWith(
+                                      color: theme.colorScheme.onPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
