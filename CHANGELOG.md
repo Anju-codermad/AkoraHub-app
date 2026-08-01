@@ -407,3 +407,6 @@
 
 ## 2026-08-01 21:28 UTC — Claude
 - Merge: Dashboard admin - franciser les textes en anglais (`ddadf5d`)
+
+## 2026-08-01 22:07 UTC — Claude
+- Merge: AkoraFormation - achat de cours + contenu protégé (`8c81f5f`)
