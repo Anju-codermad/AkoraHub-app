@@ -16,6 +16,7 @@ import '../messaging_center_real/messaging_center_real.dart';
 import '../security_audit_log/security_audit_log_screen.dart';
 import '../raw_materials_management/raw_materials_management.dart';
 import '../formation_courses_management/formation_courses_management.dart';
+import '../client_home/settings/settings_screen.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
@@ -184,6 +185,15 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const BusinessProfileSettings()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.settings_outlined,
+            label: 'Paramètres',
+            subtitle: 'Notifications, langue, mode sombre, sécurité, aide',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
             ),
           ),
           const Divider(height: 24),

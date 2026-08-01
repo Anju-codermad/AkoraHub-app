@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../core/supabase/auth_helpers.dart';
+import './mfa_challenge_screen.dart';
 import './recent_accounts_store.dart';
 import './widgets/app_logo_widget.dart';
 import './widgets/email_input_widget.dart';
@@ -275,6 +276,42 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   /// notifications, message de succès, puis routage vers l'accueil selon
   /// le rôle.
   Future<void> _onAuthenticated() async {
+    if (!mounted) return;
+
+    // Double authentification (01/08) : le mot de passe (ou OAuth) vient de
+    // réussir, mais si ce compte a activé la 2FA (voir
+    // `two_factor_setup_screen.dart`), la session est encore au niveau
+    // aal1 — GoTrue indique qu'un passage à aal2 est possible/attendu via
+    // `nextLevel`. On bloque l'accès à l'app tant que le second facteur
+    // n'est pas vérifié.
+    final aal = SupabaseConfig.client.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal.currentLevel == AuthenticatorAssuranceLevels.aal1 &&
+        aal.nextLevel == AuthenticatorAssuranceLevels.aal2) {
+      Factor? verifiedFactor;
+      try {
+        final factors = await SupabaseConfig.client.auth.mfa.listFactors();
+        for (final f in factors.totp) {
+          if (f.status == FactorStatus.verified) {
+            verifiedFactor = f;
+            break;
+          }
+        }
+      } catch (_) {}
+
+      if (verifiedFactor != null) {
+        if (!mounted) return;
+        final verified = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MfaChallengeScreen(factorId: verifiedFactor!.id),
+          ),
+        );
+        // MfaChallengeScreen déconnecte déjà le compte si l'utilisateur
+        // annule — rien de plus à faire ici que de stopper la connexion.
+        if (verified != true) return;
+      }
+    }
+
     if (!mounted) return;
 
     HapticFeedback.mediumImpact();
