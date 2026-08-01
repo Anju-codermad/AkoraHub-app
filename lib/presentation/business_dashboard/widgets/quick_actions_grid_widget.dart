@@ -21,19 +21,19 @@ class QuickActionsGridWidget extends StatelessWidget {
       {
         'type': 'add_product',
         'icon': 'add_shopping_cart',
-        'label': 'Add Product',
+        'label': 'Ajouter produit',
         'color': theme.colorScheme.primary,
       },
       {
         'type': 'view_orders',
         'icon': 'receipt_long',
-        'label': 'View Orders',
+        'label': 'Voir commandes',
         'color': theme.colorScheme.tertiary,
       },
       {
         'type': 'customer_messages',
         'icon': 'chat',
-        'label': 'Messages',
+        'label': 'Messagerie',
         'color': AppTheme.successLight,
       },
     ];
@@ -44,7 +44,7 @@ class QuickActionsGridWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Quick Actions',
+            'Actions rapides',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),

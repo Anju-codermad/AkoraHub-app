@@ -96,12 +96,12 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
     final createOptions = [
       {
         'icon': 'add_shopping_cart',
-        'label': 'Add Product',
+        'label': 'Ajouter un produit',
         'route': '/product-management-real'
       },
       {
         'icon': 'receipt_long',
-        'label': 'New Order',
+        'label': 'Nouvelle commande',
         'route': '/order-management-real'
       },
       {
@@ -111,7 +111,7 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
       },
       {
         'icon': 'person_add',
-        'label': 'Add Customer',
+        'label': 'Ajouter un client',
         'route': '/customer-management-real'
       },
     ];

@@ -4425,3 +4425,21 @@ captures réelles de l'app fournies par l'utilisatrice :
 "Pour vous" de l'accueil peut afficher de vraies données d'un autre
 client (nom, téléphone) — utiliser un compte de test pour les captures
 d'écran finales, jamais un compte avec de vrais contacts/commandes.
+
+## Dashboard admin : textes en anglais francisés (01/08)
+
+À partir de captures du tableau de bord Business (`business_dashboard/`)
+fournies par l'utilisatrice : plusieurs libellés étaient restés en
+anglais alors que le reste de l'app est entièrement en français
+("Good Morning/Afternoon/Evening", "Quick Actions", "Add Product",
+"View Orders", "New Order", "Add Customer") — corrigés dans
+`greeting_header_widget.dart`, `quick_actions_grid_widget.dart` et
+`business_dashboard.dart`.
+
+En creusant le bouton "Modifier" (teinte marine) et les boutons flottants
+oranges signalés au premier coup d'œil comme potentiellement
+incohérents : **ce sont en fait des couleurs de marque volontaires**
+(`app_theme.dart` — `secondaryLight`/`secondaryDark` "Marine (icône)",
+`accentLight`/`accentDark` "Orange (icône)", toutes deux calées sur
+l'icône de l'app, aux côtés du vert `primaryLight`) — un vrai système à
+3 couleurs, pas une incohérence. Laissées telles quelles.
