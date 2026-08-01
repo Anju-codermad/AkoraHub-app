@@ -4371,19 +4371,29 @@ Storage) n'ont permis de contourner cette protection — le fichier
 s'affichait toujours comme du texte brut au lieu de s'exécuter comme
 une page.
 
-**Solution** : la page est désormais hébergée via **GitHub Pages**
-(dossier `/docs`, servi depuis la branche `main`), qui sert nativement
-du HTML actif sans restriction de ce type. Fichier déplacé de
-`web/formation-access/index.html` vers
-`docs/formation-access/index.html` (le contenu est identique).
-`core/utils/formation_web_link.dart` pointe maintenant vers
-`https://anju-codermad.github.io/AkoraHub-app/formation-access/`.
+**Tentative 2 — GitHub Pages**, abandonnée aussi : gratuit uniquement
+pour les dépôts publics ; celui-ci doit rester privé (le fichier
+`payment_methods.dart` contient des coordonnées bancaires réelles).
 
-⚠️ **Activation requise côté GitHub** (une seule fois, jamais refaite) :
-Dashboard du dépôt → **Settings → Pages** → Source : "Deploy from a
-branch" → Branch : `main`, dossier `/docs` → **Save**. Sans ça, l'URL
-renvoie une erreur 404 même si le code est bien poussé.
+**Solution retenue — Netlify** : la page (`docs/formation-access/index.html`,
+contenu inchangé) est déployée manuellement sur Netlify (glisser-déposer
+du dossier sur netlify.app), site renommé explicitement en
+`akorahub-formation` pour une adresse stable qui ne change plus.
+`core/utils/formation_web_link.dart` pointe vers
+`https://akorahub-formation.netlify.app/`. Au passage, deux bugs
+corrigés dans la page elle-même : la protection "Visitor access —
+Password protected" activée par défaut sur les nouveaux sites Netlify
+(désactivée manuellement, réglage "Project visibility : Public"), et un
+crash JS après un envoi réussi (`res.json()` sur une réponse vide de
+PostgREST avec l'en-tête `Prefer: return=minimal`, qui renvoie un corps
+vide avec un statut différent de 204 — corrigé en testant le texte brut
+avant de parser en JSON).
 
-Le bucket Supabase `formation-web` (Storage) n'est plus utilisé — laissé
-en place tel quel (aucune donnée sensible dedans), pas de script de
-suppression fourni pour ne pas complexifier inutilement.
+⚠️ **Redéploiement manuel requis** à chaque future modification de
+`docs/formation-access/index.html` : glisser à nouveau le dossier sur
+le site Netlify existant (onglet Deploys) — rien n'est automatisé pour
+l'instant (pas de connexion Git↔Netlify configurée).
+
+Les buckets/dossiers abandonnés (bucket Supabase Storage `formation-web`,
+réglage GitHub Pages non activé) sont laissés tels quels — aucune donnée
+sensible dedans, pas nécessaire de les nettoyer.
