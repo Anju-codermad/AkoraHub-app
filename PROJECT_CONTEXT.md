@@ -4356,3 +4356,34 @@ règle de prix) devra être répercutée à la main dans ce fichier en plus
 de l'app. Le formulaire "Sécurité des données" du Play Store reste à
 compléter séparément (voir le guide fourni précédemment, mis de côté
 pour l'instant à la demande de l'utilisatrice).
+
+### Correctif : hébergement déplacé vers GitHub Pages (01/08)
+
+Le bucket Supabase Storage public (`formation-web`,
+`phase49_patch_formation_web_bucket.sql`) prévu pour héberger cette page
+s'est révélé inutilisable : Supabase Storage force le `Content-Type`
+des fichiers `.html` de ses buckets publics à `text/plain` (protection
+anti-phishing côté serveur — empêche d'héberger une page web active sur
+un sous-domaine `supabase.co` de confiance). Ni la métadonnée Postgres
+(`storage.objects.metadata->>'mimetype'`) ni un upload avec
+`Content-Type: text/html` explicite (testé via un appel direct à l'API
+Storage) n'ont permis de contourner cette protection — le fichier
+s'affichait toujours comme du texte brut au lieu de s'exécuter comme
+une page.
+
+**Solution** : la page est désormais hébergée via **GitHub Pages**
+(dossier `/docs`, servi depuis la branche `main`), qui sert nativement
+du HTML actif sans restriction de ce type. Fichier déplacé de
+`web/formation-access/index.html` vers
+`docs/formation-access/index.html` (le contenu est identique).
+`core/utils/formation_web_link.dart` pointe maintenant vers
+`https://anju-codermad.github.io/AkoraHub-app/formation-access/`.
+
+⚠️ **Activation requise côté GitHub** (une seule fois, jamais refaite) :
+Dashboard du dépôt → **Settings → Pages** → Source : "Deploy from a
+branch" → Branch : `main`, dossier `/docs` → **Save**. Sans ça, l'URL
+renvoie une erreur 404 même si le code est bien poussé.
+
+Le bucket Supabase `formation-web` (Storage) n'est plus utilisé — laissé
+en place tel quel (aucune donnée sensible dedans), pas de script de
+suppression fourni pour ne pas complexifier inutilement.
