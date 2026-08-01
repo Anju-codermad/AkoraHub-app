@@ -20,6 +20,59 @@ class SecuritySettingsScreen extends StatefulWidget {
 
 class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
   bool _isDeleting = false;
+  bool _isLoadingPrivacy = true;
+  bool _sharePhonePublicly = false;
+  String? _myPhone;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrivacySettings();
+  }
+
+  /// Numéro visible dans la Communauté (01/08, demande explicite) —
+  /// désactivé par défaut : le numéro n'est jamais montré à d'autres
+  /// clients tant que la personne n'a pas elle-même activé ce réglage
+  /// (voir supabase/phase47_patch_report_and_whatsapp_contact.sql).
+  Future<void> _loadPrivacySettings() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) {
+      setState(() => _isLoadingPrivacy = false);
+      return;
+    }
+    try {
+      final row = await SupabaseConfig.client
+          .from('profiles')
+          .select('phone, share_phone_publicly')
+          .eq('id', userId)
+          .single();
+      if (!mounted) return;
+      setState(() {
+        _myPhone = row['phone'] as String?;
+        _sharePhonePublicly = row['share_phone_publicly'] as bool? ?? false;
+        _isLoadingPrivacy = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingPrivacy = false);
+    }
+  }
+
+  Future<void> _setSharePhonePublicly(bool value) async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+    setState(() => _sharePhonePublicly = value);
+    try {
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'share_phone_publicly': value}).eq('id', userId);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _sharePhonePublicly = !value);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible de mettre à jour ce réglage.')));
+    }
+  }
 
   Future<void> _changePassword() async {
     final formKey = GlobalKey<FormState>();
@@ -199,6 +252,24 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                 MaterialPageRoute(
                     builder: (_) => const TwoFactorSetupScreen()),
               ),
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Card(
+            child: SwitchListTile(
+              secondary: const Icon(Icons.chat_outlined),
+              title: const Text('Numéro visible dans la Communauté'),
+              subtitle: Text(_isLoadingPrivacy
+                  ? 'Chargement...'
+                  : (_myPhone == null || _myPhone!.trim().isEmpty)
+                      ? 'Ajoutez d\'abord un numéro dans votre profil pour activer ceci'
+                      : 'Permet aux autres clients de vous contacter via WhatsApp ($_myPhone)'),
+              value: _sharePhonePublicly,
+              onChanged: (_isLoadingPrivacy ||
+                      _myPhone == null ||
+                      _myPhone!.trim().isEmpty)
+                  ? null
+                  : _setSharePhonePublicly,
             ),
           ),
           SizedBox(height: 2.h),

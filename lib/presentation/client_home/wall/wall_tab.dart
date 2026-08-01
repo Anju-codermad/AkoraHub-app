@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/supabase/supabase_config.dart';
+import '../../../core/utils/whatsapp_link.dart';
 import '../product_detail_client.dart';
 import '../community/public_profile_screen.dart';
 import '../community/public_profiles_repo.dart';
@@ -602,6 +604,79 @@ class _WallTabState extends State<WallTab> {
     }
   }
 
+  /// Signaler une publication d'un autre client (01/08, demande
+  /// explicite) — jamais proposé sur ses propres publications (le menu
+  /// contextuel affiche Modifier/Supprimer dans ce cas). Le staff est
+  /// notifié automatiquement (voir
+  /// supabase/phase47_patch_report_and_whatsapp_contact.sql), aucune
+  /// action supplémentaire nécessaire ici.
+  Future<void> _reportPost(Map<String, dynamic> post) async {
+    final userId = _myId;
+    if (userId == null) return;
+    final reasonController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Signaler cette publication'),
+        content: TextField(
+          controller: reasonController,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Raison (optionnel)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Signaler'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await SupabaseConfig.client.from('post_reports').insert({
+        'post_id': post['id'],
+        'reporter_id': userId,
+        'reason': reasonController.text.trim().isEmpty
+            ? null
+            : reasonController.text.trim(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Publication signalée — notre équipe va la vérifier.')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible de signaler pour le moment.')));
+    }
+  }
+
+  /// Contacter l'auteur via WhatsApp (01/08, demande explicite) —
+  /// n'apparaît que si l'auteur a lui-même activé "Afficher mon numéro"
+  /// dans ses réglages de confidentialité (voir
+  /// security_settings_screen.dart) : le numéro est masqué par défaut
+  /// pour tout le monde (voir public_profile_screen.dart).
+  Future<void> _contactAuthorViaWhatsApp(String? phone) async {
+    final link = buildWhatsAppLink(phone);
+    if (link == null) return;
+    try {
+      await launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible d\'ouvrir WhatsApp.')));
+    }
+  }
+
   void _sharePost(Map<String, dynamic> post, String authorName) {
     final content = (post['content'] ?? '').toString();
     final mentioned = _mentionedProducts[post['mentioned_product_id']];
@@ -839,6 +914,23 @@ class _WallTabState extends State<WallTab> {
                                                           color: Colors.red)),
                                                 ),
                                               ],
+                                            )
+                                          else if (post['author_id'] != null)
+                                            PopupMenuButton<String>(
+                                              icon: const Icon(
+                                                  Icons.more_vert,
+                                                  size: 20),
+                                              onSelected: (value) {
+                                                if (value == 'report') {
+                                                  _reportPost(post);
+                                                }
+                                              },
+                                              itemBuilder: (context) => const [
+                                                PopupMenuItem(
+                                                  value: 'report',
+                                                  child: Text('Signaler'),
+                                                ),
+                                              ],
                                             ),
                                         ],
                                       ),
@@ -990,6 +1082,22 @@ class _WallTabState extends State<WallTab> {
                                           Text(
                                               '${_commentCounts[post['id']] ?? 0}'),
                                           const Spacer(),
+                                          if (buildWhatsAppLink(
+                                                  author?['phone']
+                                                      as String?) !=
+                                              null)
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.chat_outlined,
+                                                  size: 20,
+                                                  color: Colors.green),
+                                              tooltip:
+                                                  'Contacter via WhatsApp',
+                                              onPressed: () =>
+                                                  _contactAuthorViaWhatsApp(
+                                                      author?['phone']
+                                                          as String?),
+                                            ),
                                           IconButton(
                                             icon: const Icon(
                                                 Icons.share_outlined,

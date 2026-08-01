@@ -403,6 +403,25 @@ Deno.serve(async (req) => {
       const emoji = reactionEmojis[record.reaction_type as string] ?? "👍";
       title = "Nouvelle réaction";
       body = `${emoji} Quelqu'un a réagi à votre publication`;
+    } else if (payload.table === "post_reports") {
+      // Signalement d'une publication de la Communauté (voir
+      // supabase/phase47_patch_report_and_whatsapp_contact.sql) —
+      // notifie toute l'équipe (Admin/Commercial), même principe que les
+      // paiements manuels à vérifier.
+      category = "message";
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Publication signalée";
+      body = record.reason
+        ? `Raison : ${String(record.reason).slice(0, 100)}`
+        : "Une publication de la Communauté a été signalée.";
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "call_invitations") {
       // Appel entrant (voir supabase/phase37_patch_calls.sql) — payload
       // dédié (pas de choix de son par l'utilisateur ici, contrairement
