@@ -46,19 +46,26 @@ class _CartTabState extends ConsumerState<CartTab> {
   final _paymentReferenceController = TextEditingController();
   File? _paymentProofFile;
 
-  // Réglage Admin (voir payment_methods_management.dart) : quand false
-  // (par défaut), Mvola/Orange Money/Airtel Money passent par Papi
-  // (paiement en ligne automatique) au lieu du flux manuel référence +
-  // photo ci-dessous.
+  // Réglage Admin (voir payment_methods_management.dart) : secours
+  // d'urgence (ex: Papi indisponible) — quand activé, force TOUS les
+  // clients en manuel pour Mvola/Orange Money/Airtel Money, sans leur
+  // laisser le choix. Cas normal (false) : les deux options coexistent,
+  // voir `_payAutomatically` ci-dessous.
   bool _manualFallback = false;
 
-  /// Le flux manuel (encadré coordonnées + référence + photo) ne
-  /// s'affiche que pour les méthodes sans confirmation automatique
-  /// (virement bancaire), ou pour Mvola/Orange/Airtel si le secours
-  /// manuel est activé par l'Admin.
+  /// Choix du client (pas de l'Admin) entre paiement automatique (Papi)
+  /// et manuel (référence + preuve), pour les méthodes qui supportent les
+  /// deux — demande explicite de l'utilisatrice (01/08) : les deux modes
+  /// doivent être disponibles en même temps, au client de choisir.
+  bool _payAutomatically = true;
+
+  /// Le flux manuel (encadré coordonnées + référence + photo) s'affiche
+  /// pour les méthodes sans confirmation automatique (virement bancaire),
+  /// ou pour Mvola/Orange/Airtel si le secours manuel est forcé par
+  /// l'Admin, ou si le client a lui-même choisi le paiement manuel.
   bool get _showManualPaymentFields =>
       _paymentMethod.instructions != null &&
-      (!_paymentMethod.isPapiCapable || _manualFallback);
+      (!_paymentMethod.isPapiCapable || _manualFallback || !_payAutomatically);
 
   final _deliveryAddressController = TextEditingController();
 
@@ -269,7 +276,8 @@ class _CartTabState extends ConsumerState<CartTab> {
     final online = await isCurrentlyOnline();
     final usesPapi = !asQuote &&
         _paymentMethod.isPapiCapable &&
-        !_manualFallback;
+        !_manualFallback &&
+        _payAutomatically;
 
     // Hors-ligne : on ne tente même pas l'appel réseau, on met
     // directement en file d'attente locale pour un envoi automatique dès
@@ -681,31 +689,52 @@ class _CartTabState extends ConsumerState<CartTab> {
                     setState(() => _paymentMethod = method),
               ),
               if (_paymentMethod.isPapiCapable && !_manualFallback) ...[
-                Container(
-                  margin: EdgeInsets.only(top: 1.h),
-                  padding: EdgeInsets.all(3.w),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer
-                        .withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.lock_outline,
-                          size: 18, color: theme.colorScheme.primary),
-                      SizedBox(width: 2.w),
-                      Expanded(
-                        child: Text(
-                          'Vous serez redirigé vers une page de paiement '
-                          'sécurisée après validation de la commande. '
-                          'Montant demandé : ${_currency.format(total + (_deliveryFee ?? 0))} '
-                          '(produits + livraison), sans frais supplémentaire.',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ),
-                    ],
-                  ),
+                SizedBox(height: 1.h),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      avatar: const Icon(Icons.bolt_outlined, size: 18),
+                      label: const Text('Paiement automatique en ligne'),
+                      selected: _payAutomatically,
+                      onSelected: (_) =>
+                          setState(() => _payAutomatically = true),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.edit_note_outlined, size: 18),
+                      label: const Text('Paiement manuel (référence)'),
+                      selected: !_payAutomatically,
+                      onSelected: (_) =>
+                          setState(() => _payAutomatically = false),
+                    ),
+                  ],
                 ),
+                if (_payAutomatically)
+                  Container(
+                    margin: EdgeInsets.only(top: 1.h),
+                    padding: EdgeInsets.all(3.w),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer
+                          .withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock_outline,
+                            size: 18, color: theme.colorScheme.primary),
+                        SizedBox(width: 2.w),
+                        Expanded(
+                          child: Text(
+                            'Vous serez redirigé vers une page de paiement '
+                            'sécurisée après validation de la commande. '
+                            'Montant demandé : ${_currency.format(total + (_deliveryFee ?? 0))} '
+                            '(produits + livraison), sans frais supplémentaire.',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
               if (_showManualPaymentFields) ...[
                 Container(

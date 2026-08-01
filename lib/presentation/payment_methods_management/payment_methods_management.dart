@@ -154,8 +154,8 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
                     title: const Text('Mode manuel (secours)'),
                     subtitle: Text(
                       _manualFallback
-                          ? 'Activé — Papi désactivé, vérification manuelle'
-                          : 'Désactivé — paiement Papi automatique actif',
+                          ? 'Activé — Papi désactivé pour tous, vérification manuelle imposée (ex: Papi en panne)'
+                          : 'Désactivé — le client choisit entre paiement automatique (Papi) et manuel',
                     ),
                     trailing: _manualFallbackPending
                         ? const SizedBox(
