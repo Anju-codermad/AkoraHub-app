@@ -11,7 +11,7 @@ import 'formation/formation_hub_screen.dart';
 import 'orders_tab.dart';
 import 'profile_tab.dart';
 
-/// Espace client : accueil (catalogue), panier, commandes, A-Formation,
+/// Espace client : accueil (catalogue), panier, commandes, Académie,
 /// profil. Point d'entrée pour tout utilisateur avec le rôle "client".
 ///
 /// Schéma de navigation : le Panier n'a pas d'onglet dans la barre du bas
@@ -19,7 +19,7 @@ import 'profile_tab.dart';
 /// notifications). L'onglet "Mur" a été retiré du menu — le mur social
 /// reste dans le code (wall/wall_tab.dart) en vue de son intégration future
 /// dans le Profil (voir PROJECT_CONTEXT.md, plan profil étape 3).
-/// **A-Formation** (01/08) : 4ᵉ onglet, regroupe en un seul point d'accès
+/// **Académie** (01/08) : 4ᵉ onglet, regroupe en un seul point d'accès
 /// les catégories de cours AkoraFormation et la base de matières
 /// premières (voir `formation/formation_hub_screen.dart`).
 class ClientHome extends ConsumerStatefulWidget {
@@ -30,7 +30,7 @@ class ClientHome extends ConsumerStatefulWidget {
 }
 
 class _ClientHomeState extends ConsumerState<ClientHome> {
-  // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil, 4 = A-Formation
+  // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil, 4 = Académie
   int _currentIndex = 0;
   bool? _wasOnline;
 
@@ -64,7 +64,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       AppTranslations.t('nav_cart', locale),
       AppTranslations.t('nav_orders', locale),
       AppTranslations.t('nav_profile', locale),
-      'A-Formation',
+      'Académie',
     ];
     final pages = [
       CatalogTab(onOpenCart: () => setState(() => _currentIndex = 1)),
@@ -156,7 +156,7 @@ class _NavItem {
 }
 
 /// Barre de navigation du bas à 4 destinations (Accueil, Commandes,
-/// A-Formation, Profil). Le Panier n'y figure pas : on y accède depuis
+/// Académie, Profil). Le Panier n'y figure pas : on y accède depuis
 /// l'en-tête de l'Accueil.
 class _ClientBottomNav extends ConsumerWidget {
   final int currentIndex;
@@ -181,7 +181,7 @@ class _ClientBottomNav extends ConsumerWidget {
           pageIndex: 4,
           icon: Icons.school_outlined,
           selectedIcon: Icons.school,
-          label: 'A-Formation',
+          label: 'Académie',
         ),
         _NavItem(
           pageIndex: 3,

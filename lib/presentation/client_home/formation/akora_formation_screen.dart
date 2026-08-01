@@ -47,7 +47,7 @@ IconData iconForFormationCategory(String category) {
 /// "Disponible" n'est pas encore consultable depuis l'app.
 class AkoraFormationScreen extends StatefulWidget {
   /// Pré-sélectionne une catégorie à l'ouverture (ex: depuis le hub
-  /// A-Formation) — reste modifiable ensuite via les puces de filtre.
+  /// Académie) — reste modifiable ensuite via les puces de filtre.
   final String? initialCategory;
 
   const AkoraFormationScreen({super.key, this.initialCategory});

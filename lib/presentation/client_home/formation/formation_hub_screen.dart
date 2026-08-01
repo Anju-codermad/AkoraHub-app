@@ -5,7 +5,7 @@ import '../../../core/supabase/supabase_config.dart';
 import 'akora_formation_screen.dart';
 import 'formation_catalog_screen.dart';
 
-/// Point d'accès unique "A-Formation" (onglet dédié de la barre de
+/// Point d'accès unique "Académie" (onglet dédié de la barre de
 /// navigation) — regroupe en une seule liste les catégories de cours
 /// AkoraFormation ET les matières premières, comme une catégorie de plus
 /// parmi les autres (demande explicite de l'utilisatrice, 01/08 : "le
@@ -58,7 +58,7 @@ class _FormationHubScreenState extends State<FormationHubScreen> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _error = 'Impossible de charger A-Formation pour le moment.';
+        _error = 'Impossible de charger Académie pour le moment.';
       });
     }
   }
@@ -68,7 +68,7 @@ class _FormationHubScreenState extends State<FormationHubScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('A-Formation')),
+      appBar: AppBar(title: const Text('Académie')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
