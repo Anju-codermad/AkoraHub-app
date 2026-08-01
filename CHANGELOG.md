@@ -374,3 +374,6 @@
 
 ## 2026-08-01 10:51 UTC — Claude
 - Merge: renommage Mur -> Communauté (`ad9aece`)
+
+## 2026-08-01 10:58 UTC — Claude
+- Merge: Communauté - modifier/supprimer sa publication + recherche (`6f9f260`)
