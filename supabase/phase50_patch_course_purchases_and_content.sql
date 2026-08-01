@@ -17,6 +17,10 @@
 -- ⚠️ Paiement manuel (référence + preuve), même principe que les
 -- commandes et Matières premières — voir web/formation-access (page
 -- externe, conformité Google Play, Phase 49).
+--
+-- ⚠️ Script idempotent (create table if not exists, drop policy if
+-- exists) : si une première exécution s'est arrêtée en erreur, relancer
+-- ce script en entier depuis le début est sans risque.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -27,50 +31,12 @@ alter table public.formation_courses
   add column if not exists price numeric;
 
 -- ------------------------------------------------------------
--- 2) Modules réels par cours (remplace le simple compteur
--- `module_count` par du contenu effectif : vidéo, document, texte).
--- Lecture réservée au staff et aux clients ayant validé leur achat de
--- CE cours précis — c'est la vraie protection (la RLS, pas
--- l'interface) : un client qui n'a pas payé ne peut tout simplement
--- pas récupérer video_url/document_url depuis l'API.
--- ------------------------------------------------------------
-create table if not exists public.formation_course_modules (
-  id uuid primary key default gen_random_uuid(),
-  course_id uuid not null references public.formation_courses(id) on delete cascade,
-  title text not null,
-  sort_order integer not null default 0,
-  video_url text,
-  document_url text,
-  content_text text,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists formation_course_modules_course_idx
-  on public.formation_course_modules (course_id, sort_order);
-
-alter table public.formation_course_modules enable row level security;
-
-drop policy if exists "course_modules_select_staff_or_owner" on public.formation_course_modules;
-create policy "course_modules_select_staff_or_owner" on public.formation_course_modules
-  for select using (
-    public.current_role_is_staff()
-    or exists (
-      select 1 from public.course_purchases cp
-      where cp.course_id = formation_course_modules.course_id
-        and cp.customer_id = auth.uid()
-        and cp.status = 'validee'
-    )
-  );
-
-drop policy if exists "course_modules_write_staff" on public.formation_course_modules;
-create policy "course_modules_write_staff" on public.formation_course_modules
-  for all using (public.current_role_is_staff())
-  with check (public.current_role_is_staff());
-
--- ------------------------------------------------------------
--- 3) Achats de cours — même principe que formation_purchases
+-- 2) Achats de cours — même principe que formation_purchases
 -- (matières premières) : paiement manuel, validation staff, une seule
 -- ligne par (client, cours), re-soumission possible après refus.
+-- Créée AVANT formation_course_modules ci-dessous : sa policy de
+-- lecture référence cette table, qui doit donc déjà exister (une
+-- expression de policy est résolue à la création, voir Phase 40).
 -- ------------------------------------------------------------
 create table if not exists public.course_purchases (
   id uuid primary key default gen_random_uuid(),
@@ -116,3 +82,44 @@ create policy "course_purchases_update_staff" on public.course_purchases
 -- Pas de notification push automatique ici, cohérent avec
 -- formation_purchases (Matières premières, phase45) : le staff vérifie
 -- les demandes en attente manuellement depuis l'admin.
+
+-- ------------------------------------------------------------
+-- 3) Modules réels par cours (remplace le simple compteur
+-- `module_count` par du contenu effectif : vidéo, document, texte).
+-- Lecture réservée au staff et aux clients ayant validé leur achat de
+-- CE cours précis — c'est la vraie protection (la RLS, pas
+-- l'interface) : un client qui n'a pas payé ne peut tout simplement
+-- pas récupérer video_url/document_url depuis l'API.
+-- ------------------------------------------------------------
+create table if not exists public.formation_course_modules (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.formation_courses(id) on delete cascade,
+  title text not null,
+  sort_order integer not null default 0,
+  video_url text,
+  document_url text,
+  content_text text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists formation_course_modules_course_idx
+  on public.formation_course_modules (course_id, sort_order);
+
+alter table public.formation_course_modules enable row level security;
+
+drop policy if exists "course_modules_select_staff_or_owner" on public.formation_course_modules;
+create policy "course_modules_select_staff_or_owner" on public.formation_course_modules
+  for select using (
+    public.current_role_is_staff()
+    or exists (
+      select 1 from public.course_purchases cp
+      where cp.course_id = formation_course_modules.course_id
+        and cp.customer_id = auth.uid()
+        and cp.status = 'validee'
+    )
+  );
+
+drop policy if exists "course_modules_write_staff" on public.formation_course_modules;
+create policy "course_modules_write_staff" on public.formation_course_modules
+  for all using (public.current_role_is_staff())
+  with check (public.current_role_is_staff());
