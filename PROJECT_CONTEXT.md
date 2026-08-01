@@ -3933,3 +3933,73 @@ ne pas repartir de zéro à chaque fois qu'on en reparle.
   soumission.
 - [ ] Recommandé : passer d'abord par la piste **"Test interne"** avant
   "Production", pour valider l'App Bundle sur de vrais appareils.
+
+## Menu "Paramètres" remonté au premier niveau côté Admin (01/08)
+
+Signalé par l'utilisatrice : "il n'y a pas de paramètres... ni côté
+admin !" — en réalité l'écran existait déjà (`settings_screen.dart`,
+partagé Client/Admin), mais côté Admin il était enterré tout en bas du
+formulaire "Profil entreprise" (`business_profile_settings.dart`), un
+écran dont le nom ne laisse pas du tout deviner qu'on y trouve les
+réglages personnels (langue, mode sombre, notifications, sécurité).
+Corrigé en sortant l'entrée "Paramètres" de `business_profile_settings.dart`
+et en l'ajoutant comme item de premier niveau dans le menu "Plus" de
+l'Admin (`more_menu_screen.dart`), juste à côté de "Profil entreprise" —
+même logique que côté Client où "Paramètres" est déjà une carte
+indépendante dans l'onglet Profil.
+
+## Double authentification (2FA / TOTP) (01/08)
+
+Demande explicite : "Nous devons aussi ajouter une deuxième
+authentification pour bien sécurisé chaque compte." Trois méthodes
+possibles (SMS, e-mail, application d'authentification/TOTP) ont été
+présentées ; l'utilisatrice a demandé "la meilleure sécurité" — le TOTP
+a été retenu : contrairement au SMS (vulnérable au SIM-swap, nécessite
+un fournisseur payant) ou à l'e-mail (dépend de la sécurité de la boîte
+mail elle-même), le code TOTP est généré localement sur l'appareil, sans
+transiter par un réseau, et c'est le seul des trois activable sans
+infrastructure tierce payante — Supabase Auth le supporte nativement via
+son API `auth.mfa`.
+
+Nouveaux fichiers :
+- `client_home/settings/two_factor_setup_screen.dart` — écran de gestion
+  (personnel au compte, accessible Client ET Admin depuis "Confidentialité
+  et sécurité") : affiche l'état actuel (activée/désactivée),
+  active (`mfa.enroll` -> QR code + secret affichés -> confirmation par
+  code à 6 chiffres via `mfa.challengeAndVerify`) ou désactive
+  (`mfa.unenroll`) le facteur TOTP. Un facteur créé mais jamais vérifié
+  (QR annulé) est nettoyé automatiquement (`unenroll`) pour ne pas laisser
+  d'entrée orpheline.
+- `authentication_screen/mfa_challenge_screen.dart` — écran affiché
+  juste après une connexion réussie (email/mot de passe OU Google/
+  Facebook) si le compte a un facteur TOTP vérifié : demande le code à 6
+  chiffres avant de laisser entrer dans l'app. Annuler ou revenir en
+  arrière déconnecte le compte (`PopScope` intercepte le bouton retour
+  système) — jamais d'état "à moitié connecté".
+
+Intégration dans `authentication_screen.dart` (`_onAuthenticated()`,
+point de passage commun aux deux méthodes de connexion) : après succès,
+vérifie `auth.mfa.getAuthenticatorAssuranceLevel()` — si `currentLevel`
+est `aal1` et `nextLevel` `aal2` (facteur vérifié en attente de
+challenge), pousse `MfaChallengeScreen` et n'continue vers l'accueil
+qu'après validation. Le proxy de connexion `hyper-endpoint` (rate
+limiting, Phase 34/35) relaie directement au vrai endpoint GoTrue
+`/auth/v1/token?grant_type=password` — aucune interférence avec le
+niveau d'assurance (aal), le comportement est identique à un
+`signInWithPassword` classique.
+
+**Script SQL requis : `supabase/phase44_patch_mfa_audit_log.sql`** —
+ajoute uniquement les types d'événement `mfa_enabled`/`mfa_disabled` à la
+liste blanche du journal de sécurité existant (Phase 34) ; les facteurs
+TOTP eux-mêmes ne nécessitent aucune table, Supabase Auth les stocke déjà
+dans son propre schéma.
+
+⚠️ Limite connue, assumée pour cette première version : pas de codes de
+récupération ("backup codes") — un utilisateur qui perd l'accès à son
+application d'authentification (téléphone perdu/reset) n'a aujourd'hui
+aucun moyen de se reconnecter seul. Il n'existe pas non plus d'écran
+Admin pour désinscrire le facteur d'un autre compte : le seul déblocage
+possible aujourd'hui est manuel, directement dans le Dashboard Supabase
+(Authentication -> l'utilisateur concerné -> retirer le facteur MFA). À
+améliorer (codes de récupération et/ou outil Admin dédié) si ce cas se
+présente en pratique.

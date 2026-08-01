@@ -4,7 +4,6 @@ import 'package:sizer/sizer.dart';
 import '../../core/app_export.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_icon_widget.dart';
-import '../client_home/settings/settings_screen.dart';
 import './widgets/business_information_section.dart';
 import './widgets/contact_details_section.dart';
 import './widgets/visual_identity_section.dart';
@@ -436,23 +435,6 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                     onChanged: () {
                       setState(() => _hasUnsavedChanges = true);
                     },
-                  ),
-
-                  SizedBox(height: 2.h),
-
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.settings_outlined),
-                      title: const Text('Paramètres'),
-                      subtitle: const Text(
-                          'Notifications, langue, mode sombre, sécurité, aide'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SettingsScreen()),
-                      ),
-                    ),
                   ),
 
                   SizedBox(height: 4.h),

@@ -3,12 +3,13 @@ import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_config.dart';
+import 'two_factor_setup_screen.dart';
 
-/// Confidentialité et sécurité : changer le mot de passe, supprimer le
-/// compte. "Supprimer mon compte" existait déjà dans le menu du Profil
-/// (Phase 30/07, `delete-account` Edge Function) — déplacé ici, logique
-/// inchangée, pour regrouper les réglages liés à la sécurité au même
-/// endroit (voir settings_screen.dart).
+/// Confidentialité et sécurité : changer le mot de passe, activer la
+/// double authentification, supprimer le compte. "Supprimer mon compte"
+/// existait déjà dans le menu du Profil (Phase 30/07, `delete-account`
+/// Edge Function) — déplacé ici, logique inchangée, pour regrouper les
+/// réglages liés à la sécurité au même endroit (voir settings_screen.dart).
 class SecuritySettingsScreen extends StatefulWidget {
   const SecuritySettingsScreen({super.key});
 
@@ -184,6 +185,20 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
               title: const Text('Changer le mot de passe'),
               trailing: const Icon(Icons.chevron_right),
               onTap: _changePassword,
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.phonelink_lock_outlined),
+              title: const Text('Double authentification'),
+              subtitle: const Text('Code de vérification à chaque connexion'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const TwoFactorSetupScreen()),
+              ),
             ),
           ),
           SizedBox(height: 2.h),
