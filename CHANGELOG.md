@@ -353,3 +353,6 @@
 
 ## 2026-08-01 08:12 UTC — Claude
 - Merge: Orange Money ajouté au frais de retrait Mobile Money (`9af0ed6`)
+
+## 2026-08-01 09:36 UTC — Claude
+- Merge: onglet A-Formation dans la barre de navigation client (`f4928e0`)
