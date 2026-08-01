@@ -389,3 +389,6 @@
 
 ## 2026-08-01 12:35 UTC — Claude
 - Merge: Communauté - signaler une publication + contacter via WhatsApp (`8acac76`)
+
+## 2026-08-01 12:48 UTC — Claude
+- Merge: Communauté - demandes d'ami + messagerie privée (`80bc7ca`)
