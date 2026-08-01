@@ -3801,3 +3801,32 @@ opérateurs. Affiché dans `cart_tab.dart` pour Mvola ET Orange Money
 seuls les paliers Mvola ont été vus en capture ; réutilisés par
 extrapolation pour Orange Money — à corriger si l'utilisatrice fournit
 un jour la grille Orange Money complète au-delà de ce montant.
+
+## Onglet "A-Formation" dans la barre de navigation client (01/08)
+
+Demande explicite : rendre Formation visible directement dans la barre
+du bas, pas seulement depuis le Profil. Clarification importante de
+l'utilisatrice une fois la question posée : elle voit "Formation"
+(matières premières) et "AkoraFormation" (cours) comme **un seul et même
+concept** — "le matières premières fait partie d'autres modules de
+formation" — pas deux destinations séparées.
+
+Résultat : nouvel écran `client_home/formation/formation_hub_screen.dart`
+(`FormationHubScreen`) — liste unique où les 7 catégories AkoraFormation
+(Entretien & Hygiène, Peinture...) et "Matières premières" apparaissent
+comme des cartes de même niveau, une de plus parmi les autres. Taper une
+catégorie de cours ouvre `AkoraFormationScreen` (nouveau paramètre
+`initialCategory`, pré-sélectionne la catégorie sans bloquer le
+changement ensuite) ; taper "Matières premières" ouvre
+`FormationCatalogScreen` (abonnement requis pour le détail).
+
+`client_home.dart` : 4ᵉ onglet ajouté à `_ClientBottomNav`
+(pageIndex 4, entre "Commandes" et "Profil" — la barre était
+volontairement réduite à 3 onglets, voir doc de la classe `ClientHome`,
+mais Formation est jugée assez centrale pour justifier l'exception).
+Libellé **"A-Formation"** (nom choisi par l'utilisatrice — abréviation de
+"Akora Formation" cohérente avec "AkoraFormation").
+
+Les deux entrées de menu "Formation"/"AkoraFormation" ajoutées plus tôt
+dans le Profil ont été **retirées** (redondantes avec le nouvel onglet,
+un seul chemin de navigation gardé pour éviter la confusion).

@@ -7,17 +7,21 @@ import '../../core/offline/offline_order_queue.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'cart_tab.dart';
 import 'catalog_tab.dart';
+import 'formation/formation_hub_screen.dart';
 import 'orders_tab.dart';
 import 'profile_tab.dart';
 
-/// Espace client : accueil (catalogue), panier, commandes, profil.
-/// Point d'entrée pour tout utilisateur avec le rôle "client".
+/// Espace client : accueil (catalogue), panier, commandes, A-Formation,
+/// profil. Point d'entrée pour tout utilisateur avec le rôle "client".
 ///
-/// Schéma de navigation : le Panier n'a plus d'onglet dans la barre du bas
+/// Schéma de navigation : le Panier n'a pas d'onglet dans la barre du bas
 /// (accessible via l'icône dans l'en-tête de l'écran Accueil, à côté des
 /// notifications). L'onglet "Mur" a été retiré du menu — le mur social
 /// reste dans le code (wall/wall_tab.dart) en vue de son intégration future
 /// dans le Profil (voir PROJECT_CONTEXT.md, plan profil étape 3).
+/// **A-Formation** (01/08) : 4ᵉ onglet, regroupe en un seul point d'accès
+/// les catégories de cours AkoraFormation et la base de matières
+/// premières (voir `formation/formation_hub_screen.dart`).
 class ClientHome extends ConsumerStatefulWidget {
   const ClientHome({super.key});
 
@@ -26,7 +30,7 @@ class ClientHome extends ConsumerStatefulWidget {
 }
 
 class _ClientHomeState extends ConsumerState<ClientHome> {
-  // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil
+  // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil, 4 = A-Formation
   int _currentIndex = 0;
   bool? _wasOnline;
 
@@ -60,12 +64,14 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       AppTranslations.t('nav_cart', locale),
       AppTranslations.t('nav_orders', locale),
       AppTranslations.t('nav_profile', locale),
+      'A-Formation',
     ];
     final pages = [
       CatalogTab(onOpenCart: () => setState(() => _currentIndex = 1)),
       const CartTab(),
       const OrdersTab(),
       ProfileTab(onLogout: _handleLogout),
+      const FormationHubScreen(),
     ];
 
     final connectivity = ref.watch(connectivityProvider);
@@ -149,8 +155,9 @@ class _NavItem {
   });
 }
 
-/// Barre de navigation du bas à 3 destinations (Accueil, Commandes, Profil).
-/// Le Panier n'y figure pas : on y accède depuis l'en-tête de l'Accueil.
+/// Barre de navigation du bas à 4 destinations (Accueil, Commandes,
+/// A-Formation, Profil). Le Panier n'y figure pas : on y accède depuis
+/// l'en-tête de l'Accueil.
 class _ClientBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onSelect;
@@ -169,6 +176,12 @@ class _ClientBottomNav extends ConsumerWidget {
           icon: Icons.receipt_long_outlined,
           selectedIcon: Icons.receipt_long,
           label: AppTranslations.t('nav_orders', locale),
+        ),
+        const _NavItem(
+          pageIndex: 4,
+          icon: Icons.school_outlined,
+          selectedIcon: Icons.school,
+          label: 'A-Formation',
         ),
         _NavItem(
           pageIndex: 3,

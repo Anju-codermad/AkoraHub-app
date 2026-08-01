@@ -27,7 +27,7 @@ Color _statusColor(String status) {
   }
 }
 
-IconData _iconForFormationCategory(String category) {
+IconData iconForFormationCategory(String category) {
   final c = category.toLowerCase();
   if (c.contains('capillaire') || c.contains('beauté')) return Icons.spa_outlined;
   if (c.contains('peinture')) return Icons.format_paint_outlined;
@@ -46,7 +46,11 @@ IconData _iconForFormationCategory(String category) {
 /// Pour l'instant, juste la structure ; le contenu réel des cours
 /// "Disponible" n'est pas encore consultable depuis l'app.
 class AkoraFormationScreen extends StatefulWidget {
-  const AkoraFormationScreen({super.key});
+  /// Pré-sélectionne une catégorie à l'ouverture (ex: depuis le hub
+  /// A-Formation) — reste modifiable ensuite via les puces de filtre.
+  final String? initialCategory;
+
+  const AkoraFormationScreen({super.key, this.initialCategory});
 
   @override
   State<AkoraFormationScreen> createState() => _AkoraFormationScreenState();
@@ -56,11 +60,14 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
   List<Map<String, dynamic>> _courses = [];
   bool _isLoading = true;
   String? _error;
-  String _selectedCategory = 'toutes';
+  late String _selectedCategory;
 
   @override
   void initState() {
     super.initState();
+    // `widget` n'est pas encore disponible dans un initialiseur de champ —
+    // il faut lire `widget.initialCategory` ici, dans initState().
+    _selectedCategory = widget.initialCategory ?? 'toutes';
     _loadData();
   }
 
@@ -135,7 +142,7 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
                               ..._categories.map((c) => Padding(
                                     padding: const EdgeInsets.only(right: 8),
                                     child: ChoiceChip(
-                                      avatar: Icon(_iconForFormationCategory(c),
+                                      avatar: Icon(iconForFormationCategory(c),
                                           size: 18),
                                       label: Text(c),
                                       selected: _selectedCategory == c,
@@ -167,7 +174,7 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
                                         backgroundColor: _statusColor(status)
                                             .withValues(alpha: 0.15),
                                         child: Icon(
-                                          _iconForFormationCategory(
+                                          iconForFormationCategory(
                                               c['category'] as String? ?? ''),
                                           color: _statusColor(status),
                                         ),
