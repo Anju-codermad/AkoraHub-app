@@ -339,6 +339,70 @@ Deno.serve(async (req) => {
       );
       title = "Nouveau produit disponible";
       body = `${record.name ?? "Un nouveau produit"} vient d'être ajouté dans "${categoryName}".`;
+    } else if (payload.table === "post_comments") {
+      // Commentaire (ou réponse à un commentaire) sur une publication de
+      // la Communauté (ex-Mur, voir supabase/phase46_patch_communaute_replies_reactions.sql)
+      // — notifie l'auteur de la publication, et séparément l'auteur du
+      // commentaire parent en cas de réponse (si différent du
+      // commentateur ET de l'auteur de la publication, pour ne jamais
+      // envoyer deux fois au même destinataire).
+      category = "message";
+      const { data: post } = await supabase
+        .from("posts")
+        .select("author_id")
+        .eq("id", record.post_id)
+        .maybeSingle();
+
+      const commentAuthorId = record.author_id as string;
+      const notified = new Set<string>();
+
+      if (post?.author_id && post.author_id !== commentAuthorId) {
+        recipientIds.push(post.author_id as string);
+        notified.add(post.author_id as string);
+      }
+
+      if (record.parent_comment_id) {
+        const { data: parentComment } = await supabase
+          .from("post_comments")
+          .select("author_id")
+          .eq("id", record.parent_comment_id)
+          .maybeSingle();
+        const parentAuthorId = parentComment?.author_id as string | undefined;
+        if (
+          parentAuthorId && parentAuthorId !== commentAuthorId &&
+          !notified.has(parentAuthorId)
+        ) {
+          recipientIds.push(parentAuthorId);
+        }
+      }
+
+      title = record.parent_comment_id
+        ? "Nouvelle réponse à votre commentaire"
+        : "Nouveau commentaire";
+      body = String(record.content ?? "").slice(0, 100) ||
+        "Quelqu'un a commenté votre publication";
+    } else if (payload.table === "post_likes") {
+      // Réaction (emoji) sur une publication de la Communauté.
+      category = "message";
+      const { data: post } = await supabase
+        .from("posts")
+        .select("author_id")
+        .eq("id", record.post_id)
+        .maybeSingle();
+      if (post?.author_id && post.author_id !== record.user_id) {
+        recipientIds = [post.author_id as string];
+      }
+      const reactionEmojis: Record<string, string> = {
+        like: "👍",
+        love: "❤️",
+        haha: "😂",
+        wow: "😮",
+        sad: "😢",
+        angry: "😡",
+      };
+      const emoji = reactionEmojis[record.reaction_type as string] ?? "👍";
+      title = "Nouvelle réaction";
+      body = `${emoji} Quelqu'un a réagi à votre publication`;
     } else if (payload.table === "call_invitations") {
       // Appel entrant (voir supabase/phase37_patch_calls.sql) — payload
       // dédié (pas de choix de son par l'utilisateur ici, contrairement

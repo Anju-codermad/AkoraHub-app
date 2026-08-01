@@ -4119,3 +4119,63 @@ gardée — l'ancien modèle n'était pas encore en production) :
   clic, plus la section d'édition des 3 paliers de prix (demande
   explicite : "j'aimerais qu'on ajoute une fonction de gérer le prix
   d'accès dans le côté admin").
+
+## Communauté : réponses aux commentaires, réactions emoji, notifications push (01/08)
+
+Trois demandes de l'utilisatrice après avoir vu une capture de son
+volet de notifications Android (TikTok en exemple) : "on ne peut pas
+répondre un commentaire", "j'arrive pas avoir des notifications... quand
+il y a des messages ou commentaires, réaction", "différents emoji pour
+la réaction, réponse commentaire, message".
+
+Périmètre retenu pour cette première version (à étendre si besoin) :
+réactions emoji **sur les publications uniquement** — pas encore sur les
+commentaires ni sur la messagerie privée (`ChatScreen`), qui resteraient
+des chantiers séparés si demandés.
+
+**Script SQL requis : `supabase/phase46_patch_communaute_replies_reactions.sql`** :
+- `post_comments.parent_comment_id` (auto-référence, nullable) — fils de
+  discussion limité à **un seul niveau** de profondeur côté application
+  (on peut répondre à un commentaire, pas à une réponse) pour garder
+  l'affichage simple, même si la colonne autoriserait techniquement plus
+  de profondeur.
+- `post_likes.reaction_type` (`like`/`love`/`haha`/`wow`/`sad`/`angry`,
+  même jeu que Facebook) — remplace le like binaire ; changer de
+  réaction se fait par suppression + réinsertion côté app (pas besoin de
+  policy UPDATE supplémentaire).
+- Deux nouveaux triggers (`post_comments`, `post_likes`) qui réutilisent
+  la fonction générique `notify_push_on_new_message()` déjà en place
+  depuis la Phase 17 (déjà utilisée pour messages/devis/commandes/
+  produits/appels malgré son nom) — aucune nouvelle fonction de trigger
+  à écrire.
+
+**⚠️ Redéploiement de l'Edge Function requis, en plus du script SQL** —
+particularité de ce chantier par rapport aux précédents : contrairement
+à un simple script SQL, `supabase/functions/send-push-notification/index.ts`
+doit être redéployé (Dashboard -> Edge Functions -> coller le nouveau
+contenu -> Deploy) pour que les nouveaux triggers aient un effet visible
+— sans ça, ils appellent bien la fonction mais elle ignore
+silencieusement les tables `post_comments`/`post_likes` (aucune erreur,
+juste aucune notification envoyée). Ajout de deux branches dans cette
+fonction :
+- `post_comments` : notifie l'auteur de la publication (si différent du
+  commentateur) et, en cas de réponse, l'auteur du commentaire parent
+  (si différent du commentateur ET déjà notifié) — jamais de doublon
+  vers le même destinataire.
+- `post_likes` : notifie l'auteur de la publication avec l'emoji de la
+  réaction dans le corps du message.
+
+Catégorie de son de notification réutilisée : "message" (existante,
+aucune nouvelle colonne `profiles.notification_sound_*` ni nouvelle
+entrée dans le sélecteur de sons côté Réglages — un commentaire/réaction
+est traité comme une forme de message).
+
+Dans `wall_tab.dart` :
+- Le bouton "cœur" devient un `GestureDetector` : appui court =
+  bascule la réaction "like" par défaut (retape pour retirer), appui
+  long = ouvre un sélecteur des 6 emoji (`showModalBottomSheet`) façon
+  Facebook. L'emoji de la réaction active remplace l'icône cœur.
+- `_CommentsSheet` distingue commentaires de premier niveau et réponses
+  (affichage indenté) ; bouton "Répondre" uniquement sur les
+  commentaires de premier niveau, qui pré-remplit un bandeau "Réponse à
+  {nom}" au-dessus du champ de saisie (annulable).
