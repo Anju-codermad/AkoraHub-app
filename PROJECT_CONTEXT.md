@@ -3830,3 +3830,15 @@ Libellé **"A-Formation"** (nom choisi par l'utilisatrice — abréviation de
 Les deux entrées de menu "Formation"/"AkoraFormation" ajoutées plus tôt
 dans le Profil ont été **retirées** (redondantes avec le nouvel onglet,
 un seul chemin de navigation gardé pour éviter la confusion).
+
+## Lisibilité des piliers "Nos activités" sur l'Accueil (01/08)
+
+Signalé par l'utilisatrice via capture : le nom de chaque pilier
+(Akora Home, Akora Pro...) apparaissait flou/peu lisible. Cause trouvée
+dans `catalog_tab.dart` : le texte utilisait `theme.textTheme.labelSmall`,
+qui pointe vers `textDisabled` dans `app_theme.dart` (couleur prévue pour
+du texte désactivé/atténué, pas pour un libellé toujours visible) —
+override explicite en `theme.colorScheme.onSurface` + graisse `w700`.
+Au passage, le fond de chaque icône (auparavant une couleur plate à
+alpha fixe) est passé à un dégradé (`LinearGradient`, du plus opaque au
+plus transparent) pour un rendu plus "charmant" comme demandé.

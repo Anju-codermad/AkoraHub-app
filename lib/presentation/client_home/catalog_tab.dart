@@ -1368,9 +1368,19 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                 width: 15.w,
                                 height: 15.w,
                                 decoration: BoxDecoration(
-                                  color: selected
-                                      ? color
-                                      : color.withValues(alpha: 0.14),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: selected
+                                        ? [
+                                            color,
+                                            color.withValues(alpha: 0.75),
+                                          ]
+                                        : [
+                                            color.withValues(alpha: 0.24),
+                                            color.withValues(alpha: 0.08),
+                                          ],
+                                  ),
                                   shape: BoxShape.circle,
                                   border: selected
                                       ? Border.all(color: color, width: 2)
@@ -1385,8 +1395,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                               SizedBox(height: 0.6.h),
                               Text(
                                 unit['name'] ?? '',
+                                // `labelSmall` du thème est prévu pour du
+                                // texte désactivé/atténué (voir
+                                // app_theme.dart) — pas adapté ici, le nom
+                                // du pilier doit rester bien lisible.
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
