@@ -4443,3 +4443,63 @@ incohérents : **ce sont en fait des couleurs de marque volontaires**
 `accentLight`/`accentDark` "Orange (icône)", toutes deux calées sur
 l'icône de l'app, aux côtés du vert `primaryLight`) — un vrai système à
 3 couleurs, pas une incohérence. Laissées telles quelles.
+
+## Achat de cours AkoraFormation + contenu protégé (01-02/08)
+
+**Origine** : demande de groupes communautaires par catégorie de
+Formation (voir plus bas), réservés aux "participants". Or
+`formation_courses` (Phase 43) n'était qu'une vitrine — aucun système
+d'achat, aucun contenu réel (le champ `module_count` était juste un
+chiffre d'affichage). Construire les groupes avant d'avoir un vrai
+système d'accès aurait été creux ; ce patch pose donc d'abord ce socle.
+
+**SQL** : `supabase/phase50_patch_course_purchases_and_content.sql` —
+- `formation_courses.price` (nullable — tant qu'il est vide, le cours
+  n'est pas en vente, même si son statut est "Déjà développée").
+- `formation_course_modules` (course_id, title, video_url, document_url,
+  content_text, sort_order) : le vrai contenu. **La protection réelle
+  est la RLS**, pas l'interface — sa policy de lecture ne renvoie une
+  ligne que si `current_role_is_staff()` ou si un
+  `course_purchases` validé existe pour ce (client, cours) précis. Un
+  client qui n'a pas payé ne peut techniquement pas récupérer
+  `video_url`/`document_url` depuis l'API, quel que soit le client
+  utilisé.
+- `course_purchases` : même principe que `formation_purchases`
+  (matières premières, Phase 45) — paiement manuel, validation staff,
+  re-soumission possible après refus. Pas de notification push
+  automatique, cohérent avec `formation_purchases`.
+
+**Protection anti-capture (demande explicite)** : `screen_protector`
+(package Flutter, `FLAG_SECURE` Android) activé sur
+`course_content_screen.dart` pendant l'affichage du contenu — bloque la
+capture d'écran et l'enregistrement d'écran natifs, masque l'aperçu
+dans le multitâche. **Limite expliquée à l'utilisatrice et assumée** :
+rien ne peut empêcher de filmer l'écran avec un second appareil physique
+(la "faille analogique") — aucune plateforme au monde ne s'en protège
+techniquement, ce n'est pas un manque d'effort.
+
+**Achat** : passe par la même page web externe que les matières
+premières (`docs/formation-access/index.html`, conformité Google Play,
+Phase 49) — désormais avec deux onglets ("Matières premières" / "Cours
+AkoraFormation"), même flux de paiement manuel réutilisé pour les deux.
+
+**Nouveaux fichiers Dart :**
+- `core/formation/course_purchases_repo.dart` : cours possédés/en
+  attente, modules d'un cours.
+- `client_home/formation/course_content_screen.dart` : lecteur du
+  contenu (vidéo via `video_player`, document ouvert en navigateur
+  intégré, texte), protégé par `FLAG_SECURE`.
+- `formation_courses_management/formation_course_modules_management.dart` :
+  gestion Admin des modules (ajout vidéo/document/texte par cours).
+
+**Modifications Dart :**
+- `akora_formation_screen.dart` : prix, verrou, statut "En attente", et
+  bouton "Voir" (cours possédé) ou "Acheter" (ouvre la page web externe).
+- `formation_courses_management.dart` : champ prix + bouton d'accès à la
+  gestion des modules.
+
+⚠️ **Pas encore livré** : les groupes communautaires par catégorie
+eux-mêmes (prochaine étape, une fois ce socle validé) — voir aussi la
+limite déjà documentée plus haut sur "Matières premières" (seule
+catégorie avec un vrai accès vérifiable pour l'instant côté matières
+premières ; les cours ont maintenant aussi leur vrai système d'achat).
