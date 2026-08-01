@@ -347,3 +347,6 @@
 
 ## 2026-08-01 08:02 UTC — Claude
 - Merge: Papi + manuel simultanés au checkout (`413fd68`)
+
+## 2026-08-01 08:06 UTC — Claude
+- Merge: frais de retrait Mvola aussi en paiement automatique (`c2d3d3b`)
