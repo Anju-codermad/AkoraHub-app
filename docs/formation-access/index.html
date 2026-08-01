@@ -228,7 +228,8 @@ async function api(path, { method = 'GET', body, isAuth = false, headers = {} } 
     const text = await res.text().catch(() => '');
     throw new Error(text || `Erreur ${res.status}`);
   }
-  return res.status === 204 ? null : res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 function saveSession() {
