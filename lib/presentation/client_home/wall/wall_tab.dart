@@ -857,8 +857,45 @@ class _WallTabState extends State<WallTab> {
                                             fit: BoxFit.cover,
                                             width: double.infinity,
                                             height: 20.h,
+                                            // Ne décode jamais plus large
+                                            // que ce qui est réellement
+                                            // affiché — évite de gaspiller
+                                            // de la mémoire même si
+                                            // l'image source est plus
+                                            // grande (ex : ancienne
+                                            // publication d'avant cette
+                                            // limite de taille).
+                                            cacheWidth: 800,
                                             errorBuilder: (_, __, ___) =>
                                                 const SizedBox.shrink(),
+                                            loadingBuilder: (context, child,
+                                                progress) {
+                                              if (progress == null) {
+                                                return child;
+                                              }
+                                              // Connexion parfois très
+                                              // lente (6 KB/s observés) —
+                                              // un espace vide sans
+                                              // indication donnerait
+                                              // l'impression que l'app
+                                              // est bloquée.
+                                              return Container(
+                                                width: double.infinity,
+                                                height: 20.h,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .surfaceContainerHighest,
+                                                child: const Center(
+                                                  child: SizedBox(
+                                                    width: 24,
+                                                    height: 24,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                            strokeWidth: 2),
+                                                  ),
+                                                ),
+                                              );
+                                            },
                                           ),
                                         ),
                                       ],
@@ -1029,10 +1066,19 @@ class _NewPostSheetState extends State<_NewPostSheet> {
     }
   }
 
+  /// Compression automatique (01/08, demande explicite après avoir
+  /// remarqué une connexion très lente — 6 KB/s sur une capture) : les
+  /// photos de la Communauté ne s'affichent jamais plus grand que la
+  /// largeur de la carte du fil (~20.h de haut, largeur de l'écran) — pas
+  /// besoin d'un fichier plus large que ça. `maxWidth`/`imageQuality`
+  /// sont appliqués par `image_picker` lui-même (redimensionnement +
+  /// réencodage JPEG) avant même l'upload, donc le gain s'applique aussi
+  /// bien à l'envoi (le posteur) qu'au téléchargement (tous les lecteurs
+  /// du fil) : un fichier plus petit à la source profite à tout le monde.
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
-        source: ImageSource.gallery, imageQuality: 70, maxWidth: 1280);
+        source: ImageSource.gallery, imageQuality: 60, maxWidth: 800);
     if (picked != null) {
       setState(() => _image = File(picked.path));
     }

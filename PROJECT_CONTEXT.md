@@ -4179,3 +4179,31 @@ Dans `wall_tab.dart` :
   (affichage indenté) ; bouton "Répondre" uniquement sur les
   commentaires de premier niveau, qui pré-remplit un bandeau "Réponse à
   {nom}" au-dessus du champ de saisie (annulable).
+
+## Communauté : compression automatique des photos (01/08)
+
+Suite logique après une capture d'écran de l'utilisatrice montrant une
+connexion à **6 KB/s** — plutôt qu'une nouvelle fonctionnalité, priorité
+donnée à la rapidité de chargement du fil, qui affiche potentiellement
+plusieurs photos par écran.
+
+Dans `wall_tab.dart` (`_NewPostSheet._pickImage`) : les photos jointes à
+une publication passent de `imageQuality: 70, maxWidth: 1280` à
+`imageQuality: 60, maxWidth: 800` — les images du fil ne s'affichent
+jamais plus grandes que la largeur de la carte (~20.h de haut), un
+fichier plus large que ça n'apportait aucun gain visuel, juste plus
+d'octets à télécharger pour tout le monde qui consulte le fil (pas
+seulement pour qui publie). Compression appliquée par `image_picker`
+lui-même (redimensionnement + réencodage JPEG) avant l'upload, donc
+aucun changement côté Supabase Storage.
+
+Deux ajouts complémentaires sur l'affichage (`Image.network` du fil) :
+`cacheWidth: 800` (Flutter ne décode jamais l'image plus grande que
+nécessaire, économise de la mémoire même sur d'anciennes publications
+antérieures à cette limite) et un `loadingBuilder` (indicateur de
+chargement à la place d'un espace vide pendant le téléchargement — évite
+de donner l'impression que l'app est bloquée sur une connexion lente).
+
+Aucun script SQL, aucune migration des photos déjà publiées (elles
+restent à leur taille d'origine, seules les nouvelles publications sont
+concernées).
