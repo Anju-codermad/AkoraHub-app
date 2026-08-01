@@ -228,7 +228,8 @@ async function api(path, { method = 'GET', body, isAuth = false, headers = {} } 
     const text = await res.text().catch(() => '');
     throw new Error(text || `Erreur ${res.status}`);
   }
-  return res.status === 204 ? null : res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 function saveSession() {
@@ -434,7 +435,7 @@ async function submitPurchase() {
     renderMaterialList();
     renderPurchaseCard();
   } catch (e) {
-    el('submit-error').textContent = 'Erreur lors de l\'envoi de la demande. Réessayez.';
+    el('submit-error').textContent = 'Erreur : ' + (e && e.message ? e.message : String(e));
     el('submit-error').classList.remove('hidden');
   } finally {
     isSubmitting = false;
