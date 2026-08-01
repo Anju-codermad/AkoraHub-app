@@ -350,3 +350,6 @@
 
 ## 2026-08-01 08:06 UTC — Claude
 - Merge: frais de retrait Mvola aussi en paiement automatique (`c2d3d3b`)
+
+## 2026-08-01 08:12 UTC — Claude
+- Merge: Orange Money ajouté au frais de retrait Mobile Money (`9af0ed6`)
