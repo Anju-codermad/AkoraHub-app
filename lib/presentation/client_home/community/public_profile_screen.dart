@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/supabase/supabase_config.dart';
+import '../../../core/utils/whatsapp_link.dart';
 import 'public_profiles_repo.dart';
 
 /// Profil public "léger" d'un autre client, consultable en tapant sur son
 /// nom/avatar dans le Mur. N'affiche que des infos non sensibles (nom,
 /// société, secteur, avatar) via la vue `public_profiles`
 /// (supabase/phase9_patch_public_profiles.sql), plus ses publications
-/// publiques récentes. Aucune info de contact (téléphone, localisation
-/// précise) n'est montrée ici.
+/// publiques récentes. Aucune localisation précise n'est montrée ici ;
+/// le numéro de téléphone n'apparaît que si le client l'a explicitement
+/// rendu public (01/08, voir
+/// supabase/phase47_patch_report_and_whatsapp_contact.sql et
+/// security_settings_screen.dart) — masqué par défaut pour tout le
+/// monde.
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
 
@@ -117,6 +123,32 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                             ),
                           ),
                         ),
+                      if (buildWhatsAppLink(
+                              _profile?['phone'] as String?) !=
+                          null) ...[
+                        SizedBox(height: 1.5.h),
+                        Center(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final link = buildWhatsAppLink(
+                                  _profile?['phone'] as String?)!;
+                              try {
+                                await launchUrl(Uri.parse(link),
+                                    mode: LaunchMode.externalApplication);
+                              } catch (_) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Impossible d\'ouvrir WhatsApp.')));
+                              }
+                            },
+                            icon: const Icon(Icons.chat_outlined,
+                                color: Colors.green),
+                            label: const Text('Contacter via WhatsApp'),
+                          ),
+                        ),
+                      ],
                       SizedBox(height: 3.h),
                       Text('Publications', style: theme.textTheme.titleMedium),
                       SizedBox(height: 1.h),

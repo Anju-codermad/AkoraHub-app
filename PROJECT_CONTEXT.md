@@ -4207,3 +4207,43 @@ de donner l'impression que l'app est bloquée sur une connexion lente).
 Aucun script SQL, aucune migration des photos déjà publiées (elles
 restent à leur taille d'origine, seules les nouvelles publications sont
 concernées).
+
+## Communauté : signaler une publication + contacter via WhatsApp (01/08)
+
+Les deux points mis de côté lors de la discussion "améliorer la
+Communauté" (voir plus haut), construits maintenant.
+
+**Script SQL requis : `supabase/phase47_patch_report_and_whatsapp_contact.sql`** :
+- `post_reports` (post_id, reporter_id, reason, status
+  `en_attente`/`traite`) — un signalement par (client, publication),
+  lecture réservée au staff (jamais visible par les clients, pour ne pas
+  transformer ça en outil de harcèlement "untel a signalé mon post").
+  Trigger de notification push vers l'équipe Admin/Commercial,
+  réutilisant `notify_push_on_new_message()` (Phase 17).
+- `profiles.share_phone_publicly` (`false` par défaut) + mise à jour de
+  la vue `public_profiles` (Phase 9) qui exposait volontairement zéro
+  info de contact — le téléphone y apparaît désormais, mais uniquement
+  pour les clients ayant explicitement activé ce réglage eux-mêmes.
+
+**Nouveaux fichiers Dart :**
+- `core/utils/whatsapp_link.dart` : construit un lien `wa.me` à partir
+  du format E.164 stocké par `IntlPhoneField` à l'inscription
+  (`+261341234567` -> `https://wa.me/261341234567`, wa.me n'accepte pas
+  le `+`).
+- `post_reports_management/` (`PostReportsManagement`, Admin) : liste
+  des signalements groupée par statut, aperçu de la publication
+  concernée, actions "Ignorer" / "Supprimer la publication" (la
+  suppression retire aussi le signalement en cascade). Lien ajouté dans
+  le menu "Plus" de l'Admin.
+
+**Fichiers modifiés :**
+- `wall_tab.dart` : menu ⋮ "Signaler" sur les publications d'autrui
+  (symétrique du menu Modifier/Supprimer déjà présent sur ses propres
+  publications) ; icône WhatsApp verte dans la barre d'actions du post
+  si l'auteur a un numéro public.
+- `public_profile_screen.dart` : bouton "Contacter via WhatsApp" sous le
+  nom/secteur, même condition (numéro public uniquement).
+- `security_settings_screen.dart` : nouveau réglage "Numéro visible dans
+  la Communauté" (`SwitchListTile`) — désactivé si aucun numéro n'est
+  renseigné dans le profil (message explicite invitant à en ajouter un
+  d'abord), affiche le numéro actuel une fois activé pour confirmation.

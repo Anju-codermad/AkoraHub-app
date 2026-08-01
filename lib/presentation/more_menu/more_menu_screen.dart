@@ -17,6 +17,7 @@ import '../security_audit_log/security_audit_log_screen.dart';
 import '../raw_materials_management/raw_materials_management.dart';
 import '../formation_courses_management/formation_courses_management.dart';
 import '../client_home/settings/settings_screen.dart';
+import '../post_reports_management/post_reports_management.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
@@ -89,11 +90,21 @@ class MoreMenuScreen extends StatelessWidget {
           _MenuTile(
             icon: Icons.science_outlined,
             label: 'Matières premières (Formation)',
-            subtitle: 'Fiches ingrédients + abonnements payants',
+            subtitle: 'Fiches ingrédients + achats à l\'unité',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
                   builder: (_) => const RawMaterialsManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.flag_outlined,
+            label: 'Signalements Communauté',
+            subtitle: 'Publications signalées par les clients',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const PostReportsManagement()),
             ),
           ),
           _MenuTile(
