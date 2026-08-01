@@ -4049,3 +4049,73 @@ Dans `wall/wall_tab.dart` :
   existante — pas de nouvel index nécessaire au volume actuel de posts.
 
 Aucun script SQL requis pour ce changement.
+
+## Formation : abonnement remplacé par l'achat par produit (01/08)
+
+Chantier déclenché par la discussion Play Billing (voir plus haut,
+"Checklist publication Google Play Store") : en creusant comment éviter
+la commission Google sur l'abonnement Formation, l'utilisatrice a
+proposé un changement de modèle plus large — "le formation peut acheté
+mais pas abonnement" (accès permanent par achat, pas de renouvellement),
+puis un tarif dégressif par nombre de produits achetés :
+- 1 produit : 10 000 Ar
+- 5 produits : 8 000 Ar/produit
+- 10 produits : 5 000 Ar/produit
+
+Confirmé par l'utilisatrice : le palier se calcule sur le total
+**cumulatif** de produits déjà achetés (validés) par le client, tous
+achats confondus dans le temps ; une fois atteint, il s'applique à
+**tous** les produits de l'achat en cours (pas de recalcul rétroactif
+sur ce qui a déjà été payé). Confirmé également : aucun client n'avait
+encore payé d'abonnement, donc aucune migration de données n'était
+nécessaire.
+
+⚠️ Rappel du contexte business qui a motivé ce chantier : ça ne règle
+**pas** la question Play Billing en soi (un achat unique de contenu
+numérique est soumis à la même commission qu'un abonnement) — le vrai
+levier pour l'éviter reste le paiement via navigateur externe, qui n'a
+**pas** été construit dans ce chantier (le paiement Formation reste
+manuel — référence + preuve, comme avant — l'ajout de Papi est laissé
+pour une session future si besoin).
+
+**Script SQL requis :
+`supabase/phase45_patch_formation_per_product_pricing.sql`** :
+- `formation_purchases` : une ligne par produit acheté par client, statut
+  `en_attente`/`validee`/`refusee`, regroupées par `batch_id` (un même
+  achat peut porter sur plusieurs produits à la fois). Un produit refusé
+  peut être re-soumis (RLS n'autorise que refusee -> en_attente, jamais
+  un client ne peut se valider lui-même son propre accès).
+- `formation_pricing_tiers` : les 3 paliers ci-dessus, modifiables par
+  l'Admin (nouvel écran, voir plus bas) — remplace
+  `formation_plan_pricing` (Phase 40, non supprimée mais plus utilisée).
+- Nouvelle fonction `has_purchased_raw_material(uid, material_id)` :
+  remplace l'ancien booléen global `has_active_formation_subscription`
+  dans les 5 policies RLS qui gataient l'accès (fiche complète, photos,
+  dosages, conditionnement, historique de prix) — l'accès est désormais
+  vérifié **par produit précis**, pas globalement.
+- La table `formation_subscriptions` (Phase 40) n'est pas supprimée
+  (historique), juste plus utilisée pour l'accès.
+
+**Fichiers Dart** (renommages inclus, pas de compatibilité ascendante
+gardée — l'ancien modèle n'était pas encore en production) :
+- `core/formation/formation_repo.dart` : réécrit — `fetchMyPurchasedIds`,
+  `fetchMyPendingIds`, `fetchPricingTiers`,
+  `unitPriceForPurchase(tiers, alreadyOwned, quantity)`,
+  `requestPurchase(rawMaterialIds, ...)`.
+- `client_home/formation/formation_subscription_screen.dart` **supprimé**,
+  remplacé par `formation_purchase_screen.dart`
+  (`FormationPurchaseScreen`) : sélection multi-produits type mini-panier
+  (recherche, cases à cocher), prix par unité recalculé en direct selon
+  le palier, paiement manuel (référence + preuve) inchangé sinon. Accepte
+  un `initialSelectedId` pour pré-sélectionner un produit précis (bouton
+  "Acheter l'accès" d'une fiche verrouillée).
+- `formation_catalog_screen.dart` et `raw_material_detail_client.dart` :
+  cadenas par produit individuel (`_ownedIds`/`_pendingIds`) au lieu d'un
+  booléen global d'abonnement ; icône sablier distincte pour "en attente
+  de vérification".
+- `formation_subscriptions_management/` **supprimé**, remplacé par
+  `formation_purchases_management/` (`FormationPurchasesManagement`) :
+  demandes groupées par achat (`batch_id`) validables/refusables en un
+  clic, plus la section d'édition des 3 paliers de prix (demande
+  explicite : "j'aimerais qu'on ajoute une fonction de gérer le prix
+  d'accès dans le côté admin").

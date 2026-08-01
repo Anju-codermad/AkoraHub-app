@@ -12,7 +12,8 @@ import 'formation_catalog_screen.dart';
 /// matières premières fait partie d'autres modules de formation").
 /// Chaque carte ouvre soit la liste des formations de cette catégorie
 /// (`AkoraFormationScreen`), soit la base de matières premières
-/// (`FormationCatalogScreen`, abonnement requis pour le détail complet).
+/// (`FormationCatalogScreen`, achat par produit requis pour le détail
+/// complet — voir supabase/phase45_patch_formation_per_product_pricing.sql).
 class FormationHubScreen extends StatefulWidget {
   const FormationHubScreen({super.key});
 
@@ -119,7 +120,7 @@ class _FormationHubScreenState extends State<FormationHubScreen> {
                           ),
                           title: const Text('Matières premières'),
                           subtitle: const Text(
-                              'Fiches ingrédients — détail complet sur abonnement'),
+                              'Fiches ingrédients — détail complet à l\'achat'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () => Navigator.push(
                             context,

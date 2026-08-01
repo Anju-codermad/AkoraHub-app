@@ -4,13 +4,13 @@ import 'package:sizer/sizer.dart';
 
 import '../../../core/supabase/supabase_config.dart';
 import '../../raw_materials_management/raw_material_style.dart';
-import 'formation_subscription_screen.dart';
+import 'formation_purchase_screen.dart';
 
-/// Fiche détaillée d'une matière première, réservée aux abonnés Formation
-/// (la RLS de `raw_materials` — phase40_schema.sql — bloque déjà l'accès
-/// serveur ; cet écran affiche un message clair plutôt qu'un écran vide si
-/// jamais il est atteint sans abonnement actif, ex: abonnement expiré
-/// entre l'ouverture du catalogue et le tap).
+/// Fiche détaillée d'une matière première, réservée à ceux qui l'ont
+/// achetée (la RLS de `raw_materials` — phase45_patch_formation_per_product_pricing.sql
+/// — bloque déjà l'accès serveur ; cet écran affiche un message clair
+/// plutôt qu'un écran vide si jamais il est atteint sans achat validé,
+/// ex: lien direct vers une fiche non achetée).
 class RawMaterialDetailClient extends StatefulWidget {
   final String materialId;
 
@@ -116,7 +116,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                     size: 48, color: theme.colorScheme.outline),
                 SizedBox(height: 2.h),
                 const Text(
-                  'Cette fiche nécessite un abonnement Formation actif.',
+                  'Cette fiche nécessite d\'avoir acheté l\'accès à ce produit.',
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 2.h),
@@ -124,9 +124,10 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                   onPressed: () => Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const FormationSubscriptionScreen()),
+                        builder: (_) => FormationPurchaseScreen(
+                            initialSelectedId: widget.materialId)),
                   ),
-                  child: const Text('S\'abonner'),
+                  child: const Text('Acheter l\'accès'),
                 ),
               ],
             ),

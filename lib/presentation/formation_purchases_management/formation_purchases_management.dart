@@ -4,22 +4,26 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
 
-/// Validation des demandes d'abonnement Formation (accès payant aux fiches
-/// détaillées de matières premières — voir supabase/phase40_schema.sql).
-/// Même logique que la vérification manuelle des paiements de commande :
-/// le client transfère et indique une référence/preuve, le staff active.
-class FormationSubscriptionsManagement extends StatefulWidget {
-  const FormationSubscriptionsManagement({super.key});
+/// Validation des demandes d'achat Formation, produit par produit (voir
+/// supabase/phase45_patch_formation_per_product_pricing.sql) — remplace
+/// l'ancienne gestion des abonnements (formation_subscriptions_management,
+/// supprimé le 01/08). Même logique que la vérification manuelle des
+/// paiements de commande : le client transfère et indique une
+/// référence/preuve, le staff valide. Les lignes d'un même achat
+/// (plusieurs produits à la fois) partagent un `batch_id` — regroupées
+/// ici pour être validées/refusées ensemble en un clic.
+class FormationPurchasesManagement extends StatefulWidget {
+  const FormationPurchasesManagement({super.key});
 
   @override
-  State<FormationSubscriptionsManagement> createState() =>
-      _FormationSubscriptionsManagementState();
+  State<FormationPurchasesManagement> createState() =>
+      _FormationPurchasesManagementState();
 }
 
-class _FormationSubscriptionsManagementState
-    extends State<FormationSubscriptionsManagement> {
-  List<Map<String, dynamic>> _subscriptions = [];
-  List<Map<String, dynamic>> _plans = [];
+class _FormationPurchasesManagementState
+    extends State<FormationPurchasesManagement> {
+  List<Map<String, dynamic>> _purchases = [];
+  List<Map<String, dynamic>> _tiers = [];
   bool _isLoading = true;
   String? _error;
   String _statusFilter = 'en_attente';
@@ -48,34 +52,39 @@ class _FormationSubscriptionsManagementState
     try {
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client
-            .from('formation_subscriptions')
-            .select('*, profiles(full_name, company_name)')
-            .order('created_at', ascending: false),
-        SupabaseConfig.client.from('formation_plan_pricing').select().order('price'),
+            .from('formation_purchases')
+            .select(
+                '*, profiles(full_name, company_name), raw_materials(name)')
+            .order('requested_at', ascending: false),
+        SupabaseConfig.client
+            .from('formation_pricing_tiers')
+            .select()
+            .order('min_quantity'),
       ]);
       setState(() {
-        _subscriptions = List<Map<String, dynamic>>.from(results[0]);
-        _plans = List<Map<String, dynamic>>.from(results[1]);
+        _purchases = List<Map<String, dynamic>>.from(results[0]);
+        _tiers = List<Map<String, dynamic>>.from(results[1]);
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _error = 'Impossible de charger les abonnements (migration phase40 exécutée ?).';
+        _error =
+            'Impossible de charger les achats (migration phase45 exécutée ?).';
       });
     }
   }
 
-  Future<void> _editPlanPrice(Map<String, dynamic> plan) async {
-    final ctrl = TextEditingController(text: (plan['price'] ?? '').toString());
+  Future<void> _editTierPrice(Map<String, dynamic> tier) async {
+    final ctrl = TextEditingController(text: (tier['price'] ?? '').toString());
     final newPrice = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Tarif — ${plan['label']}'),
+        title: Text('Palier — à partir de ${tier['min_quantity']} produit(s)'),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Prix (Ar)'),
+          decoration: const InputDecoration(labelText: 'Prix par produit (Ar)'),
         ),
         actions: [
           TextButton(
@@ -91,47 +100,62 @@ class _FormationSubscriptionsManagementState
     if (newPrice == null) return;
     try {
       await SupabaseConfig.client
-          .from('formation_plan_pricing')
-          .update({'price': newPrice, 'updated_at': DateTime.now().toIso8601String()})
-          .eq('plan', plan['plan']);
+          .from('formation_pricing_tiers')
+          .update({
+            'price': newPrice,
+            'updated_at': DateTime.now().toIso8601String()
+          })
+          .eq('min_quantity', tier['min_quantity']);
       _loadData();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Erreur lors de la mise à jour du tarif.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la mise à jour du tarif.')));
     }
   }
 
-  Future<void> _activate(Map<String, dynamic> sub) async {
-    final isAnnual = sub['plan'] == 'annuel';
-    final now = DateTime.now();
-    final expiresAt = isAnnual
-        ? DateTime(now.year + 1, now.month, now.day)
-        : DateTime(now.year, now.month + 1, now.day);
+  /// Regroupe les lignes par `batch_id` — un même achat (plusieurs
+  /// produits en une fois) se valide/refuse en bloc.
+  List<List<Map<String, dynamic>>> _groupByBatch(
+      List<Map<String, dynamic>> purchases) {
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final p in purchases) {
+      groups.putIfAbsent(p['batch_id'] as String, () => []).add(p);
+    }
+    final result = groups.values.toList();
+    result.sort((a, b) => (b.first['requested_at'] as String)
+        .compareTo(a.first['requested_at'] as String));
+    return result;
+  }
+
+  Future<void> _validateBatch(List<Map<String, dynamic>> batch) async {
     try {
-      await SupabaseConfig.client.from('formation_subscriptions').update({
-        'status': 'actif',
-        'started_at': now.toIso8601String(),
-        'expires_at': expiresAt.toIso8601String(),
-        'updated_at': now.toIso8601String(),
-      }).eq('id', sub['id']);
+      await SupabaseConfig.client
+          .from('formation_purchases')
+          .update({
+            'status': 'validee',
+            'validated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('batch_id', batch.first['batch_id'])
+          .eq('status', 'en_attente');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Abonnement activé.')));
+          .showSnackBar(const SnackBar(content: Text('Achat validé.')));
       _loadData();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Erreur lors de l\'activation.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la validation.')));
     }
   }
 
-  Future<void> _refuse(Map<String, dynamic> sub) async {
+  Future<void> _refuseBatch(List<Map<String, dynamic>> batch) async {
     try {
-      await SupabaseConfig.client.from('formation_subscriptions').update({
-        'status': 'refuse',
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', sub['id']);
+      await SupabaseConfig.client
+          .from('formation_purchases')
+          .update({'status': 'refusee'})
+          .eq('batch_id', batch.first['batch_id'])
+          .eq('status', 'en_attente');
       if (!mounted) return;
       _loadData();
     } catch (_) {
@@ -141,8 +165,8 @@ class _FormationSubscriptionsManagementState
     }
   }
 
-  Future<void> _viewProof(Map<String, dynamic> sub) async {
-    final path = sub['payment_proof_path'] as String?;
+  Future<void> _viewProof(Map<String, dynamic> purchase) async {
+    final path = purchase['payment_proof_path'] as String?;
     if (path == null) return;
     try {
       final url = await SupabaseConfig.client.storage
@@ -152,26 +176,29 @@ class _FormationSubscriptionsManagementState
       showDialog(
         context: context,
         builder: (context) => Dialog(
-          child: Image.network(url, errorBuilder: (_, __, ___) =>
-              const Padding(padding: EdgeInsets.all(24), child: Text('Impossible d\'afficher l\'image.'))),
+          child: Image.network(url,
+              errorBuilder: (_, __, ___) => const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('Impossible d\'afficher l\'image.'))),
         ),
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Impossible de charger la preuve de paiement.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible de charger la preuve de paiement.')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final filtered = _subscriptions
-        .where((s) => _statusFilter == 'tous' || s['status'] == _statusFilter)
+    final filtered = _purchases
+        .where((p) => _statusFilter == 'tous' || p['status'] == _statusFilter)
         .toList();
+    final batches = _groupByBatch(filtered);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Abonnements Formation')),
+      appBar: AppBar(title: const Text('Achats Formation')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -181,32 +208,32 @@ class _FormationSubscriptionsManagementState
                   child: ListView(
                     padding: EdgeInsets.all(4.w),
                     children: [
-                      if (_plans.isNotEmpty) ...[
-                        Text('Tarifs', style: theme.textTheme.titleMedium),
+                      if (_tiers.isNotEmpty) ...[
+                        Text('Paliers de prix', style: theme.textTheme.titleMedium),
                         SizedBox(height: 1.h),
-                        ..._plans.map((p) => Card(
+                        ..._tiers.map((t) => Card(
                               child: ListTile(
-                                title: Text(p['label'] ?? ''),
-                                subtitle: Text(_currency.format(p['price'])),
+                                title: Text(
+                                    'À partir de ${t['min_quantity']} produit(s)'),
+                                subtitle:
+                                    Text('${_currency.format(t['price'])} / produit'),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.edit_outlined),
-                                  onPressed: () => _editPlanPrice(p),
+                                  onPressed: () => _editTierPrice(t),
                                 ),
                               ),
                             )),
                         SizedBox(height: 2.h),
                       ],
-                      Text('Demandes d\'abonnement',
-                          style: theme.textTheme.titleMedium),
+                      Text('Demandes d\'achat', style: theme.textTheme.titleMedium),
                       SizedBox(height: 1.h),
                       Wrap(
                         spacing: 8,
                         children: [
                           for (final status in [
                             'en_attente',
-                            'actif',
-                            'refuse',
-                            'expire',
+                            'validee',
+                            'refusee',
                             'tous'
                           ])
                             ChoiceChip(
@@ -214,11 +241,9 @@ class _FormationSubscriptionsManagementState
                                   ? 'Tous'
                                   : status == 'en_attente'
                                       ? 'En attente'
-                                      : status == 'actif'
-                                          ? 'Actifs'
-                                          : status == 'refuse'
-                                              ? 'Refusés'
-                                              : 'Expirés'),
+                                      : status == 'validee'
+                                          ? 'Validés'
+                                          : 'Refusés'),
                               selected: _statusFilter == status,
                               onSelected: (_) =>
                                   setState(() => _statusFilter = status),
@@ -226,7 +251,7 @@ class _FormationSubscriptionsManagementState
                         ],
                       ),
                       SizedBox(height: 1.h),
-                      if (filtered.isEmpty)
+                      if (batches.isEmpty)
                         Padding(
                           padding: EdgeInsets.symmetric(vertical: 6.h),
                           child: Center(
@@ -235,8 +260,12 @@ class _FormationSubscriptionsManagementState
                           ),
                         )
                       else
-                        ...filtered.map((sub) {
-                          final profile = sub['profiles'] as Map?;
+                        ...batches.map((batch) {
+                          final first = batch.first;
+                          final profile = first['profiles'] as Map?;
+                          final status = first['status'] as String;
+                          final total = batch.fold<num>(
+                              0, (sum, p) => sum + (p['amount'] as num));
                           return Card(
                             child: Padding(
                               padding: const EdgeInsets.all(12),
@@ -254,39 +283,44 @@ class _FormationSubscriptionsManagementState
                                         ),
                                       ),
                                       Chip(
-                                        label: Text(sub['status'],
+                                        label: Text(status,
                                             style:
                                                 const TextStyle(fontSize: 11)),
                                         visualDensity: VisualDensity.compact,
                                       ),
                                     ],
                                   ),
+                                  SizedBox(height: 0.5.h),
+                                  Text(batch
+                                      .map((p) =>
+                                          (p['raw_materials'] as Map?)?['name'] ??
+                                          '')
+                                      .join(', ')),
                                   Text(
-                                      'Plan ${sub['plan']} · ${_currency.format(sub['amount'])}'),
-                                  if (sub['payment_reference'] != null)
-                                    Text('Référence : ${sub['payment_reference']}'),
-                                  if (sub['expires_at'] != null)
-                                    Text(
-                                        'Expire le ${_dateFormat.format(DateTime.parse(sub['expires_at']))}'),
+                                      '${batch.length} produit(s) · ${_currency.format(total)}'),
+                                  if (first['payment_reference'] != null)
+                                    Text('Référence : ${first['payment_reference']}'),
+                                  Text(
+                                      'Demandé le ${_dateFormat.format(DateTime.parse(first['requested_at']))}'),
                                   const SizedBox(height: 8),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
-                                      if (sub['payment_proof_path'] != null)
+                                      if (first['payment_proof_path'] != null)
                                         TextButton.icon(
-                                          onPressed: () => _viewProof(sub),
+                                          onPressed: () => _viewProof(first),
                                           icon: const Icon(Icons.image_outlined,
                                               size: 18),
                                           label: const Text('Preuve'),
                                         ),
-                                      if (sub['status'] == 'en_attente') ...[
+                                      if (status == 'en_attente') ...[
                                         TextButton(
-                                          onPressed: () => _refuse(sub),
+                                          onPressed: () => _refuseBatch(batch),
                                           child: const Text('Refuser'),
                                         ),
                                         FilledButton(
-                                          onPressed: () => _activate(sub),
-                                          child: const Text('Activer'),
+                                          onPressed: () => _validateBatch(batch),
+                                          child: const Text('Valider'),
                                         ),
                                       ],
                                     ],

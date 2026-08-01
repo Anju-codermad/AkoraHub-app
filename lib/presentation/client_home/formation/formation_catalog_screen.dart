@@ -4,15 +4,16 @@ import 'package:sizer/sizer.dart';
 import '../../../core/formation/formation_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../raw_materials_management/raw_material_style.dart';
-import 'formation_subscription_screen.dart';
+import 'formation_purchase_screen.dart';
 import 'raw_material_detail_client.dart';
 
 /// Catalogue Formation côté client : liste toujours visible (nom,
 /// catégorie, stock, photo) des matières premières — voir
 /// supabase/phase40_schema.sql, vue `raw_materials_preview`. Les fiches
-/// complètes (description, dosages, conditionnement, prix) ne s'ouvrent
-/// qu'avec un abonnement Formation actif ; sinon, un cadenas invite à
-/// s'abonner.
+/// complètes (description, dosages, conditionnement, prix) s'achètent
+/// désormais produit par produit, à vie (voir
+/// supabase/phase45_patch_formation_per_product_pricing.sql) ; sinon, un
+/// cadenas invite à acheter l'accès.
 ///
 /// Point d'accès unique, indépendant des piliers "Produits" (voir
 /// profile_tab.dart) — regroupe les matières premières de tous les
@@ -34,7 +35,8 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
   String _search = '';
   String _selectedUnitId = 'tous';
   String _selectedCategory = 'toutes';
-  bool _isSubscribed = false;
+  Set<String> _ownedIds = {};
+  Set<String> _pendingIds = {};
 
   @override
   void initState() {
@@ -51,7 +53,8 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client.from('raw_materials_preview').select().order('name'),
         SupabaseConfig.client.from('business_units').select('id, name'),
-        FormationRepo.fetchMySubscription(),
+        FormationRepo.fetchMyPurchasedIds(),
+        FormationRepo.fetchMyPendingIds(),
       ]);
       final units = List<Map<String, dynamic>>.from(results[1] as List);
       setState(() {
@@ -59,7 +62,8 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
         _unitNames = {
           for (final u in units) u['id'] as String: u['name'] as String? ?? ''
         };
-        _isSubscribed = FormationRepo.isActive(results[2] as Map<String, dynamic>?);
+        _ownedIds = results[2] as Set<String>;
+        _pendingIds = results[3] as Set<String>;
         _isLoading = false;
       });
     } catch (e) {
@@ -101,17 +105,26 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
       }).toList();
 
   void _openMaterial(Map<String, dynamic> material) {
-    if (!_isSubscribed) {
+    final id = material['id'] as String;
+    if (_ownedIds.contains(id)) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const FormationSubscriptionScreen()),
+        MaterialPageRoute(
+          builder: (_) => RawMaterialDetailClient(materialId: id),
+        ),
       );
+      return;
+    }
+    if (_pendingIds.contains(id)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Cet achat est en attente de vérification par notre équipe.')));
       return;
     }
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => RawMaterialDetailClient(materialId: material['id']),
+        builder: (_) => FormationPurchaseScreen(initialSelectedId: id),
       ),
     );
   }
@@ -131,7 +144,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                   onRefresh: _loadData,
                   child: Column(
                     children: [
-                      if (!_isSubscribed)
+                      if (_ownedIds.length < _materials.length)
                         Container(
                           margin: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 0),
                           padding: EdgeInsets.all(3.w),
@@ -146,7 +159,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                               SizedBox(width: 3.w),
                               Expanded(
                                 child: Text(
-                                  'Abonnez-vous pour débloquer les fiches complètes : description, dosages, conditionnement et historique de prix.',
+                                  'Achetez l\'accès (à vie, tarif dégressif) pour débloquer les fiches complètes : description, dosages, conditionnement et historique de prix.',
                                   style: TextStyle(
                                       color:
                                           theme.colorScheme.onPrimaryContainer),
@@ -157,9 +170,9 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                                   context,
                                   MaterialPageRoute(
                                       builder: (_) =>
-                                          const FormationSubscriptionScreen()),
+                                          const FormationPurchaseScreen()),
                                 ),
-                                child: const Text('S\'abonner'),
+                                child: const Text('Acheter'),
                               ),
                             ],
                           ),
@@ -288,7 +301,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                                                         status),
                                                   ),
                                           ),
-                                          if (!_isSubscribed)
+                                          if (!_ownedIds.contains(m['id']))
                                             Positioned(
                                               right: -2,
                                               bottom: -2,
@@ -301,7 +314,12 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                                                       color:
                                                           theme.colorScheme.outline),
                                                 ),
-                                                child: const Icon(Icons.lock,
+                                                child: Icon(
+                                                    _pendingIds
+                                                            .contains(m['id'])
+                                                        ? Icons
+                                                            .hourglass_top_outlined
+                                                        : Icons.lock,
                                                     size: 12),
                                               ),
                                             ),
