@@ -3555,3 +3555,84 @@ suivre à chaque fois, même pour un fichier qu'on pense être "le sien".
 4. Mettre à jour ce fichier (sections 3, 4 et 7 si besoin) avant de pousser
    le dernier commit de la session
 
+## Phase 40-41 — "Formation" : base de matières premières + abonnement payant (01/08)
+
+Demande de l'utilisatrice : transformer le pilier "Formation" (jusqu'ici
+juste mentionné, jamais construit — voir section 1) en une vraie base de
+référence des matières premières/ingrédients utilisés en fabrication
+(chimiques, cosmétiques, agroalimentaires), avec une fiche détaillée par
+ingrédient façon fiche technique (maquette de référence : capture d'une
+fiche EDTA fournie par l'utilisatrice). Distinct du catalogue de vente
+(`products`) : ces fiches ne sont **jamais commandables**. Accès : la
+liste (nom/catégorie/stock/photo) reste visible par tout client connecté,
+mais le détail complet (description, dosages par usage, conditionnement,
+historique de prix) est réservé au staff et aux clients avec un
+**abonnement Formation payant actif** (abonnement global, pas ingrédient
+par ingrédient — décision explicite de l'utilisatrice).
+
+**Schéma** (`supabase/phase40_schema.sql`) :
+- `raw_materials` (fiche complète — RLS restreinte staff/abonné actif via
+  `public.has_active_formation_subscription(uid)`), `raw_material_images`
+  (galerie, même mécanique que `product_images`/phase8), `raw_material_usages`
+  (domaine Nettoyage/Cosmétique/Agroalimentaire/Industriel + dosage,
+  **lié à un vrai produit du catalogue** via `product_id` — texte libre
+  `usage_label` en repli si la formule n'est pas encore un produit vendable,
+  demande explicite de l'utilisatrice le 01/08), `raw_material_packaging`
+  (conditionnement + prix optionnel), `raw_material_price_history`.
+- Vue `raw_materials_preview` (id/pilier/catégorie/nom/stock/photo
+  uniquement) — même pattern que `public_profiles` (phase9) : exécutée
+  avec les droits du propriétaire, donc lisible par tout utilisateur
+  connecté même si la RLS de `raw_materials` est restrictive. C'est elle
+  qui alimente la liste "toujours visible" côté client.
+- `formation_subscriptions` (mensuel/annuel, paiement manuel — référence +
+  preuve, réutilise le bucket privé `payment-proofs` de phase29 — validé
+  par le staff, même principe que les commandes) + `formation_plan_pricing`
+  (tarifs modifiables par l'Admin).
+- Bucket Storage `raw-materials` (public en lecture, écriture staff — même
+  modèle que le bucket `products`).
+- **Contenu (`supabase/phase41_patch_seed_raw_materials.sql`)** : à la
+  demande explicite de l'utilisatrice ("vous avez la meilleure possibilité
+  que moi pour avoir des informations complètes"), Claude a rédigé
+  lui-même description + précaution de sécurité pour les ~190 matières
+  premières déjà listées dans `phase33_patch_raw_material_name_suggestions.sql`
+  (connaissances chimiques/cosmétiques/agroalimentaires générales et bien
+  établies). **Volontairement laissés vides** : prix, usages liés à un
+  produit précis, conditionnement — données opérationnelles réelles que
+  seule l'utilisatrice connaît (coût fournisseur, formats réellement
+  stockés, dans quel produit exact chaque matière est utilisée) ; les
+  inventer aurait été dangereux dans une vraie application métier. Script
+  idempotent (`on conflict do nothing`, contrainte unique ajoutée sur
+  `raw_materials`).
+
+**Admin** : `lib/presentation/raw_materials_management/` — liste
+(recherche + filtre par pilier, chip stock coloré) et fiche éditeur
+complète (galerie photo, Autocomplete nom avec pré-remplissage catégorie
+depuis les suggestions phase33, catégorie via le cache partagé existant
++ ajout à la volée, statut de stock par puce colorée, description,
+danger, prix actuel avec historique automatique à chaque changement de
+prix + ajout manuel d'anciens prix, usages groupés par domaine avec
+sélecteur de produit du catalogue via Autocomplete, conditionnement).
+`lib/presentation/formation_subscriptions_management/` : validation des
+demandes d'abonnement (Activer/Refuser, preuve de paiement via URL
+signée) + édition des tarifs. Accessible depuis Menu "Plus" → "Matières
+premières (Formation)" (et son bouton d'action vers les abonnements).
+
+**Client** (`lib/presentation/client_home/formation/`) :
+`FormationCatalogScreen` (liste + bandeau d'incitation à l'abonnement si
+non abonné, cadenas sur les vignettes), `RawMaterialDetailClient` (fiche
+complète — icônes/couleurs par famille chimique et par domaine d'usage,
+badge danger, courbe d'évolution du prix dessinée à la main avec
+`CustomPainter`, pas de nouvelle dépendance), `FormationSubscriptionScreen`
+(choix du plan, mode de paiement manuel, référence + preuve optionnelle).
+Le pilier "Formation" n'a **pas de produits vendables** : dans
+`catalog_tab.dart`, taper ce pilier (détecté par mot-clé `formation` dans
+le `slug`, icône 🎓 déjà mappée) ouvre `FormationCatalogScreen` au lieu de
+filtrer la grille produits comme les autres piliers.
+
+**⚠️ Action requise côté utilisatrice** : exécuter
+`phase40_schema.sql` puis `phase41_patch_seed_raw_materials.sql` dans
+Supabase SQL Editor (dans cet ordre), puis créer le pilier "Formation"
+depuis "Piliers d'entreprise" (même écran que les autres piliers — le nom
+doit contenir "formation" pour que l'icône/le routage spécial
+s'appliquent, ex: "Formation" ou "AkoraFormation").
+

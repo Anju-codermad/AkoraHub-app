@@ -1,0 +1,283 @@
+import 'package:flutter/material.dart';
+import 'package:sizer/sizer.dart';
+
+import '../../../core/formation/formation_repo.dart';
+import '../../../core/supabase/supabase_config.dart';
+import '../../raw_materials_management/raw_material_style.dart';
+import 'formation_subscription_screen.dart';
+import 'raw_material_detail_client.dart';
+
+/// Catalogue Formation côté client : liste toujours visible (nom,
+/// catégorie, stock, photo) des matières premières — voir
+/// supabase/phase40_schema.sql, vue `raw_materials_preview`. Les fiches
+/// complètes (description, dosages, conditionnement, prix) ne s'ouvrent
+/// qu'avec un abonnement Formation actif ; sinon, un cadenas invite à
+/// s'abonner.
+class FormationCatalogScreen extends StatefulWidget {
+  final String businessUnitId;
+  final String businessUnitName;
+
+  const FormationCatalogScreen({
+    super.key,
+    required this.businessUnitId,
+    required this.businessUnitName,
+  });
+
+  @override
+  State<FormationCatalogScreen> createState() => _FormationCatalogScreenState();
+}
+
+class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
+  List<Map<String, dynamic>> _materials = [];
+  bool _isLoading = true;
+  String? _error;
+  String _search = '';
+  String _selectedCategory = 'toutes';
+  bool _isSubscribed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait<dynamic>([
+        SupabaseConfig.client
+            .from('raw_materials_preview')
+            .select()
+            .eq('business_unit_id', widget.businessUnitId)
+            .order('name'),
+        FormationRepo.fetchMySubscription(),
+      ]);
+      setState(() {
+        _materials = List<Map<String, dynamic>>.from(results[0] as List);
+        _isSubscribed = FormationRepo.isActive(results[1] as Map<String, dynamic>?);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error =
+            'Impossible de charger la base Formation (migration phase40 exécutée ?).';
+      });
+    }
+  }
+
+  List<String> get _categories =>
+      _materials.map((m) => m['category_name'] as String? ?? '').toSet().toList()
+        ..sort();
+
+  List<Map<String, dynamic>> get _filtered => _materials.where((m) {
+        final matchesCategory = _selectedCategory == 'toutes' ||
+            m['category_name'] == _selectedCategory;
+        final matchesSearch = _search.isEmpty ||
+            (m['name'] as String? ?? '')
+                .toLowerCase()
+                .contains(_search.toLowerCase());
+        return matchesCategory && matchesSearch;
+      }).toList();
+
+  void _openMaterial(Map<String, dynamic> material) {
+    if (!_isSubscribed) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const FormationSubscriptionScreen()),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RawMaterialDetailClient(materialId: material['id']),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final filtered = _filtered;
+
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.businessUnitName)),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text(_error!))
+              : RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: Column(
+                    children: [
+                      if (!_isSubscribed)
+                        Container(
+                          margin: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 0),
+                          padding: EdgeInsets.all(3.w),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.lock_outline,
+                                  color: theme.colorScheme.onPrimaryContainer),
+                              SizedBox(width: 3.w),
+                              Expanded(
+                                child: Text(
+                                  'Abonnez-vous pour débloquer les fiches complètes : description, dosages, conditionnement et historique de prix.',
+                                  style: TextStyle(
+                                      color:
+                                          theme.colorScheme.onPrimaryContainer),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const FormationSubscriptionScreen()),
+                                ),
+                                child: const Text('S\'abonner'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
+                        child: TextField(
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search),
+                            hintText: 'Rechercher une matière première…',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onChanged: (v) => setState(() => _search = v),
+                        ),
+                      ),
+                      if (_categories.isNotEmpty)
+                        SizedBox(
+                          height: 5.h,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.symmetric(horizontal: 4.w),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: const Text('Toutes'),
+                                  selected: _selectedCategory == 'toutes',
+                                  onSelected: (_) =>
+                                      setState(() => _selectedCategory = 'toutes'),
+                                ),
+                              ),
+                              ..._categories.map((c) => Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      avatar:
+                                          Icon(iconForChemicalCategory(c), size: 18),
+                                      label: Text(c),
+                                      selected: _selectedCategory == c,
+                                      onSelected: (_) =>
+                                          setState(() => _selectedCategory = c),
+                                    ),
+                                  )),
+                            ],
+                          ),
+                        ),
+                      SizedBox(height: 1.h),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(
+                                child: Text(
+                                  _materials.isEmpty
+                                      ? 'Aucune matière première pour le moment.'
+                                      : 'Aucun résultat.',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => SizedBox(height: 1.h),
+                                itemBuilder: (context, index) {
+                                  final m = filtered[index];
+                                  final status =
+                                      m['stock_status'] as String? ?? 'en_stock';
+                                  return Card(
+                                    child: ListTile(
+                                      leading: Stack(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 24,
+                                            backgroundColor:
+                                                rawMaterialStatusColor(status)
+                                                    .withValues(alpha: 0.15),
+                                            backgroundImage:
+                                                (m['image_url'] as String?)
+                                                            ?.isNotEmpty ==
+                                                        true
+                                                    ? NetworkImage(
+                                                        m['image_url'] as String)
+                                                    : null,
+                                            child: (m['image_url'] as String?)
+                                                        ?.isNotEmpty ==
+                                                    true
+                                                ? null
+                                                : Icon(
+                                                    iconForChemicalCategory(
+                                                        m['category_name']
+                                                                as String? ??
+                                                            ''),
+                                                    color: rawMaterialStatusColor(
+                                                        status),
+                                                  ),
+                                          ),
+                                          if (!_isSubscribed)
+                                            Positioned(
+                                              right: -2,
+                                              bottom: -2,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(3),
+                                                decoration: BoxDecoration(
+                                                  color: theme.colorScheme.surface,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                      color:
+                                                          theme.colorScheme.outline),
+                                                ),
+                                                child: const Icon(Icons.lock,
+                                                    size: 12),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      title: Text(m['name'] ?? ''),
+                                      subtitle: Text(m['category_name'] ?? ''),
+                                      trailing: Chip(
+                                        label: Text(
+                                            rawMaterialStatusLabel(status),
+                                            style: const TextStyle(fontSize: 11)),
+                                        backgroundColor:
+                                            rawMaterialStatusColor(status)
+                                                .withValues(alpha: 0.15),
+                                        labelStyle: TextStyle(
+                                            color: rawMaterialStatusColor(status)),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      onTap: () => _openMaterial(m),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+    );
+  }
+}

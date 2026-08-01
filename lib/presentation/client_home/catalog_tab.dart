@@ -17,6 +17,7 @@ import 'chat_screen.dart';
 import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
 import 'flash_infos_screen.dart';
+import 'formation/formation_catalog_screen.dart';
 import 'product_detail_client.dart';
 import 'wall/wall_tab.dart';
 
@@ -1345,6 +1346,25 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(32),
                         onTap: () {
+                          // Le pilier "Formation" n'a pas de produits
+                          // vendables — c'est la base de référence des
+                          // matières premières (voir
+                          // supabase/phase40_schema.sql), accès payant.
+                          // Ouvre son propre écran plutôt que de filtrer
+                          // la grille produits comme les autres piliers.
+                          final slug = (unit['slug'] ?? '').toString();
+                          if (slug.contains('formation')) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FormationCatalogScreen(
+                                  businessUnitId: unit['id'],
+                                  businessUnitName: unit['name'] ?? 'Formation',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
                           setState(() {
                             _selectedUnitId = selected ? null : unit['id'];
                             _selectedCategory = 'toutes';

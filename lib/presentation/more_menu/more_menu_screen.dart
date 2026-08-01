@@ -14,6 +14,7 @@ import '../quotes_management/quotes_management.dart';
 import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
 import '../security_audit_log/security_audit_log_screen.dart';
+import '../raw_materials_management/raw_materials_management.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
@@ -81,6 +82,16 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const MessagingCenterReal()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.science_outlined,
+            label: 'Matières premières (Formation)',
+            subtitle: 'Fiches ingrédients + abonnements payants',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const RawMaterialsManagement()),
             ),
           ),
           const Divider(height: 24),
