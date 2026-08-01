@@ -3802,7 +3802,7 @@ seuls les paliers Mvola ont été vus en capture ; réutilisés par
 extrapolation pour Orange Money — à corriger si l'utilisatrice fournit
 un jour la grille Orange Money complète au-delà de ce montant.
 
-## Onglet "A-Formation" dans la barre de navigation client (01/08)
+## Onglet "Académie" dans la barre de navigation client (01/08)
 
 Demande explicite : rendre Formation visible directement dans la barre
 du bas, pas seulement depuis le Profil. Clarification importante de
@@ -3824,8 +3824,10 @@ changement ensuite) ; taper "Matières premières" ouvre
 (pageIndex 4, entre "Commandes" et "Profil" — la barre était
 volontairement réduite à 3 onglets, voir doc de la classe `ClientHome`,
 mais Formation est jugée assez centrale pour justifier l'exception).
-Libellé **"A-Formation"** (nom choisi par l'utilisatrice — abréviation de
-"Akora Formation" cohérente avec "AkoraFormation").
+Libellé initial "A-Formation" (proposé par l'utilisatrice), **remplacé
+par "Académie"** le jour même — demande explicite de trouver un nom plus
+attirant, proposé par Claude et choisi par l'utilisatrice parmi 3
+options (Académie/Savoir/Campus).
 
 Les deux entrées de menu "Formation"/"AkoraFormation" ajoutées plus tôt
 dans le Profil ont été **retirées** (redondantes avec le nouvel onglet,
