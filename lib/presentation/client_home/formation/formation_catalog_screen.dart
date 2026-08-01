@@ -3,8 +3,8 @@ import 'package:sizer/sizer.dart';
 
 import '../../../core/formation/formation_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
+import '../../../core/utils/formation_web_link.dart';
 import '../../raw_materials_management/raw_material_style.dart';
-import 'formation_purchase_screen.dart';
 import 'raw_material_detail_client.dart';
 
 /// Catalogue Formation côté client : liste toujours visible (nom,
@@ -121,12 +121,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
               'Cet achat est en attente de vérification par notre équipe.')));
       return;
     }
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FormationPurchaseScreen(initialSelectedId: id),
-      ),
-    );
+    openFormationPurchaseWeb(context);
   }
 
   @override
@@ -166,12 +161,8 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                                 ),
                               ),
                               TextButton(
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) =>
-                                          const FormationPurchaseScreen()),
-                                ),
+                                onPressed: () =>
+                                    openFormationPurchaseWeb(context),
                                 child: const Text('Acheter'),
                               ),
                             ],

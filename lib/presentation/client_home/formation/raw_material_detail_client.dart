@@ -3,8 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../core/supabase/supabase_config.dart';
+import '../../../core/utils/formation_web_link.dart';
 import '../../raw_materials_management/raw_material_style.dart';
-import 'formation_purchase_screen.dart';
 
 /// Fiche détaillée d'une matière première, réservée à ceux qui l'ont
 /// achetée (la RLS de `raw_materials` — phase45_patch_formation_per_product_pricing.sql
@@ -121,12 +121,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                 ),
                 SizedBox(height: 2.h),
                 FilledButton(
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => FormationPurchaseScreen(
-                            initialSelectedId: widget.materialId)),
-                  ),
+                  onPressed: () => openFormationPurchaseWeb(context),
                   child: const Text('Acheter l\'accès'),
                 ),
               ],
