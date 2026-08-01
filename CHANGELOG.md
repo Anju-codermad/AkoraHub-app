@@ -371,3 +371,6 @@
 
 ## 2026-08-01 10:25 UTC — Claude
 - Merge: Paramètres admin remonté + double authentification (2FA) (`837e450`)
+
+## 2026-08-01 10:51 UTC — Claude
+- Merge: renommage Mur -> Communauté (`ad9aece`)
