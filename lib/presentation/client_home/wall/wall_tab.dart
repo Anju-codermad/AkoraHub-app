@@ -7,9 +7,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/community/friends_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/whatsapp_link.dart';
 import '../product_detail_client.dart';
+import '../community/friends_list_screen.dart';
 import '../community/public_profile_screen.dart';
 import '../community/public_profiles_repo.dart';
 
@@ -80,12 +82,29 @@ class _WallTabState extends State<WallTab> {
       ? SupabaseConfig.client.auth.currentUser?.id
       : null;
 
+  int _pendingFriendRequests = 0;
+
   @override
   void initState() {
     super.initState();
     _onlyMine = widget.initialOnlyMine;
     _loadPosts();
+    _loadPendingFriendRequests();
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _loadPendingFriendRequests() async {
+    final received = await FriendsRepo.fetchPendingReceived();
+    if (!mounted) return;
+    setState(() => _pendingFriendRequests = received.length);
+  }
+
+  Future<void> _openFriendsList() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const FriendsListScreen()),
+    );
+    _loadPendingFriendRequests();
   }
 
   @override
@@ -695,6 +714,17 @@ class _WallTabState extends State<WallTab> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Communauté AkoraHub'),
+        actions: [
+          IconButton(
+            tooltip: 'Amis',
+            icon: Badge(
+              label: Text('$_pendingFriendRequests'),
+              isLabelVisible: _pendingFriendRequests > 0,
+              child: const Icon(Icons.people_outline),
+            ),
+            onPressed: _openFriendsList,
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createPost,

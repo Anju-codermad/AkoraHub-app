@@ -422,6 +422,51 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "friendships") {
+      // Demande d'ami (INSERT) ou réponse acceptée/refusée (UPDATE) —
+      // voir supabase/phase48_patch_friends_and_private_chat.sql. Aucune
+      // notification sur un refus (évite un ping désagréable "votre
+      // demande a été refusée").
+      category = "message";
+      if (record.status === "refusee") {
+        return new Response("ok");
+      }
+      const isNewRequest = record.status === "en_attente";
+      const actorId = isNewRequest
+        ? (record.requester_id as string)
+        : (record.addressee_id as string);
+      const targetId = isNewRequest
+        ? (record.addressee_id as string)
+        : (record.requester_id as string);
+
+      const { data: actor } = await supabase
+        .from("profiles")
+        .select("full_name, company_name")
+        .eq("id", actorId)
+        .maybeSingle();
+      const actorName = actor?.company_name || actor?.full_name ||
+        "Quelqu'un";
+
+      title = isNewRequest ? "Nouvelle demande d'ami" : "Demande acceptée";
+      body = isNewRequest
+        ? `${actorName} vous a envoyé une demande d'ami.`
+        : `${actorName} a accepté votre demande d'ami.`;
+      recipientIds = [targetId];
+    } else if (payload.table === "friend_messages") {
+      // Message privé entre deux clients amis (voir
+      // supabase/phase48_patch_friends_and_private_chat.sql).
+      category = "message";
+      const { data: sender } = await supabase
+        .from("profiles")
+        .select("full_name, company_name")
+        .eq("id", record.sender_id)
+        .maybeSingle();
+      const senderName = sender?.company_name || sender?.full_name ||
+        "Quelqu'un";
+      title = senderName;
+      body = String(record.content ?? "").slice(0, 100) ||
+        "Nouveau message";
+      recipientIds = [record.recipient_id as string];
     } else if (payload.table === "call_invitations") {
       // Appel entrant (voir supabase/phase37_patch_calls.sql) — payload
       // dédié (pas de choix de son par l'utilisateur ici, contrairement
