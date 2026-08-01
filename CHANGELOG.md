@@ -344,3 +344,6 @@
 
 ## 2026-08-01 07:37 UTC — Claude
 - Merge: structure AkoraFormation (cours/modules) (`4799497`)
+
+## 2026-08-01 08:02 UTC — Claude
+- Merge: Papi + manuel simultanés au checkout (`413fd68`)
