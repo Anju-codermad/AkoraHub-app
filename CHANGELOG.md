@@ -383,3 +383,6 @@
 
 ## 2026-08-01 12:00 UTC — Claude
 - Merge: Communauté - réponses, réactions emoji, notifications push (`1eb2165`)
+
+## 2026-08-01 12:21 UTC — Claude
+- Merge: Communauté - compression automatique des photos (`7e37c2d`)
