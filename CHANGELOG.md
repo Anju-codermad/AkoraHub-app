@@ -404,3 +404,6 @@
 
 ## 2026-08-01 21:16 UTC — Claude
 - Merge: Accueil - retouches design avant captures Play Store (`d1121c5`)
+
+## 2026-08-01 21:28 UTC — Claude
+- Merge: Dashboard admin - franciser les textes en anglais (`ddadf5d`)
