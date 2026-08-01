@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/community/friends_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/whatsapp_link.dart';
+import 'friend_chat_screen.dart';
 import 'public_profiles_repo.dart';
 
 /// Profil public "léger" d'un autre client, consultable en tapant sur son
@@ -16,6 +18,10 @@ import 'public_profiles_repo.dart';
 /// supabase/phase47_patch_report_and_whatsapp_contact.sql et
 /// security_settings_screen.dart) — masqué par défaut pour tout le
 /// monde.
+///
+/// Depuis le 01/08, ce profil affiche aussi le bouton "Ajouter en ami"
+/// (voir supabase/phase48_patch_friends_and_private_chat.sql) — réservé
+/// aux clients ayant déjà fait au moins un achat.
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
 
@@ -30,6 +36,12 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   List<Map<String, dynamic>> _posts = [];
   bool _isLoading = true;
   String? _error;
+
+  Map<String, dynamic>? _friendship;
+  bool _isEligible = false;
+  bool _isActingOnFriendship = false;
+
+  String? get _myId => SupabaseConfig.client.auth.currentUser?.id;
 
   final Map<String, String> _sectorLabels = const {
     'hotel': 'Hôtellerie',
@@ -50,18 +62,25 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       _error = null;
     });
     try {
-      final profiles = await PublicProfilesRepo.fetchByIds([widget.userId]);
-      final posts = await SupabaseConfig.client
-          .from('posts')
-          .select()
-          .eq('author_id', widget.userId)
-          .eq('visibility', 'public')
-          .order('created_at', ascending: false)
-          .limit(20);
+      final results = await Future.wait<dynamic>([
+        PublicProfilesRepo.fetchByIds([widget.userId]),
+        SupabaseConfig.client
+            .from('posts')
+            .select()
+            .eq('author_id', widget.userId)
+            .eq('visibility', 'public')
+            .order('created_at', ascending: false)
+            .limit(20),
+        FriendsRepo.fetchFriendshipStatus(widget.userId),
+        FriendsRepo.hasMadePurchase(),
+      ]);
       if (!mounted) return;
+      final profiles = results[0] as Map<String, Map<String, dynamic>>;
       setState(() {
         _profile = profiles[widget.userId];
-        _posts = List<Map<String, dynamic>>.from(posts);
+        _posts = List<Map<String, dynamic>>.from(results[1] as List);
+        _friendship = results[2] as Map<String, dynamic>?;
+        _isEligible = results[3] as bool;
         _isLoading = false;
         if (_profile == null) {
           _error = 'Profil indisponible.';
@@ -74,6 +93,138 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         _error = 'Impossible de charger ce profil.';
       });
     }
+  }
+
+  Future<void> _sendFriendRequest() async {
+    setState(() => _isActingOnFriendship = true);
+    try {
+      await FriendsRepo.sendRequest(widget.userId);
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isActingOnFriendship = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible d\'envoyer la demande pour le moment.')));
+    }
+  }
+
+  Future<void> _respondToRequest(bool accept) async {
+    final friendship = _friendship;
+    if (friendship == null) return;
+    setState(() => _isActingOnFriendship = true);
+    try {
+      if (accept) {
+        await FriendsRepo.acceptRequest(friendship['id']);
+      } else {
+        await FriendsRepo.refuseRequest(friendship['id']);
+      }
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isActingOnFriendship = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Erreur, réessayez.')));
+    }
+  }
+
+  Future<void> _cancelOrRemove() async {
+    final friendship = _friendship;
+    if (friendship == null) return;
+    setState(() => _isActingOnFriendship = true);
+    try {
+      await FriendsRepo.removeFriendship(friendship['id']);
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isActingOnFriendship = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Erreur, réessayez.')));
+    }
+  }
+
+  Widget _buildFriendSection(ThemeData theme) {
+    if (widget.userId == _myId) return const SizedBox.shrink();
+
+    final status = _friendship?['status'] as String?;
+    final iAmRequester = _friendship?['requester_id'] == _myId;
+
+    if (status == 'acceptee') {
+      return Center(
+        child: Column(
+          children: [
+            FilledButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FriendChatScreen(
+                    otherUserId: widget.userId,
+                    otherUserName: PublicProfilesRepo.displayName(_profile),
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.chat_bubble_outline, size: 18),
+              label: const Text('Discuter'),
+            ),
+            TextButton(
+              onPressed: _isActingOnFriendship ? null : _cancelOrRemove,
+              child: const Text('Retirer cet ami'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (status == 'en_attente') {
+      if (iAmRequester) {
+        return Center(
+          child: TextButton.icon(
+            onPressed: _isActingOnFriendship ? null : _cancelOrRemove,
+            icon: const Icon(Icons.hourglass_top_outlined, size: 18),
+            label: const Text('Demande envoyée — Annuler'),
+          ),
+        );
+      }
+      return Center(
+        child: Wrap(
+          spacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: _isActingOnFriendship
+                  ? null
+                  : () => _respondToRequest(false),
+              child: const Text('Refuser'),
+            ),
+            FilledButton(
+              onPressed:
+                  _isActingOnFriendship ? null : () => _respondToRequest(true),
+              child: const Text('Accepter la demande d\'ami'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (status == 'refusee') {
+      return Center(
+        child: Text('Demande refusée', style: theme.textTheme.bodySmall),
+      );
+    }
+
+    // Aucune relation existante.
+    return Center(
+      child: Tooltip(
+        message: _isEligible
+            ? ''
+            : 'Passez votre première commande pour utiliser cette fonction.',
+        child: OutlinedButton.icon(
+          onPressed: (_isEligible && !_isActingOnFriendship)
+              ? _sendFriendRequest
+              : null,
+          icon: const Icon(Icons.person_add_alt_outlined, size: 18),
+          label: const Text('Ajouter en ami'),
+        ),
+      ),
+    );
   }
 
   @override
@@ -123,6 +274,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                             ),
                           ),
                         ),
+                      SizedBox(height: 1.5.h),
+                      _buildFriendSection(theme),
                       if (buildWhatsAppLink(
                               _profile?['phone'] as String?) !=
                           null) ...[

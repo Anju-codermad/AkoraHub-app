@@ -4247,3 +4247,61 @@ Communauté" (voir plus haut), construits maintenant.
   la Communauté" (`SwitchListTile`) — désactivé si aucun numéro n'est
   renseigné dans le profil (message explicite invitant à en ajouter un
   d'abord), affiche le numéro actuel une fois activé pour confirmation.
+
+## Communauté : demandes d'ami + messagerie privée (01/08)
+
+Demande explicite d'un vrai système d'amis + chat privé DANS l'app
+(distinct de WhatsApp, qu'on venait pourtant de construire) — après
+clarification : réservé aux clients ayant déjà fait **au moins un
+achat** (commande classique ou abonnement Formation validé), filtre
+anti-spam entre inconnus.
+
+⚠️ Chantier volontairement scindé de la messagerie client/staff
+existante (`chat_screen.dart`/`ChatComposer`) — ce sont deux systèmes
+séparés, pas de code partagé. Limite assumée pour cette première
+version : **aucun outil de modération Admin sur les messages privés**
+(contrairement aux publications, signalables depuis la Phase 47) —
+cohérent avec le principe même d'une conversation privée, mais à garder
+en tête. Texte uniquement pour l'instant, pas de photo dans le chat privé.
+
+**Script SQL requis : `supabase/phase48_patch_friends_and_private_chat.sql`** :
+- `has_made_purchase(uid)` : vérifie `orders` ET `formation_purchases`
+  (statut validé) — n'importe lequel des deux suffit à être éligible.
+- `friendships` (requester_id, addressee_id, status
+  `en_attente`/`acceptee`/`refusee`) — **un seul index unique sur la
+  paire triée** (`least`/`greatest` des deux id) : empêche à la fois un
+  doublon et une demande "inverse" pendant qu'une autre est en cours.
+  Annuler une demande envoyée ou retirer un ami = suppression de la
+  ligne (autorisée aux deux côtés). Pas de re-demande possible après un
+  refus dans cette version (la paire reste "prise" par la ligne
+  refusée) — limite mineure assumée.
+- `friend_messages` (sender_id, recipient_id, content) — écriture
+  vérifiée par `are_friends()`, pas seulement côté application. Ajoutée
+  à la publication `supabase_realtime` (même principe que la messagerie
+  client/staff, Phase 8) pour une conversation qui se met à jour sans
+  recharger.
+- Notifications push (nouvelle demande, demande acceptée — jamais sur
+  un refus, pour éviter un ping désagréable —, nouveau message) via la
+  fonction générique déjà en place (Phase 17).
+
+⚠️ **Redéploiement de l'Edge Function `send-push-notification`
+également requis** (nouvelles branches `friendships`/`friend_messages`),
+en plus du script SQL — même remarque que pour la Phase 47.
+
+**Nouveaux fichiers Dart :**
+- `core/community/friends_repo.dart` : API complète (statut d'une
+  relation, envoyer/accepter/refuser/annuler, listes amis/reçues/
+  envoyées, flux de messages temps réel filtré côté app car `.stream()`
+  ne supporte pas `or()`, envoi de message, marquage lu).
+- `client_home/community/friends_list_screen.dart` : 3 onglets (Amis /
+  Reçues / Envoyées), badge sur l'icône d'entrée si des demandes sont en
+  attente.
+- `client_home/community/friend_chat_screen.dart` : conversation privée
+  1:1, mise à jour en direct (`StreamBuilder` + Realtime).
+- `public_profile_screen.dart` : bouton "Ajouter en ami" dynamique selon
+  le statut (Ajouter / Demande envoyée-Annuler / Accepter-Refuser /
+  Discuter-Retirer), désactivé avec message explicite si le client n'a
+  encore rien acheté.
+- `wall_tab.dart` : icône "Amis" dans l'AppBar de la Communauté (badge =
+  nombre de demandes reçues en attente), point d'entrée unique vers
+  `FriendsListScreen`.
