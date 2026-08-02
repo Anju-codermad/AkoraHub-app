@@ -4981,3 +4981,27 @@ séparé, à faire avec plus de prudence.
 
 **Les 4 lots de la refonte du Profil client du 03/08 sont maintenant
 tous construits.**
+
+## Carnet d'adresses branché au checkout (03/08)
+
+Limite du Lot 4 levée à la demande de l'utilisatrice : le carnet
+d'adresses (`delivery_addresses`, Phase 57) était autonome, sans lien
+avec `cart_tab.dart`. Ajouté un bouton 🔖 à côté du bouton "Utiliser ma
+position actuelle" dans le champ "Adresse de livraison" du panier —
+ouvre une feuille listant les adresses enregistrées du client (adresse
+par défaut en premier), la sélection remplit le champ ET recalcule les
+frais de livraison (`DeliveryPricing.correctedDistanceKm`/
+`feeForDistance`, même logique que l'estimation GPS) si l'adresse a une
+position enregistrée. Si l'adresse a été créée sans géolocalisation
+(champ facultatif dans l'éditeur du carnet), retombe sur le même repli
+"frais à confirmer par l'équipe" que l'estimation GPS quand elle échoue
+— comportement cohérent, pas un cas d'erreur séparé.
+
+Le comportement automatique existant (estimation GPS au chargement du
+panier) reste inchangé — le carnet d'adresses est une alternative
+explicite, pas un remplacement : la position GPS fraîche reste plus
+fiable pour le calcul des frais qu'une adresse enregistrée qui peut être
+obsolète.
+
+**Modifications Dart :** `cart_tab.dart` uniquement
+(`_pickSavedAddress`, bouton dans le champ d'adresse).
