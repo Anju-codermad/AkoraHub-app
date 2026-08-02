@@ -431,3 +431,6 @@
 
 ## 2026-08-02 06:29 UTC — Claude
 - Merge: Communauté Lot 3 - mentions, hashtags, carrousel (`2e14dc3`)
+
+## 2026-08-02 06:36 UTC — Claude
+- Merge: Communauté Lot 4 - fil Tendances + filtre par pilier (`03e6749`)
