@@ -5325,3 +5325,49 @@ branche `quotes_stale_reminder` (catégorie `devis`, notifie
 - `customer_management_real.dart` : icône couronne à côté du nom dans
   la liste des clients si `is_vip`, pour une visibilité immédiate sans
   ouvrir la fiche.
+
+## CRM — Lot 4/5 : segmentation & marketing (02/08)
+
+**SQL** : `supabase/phase63_patch_crm_lot4_segmentation.sql` :
+- Vue `customer_segments` (customer_id, first_order_at, last_order_at,
+  order_count, lifetime_value) — agrégat brut par client, commandes
+  `annulee` exclues. Les segments (nouveau/récurrent/inactif/gros
+  compte) ne sont volontairement PAS calculés en SQL : ils sont
+  dérivés côté app à partir de ces chiffres, pour pouvoir ajuster les
+  seuils (90 jours d'inactivité, seuil "gros compte") sans redéployer
+  de script — même logique que l'heuristique devis/commande de la
+  Phase 61.
+- ⚠️ **Point de sécurité** : une vue Postgres classique n'hérite pas
+  automatiquement des policies RLS de `orders`/`profiles` pour
+  l'appelant (contrairement à `post_engagement_scores`, Phase 54, qui
+  porte sur des données déjà publiques). La vue intègre donc un filtre
+  explicite `and public.current_role_is_staff()` : elle renvoie 0 ligne
+  pour un client, quels que soient les GRANTs.
+
+**Nouvelle Edge Function** : `send-targeted-notification` — notification
+push manuelle vers une liste de `customerIds` choisie par le staff
+(ex : relancer tous les "inactifs"). Appelée directement par l'app
+(pas par un trigger SQL), donc vérifie le JWT de l'appelant ET son
+rôle staff (`admin`/`commercial`) via une requête `profiles` avec la
+clé service_role — contrairement à `send-push-notification` qui ne
+vérifie qu'un `x-webhook-secret` partagé. Les briques Firebase (échange
+de token OAuth, envoi FCM) sont dupliquées depuis `send-push-notification`
+(pas de dossier `_shared` entre Edge Functions dans ce projet, même
+choix que pour `create-fiveonepay-payment-link`). Catégorie de son
+réutilisée : `produit` (pas de catégorie "marketing" dédiée).
+
+**`customer_management_real.dart` étendu** :
+- Chargement parallèle de `profiles` + `customer_segments`
+  (`Future.wait`), fusionné dans une map `customer_id -> agrégat`.
+- `_activitySegment(id)` : nouveau (1 commande) / récurrent (2+) /
+  inactif (dernière commande il y a plus de 90 jours) / `null` si
+  aucune commande — mutuellement exclusif.
+- `_isGrosCompte(id)` : `lifetime_value >= 1 000 000 Ar` (seuil fixe,
+  posé comme hypothèse de départ faute de règle métier communiquée,
+  ajustable sur demande).
+- Deuxième ligne de `ChoiceChip`s (segment) sous celle du type de
+  client, badges segment/gros compte affichés sous chaque ligne.
+- Bouton icône "Notification ciblée" (`campaign_outlined`) dans
+  l'AppBar : ouvre un dialogue titre + message, envoie à la liste
+  actuellement filtrée (`_filtered`, donc combine type + segment) via
+  `send-targeted-notification`.
