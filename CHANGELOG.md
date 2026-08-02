@@ -485,3 +485,6 @@
 
 ## 2026-08-02 22:13 UTC — Claude
 - Merge: CRM Lot 3 (statut VIP, avantages accordés, note moyenne, signalements) (`88e0050`)
+
+## 2026-08-02 22:26 UTC — Claude
+- Merge: CRM Lot 4 (segmentation & marketing) (`b6e10fa`)
