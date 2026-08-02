@@ -440,3 +440,6 @@
 
 ## 2026-08-02 06:54 UTC — Claude
 - Merge: Groupes communautaires AkoraFormation par catégorie (`90335eb`)
+
+## 2026-08-02 07:18 UTC — Claude
+- Merge: Profil client Lot 1 - nettoyage structurel (`cac5a13`)
