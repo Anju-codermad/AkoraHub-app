@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
+import '../../core/payment/fiveonepay_payment_repo.dart';
 import '../../core/payment/mobile_money_withdrawal_fee.dart';
 import '../../core/payment/papi_payment_repo.dart';
 import '../../core/payment/payment_method_selector.dart';
@@ -63,6 +64,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   final _paymentReferenceController = TextEditingController();
   File? _paymentProofFile;
 
+  // Quel fournisseur (Papi ou FiveOne Pay) traite chaque opérateur
+  // Mobile Money — réglage Admin, voir
+  // supabase/phase59_patch_fiveonepay_payment.sql. Le client ne voit
+  // jamais cette distinction, seulement "paiement automatique en ligne".
+  Map<PaymentMethod, String> _providers = {};
+
   // Réglage Admin (voir payment_methods_management.dart) : secours
   // d'urgence (ex: Papi indisponible) — quand activé, force TOUS les
   // clients en manuel pour Mvola/Orange Money/Airtel Money, sans leur
@@ -102,10 +109,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final available = await PaymentMethodSettingsRepo.fetchEnabled();
     final manualFallback =
         await PaymentMethodSettingsRepo.isManualFallbackEnabled();
+    final providers = await PaymentMethodSettingsRepo.fetchProviders();
     if (!mounted) return;
     setState(() {
       _availableMethods = available;
       _manualFallback = manualFallback;
+      _providers = providers;
       if (!available.contains(_paymentMethod) && available.isNotEmpty) {
         _paymentMethod = available.first;
       }
@@ -146,8 +155,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     final total = widget.subtotal + (widget.deliveryFee ?? 0);
     final online = await isCurrentlyOnline();
-    final usesPapi =
+    final usesOnlinePayment =
         _paymentMethod.isPapiCapable && !_manualFallback && _payAutomatically;
+    final onlineProvider = _providers[_paymentMethod] ?? 'papi';
 
     // Hors-ligne : mise en file d'attente locale (voir OfflineOrderQueue,
     // même mécanisme que pour les devis).
@@ -205,7 +215,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final orderNumber = _generateNumber('CMD');
 
       String? proofPath;
-      if (!usesPapi && _paymentProofFile != null) {
+      if (!usesOnlinePayment && _paymentProofFile != null) {
         try {
           proofPath = '$userId/$orderNumber.jpg';
           await SupabaseConfig.client.storage
@@ -232,7 +242,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             'longitude': widget.deliveryLon,
             'delivery_address': widget.deliveryAddress,
             'payment_method': _paymentMethod.id,
-            'payment_reference': (!usesPapi &&
+            'payment_reference': (!usesOnlinePayment &&
                     _paymentReferenceController.text.trim().isNotEmpty)
                 ? _paymentReferenceController.text.trim()
                 : null,
@@ -254,20 +264,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 .toList(),
           );
 
-      // Paiement en ligne automatique via Papi (voir
-      // supabase/phase38_patch_papi_payment.sql) : la commande existe déjà
-      // (payment_status reste "en_attente" tant que Papi n'a pas confirmé
-      // par webhook) — on récupère un lien de paiement et on l'ouvre dans
-      // le navigateur. Un échec ici n'annule pas la commande.
-      var papiFailed = false;
-      if (usesPapi) {
+      // Paiement en ligne automatique via Papi ou FiveOne Pay, selon le
+      // fournisseur configuré côté Admin pour cet opérateur (voir
+      // supabase/phase59_patch_fiveonepay_payment.sql) : la commande
+      // existe déjà (payment_status reste "en_attente" tant que le
+      // fournisseur n'a pas confirmé par webhook) — on récupère un lien
+      // de paiement et on l'ouvre dans le navigateur. Un échec ici
+      // n'annule pas la commande.
+      var onlinePaymentFailed = false;
+      if (usesOnlinePayment) {
         try {
-          final paymentLink =
-              await PapiPaymentRepo.createPaymentLink(order['id'] as String);
+          final paymentLink = onlineProvider == 'fiveonepay'
+              ? await FiveOnePayPaymentRepo.createPaymentLink(
+                  order['id'] as String)
+              : await PapiPaymentRepo.createPaymentLink(order['id'] as String);
           final uri = Uri.parse(paymentLink);
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         } catch (_) {
-          papiFailed = true;
+          onlinePaymentFailed = true;
         }
       }
 
@@ -275,10 +289,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       if (!mounted) return;
       Navigator.pop(context, {
-        'message': papiFailed
+        'message': onlinePaymentFailed
             ? 'Commande créée, mais le paiement en ligne n\'a pas pu '
                 'démarrer. Réessayez depuis le suivi de commande.'
-            : usesPapi
+            : usesOnlinePayment
                 ? 'Commande créée ! Finalisez le paiement dans la page '
                     'qui vient de s\'ouvrir.'
                 : _showManualPaymentFields
