@@ -422,3 +422,6 @@
 
 ## 2026-08-02 06:00 UTC — Claude
 - Merge: Communauté Lot 1 - blocage, masquer/enregistrer publication (`8c74a0a`)
+
+## 2026-08-02 06:09 UTC — Claude
+- Merge: Communauté Lot 2 - Commander direct, badge Officiel, publication épinglée (`a909add`)
