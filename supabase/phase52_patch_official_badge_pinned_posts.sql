@@ -14,7 +14,17 @@
 -- client) dans la vue publique déjà utilisée pour le nom/avatar des
 -- autres clients (supabase/phase9_patch_public_profiles.sql, complétée
 -- en phase47 avec le téléphone opt-in).
+--
+-- ⚠️ Correctif (02/08) : `share_phone_publicly` (Phase 47) s'est révélée
+-- absente de la table `profiles` sur cette base — le script Phase 47
+-- n'était visiblement pas allé jusqu'au bout à l'époque (le réglage
+-- "Numéro visible dans la Communauté" échouait donc silencieusement
+-- depuis le début, les erreurs y sont absorbées sans planter l'écran).
+-- Recréée ici, idempotent, avant de reconstruire la vue qui en dépend.
 -- ------------------------------------------------------------
+alter table public.profiles
+  add column if not exists share_phone_publicly boolean not null default false;
+
 create or replace view public.public_profiles as
 select
   id,
