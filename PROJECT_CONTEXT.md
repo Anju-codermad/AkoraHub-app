@@ -4639,6 +4639,54 @@ trigger SQL ci-dessus). Le fil trie désormais `is_pinned` avant
 **Modifications Dart :** `wall_tab.dart` (bouton Commander, badge,
 épinglage, tri), `public_profile_screen.dart` (badge Officiel).
 
-**Reste à construire (Lots 3 à 5)** : mentions @, hashtags/catégories,
-carrousel multi-images, fil "Tendances", avis vérifiés liés à un achat
-réel, galerie "Réalisations clients".
+## Communauté façon Facebook — Lot 3 : mentions, hashtags, carrousel (02/08)
+
+Troisième lot : **mentions @, hashtags/catégories, carrousel
+multi-images**.
+
+**Choix de conception (hashtags)** : plutôt qu'une taxonomie de
+catégories imposée (par pilier), implémenté en hashtags libres façon
+Instagram/Twitter — analysés directement depuis `content` par regex
+(`#[\p{L}\p{N}_]+`, Unicode), rendus cliquables et colorés
+(`_buildPostContent`, `Text.rich` + `TapGestureRecognizer`), le tap
+réutilise la recherche déjà en place (`content ilike`) plutôt qu'un
+nouveau système de filtre. Aucune colonne/table nécessaire — un client
+ou le staff peut inventer un hashtag à la volée (`#AkoraPro`,
+`#PromoAout`...), plus flexible qu'une liste figée de piliers.
+
+**Mentions @** : réutilise `posts.mentioned_user_id`, présente depuis la
+Phase 3 mais jamais reliée à une interface jusqu'ici — aucun changement
+de schéma. Nouveau `_UserPickerSheet` (recherche serveur sur
+`public_profiles`, débouncée — contrairement à `_ProductPickerSheet` qui
+précharge tout, trop de clients pour ça) dans le composer ; affiché dans
+le fil comme "avec @Nom" sous le contenu, cliquable vers le profil
+public. Portée volontairement limitée aux publications (pas les
+commentaires) pour ce lot, même logique que les réactions emoji en
+Phase 46.
+
+**SQL** : `supabase/phase53_patch_post_images_carousel.sql` —
+`post_images` (post_id, image_url, position), même principe que
+`product_images`/`raw_material_images`. RLS : la policy de lecture
+délègue entièrement à une sous-requête sur `posts` (elle-même filtrée
+par la RLS `posts_select` — bloqués/masqués/visibilité, Phase 3/51),
+pas de duplication de cette logique. Écriture réservée à l'auteur du
+post ou au staff.
+
+**Carrousel multi-images** : composer passé de `File? _image` à
+`List<File> _images` (`image_picker.pickMultiImage`), prévisualisation
+en bande horizontale avec suppression par image. À la publication,
+chaque photo est uploadée séparément vers `wall-photos` puis insérée
+dans `post_images` ; `posts.image_url` garde la première photo pour
+rester compatible avec les affichages qui ne connaissent pas encore
+cette table (aperçu du profil public — limite assumée, pas de carrousel
+là-bas pour ce lot). Le fil affiche un nouveau `_PostImageCarousel`
+(`PageView` + puces) uniquement si 2 photos ou plus ; sinon repli sur
+l'ancien rendu `Image.network(image_url)` inchangé.
+
+**Modifications Dart :** `wall_tab.dart` (composer multi-images +
+mention, `_UserPickerSheet`, `_PostImageCarousel`, hashtags cliquables,
+badge mention dans le fil).
+
+**Reste à construire (Lots 4 et 5)** : fil "Tendances", recherche par
+catégorie/pilier, avis vérifiés liés à un achat réel, galerie
+"Réalisations clients".

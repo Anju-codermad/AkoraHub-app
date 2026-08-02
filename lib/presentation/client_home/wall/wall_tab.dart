@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -62,6 +63,7 @@ class _WallTabState extends ConsumerState<WallTab> {
   final Map<String, int> _commentCounts = {};
   Map<String, Map<String, dynamic>> _authorProfiles = {};
   Map<String, Map<String, dynamic>> _mentionedProducts = {};
+  Map<String, List<String>> _postImages = {};
   Set<String> _savedPostIds = {};
 
   final Map<String, String> _sectorLabels = const {
@@ -275,13 +277,17 @@ class _WallTabState extends ConsumerState<WallTab> {
         }
       }
 
-      // Profils auteurs : jointure PostgREST `profiles(...)` impossible ici
-      // (RLS de `profiles` limite la lecture à sa propre ligne — voir
-      // supabase/phase9_patch_public_profiles.sql), on passe donc par la
-      // vue publique légère pour afficher correctement le nom des AUTRES
-      // clients, pas seulement le sien.
-      final authorIds =
-          list.map((p) => p['author_id'] as String?).whereType<String>().toSet();
+      // Profils auteurs ET mentionnés : jointure PostgREST `profiles(...)`
+      // impossible ici (RLS de `profiles` limite la lecture à sa propre
+      // ligne — voir supabase/phase9_patch_public_profiles.sql), on passe
+      // donc par la vue publique légère. `PublicProfilesRepo.fetchByIds`
+      // accepte n'importe quel ensemble d'ids, donc regrouper auteurs et
+      // mentions dans un seul appel suffit — même map réutilisée pour les
+      // deux affichages (03/08, mentions @).
+      final authorIds = {
+        ...list.map((p) => p['author_id'] as String?).whereType<String>(),
+        ...list.map((p) => p['mentioned_user_id'] as String?).whereType<String>(),
+      };
 
       // Produits mentionnés (tags) dans les posts (item "tags/mentions" du
       // 23/07).
@@ -307,12 +313,37 @@ class _WallTabState extends ConsumerState<WallTab> {
         }
       }
 
+      // Photos multiples (carrousel, Lot 3) — vide pour les posts d'une
+      // seule photo (ou aucune) : le rendu retombe alors sur `image_url`.
+      Future<Map<String, List<String>>> loadPostImages() async {
+        if (postIds.isEmpty) return {};
+        try {
+          final rows = await SupabaseConfig.client
+              .from('post_images')
+              .select('post_id, image_url, position')
+              .inFilter('post_id', postIds)
+              .order('position');
+          final grouped = <String, List<String>>{};
+          for (final row in List<Map<String, dynamic>>.from(rows)) {
+            grouped
+                .putIfAbsent(row['post_id'] as String, () => [])
+                .add(row['image_url'] as String);
+          }
+          return grouped;
+        } catch (_) {
+          // Repli silencieux : migration phase53 pas encore exécutée, ou
+          // hors-ligne — le rendu retombe sur `image_url` (1 seule photo).
+          return {};
+        }
+      }
+
       final results = await Future.wait<dynamic>([
         loadLikes(),
         loadComments(),
         PublicProfilesRepo.fetchByIds(authorIds),
         loadMentionedProducts(),
         CommunityModerationRepo.fetchSavedPostIds(),
+        loadPostImages(),
       ]);
       final likesRows = results[0] as List<Map<String, dynamic>>;
       final commentsRows = results[1] as List<Map<String, dynamic>>;
@@ -320,6 +351,7 @@ class _WallTabState extends ConsumerState<WallTab> {
       final mentionedProducts =
           results[3] as Map<String, Map<String, dynamic>>;
       final savedIds = results[4] as Set<String>;
+      final postImages = results[5] as Map<String, List<String>>;
 
       final likeCounts = <String, int>{};
       final myReactions = <String, String?>{};
@@ -350,6 +382,7 @@ class _WallTabState extends ConsumerState<WallTab> {
         _authorProfiles = profiles;
         _mentionedProducts = mentionedProducts;
         _savedPostIds = savedIds;
+        _postImages = postImages;
         _isLoading = false;
         _hasMore = list.length == _pageSize;
       });
@@ -395,10 +428,10 @@ class _WallTabState extends ConsumerState<WallTab> {
         }
       }
 
-      final authorIds = list
-          .map((p) => p['author_id'] as String?)
-          .whereType<String>()
-          .toSet();
+      final authorIds = {
+        ...list.map((p) => p['author_id'] as String?).whereType<String>(),
+        ...list.map((p) => p['mentioned_user_id'] as String?).whereType<String>(),
+      };
       final mentionedIds = list
           .map((p) => p['mentioned_product_id'] as String?)
           .whereType<String>()
@@ -420,17 +453,39 @@ class _WallTabState extends ConsumerState<WallTab> {
         }
       }
 
+      Future<Map<String, List<String>>> loadPostImages() async {
+        if (postIds.isEmpty) return {};
+        try {
+          final rows = await SupabaseConfig.client
+              .from('post_images')
+              .select('post_id, image_url, position')
+              .inFilter('post_id', postIds)
+              .order('position');
+          final grouped = <String, List<String>>{};
+          for (final row in List<Map<String, dynamic>>.from(rows)) {
+            grouped
+                .putIfAbsent(row['post_id'] as String, () => [])
+                .add(row['image_url'] as String);
+          }
+          return grouped;
+        } catch (_) {
+          return {};
+        }
+      }
+
       final results = await Future.wait<dynamic>([
         loadLikes(),
         loadComments(),
         PublicProfilesRepo.fetchByIds(authorIds),
         loadMentionedProducts(),
+        loadPostImages(),
       ]);
       final likesRows = results[0] as List<Map<String, dynamic>>;
       final commentsRows = results[1] as List<Map<String, dynamic>>;
       final profiles = results[2] as Map<String, Map<String, dynamic>>;
       final mentionedProducts =
           results[3] as Map<String, Map<String, dynamic>>;
+      final postImages = results[4] as Map<String, List<String>>;
 
       final likeCounts = <String, int>{};
       final myReactions = <String, String?>{};
@@ -455,6 +510,7 @@ class _WallTabState extends ConsumerState<WallTab> {
         _commentCounts.addAll(commentCounts);
         _authorProfiles = {..._authorProfiles, ...profiles};
         _mentionedProducts = {..._mentionedProducts, ...mentionedProducts};
+        _postImages = {..._postImages, ...postImages};
         _page = nextPage;
         _hasMore = list.length == _pageSize;
         _isLoadingMore = false;
@@ -885,6 +941,42 @@ class _WallTabState extends ConsumerState<WallTab> {
     }
   }
 
+  /// Hashtags cliquables (Lot 3 Communauté, 02/08) — analysés directement
+  /// depuis `content`, aucune colonne dédiée : reconnaît `#mot` (lettres
+  /// Unicode, chiffres, underscore) et le rend cliquable, coloré comme un
+  /// lien. Le tap réutilise la recherche déjà en place (`content ilike`)
+  /// plutôt que d'inventer un système de catégories séparé.
+  Widget _buildPostContent(String content, ThemeData theme) {
+    final regex = RegExp(r'#[\p{L}\p{N}_]+', unicode: true);
+    final spans = <InlineSpan>[];
+    var last = 0;
+    for (final match in regex.allMatches(content)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: content.substring(last, match.start)));
+      }
+      final tag = match.group(0)!;
+      spans.add(TextSpan(
+        text: tag,
+        style: TextStyle(
+            color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+        recognizer: TapGestureRecognizer()..onTap = () => _searchByHashtag(tag),
+      ));
+      last = match.end;
+    }
+    if (last < content.length) {
+      spans.add(TextSpan(text: content.substring(last)));
+    }
+    return Text.rich(TextSpan(style: theme.textTheme.bodyMedium, children: spans));
+  }
+
+  void _searchByHashtag(String tag) {
+    setState(() {
+      _searchController.text = tag;
+      _searchQuery = tag;
+    });
+    _loadPosts();
+  }
+
   /// Contacter l'auteur via WhatsApp (01/08, demande explicite) —
   /// n'apparaît que si l'auteur a lui-même activé "Afficher mon numéro"
   /// dans ses réglages de confidentialité (voir
@@ -1286,8 +1378,42 @@ class _WallTabState extends ConsumerState<WallTab> {
                                       if ((post['content'] ?? '')
                                           .toString()
                                           .isNotEmpty)
-                                        Text(post['content']),
-                                      if (post['image_url'] != null) ...[
+                                        _buildPostContent(
+                                            post['content'], theme),
+                                      if (post['mentioned_user_id'] !=
+                                          null) ...[
+                                        SizedBox(height: 0.5.h),
+                                        InkWell(
+                                          onTap: () => Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  PublicProfileScreen(
+                                                userId: post[
+                                                    'mentioned_user_id'],
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'avec @${PublicProfilesRepo.displayName(_authorProfiles[post['mentioned_user_id']])}',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                    color: theme.colorScheme
+                                                        .primary,
+                                                    fontWeight:
+                                                        FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
+                                      if ((_postImages[post['id']]?.length ??
+                                              0) >
+                                          1) ...[
+                                        SizedBox(height: 1.h),
+                                        _PostImageCarousel(
+                                            imageUrls:
+                                                _postImages[post['id']]!),
+                                      ] else if (post['image_url'] !=
+                                          null) ...[
                                         SizedBox(height: 1.h),
                                         ClipRRect(
                                           borderRadius:
@@ -1497,10 +1623,11 @@ class _NewPostSheet extends StatefulWidget {
 
 class _NewPostSheetState extends State<_NewPostSheet> {
   final _controller = TextEditingController();
-  File? _image;
+  List<File> _images = [];
   bool _isPosting = false;
   List<Map<String, dynamic>> _products = [];
   Map<String, dynamic>? _selectedProduct;
+  Map<String, dynamic>? _selectedMentionedUser;
 
   @override
   void initState() {
@@ -1544,41 +1671,74 @@ class _NewPostSheetState extends State<_NewPostSheet> {
   /// réencodage JPEG) avant même l'upload, donc le gain s'applique aussi
   /// bien à l'envoi (le posteur) qu'au téléchargement (tous les lecteurs
   /// du fil) : un fichier plus petit à la source profite à tout le monde.
-  Future<void> _pickImage() async {
+  /// Sélection multiple (Lot 3 Communauté, 02/08 — carrousel) : même
+  /// compression qu'avant (maxWidth/imageQuality appliqués par
+  /// `image_picker` avant l'upload), juste plusieurs fichiers à la fois.
+  Future<void> _pickImages() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-        source: ImageSource.gallery, imageQuality: 60, maxWidth: 800);
-    if (picked != null) {
-      setState(() => _image = File(picked.path));
+    final picked = await picker.pickMultiImage(imageQuality: 60, maxWidth: 800);
+    if (picked.isNotEmpty) {
+      setState(() => _images = [..._images, ...picked.map((p) => File(p.path))]);
+    }
+  }
+
+  Future<void> _pickMentionedUser() async {
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const _UserPickerSheet(),
+    );
+    if (selected != null) {
+      setState(() => _selectedMentionedUser = selected);
     }
   }
 
   Future<void> _submit() async {
     final userId = SupabaseConfig.client.auth.currentUser?.id;
     if (userId == null) return;
-    if (_controller.text.trim().isEmpty && _image == null) return;
+    if (_controller.text.trim().isEmpty && _images.isEmpty) return;
 
     setState(() => _isPosting = true);
 
     try {
-      String? imageUrl;
-      if (_image != null) {
+      // Chaque photo est uploadée séparément vers `wall-photos` (bucket
+      // public, Phase 3) ; `posts.image_url` garde la 1ère pour rester
+      // compatible avec les affichages qui ne connaissent pas encore
+      // `post_images` (aperçu du profil public).
+      final imageUrls = <String>[];
+      for (var i = 0; i < _images.length; i++) {
         final fileName =
-            '$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+            '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
         await SupabaseConfig.client.storage
             .from('wall-photos')
-            .upload(fileName, _image!);
-        imageUrl = SupabaseConfig.client.storage
+            .upload(fileName, _images[i]);
+        imageUrls.add(SupabaseConfig.client.storage
             .from('wall-photos')
-            .getPublicUrl(fileName);
+            .getPublicUrl(fileName));
       }
 
-      await SupabaseConfig.client.from('posts').insert({
-        'author_id': userId,
-        'content': _controller.text.trim(),
-        'image_url': imageUrl,
-        'mentioned_product_id': _selectedProduct?['id'],
-      });
+      final inserted = await SupabaseConfig.client
+          .from('posts')
+          .insert({
+            'author_id': userId,
+            'content': _controller.text.trim(),
+            'image_url': imageUrls.isEmpty ? null : imageUrls.first,
+            'mentioned_product_id': _selectedProduct?['id'],
+            'mentioned_user_id': _selectedMentionedUser?['id'],
+          })
+          .select('id')
+          .single();
+
+      if (imageUrls.isNotEmpty) {
+        await SupabaseConfig.client.from('post_images').insert([
+          for (var i = 0; i < imageUrls.length; i++)
+            {
+              'post_id': inserted['id'],
+              'image_url': imageUrls[i],
+              'position': i,
+            },
+        ]);
+      }
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -1618,48 +1778,276 @@ class _NewPostSheetState extends State<_NewPostSheet> {
             ),
           ),
           SizedBox(height: 1.h),
-          if (_image != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(_image!, height: 15.h, fit: BoxFit.cover),
-            ),
-          SizedBox(height: 1.h),
-          if (_selectedProduct != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Chip(
-                avatar: const Icon(Icons.shopping_bag_outlined, size: 16),
-                label: Text(_selectedProduct!['name'] ?? ''),
-                onDeleted: () => setState(() => _selectedProduct = null),
+          if (_images.isNotEmpty)
+            SizedBox(
+              height: 15.h,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _images.length,
+                separatorBuilder: (_, __) => SizedBox(width: 2.w),
+                itemBuilder: (context, index) => Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(_images[index],
+                          height: 15.h, width: 15.h, fit: BoxFit.cover),
+                    ),
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: GestureDetector(
+                        onTap: () => setState(
+                            () => _images = [..._images]..removeAt(index)),
+                        child: const CircleAvatar(
+                          radius: 12,
+                          backgroundColor: Colors.black54,
+                          child: Icon(Icons.close,
+                              size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          Row(
+          SizedBox(height: 1.h),
+          Wrap(
+            spacing: 8,
+            children: [
+              if (_selectedProduct != null)
+                Chip(
+                  avatar: const Icon(Icons.shopping_bag_outlined, size: 16),
+                  label: Text(_selectedProduct!['name'] ?? ''),
+                  onDeleted: () => setState(() => _selectedProduct = null),
+                ),
+              if (_selectedMentionedUser != null)
+                Chip(
+                  avatar: const Icon(Icons.person_outline, size: 16),
+                  label: Text(
+                      '@${PublicProfilesRepo.displayName(_selectedMentionedUser)}'),
+                  onDeleted: () =>
+                      setState(() => _selectedMentionedUser = null),
+                ),
+            ],
+          ),
+          if (_selectedProduct != null || _selectedMentionedUser != null)
+            SizedBox(height: 1.h),
+          Wrap(
+            spacing: 4,
             children: [
               TextButton.icon(
-                onPressed: _pickImage,
+                onPressed: _pickImages,
                 icon: const Icon(Icons.photo_outlined),
-                label: const Text('Ajouter une photo'),
+                label: const Text('Photos'),
               ),
               TextButton.icon(
                 onPressed: _products.isEmpty ? null : _pickProduct,
                 icon: const Icon(Icons.shopping_bag_outlined),
                 label: Text(
-                    _selectedProduct == null ? 'Mentionner' : 'Changer'),
+                    _selectedProduct == null ? 'Produit' : 'Changer'),
               ),
-              const Spacer(),
-              FilledButton(
-                onPressed: _isPosting ? null : _submit,
-                child: _isPosting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Publier'),
+              TextButton.icon(
+                onPressed: _pickMentionedUser,
+                icon: const Icon(Icons.alternate_email),
+                label: Text(
+                    _selectedMentionedUser == null ? 'Mentionner' : 'Changer'),
               ),
             ],
           ),
+          SizedBox(height: 1.h),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: _isPosting ? null : _submit,
+              child: _isPosting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Publier'),
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Recherche d'un autre client pour le mentionner dans une publication
+/// (Lot 3 Communauté, 02/08) — remplit `posts.mentioned_user_id` (Phase
+/// 3, colonne inutilisée jusqu'ici). Recherche côté serveur (pas de
+/// préchargement comme `_ProductPickerSheet` : trop de clients pour tout
+/// charger d'un coup) via `public_profiles`, débouncée.
+class _UserPickerSheet extends StatefulWidget {
+  const _UserPickerSheet();
+
+  @override
+  State<_UserPickerSheet> createState() => _UserPickerSheetState();
+}
+
+class _UserPickerSheetState extends State<_UserPickerSheet> {
+  final _controller = TextEditingController();
+  Timer? _debounce;
+  List<Map<String, dynamic>> _results = [];
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    final query = value.trim();
+    if (query.isEmpty) {
+      setState(() => _results = []);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      setState(() => _isLoading = true);
+      try {
+        final myId = SupabaseConfig.client.auth.currentUser?.id;
+        final rows = await SupabaseConfig.client
+            .from('public_profiles')
+            .select()
+            .or('full_name.ilike.%$query%,company_name.ilike.%$query%')
+            .limit(20);
+        if (!mounted) return;
+        setState(() {
+          _results = List<Map<String, dynamic>>.from(rows)
+              .where((r) => r['id'] != myId)
+              .toList();
+          _isLoading = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SizedBox(
+        height: 60.h,
+        child: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
+              child: TextField(
+                controller: _controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher un client...',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: _onChanged,
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _results.isEmpty
+                      ? Center(
+                          child: Text(
+                            _controller.text.trim().isEmpty
+                                ? 'Tapez un nom pour rechercher.'
+                                : 'Aucun client trouvé.',
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _results.length,
+                          itemBuilder: (context, index) {
+                            final profile = _results[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: profile['avatar_url'] != null
+                                    ? NetworkImage(profile['avatar_url'])
+                                    : null,
+                                child: profile['avatar_url'] == null
+                                    ? const Icon(Icons.person)
+                                    : null,
+                              ),
+                              title: Text(
+                                  PublicProfilesRepo.displayName(profile)),
+                              onTap: () => Navigator.pop(context, profile),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Carrousel de photos d'une publication (Lot 3 Communauté, 02/08) —
+/// `post_images`, voir supabase/phase53_patch_post_images_carousel.sql.
+/// Affiché seulement si la publication a 2 photos ou plus (sinon le fil
+/// retombe sur `posts.image_url`, une seule image sans PageView).
+class _PostImageCarousel extends StatefulWidget {
+  final List<String> imageUrls;
+
+  const _PostImageCarousel({required this.imageUrls});
+
+  @override
+  State<_PostImageCarousel> createState() => _PostImageCarouselState();
+}
+
+class _PostImageCarouselState extends State<_PostImageCarousel> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            height: 20.h,
+            width: double.infinity,
+            child: PageView.builder(
+              itemCount: widget.imageUrls.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (context, i) => Image.network(
+                widget.imageUrls[i],
+                fit: BoxFit.cover,
+                width: double.infinity,
+                cacheWidth: 800,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 0.5.h),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < widget.imageUrls.length; i++)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i == _index
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outlineVariant,
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
