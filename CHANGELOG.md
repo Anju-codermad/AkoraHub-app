@@ -479,3 +479,6 @@
 
 ## 2026-08-02 21:26 UTC — Claude
 - Merge: CRM Lot 1 (fiche client 360°) (`adb8df8`)
+
+## 2026-08-02 21:37 UTC — Claude
+- Merge: CRM Lot 2 (notes, étiquettes, messages, alerte devis, relances) (`459c6a1`)
