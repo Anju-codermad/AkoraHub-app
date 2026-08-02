@@ -15,6 +15,9 @@ import '../../core/supabase/supabase_config.dart';
 /// staff de valider une demande de cours (contrairement aux matières
 /// premières). Un client ayant payé un cours restait donc bloqué
 /// indéfiniment en "en_attente".
+///
+/// Depuis le 02/08 (fusion) : contenu sans Scaffold propre, utilisé comme
+/// onglet de FormationPurchasesHub — voir formation_purchases_hub.dart.
 class CoursePurchasesManagement extends StatefulWidget {
   const CoursePurchasesManagement({super.key});
 
@@ -136,15 +139,13 @@ class _CoursePurchasesManagementState
         .where((p) => _statusFilter == 'tous' || p['status'] == _statusFilter)
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Achats Formation — Cours')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: ListView(
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+            ? Center(child: Text(_error!))
+            : RefreshIndicator(
+                onRefresh: _loadData,
+                child: ListView(
                     padding: EdgeInsets.all(4.w),
                     children: [
                       Wrap(
@@ -246,7 +247,6 @@ class _CoursePurchasesManagementState
                         }),
                     ],
                   ),
-                ),
-    );
+                );
   }
 }

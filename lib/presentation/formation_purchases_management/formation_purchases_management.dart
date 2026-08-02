@@ -12,6 +12,10 @@ import '../../core/supabase/supabase_config.dart';
 /// référence/preuve, le staff valide. Les lignes d'un même achat
 /// (plusieurs produits à la fois) partagent un `batch_id` — regroupées
 /// ici pour être validées/refusées ensemble en un clic.
+///
+/// Depuis le 02/08 : contenu sans Scaffold propre, utilisé comme onglet
+/// de FormationPurchasesHub (fusion avec CoursePurchasesManagement) —
+/// voir formation_purchases_hub.dart.
 class FormationPurchasesManagement extends StatefulWidget {
   const FormationPurchasesManagement({super.key});
 
@@ -197,15 +201,13 @@ class _FormationPurchasesManagementState
         .toList();
     final batches = _groupByBatch(filtered);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Achats Formation')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: ListView(
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+            ? Center(child: Text(_error!))
+            : RefreshIndicator(
+                onRefresh: _loadData,
+                child: ListView(
                     padding: EdgeInsets.all(4.w),
                     children: [
                       if (_tiers.isNotEmpty) ...[
@@ -332,7 +334,6 @@ class _FormationPurchasesManagementState
                         }),
                     ],
                   ),
-                ),
-    );
+                );
   }
 }
