@@ -5241,3 +5241,47 @@ ailleurs dans le code).
 **Point d'entrée** : `customer_management_real.dart` — la liste des
 clients n'avait jusqu'ici aucun `onTap` sur ses lignes ; ajout d'un
 chevron + navigation vers `Customer360Screen(customerId: ...)`.
+
+## CRM — Lot 2/5 : notes, étiquettes, historique messages, alerte devis, relances (02/08)
+
+**SQL** : `supabase/phase61_patch_crm_lot2_a.sql` (+ partie optionnelle
+`_b_cron_optional.sql`, même convention que Phase 13 pour pg_cron) :
+- `customer_notes` (customer_id, author_id, content) — RLS strictement
+  staff (`for all using (current_role_is_staff())`), jamais visible du
+  client.
+- `profiles.tags text[]` — même pattern que `business_unit_ids`
+  (Phase 1), aucune nouvelle policy nécessaire (`profiles_update_own_or_staff`
+  couvre déjà toutes les colonnes).
+- `quotes.last_reminder_at` + fonction `process_stale_quote_reminders()`
+  (devis `status='envoye'` depuis plus de 5 jours, pas relancé depuis
+  plus de 3 jours) — notifie le **staff** (pas le client directement :
+  jugement humain préférable à une relance automatique répétée),
+  planifiée quotidiennement via `pg_cron` (partie B, optionnelle selon
+  le plan Supabase).
+
+⚠️ **"Devis accepté sans commande liée" — limite assumée et documentée** :
+aucun lien formel `quotes`/`orders` n'existe dans le schéma (pas de
+`quote_id` sur `orders`), et l'app n'a **aucun flux "convertir un devis
+en commande"** — donc pas de vraie colonne créée pour ce lien, qui
+resterait toujours vide. La fiche 360° calcule à la place une
+**approximation côté app** (devis accepté sans aucune commande du même
+client créée après lui), affichée comme une alerte à vérifier
+manuellement, jamais comme une certitude.
+
+**Edge Function** : `send-push-notification/index.ts` — nouvelle
+branche `quotes_stale_reminder` (catégorie `devis`, notifie
+`admin`/`commercial`).
+
+**`customer_360_screen.dart` étendu** :
+- Requêtes `customer_notes` et `conversations` ajoutées à la fin du
+  `Future.wait` existant (indices 8/9, sans renuméroter les 8
+  précédents) ; les `messages` de la conversation sont récupérés dans
+  une requête séparée après (comme les noms de produits au Lot 1), et
+  fusionnés dans `_timeline`.
+- Bandeau d'alerte (rouge, `errorContainer`) si des devis acceptés sans
+  commande visible sont détectés — texte explicite "approximation, pas
+  certain".
+- Section "Notes internes" : liste + champ d'ajout, jamais visible côté
+  client (RLS).
+- Étiquettes : `Wrap` de `Chip`s avec suppression (`onDeleted`) + champ
+  d'ajout, sous l'en-tête.
