@@ -455,3 +455,6 @@
 
 ## 2026-08-02 08:57 UTC — Claude
 - Merge: carnet d'adresses branché au checkout (`b9faf23`)
+
+## 2026-08-02 09:08 UTC — Claude
+- Merge: correctif compilation profile_tab.dart (`b4ac693`)
