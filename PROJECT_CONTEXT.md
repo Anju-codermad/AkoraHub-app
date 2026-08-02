@@ -4687,6 +4687,36 @@ l'ancien rendu `Image.network(image_url)` inchangé.
 mention, `_UserPickerSheet`, `_PostImageCarousel`, hashtags cliquables,
 badge mention dans le fil).
 
-**Reste à construire (Lots 4 et 5)** : fil "Tendances", recherche par
-catégorie/pilier, avis vérifiés liés à un achat réel, galerie
-"Réalisations clients".
+## Communauté façon Facebook — Lot 4 : découverte (02/08)
+
+Quatrième lot : **fil "Tendances", filtre par pilier**.
+
+**SQL** : `supabase/phase54_patch_trending_posts.sql` — vue
+`post_engagement_scores` (post_id, created_at, score = réactions +
+commentaires agrégés). Sert UNIQUEMENT à classer : `_fetchTrendingPosts`
+récupère d'abord les ids les plus actifs des 30 derniers jours via cette
+vue, puis re-fetch les publications correspondantes depuis `posts` (RLS
+complète, Phase 3/51) et ne garde que celles réellement renvoyées — une
+publication bloquée/masquée/privée disparaît donc naturellement du
+classement, sans dupliquer cette logique dans la vue elle-même.
+
+**Tendances** : nouvelle puce dans le fil (à côté de "Mes publications"),
+liste fixe (top 30, pas de pagination — un fil "tendances" n'a pas
+vocation à défiler à l'infini) ; désélectionnée automatiquement dès
+qu'un autre filtre (secteur, recherche, hashtag, pilier) est utilisé,
+pour éviter une combinaison de filtres incohérente.
+
+**Filtre par pilier** : nouvelle rangée de puces (Akora Pro, Akora
+Protect, Peinture Pro...) sous le filtre secteur, réutilise
+`business_units`/`products.business_unit_id` déjà en place (aucun
+changement de schéma). Filtre les publications dont le produit taggé
+appartient au pilier choisi — même principe que `_sectorAuthorIds`
+(récupère d'abord les ids concernés, puis `inFilter` sur `posts`).
+
+**Modifications Dart :** `wall_tab.dart` uniquement (`_fetchTrendingPosts`,
+`_pilierProductIds`, `_loadBusinessUnits`, deux nouvelles rangées de
+puces).
+
+**Reste à construire (Lot 5)** : avis vérifiés liés à un achat réel,
+galerie "Réalisations clients" — les deux derniers de la liste initiale,
+plus gros chantier (relier posts ↔ commandes réelles).

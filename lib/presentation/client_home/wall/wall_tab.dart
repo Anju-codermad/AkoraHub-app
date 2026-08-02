@@ -55,6 +55,9 @@ class _WallTabState extends ConsumerState<WallTab> {
   String? _error;
   String _sectorFilter = 'tous';
   bool _onlyMine = false;
+  bool _isTrending = false;
+  List<Map<String, dynamic>> _businessUnits = [];
+  String? _selectedUnitId;
   final _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
@@ -99,6 +102,7 @@ class _WallTabState extends ConsumerState<WallTab> {
     _loadPosts();
     _loadPendingFriendRequests();
     _loadMyRole();
+    _loadBusinessUnits();
     _scrollController.addListener(_onScroll);
   }
 
@@ -106,6 +110,21 @@ class _WallTabState extends ConsumerState<WallTab> {
     final received = await FriendsRepo.fetchPendingReceived();
     if (!mounted) return;
     setState(() => _pendingFriendRequests = received.length);
+  }
+
+  /// Piliers d'entreprise (Lot 4 Communauté, 02/08) — chargés une seule
+  /// fois, la liste change rarement contrairement au fil.
+  Future<void> _loadBusinessUnits() async {
+    if (!SupabaseConfig.isConfigured) return;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('business_units')
+          .select()
+          .eq('active', true)
+          .order('name');
+      if (!mounted) return;
+      setState(() => _businessUnits = List<Map<String, dynamic>>.from(rows));
+    } catch (_) {}
   }
 
   /// "Officiel" et "Épingler" (Lot 2 Communauté, 02/08) — la vraie
@@ -170,7 +189,10 @@ class _WallTabState extends ConsumerState<WallTab> {
     _searchDebounce = Timer(const Duration(milliseconds: 400), () {
       final trimmed = value.trim();
       if (trimmed == _searchQuery) return;
-      setState(() => _searchQuery = trimmed);
+      setState(() {
+        _searchQuery = trimmed;
+        _isTrending = false;
+      });
       _loadPosts();
     });
   }
@@ -202,6 +224,24 @@ class _WallTabState extends ConsumerState<WallTab> {
     }
   }
 
+  /// IDs des produits du pilier choisi (null si aucun pilier sélectionné),
+  /// pour filtrer les posts par `mentioned_product_id` (Lot 4 Communauté,
+  /// 02/08) — même principe que `_sectorAuthorIds`.
+  Future<List<String>?> _pilierProductIds() async {
+    if (_selectedUnitId == null) return null;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('products')
+          .select('id')
+          .eq('business_unit_id', _selectedUnitId!);
+      return List<Map<String, dynamic>>.from(rows)
+          .map((r) => r['id'] as String)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _fetchPostsPage(int page) async {
     if (_onlyMine && _myId == null) return [];
     var query = SupabaseConfig.client.from('posts').select();
@@ -216,11 +256,56 @@ class _WallTabState extends ConsumerState<WallTab> {
       if (sectorIds.isEmpty) return [];
       query = query.inFilter('author_id', sectorIds);
     }
+    final pilierProductIds = await _pilierProductIds();
+    if (pilierProductIds != null) {
+      if (pilierProductIds.isEmpty) return [];
+      query = query.inFilter('mentioned_product_id', pilierProductIds);
+    }
     final data = await query
         .order('is_pinned', ascending: false)
         .order('created_at', ascending: false)
         .range(page * _pageSize, page * _pageSize + _pageSize - 1);
     return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Top publications des 30 derniers jours par engagement (réactions +
+  /// commentaires, `post_engagement_scores`, Lot 4 Communauté, 02/08).
+  /// La vue ne sert qu'à classer — le contenu repasse par `posts`, donc
+  /// une publication qu'un client ne devrait pas voir (bloquée, masquée,
+  /// privée) est naturellement absente du résultat final, sans logique
+  /// dupliquée ici. Pas de pagination : liste fixe, courte.
+  Future<List<Map<String, dynamic>>> _fetchTrendingPosts() async {
+    try {
+      final scores = await SupabaseConfig.client
+          .from('post_engagement_scores')
+          .select('post_id, score')
+          .gte(
+              'created_at',
+              DateTime.now()
+                  .subtract(const Duration(days: 30))
+                  .toIso8601String())
+          .gt('score', 0)
+          .order('score', ascending: false)
+          .limit(30);
+      final rankedIds = List<Map<String, dynamic>>.from(scores)
+          .map((r) => r['post_id'] as String)
+          .toList();
+      if (rankedIds.isEmpty) return [];
+      final posts = await SupabaseConfig.client
+          .from('posts')
+          .select()
+          .inFilter('id', rankedIds);
+      final byId = {
+        for (final p in List<Map<String, dynamic>>.from(posts))
+          p['id'] as String: p,
+      };
+      return [
+        for (final id in rankedIds)
+          if (byId.containsKey(id)) byId[id]!,
+      ];
+    } catch (_) {
+      return [];
+    }
   }
 
   void _onFilterChanged() {
@@ -242,7 +327,8 @@ class _WallTabState extends ConsumerState<WallTab> {
       _hasMore = true;
     });
     try {
-      final list = await _fetchPostsPage(0);
+      final list =
+          _isTrending ? await _fetchTrendingPosts() : await _fetchPostsPage(0);
       final postIds = list.map((p) => p['id'] as String).toList();
 
       // Ex-boucle "1 requête like + 1 requête commentaire PAR post" (jusqu'à
@@ -384,7 +470,8 @@ class _WallTabState extends ConsumerState<WallTab> {
         _savedPostIds = savedIds;
         _postImages = postImages;
         _isLoading = false;
-        _hasMore = list.length == _pageSize;
+        // Le fil Tendances est une liste fixe (top 30), jamais paginée.
+        _hasMore = !_isTrending && list.length == _pageSize;
       });
     } catch (e) {
       setState(() {
@@ -973,6 +1060,7 @@ class _WallTabState extends ConsumerState<WallTab> {
     setState(() {
       _searchController.text = tag;
       _searchQuery = tag;
+      _isTrending = false;
     });
     _loadPosts();
   }
@@ -1077,13 +1165,30 @@ class _WallTabState extends ConsumerState<WallTab> {
                             children: [
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  avatar: const Icon(
+                                      Icons.local_fire_department_outlined,
+                                      size: 16),
+                                  label: const Text('Tendances'),
+                                  selected: _isTrending,
+                                  onSelected: (v) {
+                                    setState(() => _isTrending = v);
+                                    _onFilterChanged();
+                                  },
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
                                 child: FilterChip(
                                   avatar: const Icon(Icons.person_outline,
                                       size: 16),
                                   label: const Text('Mes publications'),
                                   selected: _onlyMine,
                                   onSelected: (v) {
-                                    setState(() => _onlyMine = v);
+                                    setState(() {
+                                      _onlyMine = v;
+                                      _isTrending = false;
+                                    });
                                     _onFilterChanged();
                                   },
                                 ),
@@ -1094,7 +1199,10 @@ class _WallTabState extends ConsumerState<WallTab> {
                                   label: const Text('Tous'),
                                   selected: _sectorFilter == 'tous',
                                   onSelected: (_) {
-                                    setState(() => _sectorFilter = 'tous');
+                                    setState(() {
+                                      _sectorFilter = 'tous';
+                                      _isTrending = false;
+                                    });
                                     _onFilterChanged();
                                   },
                                 ),
@@ -1105,7 +1213,10 @@ class _WallTabState extends ConsumerState<WallTab> {
                                       label: Text(e.value),
                                       selected: _sectorFilter == e.key,
                                       onSelected: (_) {
-                                        setState(() => _sectorFilter = e.key);
+                                        setState(() {
+                                          _sectorFilter = e.key;
+                                          _isTrending = false;
+                                        });
                                         _onFilterChanged();
                                       },
                                     ),
@@ -1114,14 +1225,59 @@ class _WallTabState extends ConsumerState<WallTab> {
                           ),
                         ),
                       ),
+                      if (_businessUnits.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 5.h,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 4.w, vertical: 1.h),
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ChoiceChip(
+                                    label: const Text('Tous les piliers'),
+                                    selected: _selectedUnitId == null,
+                                    onSelected: (_) {
+                                      setState(() {
+                                        _selectedUnitId = null;
+                                        _isTrending = false;
+                                      });
+                                      _onFilterChanged();
+                                    },
+                                  ),
+                                ),
+                                ..._businessUnits.map((u) => Padding(
+                                      padding:
+                                          const EdgeInsets.only(right: 8),
+                                      child: ChoiceChip(
+                                        label: Text(u['name'] ?? ''),
+                                        selected:
+                                            _selectedUnitId == u['id'],
+                                        onSelected: (_) {
+                                          setState(() {
+                                            _selectedUnitId = u['id'];
+                                            _isTrending = false;
+                                          });
+                                          _onFilterChanged();
+                                        },
+                                      ),
+                                    )),
+                              ],
+                            ),
+                          ),
+                        ),
                       if (_posts.isEmpty)
                         SliverFillRemaining(
                           child: Center(
-                              child: Text(_searchQuery.isNotEmpty
-                                  ? 'Aucun résultat pour "$_searchQuery".'
-                                  : _onlyMine
-                                      ? 'Vous n\'avez encore rien publié.'
-                                      : 'Aucune publication pour le moment.')),
+                              child: Text(_isTrending
+                                  ? 'Aucune publication très active dans les 30 derniers jours.'
+                                  : _searchQuery.isNotEmpty
+                                      ? 'Aucun résultat pour "$_searchQuery".'
+                                      : _onlyMine
+                                          ? 'Vous n\'avez encore rien publié.'
+                                          : 'Aucune publication pour le moment.')),
                         )
                       else
                         SliverList(
