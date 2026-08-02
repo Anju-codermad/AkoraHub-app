@@ -464,3 +464,6 @@
 
 ## 2026-08-02 10:58 UTC — Claude
 - Merge: notification push staff pour demandes d'achat Formation (`dcaa4b9`)
+
+## 2026-08-02 20:10 UTC — Claude
+- Merge: intégration FiveOne Pay Lot 1 (SQL provider par opérateur) (`0c5e346`)
