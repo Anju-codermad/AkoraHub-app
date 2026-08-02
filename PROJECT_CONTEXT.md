@@ -4921,6 +4921,63 @@ Remplacé par un vrai `.count()`, comme déjà fait pour Commandes au Lot 2.
 "Communauté & Formation", requêtes engagement/avis dans `_loadAll`),
 `community/realisations_gallery_screen.dart` (paramètre `authorId`).
 
-**Reste à construire (Lot 4)** : badges de fidélité/niveaux client,
-adresses de livraison multiples, QR code personnel de contact, couleur
-d'accent personnalisable.
+## Profil client — refonte par lots, Lot 4 : nouveautés plus lourdes (03/08)
+
+Quatrième et dernier lot : **badges de fidélité/niveaux, adresses de
+livraison multiples, QR code de contact, couleur d'accent
+personnalisable**.
+
+**SQL** : `supabase/phase57_patch_delivery_addresses.sql` —
+`delivery_addresses` (customer_id, label, address, latitude, longitude,
+is_default) + RLS strictement personnelle (select/insert/update/delete
+own only).
+
+⚠️ **Limite assumée** : ce carnet d'adresses est autonome pour l'instant
+— le checkout (`cart_tab.dart`) garde son champ de saisie libre actuel,
+**non branché** sur ces adresses enregistrées dans ce lot. Brancher les
+deux touche le flux de commande en production ; laissé pour un chantier
+séparé, à faire avec plus de prudence.
+
+- **Badges de fidélité** : les paliers (Bronze/Argent/Or), jusqu'ici
+  définis en privé dans `loyalty_screen.dart`, extraits vers
+  `core/loyalty/loyalty_tiers.dart` (`LoyaltyTier`, `kLoyaltyTiers`,
+  `currentLoyaltyTier`) pour être réutilisés sans duplication —
+  `loyalty_screen.dart` refactorisé pour consommer ce fichier partagé.
+  Badge "Palier X" ajouté dans l'en-tête du Profil, à côté du badge
+  secteur.
+- **Adresses de livraison** : nouvel écran
+  `delivery_addresses/delivery_addresses_screen.dart` — liste, ajout/
+  modification (avec "Utiliser ma position actuelle", même logique que
+  `_EditProfileSheet`), suppression, définir par défaut (deux `update`
+  successifs plutôt qu'un trigger SQL — un double défaut temporaire
+  n'est qu'un détail d'affichage, pas un problème de sécurité). Entrée
+  dans "Mes achats".
+- **QR de contact** : nouvel écran `my_contact_qr_screen.dart` — encode
+  une **vCard standard** (nom, société, téléphone) via `qr_flutter`
+  (déjà utilisé pour les lots de traçabilité produit), volontairement
+  PAS un id interne : une vCard est lisible par n'importe quel lecteur
+  QR/appareil photo, même hors de l'app — aucun système de "scanner pour
+  ajouter en ami" n'existe à ce jour. Entrée dans "Communauté &
+  Formation".
+- **Couleur d'accent personnalisable** : nouveau
+  `core/providers/profile_accent_provider.dart` (Riverpod +
+  `SharedPreferences`, même pattern que `theme_provider.dart`) —
+  **volontairement locale à l'appareil**, jamais synchronisée en base ni
+  appliquée au thème global de l'app. Les 3 couleurs de marque
+  (`app_theme.dart`) sont délibérées et documentées comme telles ; cette
+  personnalisation reste cantonnée aux stats et à la barre de complétion
+  du Profil, choisie parmi une palette restreinte
+  (`kProfileAccentChoices`, pas une roue de couleurs libre) via un
+  nouveau bouton palette à côté de "Modifier le profil"/"Partager".
+
+**Nouveaux fichiers Dart :** `core/loyalty/loyalty_tiers.dart`,
+`core/providers/profile_accent_provider.dart`,
+`delivery_addresses/delivery_addresses_screen.dart`,
+`my_contact_qr_screen.dart`.
+**Modifications Dart :** `profile_tab.dart`, `loyalty_screen.dart`
+(refactor).
+
+---
+
+**Les 4 lots de la refonte du Profil client du 03/08 sont maintenant
+tous construits.**

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../../core/loyalty/loyalty_tiers.dart';
 import '../../../core/supabase/supabase_config.dart';
 
 class LoyaltyScreen extends StatefulWidget {
@@ -9,24 +10,6 @@ class LoyaltyScreen extends StatefulWidget {
   @override
   State<LoyaltyScreen> createState() => _LoyaltyScreenState();
 }
-
-/// Un palier = (nom, seuil minimum de points, couleur, avantage annoncé).
-/// Purement informatif pour l'instant (pas de remise automatique) — les
-/// avantages concrets par palier restent à définir avec l'utilisateur.
-class _Tier {
-  final String name;
-  final int minPoints;
-  final Color color;
-  final String perk;
-
-  const _Tier(this.name, this.minPoints, this.color, this.perk);
-}
-
-const _tiers = [
-  _Tier('Bronze', 0, Color(0xFFCD7F32), 'Membre AkoraHub'),
-  _Tier('Argent', 1000, Color(0xFFA8A9AD), 'Client régulier reconnu'),
-  _Tier('Or', 5000, Color(0xFFD4AF37), 'Client fidèle privilégié'),
-];
 
 class _LoyaltyScreenState extends State<LoyaltyScreen> {
   int _points = 0;
@@ -61,20 +44,9 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
     }
   }
 
-  _Tier get _currentTier {
-    _Tier result = _tiers.first;
-    for (final tier in _tiers) {
-      if (_points >= tier.minPoints) result = tier;
-    }
-    return result;
-  }
+  LoyaltyTier get _currentTier => currentLoyaltyTier(_points);
 
-  _Tier? get _nextTier {
-    for (final tier in _tiers) {
-      if (tier.minPoints > _points) return tier;
-    }
-    return null;
-  }
+  LoyaltyTier? get _nextTier => nextLoyaltyTier(_points);
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +136,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                 SizedBox(height: 3.h),
                 Text('Tous les paliers', style: theme.textTheme.titleMedium),
                 SizedBox(height: 1.h),
-                ..._tiers.map((tier) {
+                ...kLoyaltyTiers.map((tier) {
                   final reached = _points >= tier.minPoints;
                   return Card(
                     child: ListTile(

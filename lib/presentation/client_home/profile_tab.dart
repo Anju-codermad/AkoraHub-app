@@ -8,14 +8,18 @@ import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/loyalty/loyalty_tiers.dart';
+import '../../core/providers/profile_accent_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
 import 'community/public_profile_screen.dart';
 import 'community/realisations_gallery_screen.dart';
+import 'delivery_addresses/delivery_addresses_screen.dart';
 import 'favorites_provider.dart';
 import 'favorites_screen.dart';
 import 'formation/my_formation_groups_screen.dart';
 import 'loyalty/loyalty_screen.dart';
+import 'my_contact_qr_screen.dart';
 import 'my_reviews_screen.dart';
 import 'orders_tab.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
@@ -320,6 +324,51 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     }
   }
 
+  /// Couleur d'accent personnelle (Lot 4, 03/08) — locale à l'appareil,
+  /// voir core/providers/profile_accent_provider.dart pour le pourquoi.
+  Future<void> _openAccentPicker() async {
+    final current = ref.read(profileAccentProvider);
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Personnaliser mon profil'),
+        content: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final color in kProfileAccentChoices)
+              GestureDetector(
+                onTap: () {
+                  ref.read(profileAccentProvider.notifier).setAccent(color);
+                  Navigator.pop(context);
+                },
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: color,
+                  child: current?.value == color.value
+                      ? const Icon(Icons.check, color: Colors.white)
+                      : null,
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ref.read(profileAccentProvider.notifier).setAccent(null);
+              Navigator.pop(context);
+            },
+            child: const Text('Par défaut'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -348,6 +397,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     }
 
     final loyaltyPoints = (profile['loyalty_points'] as num?)?.toInt() ?? 0;
+    final loyaltyTier = currentLoyaltyTier(loyaltyPoints);
+    final accentColor = ref.watch(profileAccentProvider);
 
     // Complétion du profil (Lot 2, 03/08) — 7 champs qui font un profil
     // vraiment utile (à soi comme aux autres) : photo, couverture, bio,
@@ -402,39 +453,75 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     textAlign: TextAlign.center,
                   ),
                 ],
-                if (sector != null) ...[
+                if (sector != null || loyaltyPoints > 0) ...[
                   SizedBox(height: 0.8.h),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: (_sectorColors[profile['client_type']] ??
-                              theme.colorScheme.primary)
-                          .withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _sectorIcons[profile['client_type']] ??
-                              Icons.person_outline,
-                          size: 15,
-                          color: _sectorColors[profile['client_type']] ??
-                              theme.colorScheme.primary,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          sector,
-                          style: TextStyle(
-                            color: _sectorColors[profile['client_type']] ??
-                                theme.colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (sector != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: (_sectorColors[profile['client_type']] ??
+                                    theme.colorScheme.primary)
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _sectorIcons[profile['client_type']] ??
+                                    Icons.person_outline,
+                                size: 15,
+                                color:
+                                    _sectorColors[profile['client_type']] ??
+                                        theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                sector,
+                                style: TextStyle(
+                                  color:
+                                      _sectorColors[profile['client_type']] ??
+                                          theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      // Badge de palier fidélité (Lot 4, 03/08) — visible
+                      // dès le 1er point, pas seulement au palier Argent.
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: loyaltyTier.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.emoji_events,
+                                size: 15, color: loyaltyTier.color),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Palier ${loyaltyTier.name}',
+                              style: TextStyle(
+                                color: loyaltyTier.color,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
                 SizedBox(height: 1.8.h),
@@ -444,11 +531,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     _StatItem(
                       value: '$_postsCount',
                       label: 'Publications',
+                      color: accentColor,
                       onTap: () => setState(() => _selectedTab = 1),
                     ),
                     _StatItem(
                       value: '$_ordersCount',
                       label: 'Commandes',
+                      color: accentColor,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -463,6 +552,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     _StatItem(
                       value: '$loyaltyPoints',
                       label: 'Points fidélité',
+                      color: accentColor,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -511,11 +601,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       icon: const Icon(Icons.share_outlined, size: 18),
                       label: const Text('Partager'),
                     ),
+                    SizedBox(width: 1.w),
+                    IconButton(
+                      tooltip: 'Personnaliser (cet appareil)',
+                      icon: const Icon(Icons.palette_outlined),
+                      onPressed: _openAccentPicker,
+                    ),
                   ],
                 ),
                 if (completionRatio < 1) ...[
                   SizedBox(height: 2.h),
-                  _buildCompletionBar(theme, completionRatio),
+                  _buildCompletionBar(theme, completionRatio, accentColor),
                 ],
                 SizedBox(height: 2.5.h),
                 _buildTabSelector(theme),
@@ -641,7 +737,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   /// Barre "Profil complété à X%" (Lot 2, 03/08) — disparaît une fois le
   /// profil complet plutôt que de rester affichée indéfiniment.
-  Widget _buildCompletionBar(ThemeData theme, double ratio) {
+  Widget _buildCompletionBar(ThemeData theme, double ratio, Color? accent) {
     final percent = (ratio * 100).round();
     return Card(
       child: Padding(
@@ -668,6 +764,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 value: ratio,
                 minHeight: 6,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                color: accent,
               ),
             ),
           ],
@@ -779,6 +876,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.pushNamed(context, '/product-scanner'),
               ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.location_on_outlined),
+                title: const Text('Adresses de livraison'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const DeliveryAddressesScreen())),
+              ),
             ],
           ),
         ),
@@ -822,6 +929,23 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         builder: (_) => PublicProfileScreen(userId: myId)),
                   );
                 },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.qr_code_2),
+                title: const Text('Ma carte de contact'),
+                subtitle: const Text('QR à faire scanner'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MyContactQrScreen(
+                      fullName: fullName,
+                      companyName: companyName,
+                      phone: profile['phone'] as String?,
+                    ),
+                  ),
+                ),
               ),
               const Divider(height: 1),
               ListTile(
@@ -994,9 +1118,13 @@ class _StatItem extends StatelessWidget {
   final String value;
   final String label;
   final VoidCallback onTap;
+  final Color? color;
 
   const _StatItem(
-      {required this.value, required this.label, required this.onTap});
+      {required this.value,
+      required this.label,
+      required this.onTap,
+      this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -1009,8 +1137,8 @@ class _StatItem extends StatelessWidget {
         child: Column(
           children: [
             Text(value,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
+                style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700, color: color)),
             Text(label,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: theme.colorScheme.outline)),
