@@ -10,9 +10,13 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
+import 'community/public_profile_screen.dart';
+import 'community/realisations_gallery_screen.dart';
 import 'favorites_provider.dart';
 import 'favorites_screen.dart';
+import 'formation/my_formation_groups_screen.dart';
 import 'loyalty/loyalty_screen.dart';
+import 'my_reviews_screen.dart';
 import 'orders_tab.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
 import 'settings/settings_screen.dart';
@@ -40,7 +44,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   int _postsCount = 0;
   int _ordersCount = 0;
+  int _reviewsCount = 0;
+  int _reactionsReceived = 0;
+  int _commentsReceived = 0;
   List<Map<String, dynamic>> _recentPosts = [];
+  List<Map<String, dynamic>> _realisationsPreview = [];
   List<String> _favoriteCategories = [];
   List<Map<String, dynamic>> _favoritePreview = [];
 
@@ -107,17 +115,71 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     }
 
     try {
-      final posts = await SupabaseConfig.client
-          .from('posts')
-          .select()
-          .eq('author_id', userId)
-          .order('created_at', ascending: false)
-          .limit(30);
-      final list = List<Map<String, dynamic>>.from(posts);
+      // Nombre réel de publications via count() (le fil limité à 30 en
+      // dessous sert juste aux aperçus/à l'engagement, pas au total —
+      // corrige au passage un compteur qui plafonnait silencieusement à
+      // 30 avant le Lot 3 du Profil).
+      final results = await Future.wait<dynamic>([
+        SupabaseConfig.client
+            .from('posts')
+            .select('id')
+            .eq('author_id', userId)
+            .count(),
+        SupabaseConfig.client
+            .from('posts')
+            .select()
+            .eq('author_id', userId)
+            .order('created_at', ascending: false)
+            .limit(30),
+      ]);
+      final list = List<Map<String, dynamic>>.from(results[1] as List);
+      final postIds = list.map((p) => p['id'] as String).toList();
+
+      // Engagement reçu (Lot 3 du Profil, 03/08) — calculé sur les 30
+      // dernières publications, pas l'historique complet : suffisant
+      // pour un résumé d'activité récente.
+      Future<int> loadReactionsReceived() async {
+        if (postIds.isEmpty) return 0;
+        try {
+          final r = await SupabaseConfig.client
+              .from('post_likes')
+              .select('id')
+              .inFilter('post_id', postIds)
+              .count();
+          return r.count;
+        } catch (_) {
+          return 0;
+        }
+      }
+
+      Future<int> loadCommentsReceived() async {
+        if (postIds.isEmpty) return 0;
+        try {
+          final r = await SupabaseConfig.client
+              .from('post_comments')
+              .select('id')
+              .inFilter('post_id', postIds)
+              .count();
+          return r.count;
+        } catch (_) {
+          return 0;
+        }
+      }
+
+      final engagement = await Future.wait<int>(
+          [loadReactionsReceived(), loadCommentsReceived()]);
+
       if (mounted) {
         setState(() {
-          _postsCount = list.length;
+          _postsCount = results[0].count;
           _recentPosts = list.take(3).toList();
+          _realisationsPreview = list
+              .where((p) =>
+                  p['image_url'] != null && p['mentioned_product_id'] != null)
+              .take(6)
+              .toList();
+          _reactionsReceived = engagement[0];
+          _commentsReceived = engagement[1];
         });
       }
     } catch (_) {}
@@ -129,6 +191,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           .eq('customer_id', userId)
           .count();
       if (mounted) setState(() => _ordersCount = result.count);
+    } catch (_) {}
+
+    try {
+      final result = await SupabaseConfig.client
+          .from('product_reviews')
+          .select('id')
+          .eq('author_id', userId)
+          .count();
+      if (mounted) setState(() => _reviewsCount = result.count);
     } catch (_) {}
 
     try {
@@ -634,6 +705,46 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   Widget _buildAllTabContent(ThemeData theme) {
     return Column(
       children: [
+        if (_realisationsPreview.isNotEmpty) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Mes réalisations', style: theme.textTheme.labelLarge),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RealisationsGalleryScreen(
+                        authorId: SupabaseConfig.client.auth.currentUser?.id),
+                  ),
+                ),
+                child: const Text('Voir tout'),
+              ),
+            ],
+          ),
+          GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
+            children: _realisationsPreview
+                .map((p) => ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.network(
+                        p['image_url'],
+                        fit: BoxFit.cover,
+                        cacheWidth: 300,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          child: const Icon(Icons.image_not_supported_outlined),
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          SizedBox(height: 2.h),
+        ],
         Align(
           alignment: Alignment.centerLeft,
           child:
@@ -687,6 +798,60 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ],
           ),
         ],
+        SizedBox(height: 2.h),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Communauté & Formation',
+              style: theme.textTheme.labelLarge),
+        ),
+        SizedBox(height: 1.h),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.badge_outlined),
+                title: const Text('Voir mon profil public'),
+                subtitle: const Text('Ce que voient les autres clients'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  final myId = SupabaseConfig.client.auth.currentUser?.id;
+                  if (myId == null) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => PublicProfileScreen(userId: myId)),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.star_outline),
+                title: const Text('Mes avis laissés'),
+                subtitle: Text('$_reviewsCount avis'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const MyReviewsScreen())),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.groups_outlined),
+                title: const Text('Mes groupes Formation'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const MyFormationGroupsScreen())),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.favorite_border),
+                title: const Text('Mon engagement'),
+                subtitle: Text(
+                    '$_reactionsReceived réaction${_reactionsReceived > 1 ? 's' : ''} · $_commentsReceived commentaire${_commentsReceived > 1 ? 's' : ''} reçus'),
+              ),
+            ],
+          ),
+        ),
         SizedBox(height: 2.h),
         Align(
           alignment: Alignment.centerLeft,
