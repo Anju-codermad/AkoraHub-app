@@ -452,3 +452,6 @@
 
 ## 2026-08-02 08:49 UTC — Claude
 - Merge: Profil client Lot 4 - fidélité, adresses, QR, couleur d'accent (`c574b8c`)
+
+## 2026-08-02 08:57 UTC — Claude
+- Merge: carnet d'adresses branché au checkout (`b9faf23`)
