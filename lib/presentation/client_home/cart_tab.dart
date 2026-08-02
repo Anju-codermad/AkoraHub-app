@@ -166,6 +166,93 @@ class _CartTabState extends ConsumerState<CartTab> {
     }
   }
 
+  /// Choisir une adresse enregistrée (Profil → Adresses de livraison,
+  /// Lot 4 du Profil, 03/08) plutôt que de taper/géolocaliser à chaque
+  /// commande. N'écrase les frais de livraison que si l'adresse a une
+  /// position enregistrée (`latitude`/`longitude`) — une adresse créée
+  /// avant l'ajout de la géolocalisation dans ce carnet retombe sur le
+  /// même repli "à confirmer par l'équipe" que l'estimation GPS.
+  Future<void> _pickSavedAddress() async {
+    final uid = SupabaseConfig.client.auth.currentUser?.id;
+    if (uid == null || !SupabaseConfig.isConfigured) return;
+
+    List<Map<String, dynamic>> addresses;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('delivery_addresses')
+          .select()
+          .eq('customer_id', uid)
+          .order('is_default', ascending: false)
+          .order('created_at', ascending: false);
+      addresses = List<Map<String, dynamic>>.from(rows);
+    } catch (_) {
+      addresses = [];
+    }
+    if (!mounted) return;
+    if (addresses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            'Aucune adresse enregistrée — ajoutez-en une depuis votre profil (Mes achats > Adresses de livraison).'),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Choisir une adresse',
+                    style: Theme.of(context).textTheme.titleMedium),
+              ),
+            ),
+            ...addresses.map((a) => ListTile(
+                  leading: Icon(a['is_default'] == true
+                      ? Icons.push_pin
+                      : Icons.location_on_outlined),
+                  title: Text(a['label'] ?? ''),
+                  subtitle: Text(a['address'] ?? ''),
+                  onTap: () => Navigator.pop(context, a),
+                )),
+            SizedBox(height: 1.h),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+
+    final lat = (selected['latitude'] as num?)?.toDouble();
+    final lon = (selected['longitude'] as num?)?.toDouble();
+    if (lat != null && lon != null) {
+      final correctedKm = DeliveryPricing.correctedDistanceKm(lat, lon);
+      final fee = DeliveryPricing.feeForDistance(correctedKm);
+      setState(() {
+        _deliveryAddressController.text = selected['address'] ?? '';
+        _deliveryLat = lat;
+        _deliveryLon = lon;
+        _deliveryDistanceKm = correctedKm;
+        _deliveryFee = fee;
+        _deliveryError = null;
+      });
+    } else {
+      setState(() {
+        _deliveryAddressController.text = selected['address'] ?? '';
+        _deliveryLat = null;
+        _deliveryLon = null;
+        _deliveryDistanceKm = null;
+        _deliveryFee = null;
+        _deliveryError =
+            'Frais de livraison à confirmer par notre équipe (adresse sans position enregistrée).';
+      });
+    }
+  }
+
   String _generateNumber(String prefix) {
     final now = DateTime.now();
     final ms = now.millisecondsSinceEpoch.toString().substring(7);
@@ -458,18 +545,29 @@ class _CartTabState extends ConsumerState<CartTab> {
                       'pharmacie...',
                   border: const OutlineInputBorder(),
                   isDense: true,
-                  suffixIcon: IconButton(
-                    icon: _isEstimatingDelivery
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.my_location, size: 20),
-                    tooltip: 'Utiliser ma position actuelle',
-                    onPressed: _isEstimatingDelivery
-                        ? null
-                        : () => _estimateDelivery(overwriteAddress: true),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.bookmark_border, size: 20),
+                        tooltip: 'Choisir une adresse enregistrée',
+                        onPressed: _pickSavedAddress,
+                      ),
+                      IconButton(
+                        icon: _isEstimatingDelivery
+                            ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.my_location, size: 20),
+                        tooltip: 'Utiliser ma position actuelle',
+                        onPressed: _isEstimatingDelivery
+                            ? null
+                            : () => _estimateDelivery(overwriteAddress: true),
+                      ),
+                    ],
                   ),
                 ),
               ),
