@@ -413,3 +413,6 @@
 
 ## 2026-08-01 22:38 UTC — Claude
 - Merge: Académie - sections par catégorie + design bibliothèque vidéo (`fd4d392`)
+
+## 2026-08-02 05:09 UTC — Claude
+- Merge: Mes accès + achats de cours validables côté admin (`068b83f`)
