@@ -13,6 +13,7 @@ import 'chat_screen.dart';
 import 'favorites_provider.dart';
 import 'favorites_screen.dart';
 import 'loyalty/loyalty_screen.dart';
+import 'orders_tab.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
 import 'settings/settings_screen.dart';
 import 'wall/wall_tab.dart';
@@ -38,6 +39,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   String? _error;
 
   int _postsCount = 0;
+  int _ordersCount = 0;
   List<Map<String, dynamic>> _recentPosts = [];
   List<String> _favoriteCategories = [];
   List<Map<String, dynamic>> _favoritePreview = [];
@@ -53,6 +55,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     'hopital': 'Hôpital',
     'entreprise': 'Entreprise',
     'particulier': 'Particulier',
+  };
+
+  final Map<String, IconData> _sectorIcons = const {
+    'hotel': Icons.hotel_outlined,
+    'hopital': Icons.local_hospital_outlined,
+    'entreprise': Icons.business_center_outlined,
+    'particulier': Icons.person_outline,
+  };
+
+  final Map<String, Color> _sectorColors = const {
+    'hotel': Color(0xFF3D5A99),
+    'hopital': Color(0xFFB3261E),
+    'entreprise': Color(0xFF6B4C6B),
+    'particulier': Color(0xFF085041),
   };
 
   @override
@@ -104,6 +120,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           _recentPosts = list.take(3).toList();
         });
       }
+    } catch (_) {}
+
+    try {
+      final result = await SupabaseConfig.client
+          .from('orders')
+          .select('id')
+          .eq('customer_id', userId)
+          .count();
+      if (mounted) setState(() => _ordersCount = result.count);
     } catch (_) {}
 
     try {
@@ -251,6 +276,23 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
       if (parsed != null) joinYear = parsed.year.toString();
     }
 
+    final loyaltyPoints = (profile['loyalty_points'] as num?)?.toInt() ?? 0;
+
+    // Complétion du profil (Lot 2, 03/08) — 7 champs qui font un profil
+    // vraiment utile (à soi comme aux autres) : photo, couverture, bio,
+    // téléphone, localisation, société, secteur.
+    final completionFields = <bool>[
+      avatarUrl != null && avatarUrl.isNotEmpty,
+      coverUrl != null && coverUrl.isNotEmpty,
+      bio != null && bio.isNotEmpty,
+      (profile['phone'] as String?)?.trim().isNotEmpty == true,
+      location != null && location.trim().isNotEmpty,
+      companyName != null && companyName.trim().isNotEmpty,
+      profile['client_type'] != null,
+    ];
+    final completionRatio =
+        completionFields.where((f) => f).length / completionFields.length;
+
     return RefreshIndicator(
       onRefresh: _loadAll,
       child: ListView(
@@ -280,19 +322,84 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         ?.copyWith(color: theme.colorScheme.outline),
                     textAlign: TextAlign.center,
                   ),
-                SizedBox(height: 0.5.h),
-                Text(
-                  joinYear != null
-                      ? '$_postsCount publication${_postsCount > 1 ? 's' : ''} · Client depuis $joinYear'
-                      : '$_postsCount publication${_postsCount > 1 ? 's' : ''}',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: theme.colorScheme.outline),
-                  textAlign: TextAlign.center,
-                ),
-                if (sector != null) ...[
+                if (joinYear != null) ...[
                   SizedBox(height: 0.5.h),
-                  Chip(label: Text(sector)),
+                  Text(
+                    'Client depuis $joinYear',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.outline),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
+                if (sector != null) ...[
+                  SizedBox(height: 0.8.h),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: (_sectorColors[profile['client_type']] ??
+                              theme.colorScheme.primary)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _sectorIcons[profile['client_type']] ??
+                              Icons.person_outline,
+                          size: 15,
+                          color: _sectorColors[profile['client_type']] ??
+                              theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          sector,
+                          style: TextStyle(
+                            color: _sectorColors[profile['client_type']] ??
+                                theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                SizedBox(height: 1.8.h),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _StatItem(
+                      value: '$_postsCount',
+                      label: 'Publications',
+                      onTap: () => setState(() => _selectedTab = 1),
+                    ),
+                    _StatItem(
+                      value: '$_ordersCount',
+                      label: 'Commandes',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar:
+                                AppBar(title: const Text('Mes commandes')),
+                            body: const OrdersTab(),
+                          ),
+                        ),
+                      ),
+                    ),
+                    _StatItem(
+                      value: '$loyaltyPoints',
+                      label: 'Points fidélité',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LoyaltyScreen()),
+                      ),
+                    ),
+                  ],
+                ),
                 SizedBox(height: 1.h),
                 if (bio != null && bio.isNotEmpty)
                   Text(
@@ -335,6 +442,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     ),
                   ],
                 ),
+                if (completionRatio < 1) ...[
+                  SizedBox(height: 2.h),
+                  _buildCompletionBar(theme, completionRatio),
+                ],
                 SizedBox(height: 2.5.h),
                 _buildTabSelector(theme),
                 SizedBox(height: 2.h),
@@ -453,6 +564,43 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Barre "Profil complété à X%" (Lot 2, 03/08) — disparaît une fois le
+  /// profil complet plutôt que de rester affichée indéfiniment.
+  Widget _buildCompletionBar(ThemeData theme, double ratio) {
+    final percent = (ratio * 100).round();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Profil complété à $percent%',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                TextButton(
+                  onPressed: _openEditSheet,
+                  child: const Text('Compléter'),
+                ),
+              ],
+            ),
+            SizedBox(height: 1.h),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 6,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -672,6 +820,38 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           child: const Text('Voir tous mes favoris'),
         ),
       ],
+    );
+  }
+}
+
+/// Bandeau de stats cliquables façon Instagram (Lot 2 du Profil, 03/08).
+class _StatItem extends StatelessWidget {
+  final String value;
+  final String label;
+  final VoidCallback onTap;
+
+  const _StatItem(
+      {required this.value, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          children: [
+            Text(value,
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            Text(label,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline)),
+          ],
+        ),
+      ),
     );
   }
 }

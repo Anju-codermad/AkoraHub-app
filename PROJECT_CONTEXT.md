@@ -4854,9 +4854,35 @@ nettoyage, aucune nouvelle donnée) :
 (carte Compte + carte Déconnexion, autonome — fonctionne aussi pour
 l'Admin qui partage cet écran), `client_home.dart` (nettoyage).
 
-**Reste à construire (Lots 2 à 4)** : bandeau de stats cliquables,
-points fidélité affichés en clair, badge secteur stylé, barre de
-complétion de profil (Lot 2) ; lien profil public, mini-galerie
-Réalisations, avis laissés, engagement communautaire, raccourci
-groupes Formation (Lot 3) ; badges de fidélité, adresses multiples, QR
-de contact, couleur d'accent personnalisable (Lot 4).
+## Profil client — refonte par lots, Lot 2 : mettre en valeur l'existant (03/08)
+
+Deuxième lot : **bandeau de stats cliquables, points fidélité en clair,
+badge secteur stylé, barre de complétion de profil**. Aucune nouvelle
+table — tout réutilise des données déjà en base (`profiles.loyalty_points`
+déjà utilisée par `loyalty_screen.dart`, `orders.customer_id`).
+
+- **Bandeau de stats** (`_StatItem`, façon Instagram) sous le badge
+  secteur : Publications (tap → bascule l'onglet "Publications" en
+  place), Commandes (tap → `OrdersTab` poussé dans un `Scaffold` ad hoc
+  avec AppBar — `OrdersTab` n'a pas d'AppBar propre, il est conçu pour
+  être hébergé par `client_home.dart`), Points fidélité (tap →
+  `LoyaltyScreen`). Remplace l'ancienne ligne de texte
+  "X publications · Client depuis Y" — le compteur de publications sort
+  de ce texte pour devenir une vraie stat cliquable.
+- **Badge secteur restylé** : passé d'un `Chip` texte brut à un badge
+  coloré (icône + couleur par secteur : hôtel marine, hôpital rouge,
+  entreprise violet, particulier vert — mêmes teintes que le reste de
+  l'app).
+- **Barre "Profil complété à X%"** : calculée sur 7 champs (photo,
+  couverture, bio, téléphone, localisation, société, secteur) — carte
+  avec `LinearProgressIndicator` + bouton "Compléter" (ouvre "Modifier
+  le profil"), **disparaît automatiquement une fois à 100%**.
+
+**Modifications Dart :** `profile_tab.dart` uniquement (`_StatItem`,
+`_buildCompletionBar`, requête `orders` en `count()` ajoutée à
+`_loadAll`).
+
+**Reste à construire (Lots 3 et 4)** : lien profil public, mini-galerie
+Réalisations, avis laissés, engagement communautaire, raccourci groupes
+Formation (Lot 3) ; badges de fidélité, adresses multiples, QR de
+contact, couleur d'accent personnalisable (Lot 4).
