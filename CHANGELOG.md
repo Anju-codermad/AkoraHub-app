@@ -476,3 +476,6 @@
 
 ## 2026-08-02 20:40 UTC — Claude
 - Merge: intégration FiveOne Pay Lot 4 (checkout + écran Admin) (`4eb04d6`)
+
+## 2026-08-02 21:26 UTC — Claude
+- Merge: CRM Lot 1 (fiche client 360°) (`adb8df8`)
