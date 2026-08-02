@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import '../customer_360/customer_360_screen.dart';
 
 /// Liste réelle des clients (comptes créés via l'inscription), avec leur
 /// type (Hôtel/Hôpital/Entreprise/Particulier) et coordonnées.
@@ -152,6 +153,15 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                                               .isNotEmpty)
                                             c['phone'],
                                         ].where((s) => s != '').join(' · '),
+                                      ),
+                                      trailing:
+                                          const Icon(Icons.chevron_right),
+                                      onTap: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => Customer360Screen(
+                                              customerId: c['id'] as String),
+                                        ),
                                       ),
                                     ),
                                   );

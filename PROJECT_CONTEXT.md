@@ -5202,3 +5202,42 @@ veut basculer).
 tous construits.** Reste à faire un vrai test de paiement Sandbox de
 bout en bout une fois les 2 fonctions déployées et les 2 secrets
 configurés côté Supabase.
+
+## CRM — Fiche client 360°, Lot 1/5 (02/08)
+
+Nouveau chantier CRM (5 lots, demande explicite de l'utilisateur pour
+"mieux suivre ses clients") : Lot 1 regroupe en LECTURE, pour un client
+donné, ce qui était jusqu'ici éparpillé entre plusieurs écrans admin —
+commandes, devis, factures, avis produits, activité Communauté,
+fidélité et adresses de livraison. Notes internes, étiquettes, statut
+VIP, segmentation restent pour les Lots 2 à 5, gardés simples et
+testables séparément.
+
+**SQL** : `supabase/phase60_patch_customer_360.sql` —
+- Nouvelle policy `delivery_addresses_select_own_or_staff` : la policy
+  existante (Phase 57) ne couvrait QUE le propriétaire, contrairement à
+  toutes les autres tables de la fiche (`orders`/`quotes`/`invoices`/
+  `product_reviews`/`posts`/`profiles` ont déjà leur `..._select_own_or_staff`
+  depuis la Phase 1) — sans ce correctif, la section Adresses serait
+  revenue silencieusement vide pour l'Admin (RLS, pas d'erreur visible).
+- `staff_get_customer_email(customer_id)` — l'email vit uniquement dans
+  `auth.users`, jamais dupliqué sur `profiles`. Même principe que
+  `find_profile_by_email` (Phase 1) mais dans le sens inverse (id ->
+  email plutôt qu'email -> profil), security definer + restreint au
+  staff.
+
+**Nouveau fichier Dart** : `lib/presentation/customer_360/customer_360_screen.dart`
+— en-tête (avatar, nom, type client, palier de fidélité `LoyaltyTier`
+réutilisé de `core/loyalty/loyalty_tiers.dart`, téléphone, email,
+ancienneté), 3 cartes stats (valeur totale/lifetime value en excluant
+les commandes annulées, nombre de commandes, date de dernière
+commande), liste des adresses de livraison, et une **chronologie
+d'activité unifiée** fusionnant commandes/devis/factures/avis/publications
+Communauté triés par date. Toutes les requêtes tournent en parallèle
+(`Future.wait`), noms de produits pour les avis résolus par une requête
+batch séparée (même pattern que `PublicProfilesRepo.fetchByIds`
+ailleurs dans le code).
+
+**Point d'entrée** : `customer_management_real.dart` — la liste des
+clients n'avait jusqu'ici aucun `onTap` sur ses lignes ; ajout d'un
+chevron + navigation vers `Customer360Screen(customerId: ...)`.
