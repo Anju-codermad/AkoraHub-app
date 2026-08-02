@@ -5048,3 +5048,49 @@ avant exécution.
 branches (catégorie `commande`, notifie `admin`/`commercial`), résolvent
 le nom du produit/cours concerné pour un message précis ("Demande
 d'accès : <nom>").
+
+## Intégration FiveOne Pay — second fournisseur de paiement Mobile Money, Lot 1/4 (02/08)
+
+Trouvé par l'utilisateur : FiveOne Pay, agrégateur Mobile Money
+malgache concurrent de Papi.mg (Phase 38) — une seule API pour les 3
+opérateurs (`operator: MVOLA/ORANGE_MONEY/AIRTEL_MONEY` dans le même
+`POST /v1/payments`), webhooks signés HMAC-SHA256
+(`X-FiveOne-Signature`, secret `whsec_...`) avec idempotence via
+`X-FiveOne-Event-Id`, commission 2,75 % (plancher 100 MGA, plafond
+16 500 MGA). Ajouté **en plus** de Papi, pas en remplacement — objectif
+: pouvoir choisir, opérateur par opérateur, lequel des deux traite le
+paiement.
+
+**Décision d'architecture** (suite à une demande explicite de clarté
+côté réglages Admin) : plutôt que de dupliquer les choix de paiement
+visibles par le client (ce qui donnerait 6 boutons Mobile Money au lieu
+de 3), chaque opérateur (`mvola`/`orange_money`/`airtel_money`) garde
+**une seule ligne** dans `payment_method_settings` (Phase 28), avec une
+nouvelle colonne `provider` (`'papi'` ou `'fiveonepay'`) qui dit lequel
+des deux traite ce paiement — une seule valeur possible à la fois,
+donc jamais d'ambiguïté sur qui confirme. Le client voit toujours
+"MVola / Orange Money / Airtel Money / Manuel" au checkout, inchangé ;
+seul l'écran Admin (Lot 4) affichera ce même réglage regroupé
+visuellement par plateforme (Papi.mg / FiveOne Pay / Manuel) pour que
+ce soit clair à activer/désactiver.
+
+**SQL** : `supabase/phase59_patch_fiveonepay_payment.sql` —
+- `payment_method_settings.provider` (backfill `'papi'` sur les 3
+  lignes opérateur existantes, pour ne rien changer au comportement
+  actuel tant que l'Admin ne bascule rien).
+- `orders.fiveonepay_reference` / `orders.fiveonepay_payment_url` —
+  équivalent de `papi_notification_token`/`papi_payment_link`, mais pas
+  besoin d'un token par commande : FiveOne Pay signe tout le corps du
+  webhook (HMAC), l'authenticité ne dépend pas d'une valeur stockée par
+  commande.
+- `fiveonepay_webhook_events (event_id primary key)` — déduplication
+  des webhooks (retry garanti par FiveOne Pay jusqu'à un 2xx), RLS
+  activée sans aucune policy (écrite uniquement par l'Edge Function via
+  la service role key).
+
+**Prochains lots** : Edge Function `create-fiveonepay-payment-link`
+(Lot 2), webhook `fiveonepay-payment-notification` (Lot 3), checkout +
+écran Admin regroupé par plateforme (Lot 4). Clés API FiveOne Pay
+(Sandbox `sk_test_...` puis Production `sk_live_...` + `whsec_...`)
+nécessaires à partir du Lot 3 pour tester réellement — compte Sandbox
+déjà créé par l'utilisateur.
