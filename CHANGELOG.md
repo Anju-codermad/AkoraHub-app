@@ -434,3 +434,6 @@
 
 ## 2026-08-02 06:36 UTC — Claude
 - Merge: Communauté Lot 4 - fil Tendances + filtre par pilier (`03e6749`)
+
+## 2026-08-02 06:46 UTC — Claude
+- Merge: Communauté Lot 5 - avis vérifiés + galerie Réalisations clients (`18c0013`)
