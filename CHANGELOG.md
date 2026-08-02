@@ -437,3 +437,6 @@
 
 ## 2026-08-02 06:46 UTC — Claude
 - Merge: Communauté Lot 5 - avis vérifiés + galerie Réalisations clients (`18c0013`)
+
+## 2026-08-02 06:54 UTC — Claude
+- Merge: Groupes communautaires AkoraFormation par catégorie (`90335eb`)
