@@ -4600,8 +4600,45 @@ tiers. Restreindre ça en RLS demanderait de réécrire cette policy pour
 chaque lecteur potentiel (coût jugé disproportionné pour ce Lot 1) ;
 seul le fil principal (l'essentiel du problème signalé) est protégé.
 
-**Reste à construire (Lots 2 à 5, voir la liste complète donnée à
-l'utilisatrice)** : bouton "Commander" direct sur post produit, badge
-"Officiel", publication épinglée, mentions @, hashtags/catégories,
+## Communauté façon Facebook — Lot 2 : différenciateurs commerce (02/08)
+
+Deuxième lot : **bouton "Commander" direct sur post taggé produit, badge
+"Officiel", publication épinglée** — les fonctionnalités qui exploitent
+le fait qu'AkoraHub est un réseau social ADOSSÉ à une vraie boutique,
+pas un clone Facebook générique.
+
+**SQL** : `supabase/phase52_patch_official_badge_pinned_posts.sql` —
+- `public_profiles` (vue, Phase 9/47) gagne `is_staff` (booléen calculé
+  `role in ('admin','commercial','production','comptable')` — jamais le
+  rôle précis, pas pertinent côté client).
+- `posts.is_pinned` + trigger `protect_posts_pin_column` (BEFORE INSERT
+  OR UPDATE) : annule silencieusement toute tentative de mise à `true`
+  venant d'un compte non-staff. Nécessaire car `posts_update_own`
+  (Phase 3) autorise déjà un client à modifier SA PROPRE ligne — une
+  policy RLS ne peut pas distinguer "quelle colonne a changé", donc la
+  protection passe par un trigger plutôt qu'une policy cette fois.
+
+**Commander direct** : sur le tag produit d'une publication, le bouton
+"Commander" ajoute directement le produit au panier (quantité 1) SAUF
+si ce produit a des variantes (format/parfum, `product_variants`) — dans
+ce cas impossible de deviner laquelle commander, on ouvre alors sa fiche
+comme avant pour que le client choisisse. `WallTab` converti en
+`ConsumerStatefulWidget` (était `StatefulWidget`) pour accéder à
+`cartProvider` (déjà utilisé par `product_detail_client.dart`).
+
+**Officiel** : icône ✓ à côté du nom d'auteur (fil ET profil public) si
+`is_staff`.
+
+**Épinglé** : option "Épingler/Désépingler" dans le menu ⋮, visible
+seulement si le compte connecté est staff (vérifié une fois au chargement
+via `profiles.role`, simple affichage — la vraie protection est le
+trigger SQL ci-dessus). Le fil trie désormais `is_pinned` avant
+`created_at` (côté serveur, `_fetchPostsPage`), donc une publication
+épinglée reste en tête même en pleine pagination.
+
+**Modifications Dart :** `wall_tab.dart` (bouton Commander, badge,
+épinglage, tri), `public_profile_screen.dart` (badge Officiel).
+
+**Reste à construire (Lots 3 à 5)** : mentions @, hashtags/catégories,
 carrousel multi-images, fil "Tendances", avis vérifiés liés à un achat
 réel, galerie "Réalisations clients".

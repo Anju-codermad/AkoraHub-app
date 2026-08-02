@@ -346,11 +346,23 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                       ),
                       SizedBox(height: 1.5.h),
                       Center(
-                        child: Text(
-                          PublicProfilesRepo.displayName(_profile),
-                          style: theme.textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                          textAlign: TextAlign.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                PublicProfilesRepo.displayName(_profile),
+                                style: theme.textTheme.titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            if (_profile?['is_staff'] == true) ...[
+                              const SizedBox(width: 6),
+                              Icon(Icons.verified,
+                                  size: 18, color: theme.colorScheme.primary),
+                            ],
+                          ],
                         ),
                       ),
                       if (_sectorLabels[_profile?['client_type']] != null)

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/community/community_moderation_repo.dart';
 import '../../../core/community/friends_repo.dart';
+import '../../../core/providers/cart_provider.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/whatsapp_link.dart';
 import '../product_detail_client.dart';
@@ -37,16 +39,16 @@ const Map<String, String> kPostReactionEmojis = {
 /// Particuliers) et par "Mes publications". Accessible depuis le Profil
 /// (aucun onglet de navigation dédié — décision utilisateur du 23/07, voir
 /// PROJECT_CONTEXT.md section 3bis).
-class WallTab extends StatefulWidget {
+class WallTab extends ConsumerStatefulWidget {
   final bool initialOnlyMine;
 
   const WallTab({super.key, this.initialOnlyMine = false});
 
   @override
-  State<WallTab> createState() => _WallTabState();
+  ConsumerState<WallTab> createState() => _WallTabState();
 }
 
-class _WallTabState extends State<WallTab> {
+class _WallTabState extends ConsumerState<WallTab> {
   List<Map<String, dynamic>> _posts = [];
   bool _isLoading = true;
   String? _error;
@@ -86,6 +88,7 @@ class _WallTabState extends State<WallTab> {
       : null;
 
   int _pendingFriendRequests = 0;
+  bool _isStaff = false;
 
   @override
   void initState() {
@@ -93,6 +96,7 @@ class _WallTabState extends State<WallTab> {
     _onlyMine = widget.initialOnlyMine;
     _loadPosts();
     _loadPendingFriendRequests();
+    _loadMyRole();
     _scrollController.addListener(_onScroll);
   }
 
@@ -100,6 +104,30 @@ class _WallTabState extends State<WallTab> {
     final received = await FriendsRepo.fetchPendingReceived();
     if (!mounted) return;
     setState(() => _pendingFriendRequests = received.length);
+  }
+
+  /// "Officiel" et "Épingler" (Lot 2 Communauté, 02/08) — la vraie
+  /// protection est côté serveur (voir
+  /// supabase/phase52_patch_official_badge_pinned_posts.sql), ceci ne
+  /// sert qu'à savoir si le menu "Épingler" doit apparaître pour
+  /// l'utilisateur connecté.
+  Future<void> _loadMyRole() async {
+    final uid = _myId;
+    if (uid == null || !SupabaseConfig.isConfigured) return;
+    try {
+      final row = await SupabaseConfig.client
+          .from('profiles')
+          .select('role')
+          .eq('id', uid)
+          .single();
+      if (!mounted) return;
+      setState(() => _isStaff = const [
+            'admin',
+            'commercial',
+            'production',
+            'comptable'
+          ].contains(row['role']));
+    } catch (_) {}
   }
 
   Future<void> _openFriendsList() async {
@@ -187,6 +215,7 @@ class _WallTabState extends State<WallTab> {
       query = query.inFilter('author_id', sectorIds);
     }
     final data = await query
+        .order('is_pinned', ascending: false)
         .order('created_at', ascending: false)
         .range(page * _pageSize, page * _pageSize + _pageSize - 1);
     return List<Map<String, dynamic>>.from(data);
@@ -266,7 +295,7 @@ class _WallTabState extends State<WallTab> {
         try {
           final products = await SupabaseConfig.client
               .from('products')
-              .select('id, name, price_detail, image_url')
+              .select('id, name, price_detail, price_gros, gros_threshold_qty, image_url')
               .inFilter('id', mentionedIds.toList());
           return {
             for (final row in List<Map<String, dynamic>>.from(products))
@@ -380,7 +409,7 @@ class _WallTabState extends State<WallTab> {
         try {
           final products = await SupabaseConfig.client
               .from('products')
-              .select('id, name, price_detail, image_url')
+              .select('id, name, price_detail, price_gros, gros_threshold_qty, image_url')
               .inFilter('id', mentionedIds.toList());
           return {
             for (final row in List<Map<String, dynamic>>.from(products))
@@ -787,6 +816,75 @@ class _WallTabState extends State<WallTab> {
     }
   }
 
+  /// Commander directement le produit taggé sans passer par sa fiche
+  /// (Lot 2 Communauté, 02/08). Si le produit a des variantes
+  /// (format/parfum, `product_variants`), impossible de deviner laquelle
+  /// commander : on ouvre la fiche pour que le client choisisse — sinon
+  /// ajout direct au panier, quantité 1.
+  Future<void> _quickOrder(Map<String, dynamic> product) async {
+    try {
+      final variants = await SupabaseConfig.client
+          .from('product_variants')
+          .select('id')
+          .eq('product_id', product['id'])
+          .limit(1);
+      if (!mounted) return;
+      if (List.from(variants).isNotEmpty) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => ProductDetailClient(product: product)),
+        );
+        return;
+      }
+      ref.read(cartProvider.notifier).addItem(CartItem(
+            productId: product['id'],
+            name: product['name'] ?? '',
+            priceDetail: (product['price_detail'] as num?)?.toDouble() ?? 0,
+            priceGros: (product['price_gros'] as num?)?.toDouble() ?? 0,
+            grosThresholdQty: (product['gros_threshold_qty'] as int?) ?? 10,
+            imageUrl: product['image_url'] as String?,
+          ));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${product['name']} ajouté au panier'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible d\'ajouter au panier pour le moment.')));
+    }
+  }
+
+  /// Épingler/désépingler une publication (staff uniquement — voir le
+  /// trigger `protect_posts_pin_column` qui annule silencieusement toute
+  /// tentative venant d'un compte non-staff, même si ce menu ne devrait
+  /// jamais leur être proposé).
+  Future<void> _togglePin(Map<String, dynamic> post) async {
+    final newValue = !(post['is_pinned'] == true);
+    try {
+      await SupabaseConfig.client
+          .from('posts')
+          .update({'is_pinned': newValue}).eq('id', post['id']);
+      if (!mounted) return;
+      setState(() {
+        final index = _posts.indexWhere((p) => p['id'] == post['id']);
+        if (index != -1) _posts[index]['is_pinned'] = newValue;
+        _posts.sort((a, b) {
+          final pa = a['is_pinned'] == true ? 1 : 0;
+          final pb = b['is_pinned'] == true ? 1 : 0;
+          if (pa != pb) return pb - pa;
+          return (b['created_at'] as String)
+              .compareTo(a['created_at'] as String);
+        });
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible de modifier l\'épinglage.')));
+    }
+  }
+
   /// Contacter l'auteur via WhatsApp (01/08, demande explicite) —
   /// n'apparaît que si l'auteur a lui-même activé "Afficher mon numéro"
   /// dans ses réglages de confidentialité (voir
@@ -971,6 +1069,27 @@ class _WallTabState extends State<WallTab> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if (post['is_pinned'] == true) ...[
+                                        Row(
+                                          children: [
+                                            Icon(Icons.push_pin,
+                                                size: 14,
+                                                color: theme
+                                                    .colorScheme.primary),
+                                            const SizedBox(width: 4),
+                                            Text('Épinglé',
+                                                style: theme
+                                                    .textTheme.labelSmall
+                                                    ?.copyWith(
+                                                        color: theme
+                                                            .colorScheme
+                                                            .primary,
+                                                        fontWeight:
+                                                            FontWeight.w600)),
+                                          ],
+                                        ),
+                                        SizedBox(height: 0.5.h),
+                                      ],
                                       Row(
                                         children: [
                                           Expanded(
@@ -1013,14 +1132,36 @@ class _WallTabState extends State<WallTab> {
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                        Text(authorName,
-                                                            style: theme
-                                                                .textTheme
-                                                                .bodyMedium
-                                                                ?.copyWith(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600)),
+                                                        Row(
+                                                          children: [
+                                                            Flexible(
+                                                              child: Text(
+                                                                  authorName,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: theme
+                                                                      .textTheme
+                                                                      .bodyMedium
+                                                                      ?.copyWith(
+                                                                          fontWeight:
+                                                                              FontWeight.w600)),
+                                                            ),
+                                                            if (author?[
+                                                                    'is_staff'] ==
+                                                                true) ...[
+                                                              const SizedBox(
+                                                                  width: 4),
+                                                              Icon(
+                                                                  Icons
+                                                                      .verified,
+                                                                  size: 14,
+                                                                  color: theme
+                                                                      .colorScheme
+                                                                      .primary),
+                                                            ],
+                                                          ],
+                                                        ),
                                                         if (sector != null ||
                                                             post['updated_at'] !=
                                                                 null)
@@ -1055,6 +1196,8 @@ class _WallTabState extends State<WallTab> {
                                                   _deletePost(post);
                                                 } else if (value == 'save') {
                                                   _toggleSave(post);
+                                                } else if (value == 'pin') {
+                                                  _togglePin(post);
                                                 }
                                               },
                                               itemBuilder: (context) => [
@@ -1065,6 +1208,15 @@ class _WallTabState extends State<WallTab> {
                                                       ? 'Retirer des enregistrés'
                                                       : 'Enregistrer'),
                                                 ),
+                                                if (_isStaff)
+                                                  PopupMenuItem(
+                                                    value: 'pin',
+                                                    child: Text(post[
+                                                                'is_pinned'] ==
+                                                            true
+                                                        ? 'Désépingler'
+                                                        : 'Épingler'),
+                                                  ),
                                                 const PopupMenuItem(
                                                   value: 'edit',
                                                   child: Text('Modifier'),
@@ -1091,6 +1243,8 @@ class _WallTabState extends State<WallTab> {
                                                   _hidePost(post);
                                                 } else if (value == 'block') {
                                                   _blockAuthor(post);
+                                                } else if (value == 'pin') {
+                                                  _togglePin(post);
                                                 }
                                               },
                                               itemBuilder: (context) => [
@@ -1101,6 +1255,15 @@ class _WallTabState extends State<WallTab> {
                                                       ? 'Retirer des enregistrés'
                                                       : 'Enregistrer'),
                                                 ),
+                                                if (_isStaff)
+                                                  PopupMenuItem(
+                                                    value: 'pin',
+                                                    child: Text(post[
+                                                                'is_pinned'] ==
+                                                            true
+                                                        ? 'Désépingler'
+                                                        : 'Épingler'),
+                                                  ),
                                                 const PopupMenuItem(
                                                   value: 'hide',
                                                   child: Text('Masquer'),
@@ -1220,9 +1383,22 @@ class _WallTabState extends State<WallTab> {
                                                         TextOverflow.ellipsis,
                                                   ),
                                                 ),
-                                                const Icon(
-                                                    Icons.chevron_right,
-                                                    size: 18),
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      _quickOrder(
+                                                          mentionedProduct),
+                                                  style: TextButton.styleFrom(
+                                                    padding: EdgeInsets
+                                                        .symmetric(
+                                                            horizontal: 2.w),
+                                                    minimumSize: Size.zero,
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                  ),
+                                                  child:
+                                                      const Text('Commander'),
+                                                ),
                                               ],
                                             ),
                                           ),
