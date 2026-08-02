@@ -5,6 +5,7 @@ import '../../../core/supabase/supabase_config.dart';
 import 'akora_formation_screen.dart';
 import 'formation_catalog_screen.dart';
 import 'my_formation_access_screen.dart';
+import 'my_formation_groups_screen.dart';
 
 /// Point d'accès unique "Académie" (onglet dédié de la barre de
 /// navigation) — regroupe en une seule liste les catégories de cours
@@ -73,6 +74,15 @@ class _FormationHubScreenState extends State<FormationHubScreen> {
       appBar: AppBar(
         title: const Text('Académie'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.groups_outlined),
+            tooltip: 'Mes groupes',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const MyFormationGroupsScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined),
             tooltip: 'Mes accès',

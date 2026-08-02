@@ -18,6 +18,7 @@ import '../raw_materials_management/raw_materials_management.dart';
 import '../formation_purchases_management/formation_purchases_management.dart';
 import '../formation_courses_management/formation_courses_management.dart';
 import '../course_purchases_management/course_purchases_management.dart';
+import '../formation_groups_management/formation_groups_management.dart';
 import '../client_home/settings/settings_screen.dart';
 import '../post_reports_management/post_reports_management.dart';
 
@@ -137,6 +138,16 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const FormationCoursesManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.groups_outlined,
+            label: 'Groupes Formation',
+            subtitle: 'Fils par catégorie, modération (accès staff)',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const FormationGroupsManagement()),
             ),
           ),
           const Divider(height: 24),

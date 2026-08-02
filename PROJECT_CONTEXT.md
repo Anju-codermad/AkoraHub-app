@@ -4767,5 +4767,56 @@ badge avis), `wall_tab.dart` (badge posts + icône galerie),
 **Les 5 lots de la liste "Communauté meilleure que Facebook" du 02/08
 sont maintenant tous construits.** Reste hors-liste initiale : groupes
 communautaires par catégorie de Formation (chantier séparé, socle achat
-de cours déjà posé — voir plus haut), formulaire "Sécurité des données"
-du Play Store (mis de côté par l'utilisatrice).
+de cours déjà posé — voir plus haut, maintenant construit ci-dessous),
+formulaire "Sécurité des données" du Play Store (mis de côté par
+l'utilisatrice).
+
+## Groupes communautaires AkoraFormation, par catégorie (02/08)
+
+Chantier annoncé depuis le 01/08 ("Le groupe sont spécialement pour tout
+le participant des nôtres formation. Seulement pour les participants.")
+— mis en pause le temps de construire l'achat de cours (choix de
+l'utilisatrice via AskUserQuestion : "D'abord construire l'achat de
+cours"), maintenant construit sur ce socle (`course_purchases`, Phase
+50).
+
+**Choix retenus (via AskUserQuestion)** :
+- Un **fil filtré par catégorie** plutôt qu'un vrai système de groupes
+  avec membres/invitations — plus léger, la catégorie fait déjà office
+  de groupe.
+- Version **"fil simple"** pour cette première itération : publications
+  texte/photo, PAS de commentaires ni réactions (extensible plus tard si
+  demandé).
+
+**SQL** : `supabase/phase56_patch_formation_groups.sql` —
+- `is_formation_group_participant(uid, cat)` : le client a-t-il un achat
+  de cours VALIDÉ (`course_purchases.status = 'validee'`) dans cette
+  catégorie précise. C'est la définition exacte de "participant".
+- `formation_group_posts` (category, author_id, content, image_url,
+  updated_at) : un fil par catégorie. **La protection ("seulement pour
+  les participants") est dans la RLS** : select/insert exigent
+  `is_formation_group_participant` OU le staff — un client qui n'a rien
+  acheté dans cette catégorie reçoit simplement une liste vide depuis
+  l'API, jamais les publications. Réutilise le bucket `wall-photos`
+  (public, Phase 3) pour les photos, aucun nouveau bucket.
+
+**Nouveaux fichiers Dart :**
+- `core/formation/formation_groups_repo.dart` : catégories participées,
+  toutes les catégories (pour le staff), CRUD des publications.
+- `client_home/formation/formation_group_screen.dart` : le fil d'une
+  catégorie (liste + composer texte/photo, modifier/supprimer ses
+  propres publications) — mêmes patterns que `wall_tab.dart` en plus
+  simple (pas de réactions/commentaires, choix assumé).
+- `client_home/formation/my_formation_groups_screen.dart` : "Mes
+  groupes", liste des catégories où le client est participant validé —
+  accessible via une icône dans l'AppBar d'Académie. Liste vide avec
+  message explicite si aucun achat validé.
+- `formation_groups_management/formation_groups_management.dart` :
+  écran Admin listant TOUTES les catégories (le staff contourne la
+  vérification participant via la RLS mais doit pouvoir choisir laquelle
+  ouvrir) — ajouté au menu Plus, pour la modération.
+
+⚠️ **Limite assumée pour cette version** : pas de commentaires, réactions
+ni signalement sur les publications de groupe — uniquement publier/
+modifier/supprimer. Peut être étendu plus tard sur le même modèle que la
+Communauté si demandé.
