@@ -940,9 +940,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => MyContactQrScreen(
-                      fullName: fullName,
-                      companyName: companyName,
-                      phone: profile['phone'] as String?,
+                      fullName: _profile?['full_name'] as String?,
+                      companyName: _profile?['company_name'] as String?,
+                      phone: _profile?['phone'] as String?,
                     ),
                   ),
                 ),
