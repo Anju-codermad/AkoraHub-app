@@ -5147,3 +5147,58 @@ Différences avec `papi-payment-notification` (Phase 38) :
 
 Secret nécessaire : `FIVEONEPAY_WEBHOOK_SECRET` (`whsec_...`, tableau
 de bord FiveOne Pay -> Webhooks ou Paramètres).
+
+⚠️ **Réglage Supabase à faire manuellement au déploiement** : la
+fonction `fiveonepay-payment-notification` doit avoir **"Verify JWT
+with legacy secret" désactivé** (Function -> Settings) — c'est un
+endpoint public appelé directement par les serveurs de FiveOne Pay, qui
+n'envoient pas de jeton Supabase ; laissé activé, la plateforme
+rejetterait tous les webhooks avant même d'atteindre le code.
+`create-fiveonepay-payment-link` garde ce réglage activé (elle est
+appelée par l'app avec la session du client).
+
+## Intégration FiveOne Pay, Lot 4/4 : checkout + écran Admin regroupé par plateforme (02/08)
+
+**Checkout** (`payment_screen.dart`) : nouveau
+`core/payment/fiveonepay_payment_repo.dart` (même forme que
+`PapiPaymentRepo`, réponse `paymentLink` identique pour que l'UI traite
+les deux fournisseurs sans distinction). `PaymentMethodSettingsRepo`
+gagne `fetchProviders()`/`setProvider()`. Renommé `usesPapi` ->
+`usesOnlinePayment` et `papiFailed` -> `onlinePaymentFailed` (plus
+Papi-spécifique) ; au moment de créer le paiement en ligne, lit
+`_providers[_paymentMethod]` pour appeler `FiveOnePayPaymentRepo` ou
+`PapiPaymentRepo` selon le réglage Admin. Le client ne voit toujours
+que "paiement automatique en ligne" — aucune mention du fournisseur.
+
+**Admin** (`payment_methods_management.dart`) : entièrement
+restructuré en 3 sections visuellement séparées, demande explicite de
+l'utilisateur pour la clarté :
+- **Papi.mg** — un interrupteur par opérateur (MVola/Orange
+  Money/Airtel Money).
+- **FiveOne Pay** — même 3 opérateurs, mais Orange Money et Airtel
+  Money grisés/désactivés (`disabled: true`) tant que FiveOne Pay ne
+  les propose pas réellement (évite un routage vers un opérateur qu'il
+  ne sait pas encore traiter).
+- **Manuel** — paiement à la livraison, virement bancaire, + le
+  réglage "Secours manuel Mobile Money" existant (Phase 38) qui force
+  tout le monde en manuel si un fournisseur tombe en panne.
+
+Chaque opérateur reste **une seule ligne** en base
+(`payment_method_settings.provider`) — activer son interrupteur sous
+une plateforme fait `enabled = true` + `provider = <plateforme>` ;
+le désactiver fait `enabled = false` (jamais de bascule automatique
+vers l'autre fournisseur, pour éviter un changement de routage
+surprise — l'Admin doit explicitement activer l'autre plateforme s'il
+veut basculer).
+
+**Nouveau fichier Dart :** `core/payment/fiveonepay_payment_repo.dart`.
+**Modifications Dart :** `payment_screen.dart`,
+`payment_method_settings_repo.dart`, `payment_methods_management.dart`
+(réécrit).
+
+---
+
+**Les 4 lots de l'intégration FiveOne Pay du 02/08 sont maintenant
+tous construits.** Reste à faire un vrai test de paiement Sandbox de
+bout en bout une fois les 2 fonctions déployées et les 2 secrets
+configurés côté Supabase.

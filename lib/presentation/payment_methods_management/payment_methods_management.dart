@@ -9,6 +9,16 @@ import '../../core/payment/payment_methods.dart';
 /// Money, Mvola, Airtel Money) — utile par exemple si un numéro Mobile
 /// Money personnel devient temporairement indisponible, ou pour retirer
 /// les modes manuels une fois un vrai paiement en ligne en place.
+///
+/// Depuis le 02/08 (intégration FiveOne Pay, Lot 4) : les 3 opérateurs
+/// Mobile Money sont regroupés visuellement par PLATEFORME qui les
+/// traite (Papi.mg / FiveOne Pay / Manuel), demande explicite de
+/// l'utilisateur pour que ce soit clair. Chaque opérateur reste une
+/// seule ligne en base (`payment_method_settings.provider`) — activer
+/// son interrupteur sous une plateforme met `enabled = true` et
+/// `provider` sur cette plateforme ; le désactiver le désactive
+/// entièrement (pas de bascule automatique vers l'autre fournisseur,
+/// pour éviter un changement de routage surprise).
 class PaymentMethodsManagement extends StatefulWidget {
   const PaymentMethodsManagement({super.key});
 
@@ -17,8 +27,17 @@ class PaymentMethodsManagement extends StatefulWidget {
       _PaymentMethodsManagementState();
 }
 
+// Les 3 opérateurs Mobile Money, dans cet ordre, réutilisé pour les
+// sections Papi.mg et FiveOne Pay.
+const _onlineCapableMethods = [
+  PaymentMethod.mvola,
+  PaymentMethod.orangeMoney,
+  PaymentMethod.airtelMoney,
+];
+
 class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
   Set<PaymentMethod> _enabled = PaymentMethod.values.toSet();
+  Map<PaymentMethod, String> _providers = {};
   bool _isLoading = true;
   final Set<PaymentMethod> _pending = {};
 
@@ -35,10 +54,12 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
     final enabled = await PaymentMethodSettingsRepo.fetchEnabled();
     final manualFallback =
         await PaymentMethodSettingsRepo.isManualFallbackEnabled();
+    final providers = await PaymentMethodSettingsRepo.fetchProviders();
     if (!mounted) return;
     setState(() {
       _enabled = enabled;
       _manualFallback = manualFallback;
+      _providers = providers;
       _isLoading = false;
     });
   }
@@ -100,6 +121,85 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
     }
   }
 
+  /// Active un opérateur Mobile Money sous une plateforme donnée
+  /// (`enabled = true` + `provider` sur cette plateforme), ou le
+  /// désactive entièrement — jamais de bascule silencieuse vers l'autre
+  /// fournisseur.
+  Future<void> _toggleUnderProvider(
+      PaymentMethod method, String provider, bool value) async {
+    if (!value && _enabled.length == 1 && _enabled.contains(method)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Au moins un mode de paiement doit rester actif.')),
+      );
+      return;
+    }
+
+    final previousEnabled = _enabled.contains(method);
+    final previousProvider = _providers[method];
+    setState(() {
+      _pending.add(method);
+      if (value) {
+        _enabled.add(method);
+        _providers[method] = provider;
+      } else {
+        _enabled.remove(method);
+      }
+    });
+    try {
+      if (value) {
+        await PaymentMethodSettingsRepo.setProvider(method, provider);
+      }
+      await PaymentMethodSettingsRepo.setEnabled(method, value);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (previousEnabled) {
+          _enabled.add(method);
+        } else {
+          _enabled.remove(method);
+        }
+        if (previousProvider != null) _providers[method] = previousProvider;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Impossible de modifier ce mode de paiement.')),
+      );
+    } finally {
+      if (mounted) setState(() => _pending.remove(method));
+    }
+  }
+
+  Widget _providerSwitch(PaymentMethod method, String provider,
+      {bool disabled = false}) {
+    final isOn = _enabled.contains(method) && _providers[method] == provider;
+    return _pending.contains(method)
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Switch(
+            value: isOn,
+            onChanged: disabled
+                ? null
+                : (v) => _toggleUnderProvider(method, provider, v),
+          );
+  }
+
+  Widget _providerTile(PaymentMethod method, String provider,
+      {bool disabled = false, String? subtitleOverride}) {
+    return ListTile(
+      leading: method.logoAsset != null
+          ? CircleAvatar(backgroundImage: AssetImage(method.logoAsset!))
+          : Icon(method.icon),
+      title: Text(method.label),
+      subtitle: subtitleOverride != null ? Text(subtitleOverride) : null,
+      trailing: _providerSwitch(method, provider, disabled: disabled),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -110,63 +210,124 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
           : ListView(
               padding: EdgeInsets.all(4.w),
               children: [
-                for (final method in PaymentMethod.values) ...[
-                  Card(
-                    child: ListTile(
-                      leading: method.logoAsset != null
-                          ? CircleAvatar(
-                              backgroundImage: AssetImage(method.logoAsset!))
-                          : Icon(method.icon),
-                      title: Text(method.label),
-                      subtitle: Text(
-                        method.instructions?.split('\n').first ??
-                            'Confirmé par le staff à la livraison',
-                      ),
-                      trailing: _pending.contains(method)
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Switch(
-                              value: _enabled.contains(method),
-                              onChanged: (v) => _toggle(method, v),
-                            ),
-                    ),
-                  ),
-                  SizedBox(height: 1.h),
-                ],
-                SizedBox(height: 2.h),
+                Text('Papi.mg', style: theme.textTheme.titleMedium),
+                SizedBox(height: 0.5.h),
                 Text(
-                  'Mvola, Orange Money et Airtel Money passent normalement '
-                  'par Papi (paiement en ligne confirmé automatiquement). '
-                  'Ce réglage permet de revenir au flux manuel (référence + '
-                  'photo, vérifiée par le staff) en cas de problème avec '
-                  'Papi.',
+                  'Paiement en ligne confirmé automatiquement.',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
                 SizedBox(height: 1.h),
                 Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.build_outlined),
-                    title: const Text('Mode manuel (secours)'),
-                    subtitle: Text(
-                      _manualFallback
-                          ? 'Activé — Papi désactivé pour tous, vérification manuelle imposée (ex: Papi en panne)'
-                          : 'Désactivé — le client choisit entre paiement automatique (Papi) et manuel',
-                    ),
-                    trailing: _manualFallbackPending
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Switch(
-                            value: _manualFallback,
-                            onChanged: _toggleManualFallback,
+                  child: Column(
+                    children: [
+                      for (final m in _onlineCapableMethods) ...[
+                        _providerTile(m, 'papi'),
+                        if (m != _onlineCapableMethods.last)
+                          const Divider(height: 1),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text('FiveOne Pay', style: theme.textTheme.titleMedium),
+                SizedBox(height: 0.5.h),
+                Text(
+                  'Second fournisseur de paiement en ligne Mobile Money — '
+                  'MVola disponible, Orange Money et Airtel Money arrivent '
+                  'bientôt chez FiveOne Pay.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                SizedBox(height: 1.h),
+                Card(
+                  child: Column(
+                    children: [
+                      _providerTile(PaymentMethod.mvola, 'fiveonepay'),
+                      const Divider(height: 1),
+                      _providerTile(
+                        PaymentMethod.orangeMoney,
+                        'fiveonepay',
+                        disabled: true,
+                        subtitleOverride: 'Bientôt disponible chez FiveOne Pay',
+                      ),
+                      const Divider(height: 1),
+                      _providerTile(
+                        PaymentMethod.airtelMoney,
+                        'fiveonepay',
+                        disabled: true,
+                        subtitleOverride: 'Bientôt disponible chez FiveOne Pay',
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text('Manuel', style: theme.textTheme.titleMedium),
+                SizedBox(height: 0.5.h),
+                Text(
+                  'Le client transfère lui-même puis le staff vérifie la '
+                  'réception (référence + preuve facultative).',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                SizedBox(height: 1.h),
+                Card(
+                  child: Column(
+                    children: [
+                      for (final m in [
+                        PaymentMethod.paiementLivraison,
+                        PaymentMethod.virementBancaire,
+                      ]) ...[
+                        ListTile(
+                          leading: m.logoAsset != null
+                              ? CircleAvatar(
+                                  backgroundImage: AssetImage(m.logoAsset!))
+                              : Icon(m.icon),
+                          title: Text(m.label),
+                          subtitle: Text(
+                            m.instructions?.split('\n').first ??
+                                'Confirmé par le staff à la livraison',
                           ),
+                          trailing: _pending.contains(m)
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : Switch(
+                                  value: _enabled.contains(m),
+                                  onChanged: (v) => _toggle(m, v),
+                                ),
+                        ),
+                        if (m != PaymentMethod.virementBancaire)
+                          const Divider(height: 1),
+                      ],
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.build_outlined),
+                        title: const Text('Secours manuel Mobile Money'),
+                        subtitle: Text(
+                          _manualFallback
+                              ? 'Activé — Papi et FiveOne Pay désactivés pour '
+                                  'tous, vérification manuelle imposée (ex: '
+                                  'panne fournisseur)'
+                              : 'Désactivé — le client choisit entre paiement '
+                                  'automatique et manuel',
+                        ),
+                        trailing: _manualFallbackPending
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Switch(
+                                value: _manualFallback,
+                                onChanged: _toggleManualFallback,
+                              ),
+                      ),
+                    ],
                   ),
                 ),
               ],

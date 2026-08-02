@@ -38,6 +38,44 @@ class PaymentMethodSettingsRepo {
     });
   }
 
+  /// Quel fournisseur traite un moyen de paiement Mobile Money
+  /// (`'papi'` ou `'fiveonepay'`, voir
+  /// supabase/phase59_patch_fiveonepay_payment.sql) — `null` pour les
+  /// méthodes toujours manuelles (`isPapiCapable == false`). Défaut
+  /// `'papi'` si le réglage n'existe pas encore (tolérant, comme
+  /// `fetchEnabled`) pour ne rien casser tant que la migration n'a pas
+  /// tourné.
+  static Future<Map<PaymentMethod, String>> fetchProviders() async {
+    final onlineCapable =
+        PaymentMethod.values.where((m) => m.isPapiCapable).toList();
+    if (!SupabaseConfig.isConfigured) {
+      return {for (final m in onlineCapable) m: 'papi'};
+    }
+    try {
+      final rows = await SupabaseConfig.client
+          .from('payment_method_settings')
+          .select('method_id, provider')
+          .inFilter('method_id', onlineCapable.map((m) => m.id).toList());
+      final byId = {
+        for (final row in rows)
+          row['method_id'] as String: row['provider'] as String?,
+      };
+      return {
+        for (final m in onlineCapable) m: byId[m.id] ?? 'papi',
+      };
+    } catch (_) {
+      return {for (final m in onlineCapable) m: 'papi'};
+    }
+  }
+
+  static Future<void> setProvider(PaymentMethod method, String provider) async {
+    await SupabaseConfig.client.from('payment_method_settings').upsert({
+      'method_id': method.id,
+      'provider': provider,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
   /// Réglage spécial (pas un `PaymentMethod`, voir
   /// supabase/phase38_patch_papi_payment.sql) : quand activé, Mvola/
   /// Orange Money/Airtel Money reviennent au flux manuel historique
