@@ -5117,3 +5117,33 @@ l'appelant, appelle `POST /v1/payments` (FiveOne Pay), stocke
 Secret nécessaire (Supabase Dashboard -> Edge Functions -> Manage
 secrets) : `FIVEONEPAY_SECRET_KEY` (Sandbox `sk_test_...`, puis
 Production `sk_live_...` une fois le dossier KYC validé).
+
+## Intégration FiveOne Pay, Lot 3/4 : webhook signé (02/08)
+
+`supabase/functions/fiveonepay-payment-notification/index.ts` — reçoit
+`payment.success`/`payment.expired` (les seuls événements pertinents
+pour AkoraHub ; `payout.*`/`invoice.*`/`subscription.*` accusés de
+réception sans traitement, pas utilisés par l'app aujourd'hui).
+
+Différences avec `papi-payment-notification` (Phase 38) :
+- **Signature HMAC-SHA256 sur tout le corps brut** (`X-FiveOne-
+  Signature`, secret `whsec_...`, comparaison en temps constant) au
+  lieu d'un token stocké par commande — Papi n'offrait pas de signature
+  vérifiable, d'où le contournement par token à l'époque. Le corps est
+  lu en texte brut (`req.text()`) avant tout `JSON.parse`, sinon un
+  ré-encodage changerait les octets signés et invaliderait la
+  vérification.
+- **Déduplication via `fiveonepay_webhook_events`** (Phase 59) : un
+  même événement peut arriver plusieurs fois (retry garanti par
+  FiveOne Pay jusqu'à un 2xx) — insertion de l'`event_id`, traitement
+  ignoré si déjà vu (conflit de clé primaire).
+- Même repli sécurité que Papi sur signature invalide : jamais d'erreur
+  HTTP renvoyée (`200 "ignored"` + log serveur), pour ne pas déclencher
+  de retry infini sur une requête forgée.
+- `payment.success` fait toujours foi même après un `payment.expired`
+  déjà reçu pour la même commande (paiement Mobile Money tardif,
+  documenté par FiveOne Pay) — le statut est simplement réécrasé, pas
+  de verrou empêchant `paye` après `echoue`.
+
+Secret nécessaire : `FIVEONEPAY_WEBHOOK_SECRET` (`whsec_...`, tableau
+de bord FiveOne Pay -> Webhooks ou Paramètres).
