@@ -449,3 +449,6 @@
 
 ## 2026-08-02 07:46 UTC — Claude
 - Merge: Profil client Lot 3 - profil public, réalisations, avis, engagement, groupes (`5f59166`)
+
+## 2026-08-02 08:49 UTC — Claude
+- Merge: Profil client Lot 4 - fidélité, adresses, QR, couleur d'accent (`c574b8c`)
