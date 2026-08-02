@@ -443,3 +443,6 @@
 
 ## 2026-08-02 07:18 UTC — Claude
 - Merge: Profil client Lot 1 - nettoyage structurel (`cac5a13`)
+
+## 2026-08-02 07:24 UTC — Claude
+- Merge: Profil client Lot 2 - stats, fidélité, badge secteur, complétion (`623939c`)
