@@ -5371,3 +5371,30 @@ réutilisée : `produit` (pas de catégorie "marketing" dédiée).
   l'AppBar : ouvre un dialogue titre + message, envoie à la liste
   actuellement filtrée (`_filtered`, donc combine type + segment) via
   `send-targeted-notification`.
+
+## CRM — Lot 5/5 : tableau de bord analytique (02/08, dernier lot)
+
+Dernier lot du chantier CRM (5/5) — entièrement dérivé de la vue
+`customer_segments` (Phase 63, Lot 4) : **aucune nouvelle table/vue
+SQL**, uniquement un nouvel écran Dart.
+
+**Nouveau fichier** : `lib/presentation/customer_analytics/customer_analytics_dashboard.dart` :
+- 3 cartes stats : clients actifs (commande passée, pas "inactif")
+  sur total clients, taux de rétention, nombre de clients à risque.
+- **Taux de rétention** = part des clients ayant commandé au moins
+  deux fois parmi ceux ayant commandé au moins une fois — définition
+  simple choisie faute de règle métier communiquée (pas de fenêtre
+  mensuelle/cohortes, juste "recommande-t-il ou pas").
+- **Top clients par valeur totale** : `customer_segments` trié par
+  `lifetime_value` décroissant, top 10, nom résolu depuis `profiles`,
+  tap -> `Customer360Screen`.
+- **Clients à relancer en priorité** : clients "inactifs" (même seuil
+  90 jours que le Lot 4) triés par valeur décroissante — priorise les
+  plus gros comptes silencieux plutôt que l'ordre chronologique.
+
+**Point d'entrée** : `more_menu_screen.dart` — nouvelle entrée
+"Tableau de bord CRM" dans la section Gestion, juste après
+"Messagerie".
+
+Avec ce lot, le chantier CRM en 5 lots (Fiche 360°, Suivi commercial,
+Fidélité & support, Segmentation & marketing, Analytique) est complet.

@@ -20,6 +20,7 @@ import '../formation_courses_management/formation_courses_management.dart';
 import '../formation_groups_management/formation_groups_management.dart';
 import '../client_home/settings/settings_screen.dart';
 import '../post_reports_management/post_reports_management.dart';
+import '../customer_analytics/customer_analytics_dashboard.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
@@ -87,6 +88,16 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const MessagingCenterReal()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.insights_outlined,
+            label: 'Tableau de bord CRM',
+            subtitle: 'Clients actifs, rétention, top clients, à relancer',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const CustomerAnalyticsDashboard()),
             ),
           ),
           _MenuTile(
