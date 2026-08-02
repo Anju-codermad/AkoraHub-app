@@ -469,6 +469,33 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "quotes_stale_reminder") {
+      // Devis envoyé sans réponse depuis trop longtemps (voir
+      // process_stale_quote_reminders(), Phase 61, CRM Lot 2) — notifie
+      // le staff pour qu'il relance le client lui-même, plutôt que de
+      // notifier automatiquement le client (jugement humain préférable
+      // à une relance robotisée répétée).
+      category = "devis";
+      const { data: customer } = await supabase
+        .from("profiles")
+        .select("full_name, company_name")
+        .eq("id", record.customer_id)
+        .maybeSingle();
+      const customerName = customer?.company_name || customer?.full_name ||
+        "Un client";
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Devis en attente de réponse";
+      body = `${customerName} n'a pas répondu au devis ${
+        record.quote_number ?? ""
+      } depuis plusieurs jours.`;
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "friendships") {
       // Demande d'ami (INSERT) ou réponse acceptée/refusée (UPDATE) —
       // voir supabase/phase48_patch_friends_and_private_chat.sql. Aucune

@@ -50,9 +50,16 @@ class _Customer360ScreenState extends State<Customer360Screen> {
   List<Map<String, dynamic>> _reviews = [];
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _addresses = [];
+  List<Map<String, dynamic>> _notes = [];
+  List<Map<String, dynamic>> _messages = [];
   Map<String, String> _productNames = {};
+  Map<String, String> _noteAuthorNames = {};
   bool _isLoading = true;
   String? _error;
+  final _newNoteController = TextEditingController();
+  final _newTagController = TextEditingController();
+  bool _isSavingNote = false;
+  bool _isSavingTags = false;
 
   final _currency = NumberFormat.currency(
       locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
@@ -83,6 +90,13 @@ class _Customer360ScreenState extends State<Customer360Screen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _newNoteController.dispose();
+    _newTagController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -139,6 +153,16 @@ class _Customer360ScreenState extends State<Customer360Screen> {
             .rpc('staff_get_customer_email', params: {
           'customer_id': widget.customerId,
         }).catchError((_) => null),
+        SupabaseConfig.client
+            .from('customer_notes')
+            .select()
+            .eq('customer_id', widget.customerId)
+            .order('created_at', ascending: false),
+        SupabaseConfig.client
+            .from('conversations')
+            .select()
+            .eq('customer_id', widget.customerId)
+            .maybeSingle(),
       ]);
 
       final reviews = List<Map<String, dynamic>>.from(results[4]);
@@ -157,6 +181,40 @@ class _Customer360ScreenState extends State<Customer360Screen> {
         } catch (_) {}
       }
 
+      final notes = List<Map<String, dynamic>>.from(results[8]);
+      var noteAuthorNames = <String, String>{};
+      final authorIds = notes
+          .map((n) => n['author_id'] as String?)
+          .whereType<String>()
+          .toSet();
+      if (authorIds.isNotEmpty) {
+        try {
+          final authors = await SupabaseConfig.client
+              .from('profiles')
+              .select('id, full_name, company_name')
+              .inFilter('id', authorIds.toList());
+          noteAuthorNames = {
+            for (final a in authors)
+              a['id'] as String:
+                  (a['company_name'] ?? a['full_name'] ?? 'Staff') as String,
+          };
+        } catch (_) {}
+      }
+
+      final conversation = results[9] as Map<String, dynamic>?;
+      var messages = <Map<String, dynamic>>[];
+      if (conversation != null) {
+        try {
+          messages = List<Map<String, dynamic>>.from(await SupabaseConfig
+              .client
+              .from('messages')
+              .select()
+              .eq('conversation_id', conversation['id'])
+              .order('created_at', ascending: false)
+              .limit(50));
+        } catch (_) {}
+      }
+
       if (!mounted) return;
       setState(() {
         _profile = results[0] as Map<String, dynamic>?;
@@ -168,6 +226,9 @@ class _Customer360ScreenState extends State<Customer360Screen> {
         _addresses = List<Map<String, dynamic>>.from(results[6]);
         _email = results[7] as String?;
         _productNames = productNames;
+        _notes = notes;
+        _noteAuthorNames = noteAuthorNames;
+        _messages = messages;
         _isLoading = false;
       });
     } catch (e) {
@@ -232,8 +293,91 @@ class _Customer360ScreenState extends State<Customer360Screen> {
             : (content.length > 80 ? '${content.substring(0, 80)}…' : content),
       ));
     }
+    for (final m in _messages) {
+      final content = (m['content'] as String? ?? '').trim();
+      events.add(_ActivityEvent(
+        date: DateTime.parse(m['created_at']),
+        icon: Icons.chat_bubble_outline,
+        title: m['sender_role'] == 'staff'
+            ? 'Message envoyé par le staff'
+            : 'Message du client',
+        subtitle: content.length > 80 ? '${content.substring(0, 80)}…' : content,
+      ));
+    }
     events.sort((a, b) => b.date.compareTo(a.date));
     return events;
+  }
+
+  /// Devis acceptés sans commande visible du même client créée après —
+  /// approximation (aucun lien formel `quotes`/`orders` n'existe dans le
+  /// schéma, voir supabase/phase61_patch_crm_lot2_a.sql), donc affichée
+  /// comme une alerte à vérifier manuellement, pas une certitude.
+  List<Map<String, dynamic>> get _staleAcceptedQuotes {
+    return _quotes.where((q) {
+      if (q['status'] != 'accepte') return false;
+      final quoteDate = DateTime.parse(q['created_at']);
+      return !_orders.any((o) =>
+          DateTime.parse(o['created_at']).isAfter(quoteDate) ||
+          DateTime.parse(o['created_at']).isAtSameMomentAs(quoteDate));
+    }).toList();
+  }
+
+  Future<void> _addNote() async {
+    final content = _newNoteController.text.trim();
+    if (content.isEmpty) return;
+    final authorId = SupabaseConfig.client.auth.currentUser?.id;
+    setState(() => _isSavingNote = true);
+    try {
+      await SupabaseConfig.client.from('customer_notes').insert({
+        'customer_id': widget.customerId,
+        'author_id': authorId,
+        'content': content,
+      });
+      _newNoteController.clear();
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d\'ajouter la note.')));
+    } finally {
+      if (mounted) setState(() => _isSavingNote = false);
+    }
+  }
+
+  Future<void> _addTag() async {
+    final tag = _newTagController.text.trim();
+    if (tag.isEmpty || _profile == null) return;
+    final tags = List<String>.from(_profile!['tags'] ?? []);
+    if (tags.contains(tag)) {
+      _newTagController.clear();
+      return;
+    }
+    tags.add(tag);
+    await _saveTags(tags);
+    _newTagController.clear();
+  }
+
+  Future<void> _removeTag(String tag) async {
+    if (_profile == null) return;
+    final tags = List<String>.from(_profile!['tags'] ?? [])..remove(tag);
+    await _saveTags(tags);
+  }
+
+  Future<void> _saveTags(List<String> tags) async {
+    setState(() => _isSavingTags = true);
+    try {
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'tags': tags}).eq('id', widget.customerId);
+      if (!mounted) return;
+      setState(() => _profile = {..._profile!, 'tags': tags});
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de modifier les étiquettes.')));
+    } finally {
+      if (mounted) setState(() => _isSavingTags = false);
+    }
   }
 
   @override
@@ -254,8 +398,91 @@ class _Customer360ScreenState extends State<Customer360Screen> {
                     padding: EdgeInsets.all(4.w),
                     children: [
                       _buildHeader(theme, profile),
+                      SizedBox(height: 1.5.h),
+                      _buildTags(theme, profile),
                       SizedBox(height: 2.h),
+                      if (_staleAcceptedQuotes.isNotEmpty) ...[
+                        Card(
+                          color: theme.colorScheme.errorContainer
+                              .withValues(alpha: 0.4),
+                          child: Padding(
+                            padding: EdgeInsets.all(3.w),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.warning_amber_outlined,
+                                    color: theme.colorScheme.error),
+                                SizedBox(width: 2.w),
+                                Expanded(
+                                  child: Text(
+                                    '${_staleAcceptedQuotes.length} devis accepté(s) '
+                                    'sans commande visible pour ce client : '
+                                    '${_staleAcceptedQuotes.map((q) => q['quote_number']).join(', ')}. '
+                                    'À vérifier manuellement — approximation, pas certain.',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 2.h),
+                      ],
                       _buildStats(theme),
+                      SizedBox(height: 2.h),
+                      Text('Notes internes', style: theme.textTheme.titleMedium),
+                      SizedBox(height: 1.h),
+                      Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(3.w),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (final n in _notes) ...[
+                                Text(
+                                  _noteAuthorNames[n['author_id']] ?? 'Staff',
+                                  style: theme.textTheme.labelMedium,
+                                ),
+                                Text(n['content'] ?? ''),
+                                Text(
+                                  _dateFormat
+                                      .format(DateTime.parse(n['created_at'])),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant),
+                                ),
+                                SizedBox(height: 1.h),
+                              ],
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _newNoteController,
+                                      decoration: const InputDecoration(
+                                        hintText: 'Ajouter une note interne…',
+                                        isDense: true,
+                                      ),
+                                      minLines: 1,
+                                      maxLines: 3,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: _isSavingNote
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.send_outlined),
+                                    onPressed: _isSavingNote ? null : _addNote,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       SizedBox(height: 2.h),
                       if (_addresses.isNotEmpty) ...[
                         Text('Adresses de livraison',
@@ -417,6 +644,36 @@ class _Customer360ScreenState extends State<Customer360Screen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTags(ThemeData theme, Map<String, dynamic> profile) {
+    final tags = List<String>.from(profile['tags'] ?? []);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final tag in tags)
+          Chip(
+            label: Text(tag),
+            visualDensity: VisualDensity.compact,
+            onDeleted: _isSavingTags ? null : () => _removeTag(tag),
+          ),
+        SizedBox(
+          width: 40.w,
+          child: TextField(
+            controller: _newTagController,
+            enabled: !_isSavingTags,
+            decoration: const InputDecoration(
+              hintText: '+ Étiquette',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (_) => _addTag(),
+          ),
+        ),
+      ],
     );
   }
 
