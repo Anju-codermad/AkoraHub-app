@@ -482,3 +482,6 @@
 
 ## 2026-08-02 21:37 UTC — Claude
 - Merge: CRM Lot 2 (notes, étiquettes, messages, alerte devis, relances) (`459c6a1`)
+
+## 2026-08-02 22:13 UTC — Claude
+- Merge: CRM Lot 3 (statut VIP, avantages accordés, note moyenne, signalements) (`88e0050`)
