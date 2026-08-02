@@ -5005,3 +5005,46 @@ obsolète.
 
 **Modifications Dart :** `cart_tab.dart` uniquement
 (`_pickSavedAddress`, bouton dans le champ d'adresse).
+
+## Fusion des écrans admin "Achats Formation" (02/08)
+
+Le menu Plus admin affichait deux entrées quasi-identiques
+("Achats Formation — Matières premières" et "Achats Formation — Cours
+AkoraFormation"), source de confusion signalée par l'utilisateur. Les
+deux tables restent séparées côté Supabase (`formation_purchases` vs
+`course_purchases`, deux catalogues distincts), seule la navigation est
+regroupée : nouveau `formation_purchases_management/
+formation_purchases_hub.dart` avec un `TabBar` (Matières premières /
+Cours) hébergeant les deux écrans existants, désormais dépouillés de
+leur `Scaffold`/`AppBar` propre pour servir de contenu d'onglet.
+L'icône médaille dans `raw_materials_management.dart` pointe aussi vers
+ce hub.
+
+**Modifications Dart :** `formation_purchases_management.dart`,
+`course_purchases_management.dart` (Scaffold retiré des deux),
+`raw_materials_management.dart`, `more_menu/more_menu_screen.dart`.
+**Nouveau fichier Dart :** `formation_purchases_hub.dart`.
+
+## Notification push staff manquante sur les demandes d'achat Formation (02/08)
+
+Bug signalé : un achat Formation (matière première ou cours) effectué
+depuis la page externe Netlify (`docs/formation-access/index.html`)
+s'enregistrait bien en base (`status = 'en_attente'`, visible côté
+client via le bandeau "N produit(s) en attente de vérification"), mais
+le staff n'était jamais notifié — contrairement aux commandes
+(paiement manuel, Phase 39) ou aux devis. Aucun trigger n'existait sur
+`formation_purchases`/`course_purchases`, c'était juste un oubli lors
+des Phases 45/50, jamais un problème de RLS (la policy
+`..._select_own_or_staff` autorise déjà le staff à tout voir).
+
+**SQL** : `supabase/phase58_patch_formation_purchases_staff_notification.sql`
+— deux triggers `after insert ... when (NEW.status = 'en_attente')`,
+même principe que `on_order_manual_payment_submitted_push` (Phase 39) :
+appelle `send-push-notification` avec `table: 'formation_purchases'` ou
+`'course_purchases'`. ⚠️ Remplacer `<WEBHOOK_SECRET>` (deux occurrences)
+avant exécution.
+
+**Edge Function** : `send-push-notification/index.ts` — deux nouvelles
+branches (catégorie `commande`, notifie `admin`/`commercial`), résolvent
+le nom du produit/cours concerné pour un message précis ("Demande
+d'accès : <nom>").
