@@ -14,7 +14,11 @@ import 'public_profiles_repo.dart';
 /// publication privée, masquée ou d'un compte bloqué n'apparaît jamais
 /// ici non plus.
 class RealisationsGalleryScreen extends StatefulWidget {
-  const RealisationsGalleryScreen({super.key});
+  /// Si renseigné, limite la galerie aux publications de ce seul auteur
+  /// — utilisé par "Mes réalisations" depuis le Profil client (03/08).
+  final String? authorId;
+
+  const RealisationsGalleryScreen({super.key, this.authorId});
 
   @override
   State<RealisationsGalleryScreen> createState() =>
@@ -96,6 +100,9 @@ class _RealisationsGalleryScreenState
         .select()
         .not('image_url', 'is', null)
         .not('mentioned_product_id', 'is', null);
+    if (widget.authorId != null) {
+      query = query.eq('author_id', widget.authorId!);
+    }
     final pilierProductIds = await _pilierProductIds();
     if (pilierProductIds != null) {
       if (pilierProductIds.isEmpty) return [];
@@ -289,7 +296,9 @@ class _RealisationsGalleryScreenState
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Réalisations clients')),
+      appBar: AppBar(
+          title: Text(
+              widget.authorId != null ? 'Mes réalisations' : 'Réalisations clients')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -339,9 +348,11 @@ class _RealisationsGalleryScreenState
                         child: Padding(
                           padding: EdgeInsets.all(6.w),
                           child: Text(
-                            'Aucune réalisation client pour le moment — '
-                            'les publications avec une photo et un produit '
-                            'taggé apparaîtront ici.',
+                            widget.authorId != null
+                                ? 'Aucune réalisation pour le moment — publiez une photo avec un produit taggé pour qu\'elle apparaisse ici.'
+                                : 'Aucune réalisation client pour le moment — '
+                                    'les publications avec une photo et un produit '
+                                    'taggé apparaîtront ici.',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium,
                           ),

@@ -4882,7 +4882,45 @@ déjà utilisée par `loyalty_screen.dart`, `orders.customer_id`).
 `_buildCompletionBar`, requête `orders` en `count()` ajoutée à
 `_loadAll`).
 
-**Reste à construire (Lots 3 et 4)** : lien profil public, mini-galerie
-Réalisations, avis laissés, engagement communautaire, raccourci groupes
-Formation (Lot 3) ; badges de fidélité, adresses multiples, QR de
-contact, couleur d'accent personnalisable (Lot 4).
+## Profil client — refonte par lots, Lot 3 : connecter au reste de l'app (03/08)
+
+Troisième lot : **lien profil public, mini-galerie "Mes réalisations",
+avis laissés, engagement communautaire, raccourci groupes Formation**.
+Aucune nouvelle table — connecte le Profil aux systèmes déjà construits
+aujourd'hui (Communauté Lots 1-5, groupes Formation).
+
+- **"Voir mon profil public"** : ouvre `PublicProfileScreen` avec son
+  propre id. Cet écran gérait déjà proprement le cas "c'est moi"
+  (section Ami masquée) — aucune modification nécessaire côté écran, et
+  comme il ne charge que les publications `visibility = 'public'`,
+  l'aperçu montre exactement ce que voient réellement les autres
+  clients.
+- **Mini-galerie "Mes réalisations"** : grille de 6 vignettes en haut de
+  l'onglet "Tout" (mêmes posts que la galerie Communauté — photo +
+  produit taggé — mais filtrés sur soi), avec "Voir tout" vers
+  `RealisationsGalleryScreen`, qui gagne un paramètre optionnel
+  `authorId` pour ce cas (titre "Mes réalisations" au lieu de
+  "Réalisations clients").
+- **"Mes avis laissés"** : nouvel écran `my_reviews_screen.dart` —
+  liste des `product_reviews` de l'utilisateur, badge "Achat vérifié"
+  (Phase 55, un appel `has_ordered_product` par produit distinct,
+  toujours peu nombreux pour un seul client).
+- **"Mes groupes Formation"** : raccourci direct vers
+  `MyFormationGroupsScreen` (construit plus tôt aujourd'hui).
+- **"Mon engagement"** : réactions + commentaires reçus sur les 30
+  dernières publications (pas l'historique complet — suffisant pour un
+  résumé d'activité récente, pas besoin d'une exactitude totale ici).
+
+**Bonus au passage** : le compteur "$_postsCount publications" utilisait
+`list.length` sur une requête plafonnée à 30 (`.limit(30)`) — un client
+avec plus de 30 publications aurait donc vu un chiffre figé à 30.
+Remplacé par un vrai `.count()`, comme déjà fait pour Commandes au Lot 2.
+
+**Nouveaux fichiers Dart :** `my_reviews_screen.dart`.
+**Modifications Dart :** `profile_tab.dart` (mini-galerie, carte
+"Communauté & Formation", requêtes engagement/avis dans `_loadAll`),
+`community/realisations_gallery_screen.dart` (paramètre `authorId`).
+
+**Reste à construire (Lot 4)** : badges de fidélité/niveaux client,
+adresses de livraison multiples, QR code personnel de contact, couleur
+d'accent personnalisable.
