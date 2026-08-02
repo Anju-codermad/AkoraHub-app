@@ -467,3 +467,6 @@
 
 ## 2026-08-02 20:10 UTC — Claude
 - Merge: intégration FiveOne Pay Lot 1 (SQL provider par opérateur) (`0c5e346`)
+
+## 2026-08-02 20:15 UTC — Claude
+- Merge: intégration FiveOne Pay Lot 2 (Edge Function create-fiveonepay-payment-link) (`c341ae8`)
