@@ -4820,3 +4820,43 @@ cours"), maintenant construit sur ce socle (`course_purchases`, Phase
 ni signalement sur les publications de groupe — uniquement publier/
 modifier/supprimer. Peut être étendu plus tard sur le même modèle que la
 Communauté si demandé.
+
+## Profil client — refonte par lots, Lot 1 : nettoyage structurel (03/08)
+
+Demande explicite ("Je n'aime pas l'arrangement de chaque fonctionnalité
+ici") — liste longue de 26 pistes proposée (réorganisation + nouveautés
+façon Facebook), triée en 4 lots. Lot 1 construit (le plus urgent, pur
+nettoyage, aucune nouvelle donnée) :
+
+- **"Informations personnelles" (Email/Société/Téléphone/Localisation)
+  retirée de la vue principale** de `profile_tab.dart` — déjà
+  consultable/modifiable via "Modifier le profil" (`_EditProfileSheet`,
+  qui affichait déjà ces champs pré-remplis) ; la société apparaît
+  désormais en sous-titre sous le nom dans l'en-tête (identité), la
+  localisation était déjà affichée là aussi. L'email n'avait nulle part
+  où aller : ajouté dans **Paramètres → nouvelle carte "Compte"**
+  (lecture seule, pas de changement d'email pris en charge).
+- **"Commandes récurrentes / Fidélité / Scanner un produit" regroupées
+  sous un titre "Mes achats"**, désormais séparées de "Messagerie" —
+  celle-ci n'est PAS un doublon de la messagerie entre clients de la
+  Communauté (Phase 48) : c'est la messagerie client ↔ équipe
+  commerciale (`chat_screen.dart`, Phase 8). Renommée **"Contacter
+  l'équipe"** pour éviter la confusion, placée sous un nouveau titre
+  "Assistance".
+- **Déconnexion retirée de la page Profil**, désormais uniquement dans
+  **Paramètres** (nouvelle carte en bas, avec confirmation — même
+  logique que `more_menu_screen.dart` côté Admin). `ProfileTab` n'a donc
+  plus besoin du callback `onLogout` (retiré du constructeur ;
+  `client_home.dart` simplifié en conséquence, `_handleLogout` supprimé
+  car devenu mort).
+
+**Modifications Dart :** `profile_tab.dart`, `settings_screen.dart`
+(carte Compte + carte Déconnexion, autonome — fonctionne aussi pour
+l'Admin qui partage cet écran), `client_home.dart` (nettoyage).
+
+**Reste à construire (Lots 2 à 4)** : bandeau de stats cliquables,
+points fidélité affichés en clair, badge secteur stylé, barre de
+complétion de profil (Lot 2) ; lien profil public, mini-galerie
+Réalisations, avis laissés, engagement communautaire, raccourci
+groupes Formation (Lot 3) ; badges de fidélité, adresses multiples, QR
+de contact, couleur d'accent personnalisable (Lot 4).

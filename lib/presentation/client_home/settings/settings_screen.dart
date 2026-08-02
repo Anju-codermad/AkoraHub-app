@@ -5,6 +5,7 @@ import 'package:sizer/sizer.dart';
 import '../../../core/chat/chat_bubble_style.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/supabase/supabase_config.dart';
 import '../notification_sounds_screen.dart';
 import 'help_support_screen.dart';
 import 'security_settings_screen.dart';
@@ -19,18 +20,64 @@ import 'security_settings_screen.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  /// Même logique que more_menu_screen.dart (côté Admin) — indépendante
+  /// d'un éventuel callback passé par l'écran appelant, pour que cet
+  /// écran partagé (Profil client comme Admin, voir doc de la classe)
+  /// reste autonome.
+  Future<void> _logout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Déconnexion'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    if (SupabaseConfig.isConfigured) {
+      await SupabaseConfig.client.auth.signOut();
+    }
+    if (context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+          '/authentication-screen', (route) => false);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
     final bubbleStyle = ref.watch(chatBubbleStyleProvider);
+    final email = SupabaseConfig.isConfigured
+        ? SupabaseConfig.client.auth.currentUser?.email
+        : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
       body: ListView(
         padding: EdgeInsets.all(4.w),
         children: [
+          if (email != null) ...[
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.email_outlined),
+                title: const Text('Compte'),
+                subtitle: Text(email),
+              ),
+            ),
+            SizedBox(height: 2.h),
+          ],
           Card(
             child: Column(
               children: [
@@ -166,6 +213,15 @@ class SettingsScreen extends ConsumerWidget {
                 context,
                 MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
               ),
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.logout, color: theme.colorScheme.error),
+              title: Text('Déconnexion',
+                  style: TextStyle(color: theme.colorScheme.error)),
+              onTap: () => _logout(context),
             ),
           ),
         ],

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/localization/app_translations.dart';
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
-import '../../core/supabase/supabase_config.dart';
 import 'cart_tab.dart';
 import 'catalog_tab.dart';
 import 'formation/formation_hub_screen.dart';
@@ -45,18 +44,6 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
     OfflineOrderQueue.trySync();
   }
 
-  Future<void> _handleLogout() async {
-    if (SupabaseConfig.isConfigured) {
-      await SupabaseConfig.client.auth.signOut();
-    }
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/authentication-screen',
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final locale = ref.watch(localeProvider);
@@ -71,7 +58,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       CatalogTab(onOpenCart: () => setState(() => _currentIndex = 1)),
       const CartTab(),
       const OrdersTab(),
-      ProfileTab(onLogout: _handleLogout),
+      const ProfileTab(),
       const FormationHubScreen(),
     ];
 
