@@ -446,3 +446,6 @@
 
 ## 2026-08-02 07:24 UTC — Claude
 - Merge: Profil client Lot 2 - stats, fidélité, badge secteur, complétion (`623939c`)
+
+## 2026-08-02 07:46 UTC — Claude
+- Merge: Profil client Lot 3 - profil public, réalisations, avis, engagement, groupes (`5f59166`)
