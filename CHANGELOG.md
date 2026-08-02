@@ -488,3 +488,6 @@
 
 ## 2026-08-02 22:26 UTC — Claude
 - Merge: CRM Lot 4 (segmentation & marketing) (`b6e10fa`)
+
+## 2026-08-02 22:36 UTC — Claude
+- Merge: CRM Lot 5 (tableau de bord analytique, dernier lot) (`d544bfa`)
