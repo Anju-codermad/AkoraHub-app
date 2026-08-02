@@ -425,3 +425,6 @@
 
 ## 2026-08-02 06:09 UTC — Claude
 - Merge: Communauté Lot 2 - Commander direct, badge Officiel, publication épinglée (`a909add`)
+
+## 2026-08-02 06:20 UTC — Claude
+- Merge: correctif phase52 - share_phone_publicly manquante (`296f759`)
