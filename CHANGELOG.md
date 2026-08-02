@@ -461,3 +461,6 @@
 
 ## 2026-08-02 10:44 UTC — Claude
 - Merge: fusion des écrans Achats Formation (matières premières + cours) (`f606305`)
+
+## 2026-08-02 10:58 UTC — Claude
+- Merge: notification push staff pour demandes d'achat Formation (`dcaa4b9`)
