@@ -7,7 +7,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show User;
 
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
@@ -27,9 +26,7 @@ import 'wall/wall_tab.dart';
 /// (nombre de publications, catégories favorites déduites des favoris,
 /// partage des coordonnées). Voir PROJECT_CONTEXT.md Phase 20.
 class ProfileTab extends ConsumerStatefulWidget {
-  final VoidCallback onLogout;
-
-  const ProfileTab({super.key, required this.onLogout});
+  const ProfileTab({super.key});
 
   @override
   ConsumerState<ProfileTab> createState() => _ProfileTabState();
@@ -238,7 +235,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final profile = _profile ?? {};
     final fullName = profile['full_name'] as String?;
     final companyName = profile['company_name'] as String?;
-    final phone = profile['phone'] as String?;
     final location = profile['location'] as String?;
     final avatarUrl = profile['avatar_url'] as String?;
     final coverUrl = profile['cover_url'] as String?;
@@ -277,6 +273,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       ?.copyWith(fontWeight: FontWeight.w600),
                   textAlign: TextAlign.center,
                 ),
+                if (companyName != null && companyName.trim().isNotEmpty)
+                  Text(
+                    companyName,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.outline),
+                    textAlign: TextAlign.center,
+                  ),
                 SizedBox(height: 0.5.h),
                 Text(
                   joinYear != null
@@ -336,8 +339,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 _buildTabSelector(theme),
                 SizedBox(height: 2.h),
                 if (_selectedTab == 0)
-                  _buildAllTabContent(
-                      theme, user, companyName, phone, location, sector)
+                  _buildAllTabContent(theme)
                 else if (_selectedTab == 1)
                   _buildPublicationsPreview(theme)
                 else
@@ -471,78 +473,25 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  Widget _buildAllTabContent(
-    ThemeData theme,
-    User? user,
-    String? companyName,
-    String? phone,
-    String? location,
-    String? sector,
-  ) {
+  /// Lot 1 (03/08) de la refonte du Profil — nettoyage structurel :
+  /// "Informations personnelles" (Email/Société/Téléphone/Localisation)
+  /// retiré de cette vue, déjà consultable/modifiable via "Modifier le
+  /// profil" (société également affichée dans l'en-tête) et Email
+  /// affiché dans Paramètres → Compte. Les achats (Commandes
+  /// récurrentes/Fidélité/Scanner) sont regroupés sous un titre dédié,
+  /// séparés de l'assistance (Messagerie, renommée "Contacter l'équipe"
+  /// pour ne pas la confondre avec la messagerie entre clients de la
+  /// Communauté — voir PROJECT_CONTEXT.md). Déconnexion retirée d'ici,
+  /// désormais uniquement dans Paramètres.
+  Widget _buildAllTabContent(ThemeData theme) {
     return Column(
       children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: Text('Informations personnelles',
-              style: theme.textTheme.labelLarge),
+          child:
+              Text('Mes achats', style: theme.textTheme.labelLarge),
         ),
         SizedBox(height: 1.h),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.email_outlined),
-                title: const Text('Email'),
-                subtitle: Text(user?.email ?? '—'),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.business_outlined),
-                title: const Text('Société'),
-                subtitle: Text(
-                  (companyName == null || companyName.trim().isEmpty)
-                      ? '—'
-                      : companyName,
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.phone_outlined),
-                title: const Text('Téléphone'),
-                subtitle: Text(
-                  (phone == null || phone.trim().isEmpty) ? '—' : phone,
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.location_on_outlined),
-                title: const Text('Localisation'),
-                subtitle: Text(
-                  (location == null || location.trim().isEmpty)
-                      ? '—'
-                      : location,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_favoriteCategories.isNotEmpty) ...[
-          SizedBox(height: 2.h),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Catégories favorites',
-                style: theme.textTheme.labelLarge),
-          ),
-          SizedBox(height: 1.h),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final cat in _favoriteCategories) Chip(label: Text(cat)),
-            ],
-          ),
-        ],
-        SizedBox(height: 2.h),
         Card(
           child: Column(
             children: [
@@ -565,14 +514,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.chat_bubble_outline),
-                title: const Text('Messagerie'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const ChatScreen())),
-              ),
-              const Divider(height: 1),
-              ListTile(
                 leading: const Icon(Icons.qr_code_scanner),
                 title: const Text('Scanner un produit'),
                 subtitle: const Text('Vérifier la traçabilité d\'un lot'),
@@ -582,23 +523,48 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ],
           ),
         ),
+        if (_favoriteCategories.isNotEmpty) ...[
+          SizedBox(height: 2.h),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Catégories favorites',
+                style: theme.textTheme.labelLarge),
+          ),
+          SizedBox(height: 1.h),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final cat in _favoriteCategories) Chip(label: Text(cat)),
+            ],
+          ),
+        ],
+        SizedBox(height: 2.h),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Assistance', style: theme.textTheme.labelLarge),
+        ),
+        SizedBox(height: 1.h),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.chat_bubble_outline),
+            title: const Text('Contacter l\'équipe'),
+            subtitle: const Text('Messagerie avec le support AkoraHub'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ChatScreen())),
+          ),
+        ),
         SizedBox(height: 2.h),
         Card(
           child: ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const Text('Paramètres'),
-            subtitle: const Text('Notifications, langue, sécurité, aide'),
+            subtitle: const Text('Compte, notifications, langue, sécurité, aide'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const SettingsScreen())),
           ),
-        ),
-        SizedBox(height: 1.h),
-        ListTile(
-          leading: const Icon(Icons.logout, color: Colors.red),
-          title:
-              const Text('Déconnexion', style: TextStyle(color: Colors.red)),
-          onTap: widget.onLogout,
         ),
       ],
     );
