@@ -14,10 +14,11 @@ import '../../core/supabase/supabase_config.dart';
 /// Phase 60) et l'email du client (vit uniquement dans `auth.users`,
 /// lu via la nouvelle fonction `staff_get_customer_email`).
 ///
-/// Volontairement une agrégation en LECTURE de données existantes —
-/// notes internes, étiquettes, statut VIP, segmentation restent pour
-/// les lots suivants (2 à 5) afin de garder ce premier lot simple et
-/// testable.
+/// Volontairement une agrégation en LECTURE de données existantes en
+/// Lot 1 ; notes internes/étiquettes/relances (Lot 2, Phase 61) et
+/// statut VIP/avantages accordés/note moyenne/signalements (Lot 3,
+/// Phase 62) sont venus l'enrichir ensuite. Segmentation avancée
+/// reste pour un lot suivant.
 class Customer360Screen extends StatefulWidget {
   final String customerId;
 
@@ -52,14 +53,20 @@ class _Customer360ScreenState extends State<Customer360Screen> {
   List<Map<String, dynamic>> _addresses = [];
   List<Map<String, dynamic>> _notes = [];
   List<Map<String, dynamic>> _messages = [];
+  List<Map<String, dynamic>> _benefits = [];
+  List<Map<String, dynamic>> _reportsFiled = [];
+  List<Map<String, dynamic>> _reportsReceived = [];
   Map<String, String> _productNames = {};
-  Map<String, String> _noteAuthorNames = {};
+  Map<String, String> _staffNames = {};
   bool _isLoading = true;
   String? _error;
   final _newNoteController = TextEditingController();
   final _newTagController = TextEditingController();
+  final _newBenefitController = TextEditingController();
   bool _isSavingNote = false;
   bool _isSavingTags = false;
+  bool _isSavingBenefit = false;
+  bool _isSavingVip = false;
 
   final _currency = NumberFormat.currency(
       locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
@@ -85,6 +92,10 @@ class _Customer360ScreenState extends State<Customer360Screen> {
     'refuse': 'Refusé',
     'expire': 'Expiré',
   };
+  final Map<String, String> _reportStatusLabels = const {
+    'en_attente': 'En attente',
+    'traite': 'Traité',
+  };
 
   @override
   void initState() {
@@ -96,6 +107,7 @@ class _Customer360ScreenState extends State<Customer360Screen> {
   void dispose() {
     _newNoteController.dispose();
     _newTagController.dispose();
+    _newBenefitController.dispose();
     super.dispose();
   }
 
@@ -163,6 +175,21 @@ class _Customer360ScreenState extends State<Customer360Screen> {
             .select()
             .eq('customer_id', widget.customerId)
             .maybeSingle(),
+        SupabaseConfig.client
+            .from('customer_benefits')
+            .select()
+            .eq('customer_id', widget.customerId)
+            .order('created_at', ascending: false),
+        SupabaseConfig.client
+            .from('post_reports')
+            .select()
+            .eq('reporter_id', widget.customerId)
+            .order('created_at', ascending: false),
+        SupabaseConfig.client
+            .from('post_reports')
+            .select('*, posts!inner(content, author_id)')
+            .eq('posts.author_id', widget.customerId)
+            .order('created_at', ascending: false),
       ]);
 
       final reviews = List<Map<String, dynamic>>.from(results[4]);
@@ -182,18 +209,19 @@ class _Customer360ScreenState extends State<Customer360Screen> {
       }
 
       final notes = List<Map<String, dynamic>>.from(results[8]);
-      var noteAuthorNames = <String, String>{};
-      final authorIds = notes
-          .map((n) => n['author_id'] as String?)
-          .whereType<String>()
-          .toSet();
-      if (authorIds.isNotEmpty) {
+      final benefits = List<Map<String, dynamic>>.from(results[10]);
+      var staffNames = <String, String>{};
+      final staffIds = {
+        ...notes.map((n) => n['author_id'] as String?).whereType<String>(),
+        ...benefits.map((b) => b['granted_by'] as String?).whereType<String>(),
+      };
+      if (staffIds.isNotEmpty) {
         try {
           final authors = await SupabaseConfig.client
               .from('profiles')
               .select('id, full_name, company_name')
-              .inFilter('id', authorIds.toList());
-          noteAuthorNames = {
+              .inFilter('id', staffIds.toList());
+          staffNames = {
             for (final a in authors)
               a['id'] as String:
                   (a['company_name'] ?? a['full_name'] ?? 'Staff') as String,
@@ -227,8 +255,11 @@ class _Customer360ScreenState extends State<Customer360Screen> {
         _email = results[7] as String?;
         _productNames = productNames;
         _notes = notes;
-        _noteAuthorNames = noteAuthorNames;
+        _staffNames = staffNames;
         _messages = messages;
+        _benefits = benefits;
+        _reportsFiled = List<Map<String, dynamic>>.from(results[11]);
+        _reportsReceived = List<Map<String, dynamic>>.from(results[12]);
         _isLoading = false;
       });
     } catch (e) {
@@ -320,6 +351,53 @@ class _Customer360ScreenState extends State<Customer360Screen> {
           DateTime.parse(o['created_at']).isAfter(quoteDate) ||
           DateTime.parse(o['created_at']).isAtSameMomentAs(quoteDate));
     }).toList();
+  }
+
+  double? get _averageRating {
+    if (_reviews.isEmpty) return null;
+    final sum = _reviews.fold<num>(
+        0, (s, r) => s + ((r['rating'] as num?) ?? 0));
+    return sum / _reviews.length;
+  }
+
+  Future<void> _toggleVip(bool value) async {
+    if (_profile == null) return;
+    setState(() => _isSavingVip = true);
+    try {
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'is_vip': value}).eq('id', widget.customerId);
+      if (!mounted) return;
+      setState(() => _profile = {..._profile!, 'is_vip': value});
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de modifier le statut VIP.')));
+    } finally {
+      if (mounted) setState(() => _isSavingVip = false);
+    }
+  }
+
+  Future<void> _addBenefit() async {
+    final description = _newBenefitController.text.trim();
+    if (description.isEmpty) return;
+    final grantedBy = SupabaseConfig.client.auth.currentUser?.id;
+    setState(() => _isSavingBenefit = true);
+    try {
+      await SupabaseConfig.client.from('customer_benefits').insert({
+        'customer_id': widget.customerId,
+        'granted_by': grantedBy,
+        'description': description,
+      });
+      _newBenefitController.clear();
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d\'ajouter cet avantage.')));
+    } finally {
+      if (mounted) setState(() => _isSavingBenefit = false);
+    }
   }
 
   Future<void> _addNote() async {
@@ -440,7 +518,7 @@ class _Customer360ScreenState extends State<Customer360Screen> {
                             children: [
                               for (final n in _notes) ...[
                                 Text(
-                                  _noteAuthorNames[n['author_id']] ?? 'Staff',
+                                  _staffNames[n['author_id']] ?? 'Staff',
                                   style: theme.textTheme.labelMedium,
                                 ),
                                 Text(n['content'] ?? ''),
@@ -483,6 +561,114 @@ class _Customer360ScreenState extends State<Customer360Screen> {
                           ),
                         ),
                       ),
+                      SizedBox(height: 2.h),
+                      Text('Avantages accordés',
+                          style: theme.textTheme.titleMedium),
+                      SizedBox(height: 1.h),
+                      Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(3.w),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_benefits.isEmpty)
+                                Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 1.h),
+                                  child: Text(
+                                    'Aucun avantage accordé pour l\'instant.',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant),
+                                  ),
+                                ),
+                              for (final b in _benefits) ...[
+                                Text(
+                                  _staffNames[b['granted_by']] ?? 'Staff',
+                                  style: theme.textTheme.labelMedium,
+                                ),
+                                Text(b['description'] ?? ''),
+                                Text(
+                                  _dateFormat
+                                      .format(DateTime.parse(b['created_at'])),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant),
+                                ),
+                                SizedBox(height: 1.h),
+                              ],
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _newBenefitController,
+                                      decoration: const InputDecoration(
+                                        hintText:
+                                            'Ex : remise 10% offerte, livraison gratuite…',
+                                        isDense: true,
+                                      ),
+                                      minLines: 1,
+                                      maxLines: 3,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: _isSavingBenefit
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.card_giftcard),
+                                    onPressed:
+                                        _isSavingBenefit ? null : _addBenefit,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_reportsFiled.isNotEmpty ||
+                          _reportsReceived.isNotEmpty) ...[
+                        SizedBox(height: 2.h),
+                        Text('Signalements liés au client',
+                            style: theme.textTheme.titleMedium),
+                        SizedBox(height: 1.h),
+                        Card(
+                          child: Column(
+                            children: [
+                              for (final r in _reportsReceived)
+                                ListTile(
+                                  leading: Icon(Icons.flag_outlined,
+                                      color: theme.colorScheme.error),
+                                  title: const Text(
+                                      'Publication de ce client signalée'),
+                                  subtitle: Text(
+                                      '${r['reason'] ?? ''} · ${_reportStatusLabels[r['status']] ?? r['status'] ?? ''}'),
+                                  trailing: Text(
+                                    _dateFormat.format(
+                                        DateTime.parse(r['created_at'])),
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ),
+                              for (final r in _reportsFiled)
+                                ListTile(
+                                  leading:
+                                      const Icon(Icons.outlined_flag),
+                                  title: const Text(
+                                      'Signalement déposé par ce client'),
+                                  subtitle: Text(
+                                      '${r['reason'] ?? ''} · ${_reportStatusLabels[r['status']] ?? r['status'] ?? ''}'),
+                                  trailing: Text(
+                                    _dateFormat.format(
+                                        DateTime.parse(r['created_at'])),
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                       SizedBox(height: 2.h),
                       if (_addresses.isNotEmpty) ...[
                         Text('Adresses de livraison',
@@ -597,6 +783,13 @@ class _Customer360ScreenState extends State<Customer360Screen> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                if (profile['is_vip'] == true)
+                  Chip(
+                    avatar: const Icon(Icons.workspace_premium, size: 16),
+                    label: const Text('VIP'),
+                    backgroundColor: Colors.amber.withValues(alpha: 0.25),
+                    visualDensity: VisualDensity.compact,
+                  ),
                 if (profile['client_type'] != null)
                   Chip(
                     label: Text(
@@ -610,6 +803,30 @@ class _Customer360ScreenState extends State<Customer360Screen> {
                   backgroundColor: tier.color.withValues(alpha: 0.15),
                   visualDensity: VisualDensity.compact,
                 ),
+                if (_averageRating != null)
+                  Chip(
+                    avatar: const Icon(Icons.star, size: 16),
+                    label: Text(
+                        '${_averageRating!.toStringAsFixed(1)} ★ (${_reviews.length} avis)'),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            SizedBox(height: 1.5.h),
+            Row(
+              children: [
+                Text('Client VIP', style: theme.textTheme.bodyMedium),
+                const Spacer(),
+                _isSavingVip
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Switch(
+                        value: profile['is_vip'] == true,
+                        onChanged: _toggleVip,
+                      ),
               ],
             ),
             SizedBox(height: 1.5.h),

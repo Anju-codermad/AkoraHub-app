@@ -5285,3 +5285,43 @@ branche `quotes_stale_reminder` (catégorie `devis`, notifie
   client (RLS).
 - Étiquettes : `Wrap` de `Chip`s avec suppression (`onDeleted`) + champ
   d'ajout, sous l'en-tête.
+
+## CRM — Lot 3/5 : statut VIP, avantages accordés, note moyenne, signalements (02/08)
+
+**SQL** : `supabase/phase62_patch_crm_lot3.sql` :
+- `profiles.is_vip boolean not null default false` — même principe que
+  `tags` (Phase 61) : aucune policy dédiée, `profiles_update_own_or_staff`
+  couvre déjà la colonne, seule l'app UI réserve le bouton au staff.
+- `customer_benefits` (customer_id, granted_by, description) — journal
+  manuel des avantages accordés (remise exceptionnelle, cadeau,
+  livraison offerte…). Aucun système de coupons/promos automatisé
+  n'existe dans le schéma, donc pas de table dérivée d'un flux existant
+  — RLS strictement staff, même politique que `customer_notes`.
+- Pas de nouvelle table pour la note moyenne : calculée côté app depuis
+  `product_reviews` (déjà chargé depuis le Lot 1).
+- Pas de nouvelle colonne pour les signalements : `post_reports`
+  (Phase 47) n'a pas de colonne "personne signalée" (seulement
+  `reporter_id`, qui dépose le signalement, sur un `post_id`). La fiche
+  360° affiche donc deux angles distincts déduits de cette table
+  existante : signalements **déposés par** ce client (`reporter_id`) et
+  signalements **reçus sur les publications de** ce client (jointure
+  `post_reports.post_id -> posts.author_id`, `!inner` filtré côté
+  requête comme dans `alerts_center.dart`/`catalog_tab.dart`).
+
+**`customer_360_screen.dart` étendu** :
+- `Future.wait` étendu aux indices 10/11/12 (`customer_benefits`,
+  signalements déposés, signalements reçus), sans renuméroter les 10
+  précédents.
+- `_noteAuthorNames` renommé `_staffNames` et fusionné avec les auteurs
+  des avantages (`granted_by`) — une seule requête `profiles` batch
+  pour les deux listes au lieu de deux requêtes séparées.
+- En-tête : chip VIP (doré, `workspace_premium`) si `is_vip`, chip note
+  moyenne (`★ x.x (n avis)`) si au moins un avis, et un `Switch` "Client
+  VIP" pour basculer le statut.
+- Section "Avantages accordés" : liste + champ d'ajout, même structure
+  que les Notes internes.
+- Section "Signalements liés au client" (affichée seulement si non
+  vide) : les deux angles (déposés / reçus) listés séparément.
+- `customer_management_real.dart` : icône couronne à côté du nom dans
+  la liste des clients si `is_vip`, pour une visibilité immédiate sans
+  ouvrir la fiche.
