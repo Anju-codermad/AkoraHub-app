@@ -6,6 +6,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
 
 class ProductDetailClient extends ConsumerStatefulWidget {
@@ -432,6 +433,8 @@ class _ReviewsSection extends StatefulWidget {
 
 class _ReviewsSectionState extends State<_ReviewsSection> {
   List<Map<String, dynamic>> _reviews = [];
+  Map<String, Map<String, dynamic>> _authorProfiles = {};
+  Set<String> _verifiedAuthorIds = {};
   bool _isLoading = true;
 
   @override
@@ -440,19 +443,45 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
     _loadReviews();
   }
 
+  /// Corrige au passage un bug déjà présent : l'ancien `.select('*,
+  /// profiles(full_name, company_name)')` ne fonctionnait JAMAIS pour les
+  /// avis d'un autre client — la RLS de `profiles` limite la lecture à sa
+  /// propre ligne (voir supabase/phase9_patch_public_profiles.sql), donc
+  /// cette jointure imbriquée renvoyait toujours `null` et l'affichage
+  /// retombait silencieusement sur "Client". Remplacé par
+  /// `PublicProfilesRepo.fetchByIds`, le même chemin déjà utilisé partout
+  /// ailleurs pour afficher le nom des AUTRES clients (Communauté, amis).
+  ///
+  /// Ajoute aussi "Achat vérifié" (Lot 5 Communauté, 02/08) : un appel
+  /// groupé à `verified_reviewers` (voir
+  /// supabase/phase55_patch_verified_purchases_reviews.sql) plutôt qu'un
+  /// appel par avis.
   Future<void> _loadReviews() async {
     if (!SupabaseConfig.isConfigured) {
       setState(() => _isLoading = false);
       return;
     }
     try {
-      final data = await SupabaseConfig.client
-          .from('product_reviews')
-          .select('*, profiles(full_name, company_name)')
-          .eq('product_id', widget.productId)
-          .order('created_at', ascending: false);
+      final results = await Future.wait<dynamic>([
+        SupabaseConfig.client
+            .from('product_reviews')
+            .select()
+            .eq('product_id', widget.productId)
+            .order('created_at', ascending: false),
+        SupabaseConfig.client
+            .rpc('verified_reviewers', params: {'pid': widget.productId}),
+      ]);
+      final reviews = List<Map<String, dynamic>>.from(results[0] as List);
+      final verifiedIds = List<Map<String, dynamic>>.from(results[1] as List)
+          .map((r) => r['author_id'] as String)
+          .toSet();
+      final authorIds =
+          reviews.map((r) => r['author_id'] as String).toSet();
+      final profiles = await PublicProfilesRepo.fetchByIds(authorIds);
       setState(() {
-        _reviews = List<Map<String, dynamic>>.from(data);
+        _reviews = reviews;
+        _verifiedAuthorIds = verifiedIds;
+        _authorProfiles = profiles;
         _isLoading = false;
       });
     } catch (_) {
@@ -567,10 +596,10 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
           const Text('Aucun avis pour le moment.')
         else
           ..._reviews.map((r) {
-            final author = r['profiles'];
-            final name = author != null
-                ? (author['company_name'] ?? author['full_name'] ?? 'Client')
-                : 'Client';
+            final authorId = r['author_id'] as String;
+            final name =
+                PublicProfilesRepo.displayName(_authorProfiles[authorId]);
+            final isVerified = _verifiedAuthorIds.contains(authorId);
             return Padding(
               padding: EdgeInsets.symmetric(vertical: 1.h),
               child: Column(
@@ -591,6 +620,26 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                           size: 14,
                         ),
                       ),
+                      if (isVerified) ...[
+                        SizedBox(width: 2.w),
+                        Tooltip(
+                          message:
+                              'Ce client a réellement commandé ce produit',
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.verified,
+                                  size: 14,
+                                  color: theme.colorScheme.primary),
+                              const SizedBox(width: 2),
+                              Text('Achat vérifié',
+                                  style: theme.textTheme.labelSmall
+                                      ?.copyWith(
+                                          color: theme.colorScheme.primary)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   if ((r['comment'] ?? '').toString().isNotEmpty)
