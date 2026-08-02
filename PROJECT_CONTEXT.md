@@ -4547,3 +4547,61 @@ accès ne se débloque avant validation staff) :
    client ayant payé un cours restait bloqué indéfiniment. Créé
    `course_purchases_management/course_purchases_management.dart` (même
    principe que `FormationPurchasesManagement`), ajouté au menu Plus.
+
+## Communauté façon Facebook — Lot 1 : confiance & sécurité (02/08)
+
+Demande explicite : liste longue de fonctionnalités pour rendre la
+Communauté "meilleure que Facebook", proposée triée en 5 lots par
+impact/effort. Lot 1 construit (le plus urgent — comble un vrai manque
+de modération) : **bloquer un client, masquer une publication,
+enregistrer une publication, indicateur "Modifié"**.
+
+**SQL** : `supabase/phase51_patch_block_hide_save_posts.sql` —
+- `user_blocks` (blocker_id, blocked_id) + fonction `is_blocked(a,b)`.
+  Lecture strictement limitée à SES PROPRES blocages (jamais qui M'A
+  bloqué) — même principe que `post_reports` (Phase 47), évite qu'un
+  blocage devienne un motif de confrontation.
+- **La protection est dans la RLS, pas l'interface** : `posts_select`
+  exclut désormais les publications d'un compte bloqué (dans les deux
+  sens) ET les publications que le client a masquées lui-même
+  (`hidden_posts`). `are_friends()` (Phase 48) exclut aussi les paires
+  bloquées — coupe net les nouvelles demandes d'ami ET les messages
+  privés (même si déjà amis avant le blocage), sans toucher à la RLS de
+  `friend_messages` (elle appelle déjà `are_friends`).
+- `hidden_posts`, `saved_posts` : tables strictement personnelles
+  (select/insert/delete sur ses propres lignes uniquement).
+- `posts.updated_at` : renseigné par `wall_tab.dart::_editPost` à chaque
+  modification — affiché comme "Modifié" à côté du secteur.
+
+**Nouveaux fichiers Dart :**
+- `core/community/community_moderation_repo.dart` : bloquer/débloquer,
+  masquer, enregistrer/retirer, listes pour les écrans de gestion.
+  Récupère profils et publications sauvegardées en deux requêtes
+  séparées plutôt qu'une jointure PostgREST imbriquée — `posts` a deux
+  colonnes vers `profiles` (author_id ET mentioned_user_id), une
+  jointure `profiles(...)` serait ambiguë (même limite déjà contournée
+  dans `wall_tab.dart` pour les profils auteurs).
+- `client_home/community/saved_posts_screen.dart`,
+  `blocked_accounts_screen.dart` : écrans de gestion, accessibles
+  respectivement depuis l'icône 🔖 de l'AppBar Communauté et depuis
+  Confidentialité et sécurité → "Comptes bloqués".
+
+**Modifications Dart :**
+- `wall_tab.dart` : menu ⋮ enrichi — "Enregistrer/Retirer" sur toutes
+  les publications, "Masquer" et "Bloquer ce client" en plus de
+  "Signaler" sur celles des autres.
+- `public_profile_screen.dart` : icône Bloquer/Débloquer dans l'AppBar ;
+  masque la section Ami et le bouton WhatsApp si le client est bloqué.
+
+⚠️ **Limite assumée** : les commentaires (`post_comments`) restent en
+lecture ouverte (`select using (true)`, Phase 3) — un commentaire d'un
+compte bloqué peut donc encore apparaître sous une publication d'un
+tiers. Restreindre ça en RLS demanderait de réécrire cette policy pour
+chaque lecteur potentiel (coût jugé disproportionné pour ce Lot 1) ;
+seul le fil principal (l'essentiel du problème signalé) est protégé.
+
+**Reste à construire (Lots 2 à 5, voir la liste complète donnée à
+l'utilisatrice)** : bouton "Commander" direct sur post produit, badge
+"Officiel", publication épinglée, mentions @, hashtags/catégories,
+carrousel multi-images, fil "Tendances", avis vérifiés liés à un achat
+réel, galerie "Réalisations clients".
