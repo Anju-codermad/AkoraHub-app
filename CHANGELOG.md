@@ -458,3 +458,6 @@
 
 ## 2026-08-02 09:08 UTC — Claude
 - Merge: correctif compilation profile_tab.dart (`b4ac693`)
+
+## 2026-08-02 10:44 UTC — Claude
+- Merge: fusion des écrans Achats Formation (matières premières + cours) (`f606305`)
