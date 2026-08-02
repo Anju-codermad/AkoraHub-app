@@ -470,3 +470,6 @@
 
 ## 2026-08-02 20:15 UTC — Claude
 - Merge: intégration FiveOne Pay Lot 2 (Edge Function create-fiveonepay-payment-link) (`c341ae8`)
+
+## 2026-08-02 20:18 UTC — Claude
+- Merge: intégration FiveOne Pay Lot 3 (webhook signé) (`09d3438`)
