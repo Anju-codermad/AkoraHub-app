@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
-import '../formation_purchases_management/formation_purchases_management.dart';
+import '../formation_purchases_management/formation_purchases_hub.dart';
 import 'raw_material_editor_screen.dart';
 import 'raw_material_style.dart';
 
@@ -99,7 +99,7 @@ class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const FormationPurchasesManagement(),
+                builder: (_) => const FormationPurchasesHub(),
               ),
             ),
           ),
