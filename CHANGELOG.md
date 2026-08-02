@@ -419,3 +419,6 @@
 
 ## 2026-08-02 05:25 UTC — Claude
 - Merge: logos opérateurs sur la page d'achat externe (`42b1a00`)
+
+## 2026-08-02 06:00 UTC — Claude
+- Merge: Communauté Lot 1 - blocage, masquer/enregistrer publication (`8c74a0a`)
