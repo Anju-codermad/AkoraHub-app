@@ -473,3 +473,6 @@
 
 ## 2026-08-02 20:18 UTC — Claude
 - Merge: intégration FiveOne Pay Lot 3 (webhook signé) (`09d3438`)
+
+## 2026-08-02 20:40 UTC — Claude
+- Merge: intégration FiveOne Pay Lot 4 (checkout + écran Admin) (`4eb04d6`)
