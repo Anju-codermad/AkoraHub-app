@@ -422,6 +422,53 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "formation_purchases") {
+      // Nouvelle demande d'achat d'accès à une fiche Formation (matière
+      // première) — voir supabase/phase58_patch_formation_purchases_staff_notification.sql.
+      // Jusqu'ici rien ne signalait au staff qu'une demande attendait
+      // validation (même lacune que orders_manual_payment_submitted avant
+      // la Phase 39), le client payait puis n'avait aucun retour.
+      category = "commande";
+      const { data: material } = await supabase
+        .from("raw_materials")
+        .select("name")
+        .eq("id", record.raw_material_id)
+        .maybeSingle();
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Achat Formation à valider";
+      body = material?.name
+        ? `Demande d'accès : ${material.name}`
+        : "Une demande d'accès à une fiche Formation attend validation.";
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
+    } else if (payload.table === "course_purchases") {
+      // Même principe pour un achat de cours AkoraFormation complet —
+      // voir supabase/phase58_patch_formation_purchases_staff_notification.sql.
+      category = "commande";
+      const { data: course } = await supabase
+        .from("formation_courses")
+        .select("title")
+        .eq("id", record.course_id)
+        .maybeSingle();
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Achat de cours à valider";
+      body = course?.title
+        ? `Demande d'accès : ${course.title}`
+        : "Une demande d'accès à un cours AkoraFormation attend validation.";
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "friendships") {
       // Demande d'ami (INSERT) ou réponse acceptée/refusée (UPDATE) —
       // voir supabase/phase48_patch_friends_and_private_chat.sql. Aucune
