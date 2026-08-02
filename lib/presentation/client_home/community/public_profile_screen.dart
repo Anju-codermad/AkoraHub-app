@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/community/community_moderation_repo.dart';
 import '../../../core/community/friends_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/whatsapp_link.dart';
@@ -40,6 +41,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   Map<String, dynamic>? _friendship;
   bool _isEligible = false;
   bool _isActingOnFriendship = false;
+  bool _isBlocked = false;
+  bool _isActingOnBlock = false;
 
   String? get _myId => SupabaseConfig.client.auth.currentUser?.id;
 
@@ -73,14 +76,17 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             .limit(20),
         FriendsRepo.fetchFriendshipStatus(widget.userId),
         FriendsRepo.hasMadePurchase(),
+        CommunityModerationRepo.fetchBlockedIds(),
       ]);
       if (!mounted) return;
       final profiles = results[0] as Map<String, Map<String, dynamic>>;
+      final blockedIds = results[4] as Set<String>;
       setState(() {
         _profile = profiles[widget.userId];
         _posts = List<Map<String, dynamic>>.from(results[1] as List);
         _friendship = results[2] as Map<String, dynamic>?;
         _isEligible = results[3] as bool;
+        _isBlocked = blockedIds.contains(widget.userId);
         _isLoading = false;
         if (_profile == null) {
           _error = 'Profil indisponible.';
@@ -142,8 +148,75 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     }
   }
 
+  /// Bloquer/débloquer ce client (Lot 1 Communauté, 02/08) — voir
+  /// supabase/phase51_patch_block_hide_save_posts.sql. Un blocage exclut
+  /// immédiatement ses publications du fil (RLS) et coupe les nouvelles
+  /// demandes d'ami/messages, même déjà amis.
+  Future<void> _toggleBlock() async {
+    if (_isBlocked) {
+      setState(() => _isActingOnBlock = true);
+      try {
+        await CommunityModerationRepo.unblock(widget.userId);
+        if (!mounted) return;
+        setState(() {
+          _isBlocked = false;
+          _isActingOnBlock = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _isActingOnBlock = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erreur, réessayez.')));
+      }
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bloquer ce client ?'),
+        content: const Text(
+            'Vous ne verrez plus ses publications, et il ne pourra plus vous envoyer de demande d\'ami ni de message.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Bloquer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _isActingOnBlock = true);
+    try {
+      await CommunityModerationRepo.block(widget.userId);
+      if (!mounted) return;
+      setState(() {
+        _isBlocked = true;
+        _isActingOnBlock = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isActingOnBlock = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Erreur, réessayez.')));
+    }
+  }
+
   Widget _buildFriendSection(ThemeData theme) {
     if (widget.userId == _myId) return const SizedBox.shrink();
+
+    if (_isBlocked) {
+      return Center(
+        child: Text('Vous avez bloqué ce client.',
+            style: theme.textTheme.bodySmall),
+      );
+    }
 
     final status = _friendship?['status'] as String?;
     final iAmRequester = _friendship?['requester_id'] == _myId;
@@ -234,6 +307,22 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(PublicProfilesRepo.displayName(_profile)),
+        actions: widget.userId == _myId
+            ? null
+            : [
+                IconButton(
+                  tooltip: _isBlocked ? 'Débloquer' : 'Bloquer ce client',
+                  icon: _isActingOnBlock
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(_isBlocked
+                          ? Icons.block
+                          : Icons.block_outlined),
+                  onPressed: _isActingOnBlock ? null : _toggleBlock,
+                ),
+              ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -276,9 +365,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         ),
                       SizedBox(height: 1.5.h),
                       _buildFriendSection(theme),
-                      if (buildWhatsAppLink(
-                              _profile?['phone'] as String?) !=
-                          null) ...[
+                      if (!_isBlocked &&
+                          buildWhatsAppLink(
+                                  _profile?['phone'] as String?) !=
+                              null) ...[
                         SizedBox(height: 1.5.h),
                         Center(
                           child: OutlinedButton.icon(

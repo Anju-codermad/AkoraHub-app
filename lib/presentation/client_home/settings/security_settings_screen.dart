@@ -3,6 +3,7 @@ import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_config.dart';
+import '../community/blocked_accounts_screen.dart';
 import 'two_factor_setup_screen.dart';
 
 /// Confidentialité et sécurité : changer le mot de passe, activer la
@@ -270,6 +271,20 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                       _myPhone!.trim().isEmpty)
                   ? null
                   : _setSharePhonePublicly,
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: const Text('Comptes bloqués'),
+              subtitle: const Text('Gérer les clients que vous avez bloqués'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const BlockedAccountsScreen()),
+              ),
             ),
           ),
           SizedBox(height: 2.h),

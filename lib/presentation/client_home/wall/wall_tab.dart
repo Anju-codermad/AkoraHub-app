@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/community/community_moderation_repo.dart';
 import '../../../core/community/friends_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/whatsapp_link.dart';
@@ -14,6 +15,7 @@ import '../product_detail_client.dart';
 import '../community/friends_list_screen.dart';
 import '../community/public_profile_screen.dart';
 import '../community/public_profiles_repo.dart';
+import '../community/saved_posts_screen.dart';
 
 /// Réactions emoji disponibles sur une publication (01/08, demande
 /// explicite : "différents emoji pour la réaction") — même jeu que
@@ -58,6 +60,7 @@ class _WallTabState extends State<WallTab> {
   final Map<String, int> _commentCounts = {};
   Map<String, Map<String, dynamic>> _authorProfiles = {};
   Map<String, Map<String, dynamic>> _mentionedProducts = {};
+  Set<String> _savedPostIds = {};
 
   final Map<String, String> _sectorLabels = const {
     'hotel': 'Hôtellerie',
@@ -105,6 +108,17 @@ class _WallTabState extends State<WallTab> {
       MaterialPageRoute(builder: (_) => const FriendsListScreen()),
     );
     _loadPendingFriendRequests();
+  }
+
+  Future<void> _openSavedPosts() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SavedPostsScreen()),
+    );
+    if (!mounted) return;
+    final savedIds = await CommunityModerationRepo.fetchSavedPostIds();
+    if (!mounted) return;
+    setState(() => _savedPostIds = savedIds);
   }
 
   @override
@@ -269,12 +283,14 @@ class _WallTabState extends State<WallTab> {
         loadComments(),
         PublicProfilesRepo.fetchByIds(authorIds),
         loadMentionedProducts(),
+        CommunityModerationRepo.fetchSavedPostIds(),
       ]);
       final likesRows = results[0] as List<Map<String, dynamic>>;
       final commentsRows = results[1] as List<Map<String, dynamic>>;
       final profiles = results[2] as Map<String, Map<String, dynamic>>;
       final mentionedProducts =
           results[3] as Map<String, Map<String, dynamic>>;
+      final savedIds = results[4] as Set<String>;
 
       final likeCounts = <String, int>{};
       final myReactions = <String, String?>{};
@@ -304,6 +320,7 @@ class _WallTabState extends State<WallTab> {
           ..addAll(commentCounts);
         _authorProfiles = profiles;
         _mentionedProducts = mentionedProducts;
+        _savedPostIds = savedIds;
         _isLoading = false;
         _hasMore = list.length == _pageSize;
       });
@@ -563,12 +580,15 @@ class _WallTabState extends State<WallTab> {
     if (newContent == null || !mounted) return;
 
     try {
-      await SupabaseConfig.client
-          .from('posts')
-          .update({'content': newContent}).eq('id', post['id']);
+      final updatedAt = DateTime.now().toIso8601String();
+      await SupabaseConfig.client.from('posts').update(
+          {'content': newContent, 'updated_at': updatedAt}).eq('id', post['id']);
       setState(() {
         final index = _posts.indexWhere((p) => p['id'] == post['id']);
-        if (index != -1) _posts[index]['content'] = newContent;
+        if (index != -1) {
+          _posts[index]['content'] = newContent;
+          _posts[index]['updated_at'] = updatedAt;
+        }
       });
     } catch (_) {
       if (!mounted) return;
@@ -679,6 +699,94 @@ class _WallTabState extends State<WallTab> {
     }
   }
 
+  /// Enregistrer/retirer une publication (Lot 1 Communauté, 02/08) — mise
+  /// à jour optimiste avec repli si l'appel serveur échoue.
+  Future<void> _toggleSave(Map<String, dynamic> post) async {
+    final postId = post['id'] as String;
+    final wasSaved = _savedPostIds.contains(postId);
+    setState(() {
+      if (wasSaved) {
+        _savedPostIds.remove(postId);
+      } else {
+        _savedPostIds.add(postId);
+      }
+    });
+    try {
+      if (wasSaved) {
+        await CommunityModerationRepo.unsavePost(postId);
+      } else {
+        await CommunityModerationRepo.savePost(postId);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (wasSaved) {
+          _savedPostIds.add(postId);
+        } else {
+          _savedPostIds.remove(postId);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Action impossible pour le moment.')));
+    }
+  }
+
+  /// Masquer une publication (pour soi seulement, sans signaler — voir
+  /// supabase/phase51_patch_block_hide_save_posts.sql).
+  Future<void> _hidePost(Map<String, dynamic> post) async {
+    try {
+      await CommunityModerationRepo.hidePost(post['id']);
+      if (!mounted) return;
+      setState(() => _posts.removeWhere((p) => p['id'] == post['id']));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Publication masquée.')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de masquer pour le moment.')));
+    }
+  }
+
+  /// Bloquer l'auteur d'une publication — exclut immédiatement toutes
+  /// ses publications du fil affiché (la RLS s'occupe des futurs
+  /// rechargements, voir posts_select dans phase51).
+  Future<void> _blockAuthor(Map<String, dynamic> post) async {
+    final authorId = post['author_id'] as String?;
+    if (authorId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bloquer ce client ?'),
+        content: const Text(
+            'Vous ne verrez plus ses publications, et il ne pourra plus vous envoyer de demande d\'ami ni de message.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Bloquer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await CommunityModerationRepo.block(authorId);
+      if (!mounted) return;
+      setState(() => _posts.removeWhere((p) => p['author_id'] == authorId));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Client bloqué.')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de bloquer pour le moment.')));
+    }
+  }
+
   /// Contacter l'auteur via WhatsApp (01/08, demande explicite) —
   /// n'apparaît que si l'auteur a lui-même activé "Afficher mon numéro"
   /// dans ses réglages de confidentialité (voir
@@ -715,6 +823,11 @@ class _WallTabState extends State<WallTab> {
       appBar: AppBar(
         title: const Text('Communauté AkoraHub'),
         actions: [
+          IconButton(
+            tooltip: 'Sauvegardés',
+            icon: const Icon(Icons.bookmark_border),
+            onPressed: _openSavedPosts,
+          ),
           IconButton(
             tooltip: 'Amis',
             icon: Badge(
@@ -908,8 +1021,18 @@ class _WallTabState extends State<WallTab> {
                                                                     fontWeight:
                                                                         FontWeight
                                                                             .w600)),
-                                                        if (sector != null)
-                                                          Text(sector,
+                                                        if (sector != null ||
+                                                            post['updated_at'] !=
+                                                                null)
+                                                          Text(
+                                                              [
+                                                                if (sector !=
+                                                                    null)
+                                                                  sector,
+                                                                if (post['updated_at'] !=
+                                                                    null)
+                                                                  'Modifié',
+                                                              ].join(' · '),
                                                               style: theme
                                                                   .textTheme
                                                                   .bodySmall),
@@ -930,14 +1053,23 @@ class _WallTabState extends State<WallTab> {
                                                   _editPost(post);
                                                 } else if (value == 'delete') {
                                                   _deletePost(post);
+                                                } else if (value == 'save') {
+                                                  _toggleSave(post);
                                                 }
                                               },
-                                              itemBuilder: (context) => const [
+                                              itemBuilder: (context) => [
                                                 PopupMenuItem(
+                                                  value: 'save',
+                                                  child: Text(_savedPostIds
+                                                          .contains(post['id'])
+                                                      ? 'Retirer des enregistrés'
+                                                      : 'Enregistrer'),
+                                                ),
+                                                const PopupMenuItem(
                                                   value: 'edit',
                                                   child: Text('Modifier'),
                                                 ),
-                                                PopupMenuItem(
+                                                const PopupMenuItem(
                                                   value: 'delete',
                                                   child: Text('Supprimer',
                                                       style: TextStyle(
@@ -953,12 +1085,35 @@ class _WallTabState extends State<WallTab> {
                                               onSelected: (value) {
                                                 if (value == 'report') {
                                                   _reportPost(post);
+                                                } else if (value == 'save') {
+                                                  _toggleSave(post);
+                                                } else if (value == 'hide') {
+                                                  _hidePost(post);
+                                                } else if (value == 'block') {
+                                                  _blockAuthor(post);
                                                 }
                                               },
-                                              itemBuilder: (context) => const [
+                                              itemBuilder: (context) => [
                                                 PopupMenuItem(
+                                                  value: 'save',
+                                                  child: Text(_savedPostIds
+                                                          .contains(post['id'])
+                                                      ? 'Retirer des enregistrés'
+                                                      : 'Enregistrer'),
+                                                ),
+                                                const PopupMenuItem(
+                                                  value: 'hide',
+                                                  child: Text('Masquer'),
+                                                ),
+                                                const PopupMenuItem(
                                                   value: 'report',
                                                   child: Text('Signaler'),
+                                                ),
+                                                const PopupMenuItem(
+                                                  value: 'block',
+                                                  child: Text('Bloquer ce client',
+                                                      style: TextStyle(
+                                                          color: Colors.red)),
                                                 ),
                                               ],
                                             ),
