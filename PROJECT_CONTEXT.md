@@ -5094,3 +5094,26 @@ ce soit clair à activer/désactiver.
 (Sandbox `sk_test_...` puis Production `sk_live_...` + `whsec_...`)
 nécessaires à partir du Lot 3 pour tester réellement — compte Sandbox
 déjà créé par l'utilisateur.
+
+## Intégration FiveOne Pay, Lot 2/4 : Edge Function de création de paiement (02/08)
+
+`supabase/functions/create-fiveonepay-payment-link/index.ts` — même
+squelette que `create-papi-payment-link` (Phase 38) : vérifie la
+session, charge la commande, s'assure qu'elle appartient bien à
+l'appelant, appelle `POST /v1/payments` (FiveOne Pay), stocke
+`fiveonepay_reference`/`fiveonepay_payment_url` sur la commande, renvoie
+`paymentLink` au client. Deux différences avec Papi :
+- **Double vérification serveur du `provider`** : n'appelle FiveOne Pay
+  que si `payment_method_settings.provider = 'fiveonepay'` pour cet
+  opérateur — évite un appel API erroné si le réglage Admin a changé
+  entre le chargement de l'écran client et la validation du paiement
+  (Papi n'a pas cette vérification, il n'y avait qu'un seul fournisseur
+  à l'époque).
+- **`Idempotency-Key: order.order_number`** — FiveOne Pay garantit
+  qu'un second appel avec la même clé renvoie le paiement déjà créé
+  plutôt que d'en créer un nouveau (rejouable sans risque après une
+  coupure réseau) ; Papi n'offre pas cette garantie nativement.
+
+Secret nécessaire (Supabase Dashboard -> Edge Functions -> Manage
+secrets) : `FIVEONEPAY_SECRET_KEY` (Sandbox `sk_test_...`, puis
+Production `sk_live_...` une fois le dossier KYC validé).
