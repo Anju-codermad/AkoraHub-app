@@ -15,7 +15,9 @@ import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
 import '../security_audit_log/security_audit_log_screen.dart';
 import '../raw_materials_management/raw_materials_management.dart';
+import '../formation_purchases_management/formation_purchases_management.dart';
 import '../formation_courses_management/formation_courses_management.dart';
+import '../course_purchases_management/course_purchases_management.dart';
 import '../client_home/settings/settings_screen.dart';
 import '../post_reports_management/post_reports_management.dart';
 
@@ -95,6 +97,26 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const RawMaterialsManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.workspace_premium_outlined,
+            label: 'Achats Formation — Matières premières',
+            subtitle: 'Valider/refuser les demandes d\'accès aux fiches',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const FormationPurchasesManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.workspace_premium_outlined,
+            label: 'Achats Formation — Cours AkoraFormation',
+            subtitle: 'Valider/refuser les demandes d\'accès aux cours',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const CoursePurchasesManagement()),
             ),
           ),
           _MenuTile(

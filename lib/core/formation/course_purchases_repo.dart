@@ -45,6 +45,23 @@ class CoursePurchasesRepo {
     }
   }
 
+  /// Historique complet des demandes d'achat de cours du client connecté
+  /// (tous statuts), avec le titre du cours — pour l'écran "Mes accès".
+  static Future<List<Map<String, dynamic>>> fetchMyCoursePurchases() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null || !SupabaseConfig.isConfigured) return [];
+    try {
+      final rows = await SupabaseConfig.client
+          .from('course_purchases')
+          .select('*, formation_courses(title, category)')
+          .eq('customer_id', userId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(rows);
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Modules réels (vidéo/document/texte) d'un cours — la RLS ne renvoie
   /// des lignes que si l'achat est validé (ou pour le staff) : un client
   /// non-acheteur reçoit simplement une liste vide, jamais les URLs.
