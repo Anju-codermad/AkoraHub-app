@@ -428,3 +428,6 @@
 
 ## 2026-08-02 06:20 UTC — Claude
 - Merge: correctif phase52 - share_phone_publicly manquante (`296f759`)
+
+## 2026-08-02 06:29 UTC — Claude
+- Merge: Communauté Lot 3 - mentions, hashtags, carrousel (`2e14dc3`)
