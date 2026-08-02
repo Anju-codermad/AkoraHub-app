@@ -4717,6 +4717,55 @@ appartient au pilier choisi — même principe que `_sectorAuthorIds`
 `_pilierProductIds`, `_loadBusinessUnits`, deux nouvelles rangées de
 puces).
 
-**Reste à construire (Lot 5)** : avis vérifiés liés à un achat réel,
-galerie "Réalisations clients" — les deux derniers de la liste initiale,
-plus gros chantier (relier posts ↔ commandes réelles).
+## Communauté façon Facebook — Lot 5 : preuve sociale (02/08)
+
+Cinquième et dernier lot de la liste initiale : **avis vérifiés liés à
+un achat réel, galerie "Réalisations clients"**.
+
+**SQL** : `supabase/phase55_patch_verified_purchases_reviews.sql` — 3
+fonctions SECURITY DEFINER, aucune nouvelle table (réutilisent
+`orders`/`order_items`/`product_reviews`/`posts` déjà en place, même
+principe que `has_purchased_raw_material`, Phase 45 : ne révèlent qu'un
+booléen ou un id, jamais le détail d'une commande) :
+- `has_ordered_product(uid, pid)` : le client a-t-il une commande non
+  annulée contenant ce produit.
+- `verified_reviewers(pid)` : parmi les auteurs d'avis sur ce produit,
+  lesquels l'ont réellement commandé (1 appel par page produit).
+- `verified_purchase_post_ids(post_ids[])` : parmi une liste de
+  publications, lesquelles ont un auteur ayant réellement commandé le
+  produit taggé (1 appel par page du fil).
+
+**Bug trouvé et corrigé au passage** : `_ReviewsSection`
+(product_detail_client.dart) utilisait `.select('*, profiles(full_name,
+company_name)')` — une jointure imbriquée qui ne fonctionne JAMAIS pour
+les avis d'un AUTRE client, la RLS de `profiles` limitant la lecture à
+sa propre ligne (Phase 1). Tous les avis affichaient donc silencieusement
+"Client" au lieu du vrai nom depuis le début. Remplacé par
+`PublicProfilesRepo.fetchByIds`, le chemin déjà utilisé partout ailleurs
+(Communauté, amis) pour ce même problème.
+
+**Achat vérifié** : badge ✓ "Achat vérifié" affiché (a) sur un avis
+produit dont l'auteur a réellement commandé (`product_detail_client.dart`),
+(b) sur une publication taggant un produit que son auteur a réellement
+commandé (`wall_tab.dart`, à côté du tag produit et du bouton Commander).
+
+**Galerie "Réalisations clients"** : nouvel écran
+`community/realisations_gallery_screen.dart` — grille de vignettes des
+publications ayant à la fois une photo ET un produit taggé (aucune
+nouvelle table, filtre simplement `posts` sur ces deux colonnes non
+nulles). Filtrable par pilier (même pattern que le Lot 4). Tap sur une
+vignette → fiche détaillée en feuille modale (photo, auteur, texte,
+produit avec badge vérifié, bouton vers la fiche produit). Accessible
+depuis une nouvelle icône 🖼 dans l'AppBar de la Communauté.
+
+**Modifications Dart :** `product_detail_client.dart` (fix noms +
+badge avis), `wall_tab.dart` (badge posts + icône galerie),
+`community/realisations_gallery_screen.dart` (nouveau).
+
+---
+
+**Les 5 lots de la liste "Communauté meilleure que Facebook" du 02/08
+sont maintenant tous construits.** Reste hors-liste initiale : groupes
+communautaires par catégorie de Formation (chantier séparé, socle achat
+de cours déjà posé — voir plus haut), formulaire "Sécurité des données"
+du Play Store (mis de côté par l'utilisatrice).

@@ -1,0 +1,426 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:sizer/sizer.dart';
+
+import '../../../core/supabase/supabase_config.dart';
+import '../product_detail_client.dart';
+import 'public_profiles_repo.dart';
+
+/// Galerie "Réalisations clients" (Lot 5 Communauté, 02/08) — vitrine des
+/// publications qui montrent un produit en situation réelle : celles
+/// avec une photo ET un produit taggé. Réutilise entièrement
+/// `posts`/`mentioned_product_id` déjà en place, aucune nouvelle table.
+/// La RLS de `posts` (Phase 3/51) s'applique normalement : une
+/// publication privée, masquée ou d'un compte bloqué n'apparaît jamais
+/// ici non plus.
+class RealisationsGalleryScreen extends StatefulWidget {
+  const RealisationsGalleryScreen({super.key});
+
+  @override
+  State<RealisationsGalleryScreen> createState() =>
+      _RealisationsGalleryScreenState();
+}
+
+class _RealisationsGalleryScreenState
+    extends State<RealisationsGalleryScreen> {
+  static const _pageSize = 30;
+
+  List<Map<String, dynamic>> _posts = [];
+  Map<String, Map<String, dynamic>> _authorProfiles = {};
+  Map<String, Map<String, dynamic>> _mentionedProducts = {};
+  Set<String> _verifiedPurchasePostIds = {};
+  List<Map<String, dynamic>> _businessUnits = [];
+  String? _selectedUnitId;
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _page = 0;
+  final _scrollController = ScrollController();
+  final _currency =
+      NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBusinessUnits();
+    _load();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadBusinessUnits() async {
+    if (!SupabaseConfig.isConfigured) return;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('business_units')
+          .select()
+          .eq('active', true)
+          .order('name');
+      if (!mounted) return;
+      setState(() => _businessUnits = List<Map<String, dynamic>>.from(rows));
+    } catch (_) {}
+  }
+
+  Future<List<String>?> _pilierProductIds() async {
+    if (_selectedUnitId == null) return null;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('products')
+          .select('id')
+          .eq('business_unit_id', _selectedUnitId!);
+      return List<Map<String, dynamic>>.from(rows)
+          .map((r) => r['id'] as String)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchPage(int page) async {
+    var query = SupabaseConfig.client
+        .from('posts')
+        .select()
+        .not('image_url', 'is', null)
+        .not('mentioned_product_id', 'is', null);
+    final pilierProductIds = await _pilierProductIds();
+    if (pilierProductIds != null) {
+      if (pilierProductIds.isEmpty) return [];
+      query = query.inFilter('mentioned_product_id', pilierProductIds);
+    }
+    final data = await query
+        .order('created_at', ascending: false)
+        .range(page * _pageSize, page * _pageSize + _pageSize - 1);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  Future<void> _resolveExtras(List<Map<String, dynamic>> list) async {
+    final postIds = list.map((p) => p['id'] as String).toList();
+    final authorIds =
+        list.map((p) => p['author_id'] as String?).whereType<String>().toSet();
+    final productIds = list
+        .map((p) => p['mentioned_product_id'] as String?)
+        .whereType<String>()
+        .toSet();
+
+    Future<Map<String, Map<String, dynamic>>> loadProducts() async {
+      if (productIds.isEmpty) return {};
+      try {
+        final rows = await SupabaseConfig.client
+            .from('products')
+            .select('id, name, price_detail, image_url')
+            .inFilter('id', productIds.toList());
+        return {
+          for (final row in List<Map<String, dynamic>>.from(rows))
+            row['id'] as String: row,
+        };
+      } catch (_) {
+        return {};
+      }
+    }
+
+    Future<Set<String>> loadVerified() async {
+      if (postIds.isEmpty) return {};
+      try {
+        final rows = await SupabaseConfig.client.rpc(
+            'verified_purchase_post_ids', params: {'post_ids': postIds});
+        return List<Map<String, dynamic>>.from(rows)
+            .map((r) => r['post_id'] as String)
+            .toSet();
+      } catch (_) {
+        return {};
+      }
+    }
+
+    final results = await Future.wait<dynamic>([
+      PublicProfilesRepo.fetchByIds(authorIds),
+      loadProducts(),
+      loadVerified(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _authorProfiles = {
+        ..._authorProfiles,
+        ...results[0] as Map<String, Map<String, dynamic>>
+      };
+      _mentionedProducts = {
+        ..._mentionedProducts,
+        ...results[1] as Map<String, Map<String, dynamic>>
+      };
+      _verifiedPurchasePostIds = {
+        ..._verifiedPurchasePostIds,
+        ...results[2] as Set<String>
+      };
+    });
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _page = 0;
+      _hasMore = true;
+    });
+    final list = await _fetchPage(0);
+    if (!mounted) return;
+    setState(() {
+      _posts = list;
+      _isLoading = false;
+      _hasMore = list.length == _pageSize;
+    });
+    await _resolveExtras(list);
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    final nextPage = _page + 1;
+    final list = await _fetchPage(nextPage);
+    if (!mounted) return;
+    setState(() {
+      _posts = [..._posts, ...list];
+      _page = nextPage;
+      _hasMore = list.length == _pageSize;
+      _isLoadingMore = false;
+    });
+    await _resolveExtras(list);
+  }
+
+  void _onFilterChanged() {
+    _load();
+  }
+
+  void _openDetail(Map<String, dynamic> post) {
+    final author = _authorProfiles[post['author_id']];
+    final product = _mentionedProducts[post['mentioned_product_id']];
+    final isVerified = _verifiedPurchasePostIds.contains(post['id']);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          padding: EdgeInsets.all(4.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  post['image_url'],
+                  width: double.infinity,
+                  height: 30.h,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+              SizedBox(height: 2.h),
+              Text(PublicProfilesRepo.displayName(author),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              if ((post['content'] ?? '').toString().isNotEmpty) ...[
+                SizedBox(height: 1.h),
+                Text(post['content']),
+              ],
+              if (product != null) ...[
+                SizedBox(height: 2.h),
+                Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: product['image_url'] != null
+                          ? NetworkImage(product['image_url'])
+                          : null,
+                      child: product['image_url'] == null
+                          ? const Icon(Icons.shopping_bag_outlined)
+                          : null,
+                    ),
+                    title: Text(product['name'] ?? ''),
+                    subtitle: product['price_detail'] != null
+                        ? Text(_currency.format(product['price_detail']))
+                        : null,
+                    trailing: isVerified
+                        ? Tooltip(
+                            message:
+                                'Ce client a réellement commandé ce produit',
+                            child: Icon(Icons.verified,
+                                color: Theme.of(context).colorScheme.primary),
+                          )
+                        : null,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ProductDetailClient(product: product),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Réalisations clients')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  if (_businessUnits.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 5.h,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 4.w, vertical: 1.h),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: const Text('Tous les piliers'),
+                                selected: _selectedUnitId == null,
+                                onSelected: (_) {
+                                  setState(() => _selectedUnitId = null);
+                                  _onFilterChanged();
+                                },
+                              ),
+                            ),
+                            ..._businessUnits.map((u) => Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ChoiceChip(
+                                    label: Text(u['name'] ?? ''),
+                                    selected: _selectedUnitId == u['id'],
+                                    onSelected: (_) {
+                                      setState(
+                                          () => _selectedUnitId = u['id']);
+                                      _onFilterChanged();
+                                    },
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (_posts.isEmpty)
+                    SliverFillRemaining(
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(6.w),
+                          child: Text(
+                            'Aucune réalisation client pour le moment — '
+                            'les publications avec une photo et un produit '
+                            'taggé apparaîtront ici.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: EdgeInsets.all(2.w),
+                      sliver: SliverGrid(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 4,
+                          mainAxisSpacing: 4,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final post = _posts[index];
+                            final isVerified = _verifiedPurchasePostIds
+                                .contains(post['id']);
+                            return GestureDetector(
+                              onTap: () => _openDetail(post),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.network(
+                                      post['image_url'],
+                                      fit: BoxFit.cover,
+                                      cacheWidth: 300,
+                                      errorBuilder: (_, __, ___) =>
+                                          Container(
+                                        color: theme.colorScheme
+                                            .surfaceContainerHighest,
+                                        child: const Icon(
+                                            Icons.image_not_supported_outlined),
+                                      ),
+                                    ),
+                                  ),
+                                  if (isVerified)
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Icon(Icons.verified,
+                                          size: 16,
+                                          color: theme.colorScheme.primary,
+                                          shadows: const [
+                                            Shadow(
+                                                color: Colors.black45,
+                                                blurRadius: 4)
+                                          ]),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                          childCount: _posts.length,
+                        ),
+                      ),
+                    ),
+                  if (_isLoadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                    ),
+                  SliverToBoxAdapter(child: SizedBox(height: 4.h)),
+                ],
+              ),
+            ),
+    );
+  }
+}

@@ -18,6 +18,7 @@ import '../product_detail_client.dart';
 import '../community/friends_list_screen.dart';
 import '../community/public_profile_screen.dart';
 import '../community/public_profiles_repo.dart';
+import '../community/realisations_gallery_screen.dart';
 import '../community/saved_posts_screen.dart';
 
 /// Réactions emoji disponibles sur une publication (01/08, demande
@@ -68,6 +69,7 @@ class _WallTabState extends ConsumerState<WallTab> {
   Map<String, Map<String, dynamic>> _mentionedProducts = {};
   Map<String, List<String>> _postImages = {};
   Set<String> _savedPostIds = {};
+  Set<String> _verifiedPurchasePostIds = {};
 
   final Map<String, String> _sectorLabels = const {
     'hotel': 'Hôtellerie',
@@ -423,6 +425,22 @@ class _WallTabState extends ConsumerState<WallTab> {
         }
       }
 
+      // Achats vérifiés (Lot 5 Communauté, 02/08) — un appel groupé plutôt
+      // qu'un appel par publication, voir
+      // supabase/phase55_patch_verified_purchases_reviews.sql.
+      Future<Set<String>> loadVerifiedPurchases() async {
+        if (postIds.isEmpty) return {};
+        try {
+          final rows = await SupabaseConfig.client.rpc(
+              'verified_purchase_post_ids', params: {'post_ids': postIds});
+          return List<Map<String, dynamic>>.from(rows)
+              .map((r) => r['post_id'] as String)
+              .toSet();
+        } catch (_) {
+          return {};
+        }
+      }
+
       final results = await Future.wait<dynamic>([
         loadLikes(),
         loadComments(),
@@ -430,6 +448,7 @@ class _WallTabState extends ConsumerState<WallTab> {
         loadMentionedProducts(),
         CommunityModerationRepo.fetchSavedPostIds(),
         loadPostImages(),
+        loadVerifiedPurchases(),
       ]);
       final likesRows = results[0] as List<Map<String, dynamic>>;
       final commentsRows = results[1] as List<Map<String, dynamic>>;
@@ -438,6 +457,7 @@ class _WallTabState extends ConsumerState<WallTab> {
           results[3] as Map<String, Map<String, dynamic>>;
       final savedIds = results[4] as Set<String>;
       final postImages = results[5] as Map<String, List<String>>;
+      final verifiedPurchaseIds = results[6] as Set<String>;
 
       final likeCounts = <String, int>{};
       final myReactions = <String, String?>{};
@@ -469,6 +489,7 @@ class _WallTabState extends ConsumerState<WallTab> {
         _mentionedProducts = mentionedProducts;
         _savedPostIds = savedIds;
         _postImages = postImages;
+        _verifiedPurchasePostIds = verifiedPurchaseIds;
         _isLoading = false;
         // Le fil Tendances est une liste fixe (top 30), jamais paginée.
         _hasMore = !_isTrending && list.length == _pageSize;
@@ -560,12 +581,26 @@ class _WallTabState extends ConsumerState<WallTab> {
         }
       }
 
+      Future<Set<String>> loadVerifiedPurchases() async {
+        if (postIds.isEmpty) return {};
+        try {
+          final rows = await SupabaseConfig.client.rpc(
+              'verified_purchase_post_ids', params: {'post_ids': postIds});
+          return List<Map<String, dynamic>>.from(rows)
+              .map((r) => r['post_id'] as String)
+              .toSet();
+        } catch (_) {
+          return {};
+        }
+      }
+
       final results = await Future.wait<dynamic>([
         loadLikes(),
         loadComments(),
         PublicProfilesRepo.fetchByIds(authorIds),
         loadMentionedProducts(),
         loadPostImages(),
+        loadVerifiedPurchases(),
       ]);
       final likesRows = results[0] as List<Map<String, dynamic>>;
       final commentsRows = results[1] as List<Map<String, dynamic>>;
@@ -573,6 +608,7 @@ class _WallTabState extends ConsumerState<WallTab> {
       final mentionedProducts =
           results[3] as Map<String, Map<String, dynamic>>;
       final postImages = results[4] as Map<String, List<String>>;
+      final verifiedPurchaseIds = results[5] as Set<String>;
 
       final likeCounts = <String, int>{};
       final myReactions = <String, String?>{};
@@ -598,6 +634,10 @@ class _WallTabState extends ConsumerState<WallTab> {
         _authorProfiles = {..._authorProfiles, ...profiles};
         _mentionedProducts = {..._mentionedProducts, ...mentionedProducts};
         _postImages = {..._postImages, ...postImages};
+        _verifiedPurchasePostIds = {
+          ..._verifiedPurchasePostIds,
+          ...verifiedPurchaseIds
+        };
         _page = nextPage;
         _hasMore = list.length == _pageSize;
         _isLoadingMore = false;
@@ -1101,6 +1141,15 @@ class _WallTabState extends ConsumerState<WallTab> {
       appBar: AppBar(
         title: const Text('Communauté AkoraHub'),
         actions: [
+          IconButton(
+            tooltip: 'Réalisations clients',
+            icon: const Icon(Icons.photo_library_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const RealisationsGalleryScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Sauvegardés',
             icon: const Icon(Icons.bookmark_border),
@@ -1665,6 +1714,18 @@ class _WallTabState extends ConsumerState<WallTab> {
                                                         TextOverflow.ellipsis,
                                                   ),
                                                 ),
+                                                if (_verifiedPurchasePostIds
+                                                    .contains(post['id']))
+                                                  Tooltip(
+                                                    message:
+                                                        'Ce client a réellement commandé ce produit',
+                                                    child: Icon(
+                                                        Icons.verified,
+                                                        size: 16,
+                                                        color: theme
+                                                            .colorScheme
+                                                            .primary),
+                                                  ),
                                                 TextButton(
                                                   onPressed: () =>
                                                       _quickOrder(
