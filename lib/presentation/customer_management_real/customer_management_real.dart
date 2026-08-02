@@ -142,9 +142,26 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                                         child: Icon(
                                             _iconForType(c['client_type'])),
                                       ),
-                                      title: Text(c['company_name'] ??
-                                          c['full_name'] ??
-                                          'Client'),
+                                      title: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              c['company_name'] ??
+                                                  c['full_name'] ??
+                                                  'Client',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (c['is_vip'] == true) ...[
+                                            SizedBox(width: 1.w),
+                                            const Icon(
+                                                Icons.workspace_premium,
+                                                size: 16,
+                                                color: Colors.amber),
+                                          ],
+                                        ],
+                                      ),
                                       subtitle: Text(
                                         [
                                           _typeLabels[c['client_type']] ?? '',
