@@ -416,3 +416,6 @@
 
 ## 2026-08-02 05:09 UTC — Claude
 - Merge: Mes accès + achats de cours validables côté admin (`068b83f`)
+
+## 2026-08-02 05:25 UTC — Claude
+- Merge: logos opérateurs sur la page d'achat externe (`42b1a00`)
