@@ -4503,3 +4503,47 @@ eux-mêmes (prochaine étape, une fois ce socle validé) — voir aussi la
 limite déjà documentée plus haut sur "Matières premières" (seule
 catégorie avec un vrai accès vérifiable pour l'instant côté matières
 premières ; les cours ont maintenant aussi leur vrai système d'achat).
+
+## Design Académie — sections + style bibliothèque vidéo (02/08)
+
+Refonte de `akora_formation_screen.dart` sur inspiration d'une appli de
+bibliothèque/vidéos (JW Library) montrée par l'utilisatrice : remplace la
+liste plate filtrée par puces horizontales par des **sections par
+catégorie** — dans chaque section, une **rangée horizontale de cartes
+"affiche"** (dégradé des couleurs de marque + icône de catégorie, pas de
+vraies vignettes vidéo — pas d'assets images autorisés) pour les cours
+**Disponible**, et une **liste verticale sobre icône + chevron** pour les
+cours pas encore programmés (tap → bottom sheet d'info). Logique
+d'achat/possession inchangée, uniquement l'agencement visuel.
+
+## Achats Formation introuvables côté client et admin — corrections (02/08)
+
+**Signalé par l'utilisatrice** : après un achat de matière première sur
+la page externe (Netlify), rien ne semblait s'être passé, et impossible
+de retrouver la demande côté Admin pour la valider. Deux causes
+distinctes trouvées et corrigées (pas un bug d'écriture des données — la
+demande est bien enregistrée en `en_attente`, c'est normal qu'aucun
+accès ne se débloque avant validation staff) :
+
+1. **Repérage côté client** : aucun endroit dans l'app ne montrait au
+   client l'état de ses demandes d'achat (juste "verrouillé"/"en
+   attente" produit par produit, pas de vue d'ensemble). Ajouté : écran
+   **"Mes accès"** (`client_home/formation/my_formation_access_screen.dart`),
+   accessible via une icône dans l'AppBar d'Académie — liste tous les
+   achats du client (matières premières + cours), tous statuts, triés
+   par date, avec le statut en clair (En attente/Validé/Refusé).
+   Nouvelles méthodes `FormationRepo.fetchMyPurchases()` et
+   `CoursePurchasesRepo.fetchMyCoursePurchases()`.
+
+2. **Repérage côté Admin** : "Achats Formation" (matières premières)
+   n'était accessible que par une petite icône dans l'AppBar de l'écran
+   "Matières premières (Formation)" — jamais listée dans le menu Plus,
+   facile à manquer. Ajoutée en entrée directe du menu Plus.
+
+3. **Bug réel trouvé au passage** : il n'existait **aucun écran admin
+   pour valider les achats de cours** (`course_purchases`) — la table et
+   la page d'achat externe existaient (Phase 50) mais personne côté
+   staff ne pouvait passer une demande de "en_attente" à "validee". Un
+   client ayant payé un cours restait bloqué indéfiniment. Créé
+   `course_purchases_management/course_purchases_management.dart` (même
+   principe que `FormationPurchasesManagement`), ajouté au menu Plus.

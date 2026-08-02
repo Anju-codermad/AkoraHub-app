@@ -51,6 +51,26 @@ class FormationRepo {
     }
   }
 
+  /// Historique complet des demandes d'achat du client connecté (tous
+  /// statuts), avec le nom du produit — pour l'écran "Mes accès" (02/08 :
+  /// l'utilisatrice ne retrouvait pas ses achats en attente ni côté
+  /// client ni côté admin, cet écran donne au client une vue directe et
+  /// transparente sur ce qu'il a demandé).
+  static Future<List<Map<String, dynamic>>> fetchMyPurchases() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null || !SupabaseConfig.isConfigured) return [];
+    try {
+      final rows = await SupabaseConfig.client
+          .from('formation_purchases')
+          .select('*, raw_materials(name, category_name)')
+          .eq('customer_id', userId)
+          .order('requested_at', ascending: false);
+      return List<Map<String, dynamic>>.from(rows);
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Paliers de prix, triés du plus petit au plus grand seuil.
   static Future<List<Map<String, dynamic>>> fetchPricingTiers() async {
     if (!SupabaseConfig.isConfigured) return [];
