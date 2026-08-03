@@ -5203,6 +5203,34 @@ tous construits.** Reste à faire un vrai test de paiement Sandbox de
 bout en bout une fois les 2 fonctions déployées et les 2 secrets
 configurés côté Supabase.
 
+## FiveOne Pay : activation d'Orange Money (03/08)
+
+FiveOne Pay a activé Orange Money sur leur plateforme (au départ, seul
+MVola était réellement disponible chez eux, Orange Money et Airtel
+Money étaient annoncés "bientôt"). L'Edge Function
+`create-fiveonepay-payment-link` gérait déjà les 3 opérateurs
+(`operatorMap` : mvola/orange_money/airtel_money -> MVOLA/ORANGE_MONEY/
+AIRTEL_MONEY) — seul le verrou côté Admin (Lot 4/4, 02/08) bridait
+encore Orange Money par `disabled: true` "en dur". Retiré ce verrou
+pour Orange Money dans `payment_methods_management.dart`
+(`_providerTile(PaymentMethod.orangeMoney, 'fiveonepay')`, sans
+`disabled`) — l'interrupteur est maintenant activable comme celui de
+MVola. Airtel Money reste grisé ("Bientôt disponible chez FiveOne
+Pay") tant que FiveOne Pay ne le propose pas réellement.
+
+**Migration progressive vers la production FiveOne Pay** (mené avec
+l'utilisateur en direct, pas de code) : compte de reversement Mobile
+Money (MVola + Orange Money) validé chez FiveOne Pay, clé API
+Production créée et mise dans le secret Supabase
+`FIVEONEPAY_SECRET_KEY` (remplace la clé Sandbox), secret webhook
+Production régénéré et mis dans `FIVEONEPAY_WEBHOOK_SECRET`. Décision
+explicite de l'utilisateur : Papi.mg reste le seul fournisseur
+automatique actif pour MVola/Orange Money/Airtel Money jusqu'à un vrai
+test de paiement de bout en bout sous FiveOne Pay (lien de paiement +
+webhook + confirmation automatique de la commande) — bascule
+opérateur par opérateur via l'interrupteur Admin, pas de bascule
+globale d'un coup.
+
 ## CRM — Fiche client 360°, Lot 1/5 (02/08)
 
 Nouveau chantier CRM (5 lots, demande explicite de l'utilisateur pour
