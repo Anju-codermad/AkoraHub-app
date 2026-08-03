@@ -509,3 +509,6 @@
 
 ## 2026-08-03 06:04 UTC — Claude
 - Merge: Commandes/Accueil client Lot 4 : accueil enrichi (`e0ffc3e`)
+
+## 2026-08-03 06:15 UTC — Claude
+- Merge: Commandes/Accueil client Lot 5 : design & finitions (`b10a564`)
