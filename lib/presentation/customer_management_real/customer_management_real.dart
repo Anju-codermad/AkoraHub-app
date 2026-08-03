@@ -4,6 +4,16 @@ import 'package:sizer/sizer.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../customer_360/customer_360_screen.dart';
 
+/// PostgREST peut renvoyer un agrégat (`count()`, `sum()`) sous une forme
+/// inattendue selon le type Postgres sous-jacent — un `as num?` direct
+/// planterait alors avec un `TypeError` au lieu de simplement convertir
+/// (voir customer_analytics_dashboard.dart, même correctif).
+num _asNum(dynamic value) {
+  if (value is num) return value;
+  if (value is String) return num.tryParse(value) ?? 0;
+  return 0;
+}
+
 /// Liste réelle des clients (comptes créés via l'inscription), avec leur
 /// type (Hôtel/Hôpital/Entreprise/Particulier) et coordonnées.
 class CustomerManagementReal extends StatefulWidget {
@@ -89,11 +99,10 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
   /// encore jamais commandé (pas assez de signal pour le classer).
   String? _activitySegment(String customerId) {
     final agg = _segments[customerId];
-    final orderCount = (agg?['order_count'] as num?)?.toInt() ?? 0;
+    final orderCount = _asNum(agg?['order_count']).toInt();
     if (orderCount == 0) return null;
-    final lastOrderAt = agg?['last_order_at'] != null
-        ? DateTime.tryParse(agg!['last_order_at'] as String)
-        : null;
+    final lastOrderAt =
+        DateTime.tryParse(agg?['last_order_at']?.toString() ?? '');
     if (lastOrderAt != null &&
         DateTime.now().difference(lastOrderAt).inDays > _inactifAfterDays) {
       return 'inactif';
@@ -102,7 +111,7 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
   }
 
   bool _isGrosCompte(String customerId) {
-    final value = (_segments[customerId]?['lifetime_value'] as num?) ?? 0;
+    final value = _asNum(_segments[customerId]?['lifetime_value']);
     return value >= _grosCompteThreshold;
   }
 

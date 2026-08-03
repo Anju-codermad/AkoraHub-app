@@ -5960,3 +5960,39 @@ modif nécessaire sur cet écran).
 
 ⚠️ Migration `phase67_patch_referral_program.sql` à exécuter dans
 Supabase avant de tester le raccourci Parrainage.
+
+## Crash "Something went wrong" sur le Tableau de bord CRM (03/08)
+
+Signalé par l'utilisateur (capture), avec la demande explicite de
+vérifier le code plus largement avant le prochain test plutôt que de
+corriger réactivement écran par écran.
+
+**Cause probable** : `customer_segments` (Phase 63) expose `order_count`
+via `count(o.id) filter (...)` — un agrégat Postgres dont le type
+sérialisé par PostgREST peut ne pas être un JSON number selon le
+contexte, alors que `customer_analytics_dashboard.dart` le castait en
+dur (`as num?`) plutôt que de le convertir, plantant l'écran entier au
+tout premier calcul de `build()` (avant même l'affichage du
+`Scaffold`/`AppBar` — cohérent avec la capture, aucun titre visible).
+Un second point trouvé en relisant le fichier : `DateTime.parse(...)`
+(non défensif) sur `last_order_at` à l'affichage d'un client à risque.
+
+**Correctifs** (`customer_analytics_dashboard.dart` ET
+`customer_management_real.dart`, qui consomment la même vue avec le
+même risque) :
+- Nouveau helper `_asNum(dynamic)` : accepte un `num` OU une `String`
+  numérique, converti via `num.tryParse`, à la place de tout `as num?`
+  sur les champs venant de `customer_segments`.
+- `DateTime.parse` remplacé par `DateTime.tryParse` partout sur
+  `last_order_at`.
+- `customer_analytics_dashboard.dart` : calcul des listes dérivées
+  (`withOrders`/`atRisk`/`topClients`...) entouré d'un `try/catch` au
+  niveau de `build()` (message d'erreur affiché plutôt que crash), et
+  chaque ligne de la liste "Top clients"/"Clients à risque" isolée par
+  son propre `try/catch` (une ligne malformée n'empêche plus l'affichage
+  des autres) — même pattern que les fix Commandes/Achats Formation.
+
+Vérifié par la même occasion : la vue `post_engagement_scores` (fil
+Tendances, Phase 54) n'expose qu'un `score` agrégé utilisé uniquement
+côté serveur (`.gt()`/`.order()`), jamais casté côté Dart — pas de
+risque similaire à corriger là.

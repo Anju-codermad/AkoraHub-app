@@ -11,6 +11,18 @@ import '../customer_360/customer_360_screen.dart';
 /// par valeur, et clients à risque à relancer en priorité. Entièrement
 /// dérivé de la vue `customer_segments` (Phase 63) déjà en place pour
 /// le Lot 4 — aucune nouvelle table/vue nécessaire.
+
+/// PostgREST peut renvoyer un agrégat (`count()`, `sum()`) sous une forme
+/// inattendue selon le type Postgres sous-jacent — un `as num?` direct
+/// planterait alors avec un `TypeError` (voir PROJECT_CONTEXT.md, même
+/// classe de bug que les relations embarquées `as Map?`) au lieu de
+/// simplement convertir.
+num _asNum(dynamic value) {
+  if (value is num) return value;
+  if (value is String) return num.tryParse(value) ?? 0;
+  return 0;
+}
+
 class CustomerAnalyticsDashboard extends StatefulWidget {
   const CustomerAnalyticsDashboard({super.key});
 
@@ -82,9 +94,7 @@ class _CustomerAnalyticsDashboardState
   }
 
   bool _isInactif(Map<String, dynamic> s) {
-    final lastOrderAt = s['last_order_at'] != null
-        ? DateTime.tryParse(s['last_order_at'] as String)
-        : null;
+    final lastOrderAt = DateTime.tryParse(s['last_order_at']?.toString() ?? '');
     return lastOrderAt != null &&
         DateTime.now().difference(lastOrderAt).inDays > _inactifAfterDays;
   }
@@ -93,19 +103,39 @@ class _CustomerAnalyticsDashboardState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final withOrders =
-        _segments.where((s) => ((s['order_count'] as num?) ?? 0) > 0).toList();
-    final active = withOrders.where((s) => !_isInactif(s)).toList();
-    final recurrent =
-        withOrders.where((s) => ((s['order_count'] as num?) ?? 0) >= 2).toList();
-    final retentionRate =
-        withOrders.isEmpty ? 0.0 : recurrent.length / withOrders.length * 100;
-    final atRisk = withOrders.where(_isInactif).toList()
-      ..sort((a, b) => ((b['lifetime_value'] as num?) ?? 0)
-          .compareTo((a['lifetime_value'] as num?) ?? 0));
-    final topClients = [...withOrders]
-      ..sort((a, b) => ((b['lifetime_value'] as num?) ?? 0)
-          .compareTo((a['lifetime_value'] as num?) ?? 0));
+    // Calcul défensif — une seule ligne de segment malformée ne doit pas
+    // faire planter tout le tableau de bord (même principe que le fix
+    // Commandes/Achats Formation, voir PROJECT_CONTEXT.md).
+    List<Map<String, dynamic>> withOrders;
+    List<Map<String, dynamic>> active;
+    List<Map<String, dynamic>> atRisk;
+    List<Map<String, dynamic>> topClients;
+    double retentionRate;
+    try {
+      withOrders =
+          _segments.where((s) => _asNum(s['order_count']) > 0).toList();
+      active = withOrders.where((s) => !_isInactif(s)).toList();
+      final recurrent =
+          withOrders.where((s) => _asNum(s['order_count']) >= 2).toList();
+      retentionRate =
+          withOrders.isEmpty ? 0.0 : recurrent.length / withOrders.length * 100;
+      atRisk = withOrders.where(_isInactif).toList()
+        ..sort((a, b) => _asNum(b['lifetime_value'])
+            .compareTo(_asNum(a['lifetime_value'])));
+      topClients = [...withOrders]
+        ..sort((a, b) => _asNum(b['lifetime_value'])
+            .compareTo(_asNum(a['lifetime_value'])));
+    } catch (e) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Tableau de bord CRM')),
+        body: Center(
+            child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Erreur d\'affichage des statistiques : $e',
+              textAlign: TextAlign.center),
+        )),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Tableau de bord CRM')),
@@ -173,27 +203,36 @@ class _CustomerAnalyticsDashboardState
                               for (var i = 0;
                                   i < topClients.length && i < 10;
                                   i++) ...[
-                                ListTile(
-                                  leading: CircleAvatar(
-                                      child: Text('${i + 1}')),
-                                  title: Text(_nameFor(
-                                      topClients[i]['customer_id'] as String)),
-                                  subtitle: Text(
-                                      '${topClients[i]['order_count']} commande(s)'),
-                                  trailing: Text(
-                                    _currency.format(
-                                        topClients[i]['lifetime_value'] ?? 0),
-                                    style: theme.textTheme.labelLarge,
-                                  ),
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => Customer360Screen(
-                                          customerId: topClients[i]
-                                              ['customer_id'] as String),
-                                    ),
-                                  ),
-                                ),
+                                Builder(builder: (context) {
+                                  try {
+                                    final customerId = topClients[i]
+                                        ['customer_id'] as String;
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                          child: Text('${i + 1}')),
+                                      title: Text(_nameFor(customerId)),
+                                      subtitle: Text(
+                                          '${topClients[i]['order_count']} commande(s)'),
+                                      trailing: Text(
+                                        _currency.format(
+                                            _asNum(topClients[i]
+                                                ['lifetime_value'])),
+                                        style: theme.textTheme.labelLarge,
+                                      ),
+                                      onTap: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => Customer360Screen(
+                                              customerId: customerId),
+                                        ),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    return ListTile(
+                                      title:
+                                          Text('Erreur d\'affichage : $e'));
+                                  }
+                                }),
                                 if (i != topClients.length - 1 && i != 9)
                                   const Divider(height: 1),
                               ],
@@ -215,28 +254,41 @@ class _CustomerAnalyticsDashboardState
                           child: Column(
                             children: [
                               for (var i = 0; i < atRisk.length && i < 10; i++) ...[
-                                ListTile(
-                                  leading: const Icon(Icons.person_off_outlined),
-                                  title: Text(_nameFor(
-                                      atRisk[i]['customer_id'] as String)),
-                                  subtitle: Text(
-                                    'Dernière commande le '
-                                    '${_dateFormat.format(DateTime.parse(atRisk[i]['last_order_at']))}',
-                                  ),
-                                  trailing: Text(
-                                    _currency.format(
-                                        atRisk[i]['lifetime_value'] ?? 0),
-                                    style: theme.textTheme.labelLarge,
-                                  ),
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => Customer360Screen(
-                                          customerId: atRisk[i]['customer_id']
-                                              as String),
-                                    ),
-                                  ),
-                                ),
+                                Builder(builder: (context) {
+                                  try {
+                                    final customerId =
+                                        atRisk[i]['customer_id'] as String;
+                                    final lastOrderAt = DateTime.tryParse(
+                                        atRisk[i]['last_order_at']
+                                                ?.toString() ??
+                                            '');
+                                    return ListTile(
+                                      leading: const Icon(
+                                          Icons.person_off_outlined),
+                                      title: Text(_nameFor(customerId)),
+                                      subtitle: Text(lastOrderAt != null
+                                          ? 'Dernière commande le '
+                                              '${_dateFormat.format(lastOrderAt)}'
+                                          : 'Dernière commande : date inconnue'),
+                                      trailing: Text(
+                                        _currency.format(
+                                            _asNum(atRisk[i]['lifetime_value'])),
+                                        style: theme.textTheme.labelLarge,
+                                      ),
+                                      onTap: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => Customer360Screen(
+                                              customerId: customerId),
+                                        ),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    return ListTile(
+                                        title:
+                                            Text('Erreur d\'affichage : $e'));
+                                  }
+                                }),
                                 if (i != atRisk.length - 1 && i != 9)
                                   const Divider(height: 1),
                               ],
