@@ -494,3 +494,6 @@
 
 ## 2026-08-03 04:57 UTC — Claude
 - Merge: fix crash Achats Formation (embeds PostgREST tolérants) (`b916a2e`)
+
+## 2026-08-03 05:15 UTC — Claude
+- Merge: accueil client — barre de recherche + photos Pour vous (`d809480`)
