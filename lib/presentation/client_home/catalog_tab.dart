@@ -63,6 +63,16 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   Timer? _searchDebounce;
   List<Map<String, dynamic>> _allProductsForReference = [];
   final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+
+  /// Historique de recherche (local, `SharedPreferences`) + suggestions
+  /// tapées dans le nom des produits déjà chargés (`_allProductsForReference`,
+  /// pas de requête réseau supplémentaire) — affichés sous la barre de
+  /// recherche tant qu'elle a le focus.
+  static const _recentSearchesPrefsKey = 'recent_product_searches';
+  static const _maxRecentSearches = 6;
+  List<String> _recentSearches = [];
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -119,6 +129,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     super.initState();
     _loadData();
     _scrollController.addListener(_onScroll);
+    _searchFocusNode.addListener(() => setState(() {}));
+    _loadRecentSearches();
   }
 
   @override
@@ -127,7 +139,67 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchDebounce?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRecentSearches() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _recentSearches = prefs.getStringList(_recentSearchesPrefsKey) ?? [];
+      });
+    } catch (_) {
+      // Pas grave : l'historique reste simplement vide.
+    }
+  }
+
+  Future<void> _saveRecentSearch(String term) async {
+    final trimmed = term.trim();
+    if (trimmed.isEmpty) return;
+    final updated = [
+      trimmed,
+      ..._recentSearches.where((s) => s.toLowerCase() != trimmed.toLowerCase()),
+    ].take(_maxRecentSearches).toList();
+    setState(() => _recentSearches = updated);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_recentSearchesPrefsKey, updated);
+    } catch (_) {
+      // Pas grave : la session courante garde quand même l'historique.
+    }
+  }
+
+  Future<void> _clearRecentSearches() async {
+    setState(() => _recentSearches = []);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_recentSearchesPrefsKey);
+    } catch (_) {}
+  }
+
+  void _applySearch(String term) {
+    _searchController.text = term;
+    _searchFocusNode.unfocus();
+    _onSearchChanged(term);
+    _saveRecentSearch(term);
+  }
+
+  /// Suggestions de noms de produits correspondant à la saisie en cours,
+  /// dérivées du catalogue déjà chargé en mémoire — pas de requête réseau
+  /// dédiée, juste un filtre local sur `_allProductsForReference`.
+  List<String> get _searchSuggestions {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return [];
+    final names = _allProductsForReference
+        .map((p) => (p['name'] as String?) ?? '')
+        .where((name) => name.toLowerCase().contains(query))
+        .toSet()
+        .toList();
+    names.sort();
+    return names.take(5).toList();
   }
 
   void _onScroll() {
@@ -914,6 +986,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 1.h),
               child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
                 style: TextStyle(color: theme.colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: ref.tr('search_hint'),
@@ -921,6 +995,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       TextStyle(color: theme.colorScheme.onSurfaceVariant),
                   prefixIcon: Icon(Icons.search,
                       color: theme.colorScheme.onSurfaceVariant),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.close,
+                              size: 18,
+                              color: theme.colorScheme.onSurfaceVariant),
+                          onPressed: () => _applySearch(''),
+                        )
+                      : null,
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest
                       .withValues(alpha: 0.5),
@@ -930,10 +1012,77 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   ),
                   isDense: true,
                 ),
-                onChanged: _onSearchChanged,
+                onChanged: (value) {
+                  _onSearchChanged(value);
+                  setState(() {});
+                },
+                onSubmitted: _applySearch,
               ),
             ),
           ),
+
+          // --- Suggestions / historique de recherche (uniquement quand la
+          // barre a le focus) : recherches passées si le champ est vide,
+          // sinon noms de produits correspondant, dérivés du catalogue déjà
+          // en mémoire (`_allProductsForReference`, pas de requête réseau
+          // dédiée). ---
+          if (_searchFocusNode.hasFocus &&
+              (_searchController.text.trim().isEmpty
+                  ? _recentSearches.isNotEmpty
+                  : _searchSuggestions.isNotEmpty))
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 3.w, vertical: 1.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _searchController.text.trim().isEmpty
+                          ? [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Recherches récentes',
+                                      style: theme.textTheme.labelMedium),
+                                  TextButton(
+                                    onPressed: _clearRecentSearches,
+                                    child: const Text('Effacer'),
+                                  ),
+                                ],
+                              ),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  for (final term in _recentSearches)
+                                    ActionChip(
+                                      avatar: const Icon(Icons.history,
+                                          size: 16),
+                                      label: Text(term),
+                                      onPressed: () => _applySearch(term),
+                                    ),
+                                ],
+                              ),
+                            ]
+                          : [
+                              for (final name in _searchSuggestions)
+                                ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.search, size: 18),
+                                  title: Text(name),
+                                  onTap: () => _applySearch(name),
+                                ),
+                            ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // --- Bannière en carrousel ---
           SliverToBoxAdapter(

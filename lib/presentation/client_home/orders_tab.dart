@@ -153,10 +153,51 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
+  // Filtres (Lot 2, client-side — le nombre de commandes d'un client reste
+  // modeste, pas besoin d'aller-retour serveur par filtre).
+  String _statusFilter = 'tous';
+  String _periodFilter = 'tous';
+  final _searchController = TextEditingController();
+
+  static const _periodFilterDays = {
+    '30j': 30,
+    '90j': 90,
+  };
+
   @override
   void initState() {
     super.initState();
     _loadOrders();
+    _searchController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _filteredOrders {
+    final query = _searchController.text.trim().toLowerCase();
+    final days = _periodFilterDays[_periodFilter];
+    final cutoff =
+        days != null ? DateTime.now().subtract(Duration(days: days)) : null;
+    return _orders.where((o) {
+      if (_statusFilter != 'tous' && (o['status'] ?? 'recue') != _statusFilter) {
+        return false;
+      }
+      if (query.isNotEmpty &&
+          !((o['order_number'] as String? ?? '')
+              .toLowerCase()
+              .contains(query))) {
+        return false;
+      }
+      if (cutoff != null) {
+        final createdAt = DateTime.tryParse(o['created_at'] ?? '');
+        if (createdAt == null || createdAt.isBefore(cutoff)) return false;
+      }
+      return true;
+    }).toList();
   }
 
   Future<void> _loadOrders() async {
@@ -254,14 +295,25 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
       return const Center(child: Text('Aucune commande pour le moment.'));
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadOrders,
-      child: ListView.separated(
+    final filtered = _filteredOrders;
+
+    return Column(
+      children: [
+        _buildFilters(theme),
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(
+                  child: Text('Aucune commande ne correspond à ces filtres.',
+                      style: theme.textTheme.bodyMedium),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadOrders,
+                  child: ListView.separated(
         padding: EdgeInsets.all(4.w),
-        itemCount: _orders.length,
+        itemCount: filtered.length,
         separatorBuilder: (_, __) => SizedBox(height: 2.h),
         itemBuilder: (context, index) {
-          final order = _orders[index];
+          final order = filtered[index];
           final status = order['status'] ?? 'recue';
           final cancelled = status == 'annulee';
           final paymentStatus =
@@ -386,6 +438,88 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
             ),
           );
         },
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilters(ThemeData theme) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 0.5.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Rechercher par numéro de commande',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () => _searchController.clear(),
+                    )
+                  : null,
+              isDense: true,
+              filled: true,
+              fillColor:
+                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          SizedBox(height: 1.h),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final entry in {
+                  'tous': 'Tous',
+                  'recue': 'Reçue',
+                  'en_preparation': 'En préparation',
+                  'expediee': 'Expédiée',
+                  'livree': 'Livrée',
+                  'annulee': 'Annulée',
+                }.entries)
+                  Padding(
+                    padding: EdgeInsets.only(right: 2.w),
+                    child: ChoiceChip(
+                      label: Text(entry.value),
+                      selected: _statusFilter == entry.key,
+                      onSelected: (_) =>
+                          setState(() => _statusFilter = entry.key),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(height: 1.h),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final entry in {
+                  'tous': 'Toute période',
+                  '30j': '30 derniers jours',
+                  '90j': '90 derniers jours',
+                }.entries)
+                  Padding(
+                    padding: EdgeInsets.only(right: 2.w),
+                    child: ChoiceChip(
+                      label: Text(entry.value),
+                      selected: _periodFilter == entry.key,
+                      onSelected: (_) =>
+                          setState(() => _periodFilter = entry.key),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
