@@ -500,3 +500,6 @@
 
 ## 2026-08-03 05:26 UTC — Claude
 - Merge: Commandes client Lot 1 (fiche détail commande) (`63dc7af`)
+
+## 2026-08-03 05:32 UTC — Claude
+- Merge: Commandes/Accueil client Lot 2 (recherche & filtres) (`41e4e99`)
