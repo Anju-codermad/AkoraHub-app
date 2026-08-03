@@ -9,7 +9,102 @@ import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'delivery_tracking_screen.dart';
+import 'order_detail_screen.dart';
 import 'quote_thread_client.dart';
+
+const orderStatusLabels = {
+  'recue': 'Reçue',
+  'en_preparation': 'En préparation',
+  'expediee': 'Expédiée',
+  'livree': 'Livrée',
+};
+const orderStatusIcons = {
+  'recue': Icons.receipt_long_outlined,
+  'en_preparation': Icons.inventory_2_outlined,
+  'expediee': Icons.local_shipping_outlined,
+  'livree': Icons.home_outlined,
+};
+
+int orderStatusStep(String status) {
+  const order = ['recue', 'en_preparation', 'expediee', 'livree'];
+  final i = order.indexOf(status);
+  return i < 0 ? 0 : i;
+}
+
+const orderPaymentStatusLabels = {
+  'en_attente': 'Paiement en attente',
+  'acompte_verse': 'Acompte versé',
+  'paye': 'Paiement confirmé',
+  'facture_30j': 'Facturée (30j)',
+  'echoue': 'Paiement échoué',
+};
+
+Color orderPaymentStatusColor(String paymentStatus, ThemeData theme) {
+  switch (paymentStatus) {
+    case 'paye':
+      return Colors.green;
+    case 'acompte_verse':
+      return Colors.orange;
+    case 'facture_30j':
+      return Colors.blue;
+    case 'echoue':
+      return theme.colorScheme.error;
+    default:
+      return theme.colorScheme.outline;
+  }
+}
+
+/// Barre de progression d'une commande (4 étapes), utilisée à la fois
+/// dans la liste (`_OrdersList`) et dans `OrderDetailScreen` — icône +
+/// barre colorée par étape, plutôt qu'un simple texte.
+class OrderProgressBar extends StatelessWidget {
+  final String status;
+
+  const OrderProgressBar({super.key, required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final step = orderStatusStep(status);
+    return Row(
+      children: List.generate(4, (i) {
+        final done = i <= step;
+        final key = orderStatusLabels.keys.elementAt(i);
+        return Expanded(
+          child: Column(
+            children: [
+              Icon(
+                orderStatusIcons[key],
+                size: 16,
+                color: done
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline,
+              ),
+              const SizedBox(height: 2),
+              Container(
+                height: 4,
+                color: done
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outlineVariant,
+              ),
+              SizedBox(height: 0.5.h),
+              Text(
+                orderStatusLabels[key]!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: done
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
+                  fontWeight: done ? FontWeight.w600 : FontWeight.normal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
 
 /// Écran "Commandes" du client, avec deux sous-onglets : Commandes et Devis
 /// ("Mes devis" — les devis existaient déjà en base, mais n'étaient
@@ -58,14 +153,6 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
-  final Map<String, String> _statusLabels = const {
-    'recue': 'Reçue',
-    'en_preparation': 'En préparation',
-    'expediee': 'Expédiée',
-    'livree': 'Livrée',
-    'annulee': 'Annulée',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -100,35 +187,6 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
         _isLoading = false;
         _error = 'Impossible de charger vos commandes.';
       });
-    }
-  }
-
-  int _statusStep(String status) {
-    const order = ['recue', 'en_preparation', 'expediee', 'livree'];
-    final i = order.indexOf(status);
-    return i < 0 ? 0 : i;
-  }
-
-  static const _paymentStatusLabels = {
-    'en_attente': 'Paiement en attente',
-    'acompte_verse': 'Acompte versé',
-    'paye': 'Paiement confirmé',
-    'facture_30j': 'Facturée (30j)',
-    'echoue': 'Paiement échoué',
-  };
-
-  Color _paymentStatusColor(String paymentStatus, ThemeData theme) {
-    switch (paymentStatus) {
-      case 'paye':
-        return Colors.green;
-      case 'acompte_verse':
-        return Colors.orange;
-      case 'facture_30j':
-        return Colors.blue;
-      case 'echoue':
-        return theme.colorScheme.error;
-      default:
-        return theme.colorScheme.outline;
     }
   }
 
@@ -205,7 +263,6 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
         itemBuilder: (context, index) {
           final order = _orders[index];
           final status = order['status'] ?? 'recue';
-          final step = _statusStep(status);
           final cancelled = status == 'annulee';
           final paymentStatus =
               (order['payment_status'] ?? 'en_attente') as String;
@@ -213,7 +270,14 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
               PaymentMethodX.fromId(order['payment_method'] as String?);
 
           return Card(
-            child: Padding(
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OrderDetailScreen(order: order),
+                ),
+              ),
+              child: Padding(
               padding: EdgeInsets.all(3.w),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,15 +316,17 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                           height: 8,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _paymentStatusColor(paymentStatus, theme),
+                            color:
+                                orderPaymentStatusColor(paymentStatus, theme),
                           ),
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          _paymentStatusLabels[paymentStatus] ??
+                          orderPaymentStatusLabels[paymentStatus] ??
                               paymentStatus,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: _paymentStatusColor(paymentStatus, theme),
+                            color:
+                                orderPaymentStatusColor(paymentStatus, theme),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -279,36 +345,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                   ],
                   SizedBox(height: 1.5.h),
                   if (!cancelled)
-                    Row(
-                      children: List.generate(4, (i) {
-                        final done = i <= step;
-                        return Expanded(
-                          child: Column(
-                            children: [
-                              Container(
-                                height: 4,
-                                color: done
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.outlineVariant,
-                              ),
-                              SizedBox(height: 0.5.h),
-                              Text(
-                                _statusLabels.values.elementAt(i),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: done
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.outline,
-                                  fontWeight: done
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    )
+                    OrderProgressBar(status: status)
                   else
                     Chip(
                       label: const Text('Annulée'),
@@ -344,6 +381,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                     ],
                   ),
                 ],
+              ),
               ),
             ),
           );
