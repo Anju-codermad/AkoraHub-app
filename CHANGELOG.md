@@ -530,3 +530,6 @@
 
 ## 2026-08-03 09:46 UTC — Claude
 - Fix: erreur de syntaxe Dart dans service_requests_tab.dart (`3f0b610`)
+
+## 2026-08-03 10:24 UTC — Claude
+- Barre de raccourcis Profil (Paramètres/Parrainage/Assistance/Scanner) + programme de parrainage (`ecbcd1c`)
