@@ -5771,3 +5771,41 @@ d'exception si le problème se reproduit, pour un diagnostic précis
 retester l'onglet Commandes et, si un message d'erreur détaillé
 apparaît au lieu de "Something went wrong", de le partager pour cibler
 le vrai correctif.
+
+## Bulle de chat flottante (03/08)
+
+Demande explicite de l'utilisateur (capture d'une bulle façon "chat
+head" Messenger dans une autre app), clarifiée par deux questions avant
+de coder : emplacement → **toutes les pages de l'espace client** (pas
+juste l'accueil) ; action au tap → **ouvrir le chat support existant**
+(`ChatScreen`, déjà utilisé ailleurs — conversation unique client ↔
+équipe).
+
+**`core/chat/unread_support_messages.dart`** (nouveau) :
+`fetchUnreadSupportMessagesCount()` — extrait de la fonction
+`loadUnreadCount()` qui existait déjà en local dans `catalog_tab.dart`
+(badge de l'accueil), pour que la bulle flottante puisse réutiliser
+exactement la même requête sans dupliquer la logique.
+`catalog_tab.dart` a été mis à jour pour appeler cette fonction
+partagée à la place de sa version locale.
+
+**`presentation/client_home/floating_chat_bubble.dart`** (nouveau) :
+`FloatingChatBubble` enveloppe tout `ClientHome` dans un `Stack` —
+visible sur les 5 onglets puisqu'elle vit au-dessus du `Scaffold`
+plutôt que dans chaque page, donc pas besoin de la répéter par écran.
+Bulle circulaire draggable (`GestureDetector.onPanUpdate`, position
+bornée à l'écran via `clamp`), badge de messages non lus rafraîchi par
+polling toutes les 25s (même principe que le badge existant de
+l'accueil — pas de flux temps réel dédié, pas nécessaire pour une
+pastille). Tap → ouvre `ChatScreen`, rafraîchit le badge au retour.
+Disparaît naturellement dès qu'un écran est poussé par-dessus (fiche
+détail, chat lui-même...) puisque `Navigator.push` remplace tout
+l'écran — aucune logique de masquage à gérer.
+
+Volontairement **redondante** avec l'icône messagerie déjà présente
+dans l'en-tête de l'Accueil : celle-ci reste inchangée, la bulle est un
+raccourci supplémentaire visible même en dehors de l'Accueil (Commandes,
+Académie, Services, Profil).
+
+**`client_home.dart`** : le `Scaffold` retourné par `_ClientHomeState.build()`
+est maintenant enveloppé dans `FloatingChatBubble(child: ...)`.
