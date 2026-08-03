@@ -5531,3 +5531,43 @@ d'un même package.
   chaque frappe — évite de polluer l'historique avec des saisies
   incomplètes.
 - Bouton "Effacer" (x) dans le champ une fois du texte saisi.
+
+## Commandes client — Lot 3/5 : actions rapides (03/08)
+
+**SQL** : `supabase/phase64_patch_client_order_cancel.sql` — nouvelle
+policy `orders_update_own_cancel_if_recue` : jusqu'ici la seule policy
+UPDATE sur `orders` était `orders_update_staff` (staff uniquement), un
+client ne pouvait donc jamais annuler sa propre commande. Policy
+étroite à dessein : `using (auth.uid() = customer_id and status =
+'recue')` + `with check (... and status = 'annulee')` — un client ne
+peut annuler que depuis "reçue" précisément, jamais se donner un autre
+statut.
+
+⚠️ **Limite assumée** : le staff n'est pas notifié automatiquement
+quand un client annule sa propre commande (pas de trigger ajouté) —
+à surveiller manuellement pour l'instant, ou à ajouter dans un lot
+ultérieur si ça devient un problème en pratique.
+
+**`chat_screen.dart`** : nouveau paramètre optionnel `initialMessage`
+— pré-remplit `_textController` sans rien envoyer automatiquement (le
+client garde la main). Pas de fonction repo dédiée pour
+récupérer/créer la conversation du client (logique restée inline dans
+`_init()`) — donc pas de moyen plus propre de passer un message
+initial sans modifier ce widget directement.
+
+**`order_detail_screen.dart`** — 2 nouvelles actions dans la rangée de
+boutons :
+- **"Contacter le support"** : ouvre `ChatScreen` avec un message
+  pré-rempli citant le numéro de commande.
+- **"Annuler la commande"** (visible seulement si `status == 'recue'`,
+  en rouge) : confirmation puis `update({'status': 'annulee'})
+  .eq('status', 'recue')` (double garde-fou : policy RLS + condition
+  applicative) ; en cas de succès, ferme l'écran de détail — la liste
+  se recharge au retour (voir `orders_tab.dart` ci-dessous).
+
+**`orders_tab.dart`** :
+- Le `onTap` d'une commande recharge désormais la liste au retour de
+  `OrderDetailScreen` (`await Navigator.push(...); _loadOrders();`) —
+  même principe déjà utilisé par `_QuotesList` pour ses devis.
+- Bouton "Réessayer" ajouté sur l'état d'erreur réseau, pour Commandes
+  ET Devis (jusqu'ici seul le pull-to-refresh existait, peu visible).

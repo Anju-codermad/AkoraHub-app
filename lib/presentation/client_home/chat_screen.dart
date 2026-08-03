@@ -23,7 +23,12 @@ import '../calls/call_screen.dart';
 /// `lib/presentation/messaging_center/`) reste à brancher côté
 /// Backend/Infra sur ce même schéma.
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+  /// Pré-remplit le champ de saisie (ex : référence de commande depuis
+  /// `OrderDetailScreen`) — le client garde la main pour l'éditer avant
+  /// envoi, rien n'est envoyé automatiquement.
+  final String? initialMessage;
+
+  const ChatScreen({super.key, this.initialMessage});
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -45,6 +50,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialMessage != null) {
+      _textController.text = widget.initialMessage!;
+    }
     _init();
     // Liste inversée (reverse: true) : offset 0 = tout en bas. Si le
     // client remonte dans l'historique, on masque la pastille "Nouveau

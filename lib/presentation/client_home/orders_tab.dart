@@ -289,7 +289,20 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(child: Text(_error!));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!),
+            SizedBox(height: 1.5.h),
+            FilledButton.icon(
+              onPressed: _loadOrders,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      );
     }
     if (_orders.isEmpty) {
       return const Center(child: Text('Aucune commande pour le moment.'));
@@ -323,12 +336,15 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
 
           return Card(
             child: InkWell(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => OrderDetailScreen(order: order),
-                ),
-              ),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OrderDetailScreen(order: order),
+                  ),
+                );
+                _loadOrders();
+              },
               child: Padding(
               padding: EdgeInsets.all(3.w),
               child: Column(
@@ -656,7 +672,20 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(child: Text(_error!));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!),
+            SizedBox(height: 1.5.h),
+            FilledButton.icon(
+              onPressed: _loadQuotes,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      );
     }
     if (_quotes.isEmpty) {
       return Center(
