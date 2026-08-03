@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/chat/unread_support_messages.dart';
 import '../../core/loyalty/loyalty_tiers.dart';
 import '../../core/providers/profile_accent_provider.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -56,6 +57,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   List<Map<String, dynamic>> _realisationsPreview = [];
   List<String> _favoriteCategories = [];
   List<Map<String, dynamic>> _favoritePreview = [];
+  int _unreadSupportCount = 0;
 
   /// 0 = Tout, 1 = Publications, 2 = Favoris
   int _selectedTab = 0;
@@ -88,6 +90,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   void initState() {
     super.initState();
     _loadAll();
+    _loadUnreadSupportCount();
+  }
+
+  /// Badge sur le raccourci Assistance (03/08) — même source que la
+  /// bulle de chat flottante, pas de requête dupliquée.
+  Future<void> _loadUnreadSupportCount() async {
+    final count = await fetchUnreadSupportMessagesCount();
+    if (!mounted) return;
+    setState(() => _unreadSupportCount = count);
   }
 
   Future<void> _loadAll() async {
@@ -738,28 +749,37 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  /// Barre de raccourcis (03/08) — 4 actions "utilitaires" transverses
-  /// (pas du contenu à parcourir, contrairement aux cartes plus bas) :
-  /// Paramètres, Parrainage, Assistance, Scanner un produit. Volontairement
-  /// limitée à 4 icônes pour rester lisible d'un coup d'œil ; Scanner et
-  /// Assistance ont donc été retirés des cartes "Mes achats"/"Assistance"
-  /// plus bas pour ne pas les dupliquer.
+  /// Barre de raccourcis (03/08, inspirée de la barre d'icônes Facebook
+  /// avec badges) — 4 actions "utilitaires" transverses (pas du contenu à
+  /// parcourir, contrairement aux cartes plus bas) : Paramètres,
+  /// Parrainage, Assistance, Scanner un produit. Volontairement limitée à
+  /// 4 icônes pour rester lisible d'un coup d'œil ; Scanner et Assistance
+  /// ont donc été retirés des cartes "Mes achats"/"Assistance" plus bas
+  /// pour ne pas les dupliquer. Un seul badge (Assistance, messages
+  /// support non lus) — les autres icônes sont des actions ponctuelles
+  /// sans vraie "file d'attente", pas de badge à leur mettre.
   Widget _buildShortcutsBar(ThemeData theme) {
     final shortcuts = [
-      (Icons.settings_outlined, 'Paramètres', () => Navigator.push(context,
+      (Icons.settings_outlined, 'Paramètres', 0, () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => const SettingsScreen()))),
-      (Icons.card_giftcard_outlined, 'Parrainage', () => Navigator.push(
+      (Icons.card_giftcard_outlined, 'Parrainage', 0, () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ReferralScreen()))),
-      (Icons.chat_bubble_outline, 'Assistance', () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const ChatScreen()))),
-      (Icons.qr_code_scanner, 'Scanner',
+      // Badge = messages support non lus (même compteur que la bulle de
+      // chat flottante) — seule icône avec une vraie "file d'attente",
+      // rafraîchi au retour du chat (même logique que catalog_tab.dart).
+      (Icons.chat_bubble_outline, 'Assistance', _unreadSupportCount,
+          () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChatScreen()))
+              .then((_) => _loadUnreadSupportCount())),
+      (Icons.qr_code_scanner, 'Scanner', 0,
           () => Navigator.pushNamed(context, '/product-scanner')),
     ];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        for (final (icon, label, onTap) in shortcuts)
+        for (final (icon, label, badgeCount, onTap) in shortcuts)
           InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(12),
@@ -768,11 +788,41 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    child:
-                        Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor:
+                            theme.colorScheme.surfaceContainerHighest,
+                        child: Icon(icon,
+                            color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      if (badgeCount > 0)
+                        Positioned(
+                          top: -2,
+                          right: -2,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.error,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: theme.scaffoldBackgroundColor,
+                                  width: 1.5),
+                            ),
+                            child: Text(
+                              badgeCount > 9 ? '9+' : '$badgeCount',
+                              style: TextStyle(
+                                color: theme.colorScheme.onError,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   SizedBox(height: 0.6.h),
                   Text(label, style: theme.textTheme.labelSmall),

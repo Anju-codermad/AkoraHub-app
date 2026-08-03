@@ -5996,3 +5996,22 @@ Vérifié par la même occasion : la vue `post_engagement_scores` (fil
 Tendances, Phase 54) n'expose qu'un `score` agrégé utilisé uniquement
 côté serveur (`.gt()`/`.order()`), jamais casté côté Dart — pas de
 risque similaire à corriger là.
+
+## Badge de messages non lus sur la barre de raccourcis Profil (03/08)
+
+Suite à une capture de la barre d'icônes Facebook (badges rouges sur
+Messenger/notifications), l'utilisateur a demandé comment améliorer la
+barre de raccourcis du Profil dans le même esprit. Décision : un seul
+badge, sur **Assistance** (messages support non lus) — la seule icône
+avec une vraie "file d'attente" ; Paramètres/Parrainage/Scanner sont des
+actions ponctuelles, pas de badge pertinent à leur mettre (même logique
+que Facebook, qui ne badge pas Marketplace).
+
+**`profile_tab.dart`** : `_buildShortcutsBar()` réutilise
+`fetchUnreadSupportMessagesCount()` (`core/chat/unread_support_messages.dart`,
+même source que la bulle de chat flottante — pas de requête dupliquée),
+chargé au `initState()` et rafraîchi au retour de l'écran Assistance
+(`.then(...)` sur le `Navigator.push`). Chaque raccourci est maintenant
+un tuple `(icône, libellé, compteur de badge, action)` — un badge rouge
+façon Facebook (cercle avec bordure couleur fond, "9+" au-delà de 9)
+s'affiche uniquement si le compteur est > 0.
