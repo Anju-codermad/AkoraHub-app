@@ -5612,3 +5612,52 @@ Lot 4) : jugé déjà couvert par la section existante "Nos activités"
 (tap sur une icône de pilier → `_selectedUnitId` + rechargement du
 catalogue filtré) — pas de nouvelle UI ajoutée pour éviter de dupliquer
 une fonctionnalité qui existe déjà sous une autre forme.
+
+## Commandes/Accueil client — Lot 5/5 : design & finitions (03/08)
+
+Dernier lot du chantier "amélioration Commandes/Accueil client" (5
+lots). Sur les 6 idées d'origine, 2 étaient déjà satisfaites avant même
+de commencer ce lot : la pagination du carrousel de bannières
+(`_bannerIndex` + points animés, catalog_tab.dart) et le skeleton
+loading de l'accueil (`_CatalogSkeleton`/`_ShimmerBox`) existaient déjà
+— seuls les 4 points suivants restaient à construire.
+
+**`orders_tab.dart`** — regroupement par période sur Commandes ET
+Devis : nouvelles fonctions top-level `periodGroupLabel(DateTime)`
+("Aujourd'hui"/"Hier"/"Cette semaine"/"Ce mois-ci", sinon "Juillet
+2026" etc.) et `groupRowsByPeriod(List<Map>)` qui aplatit une liste
+déjà triée par `created_at` décroissant en une suite de `String`
+(en-tête) / `Map` (élément) — permet de garder un simple
+`ListView.builder` avec un `itemBuilder` qui distingue les deux types,
+sans sous-widget de section dédié. `_OrdersListState` et
+`_QuotesListState` appellent chacun `groupRowsByPeriod` sur leur liste
+déjà filtrée/chargée (aucune requête supplémentaire).
+
+**Skeleton loading Commandes/Devis** : `_ShimmerBox` (rectangle à
+dégradé animé) et `_OrdersSkeleton` (3 cartes fantômes) ajoutés à
+`orders_tab.dart`, dupliqués depuis le même principe que
+`_CatalogSkeleton` côté accueil (`catalog_tab.dart`) plutôt que
+partagés — ces classes sont privées à leur fichier respectif, pas de
+fichier `widgets/` commun jusqu'ici pour ce genre d'aperçu. Remplace le
+`CircularProgressIndicator` plein écran au premier chargement des deux
+onglets.
+
+**Badge stock bas (catalogue client)** : `_ProductCard`
+(catalog_tab.dart) affiche désormais un badge rouge "Stock bas" (0 <
+`stock_quantity` ≤ `low_stock_threshold`) ou "Rupture de stock"
+(`stock_quantity` ≤ 0), empilé sous le tag de catégorie en haut à
+gauche de la photo — même seuil que côté admin
+(`alerts_center.dart`). **Purement informatif** : n'empêche pas
+d'ajouter le produit au panier (pas de logique de blocage de commande
+ajoutée — changement de comportement plus large, hors scope de ce
+lot).
+
+⚠️ **Harmonisation visuelle / dark mode** : revue des écrans
+Commandes/Accueil modifiés dans les Lots 1 à 5 — aucune couleur codée
+en dur problématique trouvée (les `Colors.white`/`Colors.black54`
+existants sont toujours sur un fond dégradé ou une image, donc
+indépendants du thème clair/sombre). Les quelques couleurs fixes
+préexistantes hors de ce chantier (ex. `Colors.green`/`Colors.blue`
+dans `orderPaymentStatusColor`, la teinte des icônes "Nos activités")
+n'ont pas été retouchées : elles prédatent ces 5 lots et aucun problème
+concret n'a été signalé sur elles.
