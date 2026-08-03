@@ -5460,3 +5460,42 @@ client malgré un prix réellement saisi quelque part. Pas de correctif
 de code proposé pour l'instant — à confirmer avec l'utilisateur lequel
 des deux champs il a rempli avant d'envisager un changement d'UX
 (fusionner les deux champs ? rendre "Prix Détail" obligatoire ?).
+
+## Commandes client — Lot 1/5 : fiche détail commande (03/08)
+
+Premier lot du chantier "amélioration Commandes/Accueil client" (5
+lots proposés, ordre validé par l'utilisateur) : jusqu'ici une
+commande n'était pas cliquable dans `_OrdersList` (contrairement aux
+devis, qui ouvrent déjà `QuoteThreadClient`).
+
+**`orders_tab.dart`** — helpers remontés au niveau du fichier (pas
+propres à `_OrdersListState`) pour être réutilisables par le nouvel
+écran de détail sans dupliquer :
+- `orderStatusLabels`/`orderStatusIcons`/`orderStatusStep` (avant :
+  propres à `_OrdersListState`).
+- `orderPaymentStatusLabels`/`orderPaymentStatusColor` (idem).
+- Nouveau widget public `OrderProgressBar` : même barre à 4 étapes
+  qu'avant, mais avec une icône par étape (reçu/prépa/expédition/
+  livraison) au-dessus de la barre colorée, plutôt qu'un texte seul.
+- La `Card` de chaque commande est maintenant enveloppée dans un
+  `InkWell` (`onTap` -> `OrderDetailScreen`) ; les boutons internes
+  (Facture PDF, Recommander, Suivre sur la carte) restent cliquables
+  indépendamment (Flutter donne priorité au bouton sur l'InkWell
+  englobant).
+
+**Nouveau fichier** : `lib/presentation/client_home/order_detail_screen.dart`
+— reçoit l'`order` déjà chargé (avec `order_items` imbriqués et
+`delivery_address`, Phase 31) en paramètre, **aucune nouvelle
+requête** : en-tête (numéro, total, date, mode/statut paiement),
+`OrderProgressBar`, adresse de livraison (si renseignée), liste des
+articles (nom, quantité × prix unitaire, sous-total), total, et les
+mêmes actions que la liste (Facture PDF/Recommander/Suivre sur la
+carte). `_downloadInvoice`/`_reorder` dupliqués depuis
+`_OrdersListState` (mêmes signatures, adaptées à un widget sans
+state) plutôt que partagés — cohérent avec le style du reste du code
+(petite duplication acceptée plutôt qu'une abstraction pour ~30
+lignes).
+
+Import croisé `orders_tab.dart` <-> `order_detail_screen.dart` :
+volontaire, Dart gère nativement les imports mutuels entre fichiers
+d'un même package.
