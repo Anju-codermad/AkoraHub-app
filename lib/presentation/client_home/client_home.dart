@@ -9,6 +9,7 @@ import 'catalog_tab.dart';
 import 'formation/formation_hub_screen.dart';
 import 'orders_tab.dart';
 import 'profile_tab.dart';
+import 'service_requests_tab.dart';
 
 /// Espace client : accueil (catalogue), panier, commandes, Académie,
 /// profil. Point d'entrée pour tout utilisateur avec le rôle "client".
@@ -22,6 +23,10 @@ import 'profile_tab.dart';
 /// **Académie** (01/08) : 4ᵉ onglet, regroupe en un seul point d'accès
 /// les catégories de cours AkoraFormation et la base de matières
 /// premières (voir `formation/formation_hub_screen.dart`).
+/// **Services** (03/08) : 5ᵉ onglet, demande de service (installation,
+/// intervention, consultation...) traitée manuellement par le staff —
+/// distinct d'une commande de produit ou d'un devis (voir
+/// `service_requests_tab.dart`).
 class ClientHome extends ConsumerStatefulWidget {
   const ClientHome({super.key});
 
@@ -30,7 +35,8 @@ class ClientHome extends ConsumerStatefulWidget {
 }
 
 class _ClientHomeState extends ConsumerState<ClientHome> {
-  // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil, 4 = Académie
+  // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil, 4 = Académie,
+  // 5 = Services
   int _currentIndex = 0;
   bool? _wasOnline;
 
@@ -53,6 +59,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       AppTranslations.t('nav_orders', locale),
       AppTranslations.t('nav_profile', locale),
       'Académie',
+      AppTranslations.t('nav_services', locale),
     ];
     final pages = [
       CatalogTab(onOpenCart: () => setState(() => _currentIndex = 1)),
@@ -60,6 +67,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       const OrdersTab(),
       const ProfileTab(),
       const FormationHubScreen(),
+      const ServiceRequestsTab(),
     ];
 
     final connectivity = ref.watch(connectivityProvider);
@@ -143,9 +151,9 @@ class _NavItem {
   });
 }
 
-/// Barre de navigation du bas à 4 destinations (Accueil, Commandes,
-/// Académie, Profil). Le Panier n'y figure pas : on y accède depuis
-/// l'en-tête de l'Accueil.
+/// Barre de navigation du bas à 5 destinations (Accueil, Commandes,
+/// Académie, Services, Profil). Le Panier n'y figure pas : on y accède
+/// depuis l'en-tête de l'Accueil.
 class _ClientBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onSelect;
@@ -170,6 +178,12 @@ class _ClientBottomNav extends ConsumerWidget {
           icon: Icons.school_outlined,
           selectedIcon: Icons.school,
           label: 'Académie',
+        ),
+        _NavItem(
+          pageIndex: 5,
+          icon: Icons.miscellaneous_services_outlined,
+          selectedIcon: Icons.miscellaneous_services,
+          label: AppTranslations.t('nav_services', locale),
         ),
         _NavItem(
           pageIndex: 3,

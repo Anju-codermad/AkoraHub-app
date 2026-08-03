@@ -422,6 +422,32 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "service_requests") {
+      // Nouvelle demande de service côté client (onglet "Services",
+      // voir supabase/phase65_patch_service_requests.sql) — notifie
+      // toute l'équipe (Admin/Commercial), même principe que les
+      // signalements de publications.
+      category = "commande";
+      const { data: unit } = record.business_unit_id
+        ? await supabase
+            .from("business_units")
+            .select("name")
+            .eq("id", record.business_unit_id)
+            .maybeSingle()
+        : { data: null };
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Nouvelle demande de service";
+      body = unit?.name
+        ? `${unit.name} : ${String(record.title).slice(0, 80)}`
+        : String(record.title).slice(0, 100);
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "formation_purchases") {
       // Nouvelle demande d'achat d'accès à une fiche Formation (matière
       // première) — voir supabase/phase58_patch_formation_purchases_staff_notification.sql.

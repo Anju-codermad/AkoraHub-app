@@ -20,6 +20,7 @@ import '../formation_courses_management/formation_courses_management.dart';
 import '../formation_groups_management/formation_groups_management.dart';
 import '../client_home/settings/settings_screen.dart';
 import '../post_reports_management/post_reports_management.dart';
+import '../service_requests_management/service_requests_management.dart';
 import '../customer_analytics/customer_analytics_dashboard.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
@@ -60,6 +61,16 @@ class MoreMenuScreen extends StatelessWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const QuotesManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.miscellaneous_services_outlined,
+            label: 'Demandes de service',
+            subtitle: 'Installations, interventions, consultations demandées',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const ServiceRequestsManagement()),
             ),
           ),
           _MenuTile(

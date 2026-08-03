@@ -18,6 +18,7 @@ class AppTranslations {
     'nav_home': {'fr': 'Accueil', 'mg': 'Fandraisana'},
     'nav_orders': {'fr': 'Commandes', 'mg': 'Baiko'},
     'nav_profile': {'fr': 'Profil', 'mg': 'Mombamomba'},
+    'nav_services': {'fr': 'Services', 'mg': 'Serivisy'},
     'nav_cart': {'fr': 'Panier', 'mg': 'Sobika'},
 
     // --- Catalogue / Accueil client ---
