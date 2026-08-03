@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:sizer/sizer.dart';
 
 import '../core/app_export.dart';
@@ -12,6 +13,18 @@ import '../widgets/custom_error_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // L'app utilise `DateFormat(..., 'fr_FR')` dans une quinzaine d'écrans
+  // (Commandes, Services, Achats Formation, CRM...) sans jamais initialiser
+  // les données de locale `intl` — le package ne connaît que la locale par
+  // défaut ('en_US') tant que `initializeDateFormatting` n'a pas été appelé.
+  // Résultat : ça ne plante PAS à l'écran (le champ `DateFormat` se crée
+  // sans erreur), mais `.format()` lève une `LocaleDataException` dès qu'un
+  // motif a besoin d'un nom de mois/jour ('MMM', 'MMMM'...) ET qu'il y a
+  // une vraie date à afficher — d'où des crashs "Something went wrong"
+  // qui n'apparaissent qu'une fois des données réelles présentes (onglets
+  // Commandes puis Services, 03/08).
+  await initializeDateFormatting('fr_FR');
 
   bool _hasShownError = false;
 

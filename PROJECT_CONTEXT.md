@@ -5772,6 +5772,41 @@ retester l'onglet Commandes et, si un message d'erreur détaillé
 apparaît au lieu de "Something went wrong", de le partager pour cibler
 le vrai correctif.
 
+## Vraie cause des crashs "Something went wrong" (Commandes, puis Services) (03/08)
+
+Le fix défensif ci-dessus n'a pas suffi : le même crash générique est
+réapparu sur l'onglet **Services**, un écran neuf (`service_requests_tab.dart`)
+qui n'a rien de commun avec `orders_tab.dart` niveau code — signe que la
+cause n'était pas les casts suspectés, mais quelque chose de partagé par
+les deux écrans.
+
+Point commun trouvé : les deux utilisent `DateFormat(pattern, 'fr_FR')`
+(package `intl`) pour afficher une date, et **`initializeDateFormatting`
+n'était appelé nulle part dans l'app** (vérifié par recherche globale).
+Sans cet appel, `intl` ne connaît que les données de la locale par défaut
+(`en_US`) ; construire un `DateFormat('...', 'fr_FR')` ne plante pas (le
+package accepte silencieusement une locale inconnue à la construction),
+mais **`.format(date)` lève une `LocaleDataException`** dès que le motif a
+besoin d'un nom de mois/jour localisé (`MMM`, `MMMM`...) et qu'il y a une
+vraie date à formater. D'où le symptôme observé : ça ne plante jamais sur
+un état vide, seulement une fois qu'il existe au moins une ligne réelle à
+afficher (une commande sur plusieurs mois pour `groupRowsByPeriod`
+côté Commandes, une demande de service existante côté Services) — cohérent
+avec "jamais exercé en production avant cette capture" noté plus haut.
+
+**Correctif dans `main.dart`** : import de
+`package:intl/date_symbol_data_local.dart` + `await
+initializeDateFormatting('fr_FR')` juste après
+`WidgetsFlutterBinding.ensureInitialized()`, avant tout le reste. Une
+quinzaine d'écrans utilisent `DateFormat(..., 'fr_FR')` (Commandes,
+Services, Achats Formation/Matières, CRM Fiche 360°/Analytique,
+Signalements, Mes accès, Groupes Formation...) — un seul point
+d'initialisation global les couvre tous, pas de correctif par écran
+nécessaire.
+
+⚠️ **À reconfirmer** — demander à l'utilisateur de retester Commandes ET
+Services après ce build.
+
 ## Bulle de chat flottante (03/08)
 
 Demande explicite de l'utilisateur (capture d'une bulle façon "chat
