@@ -5499,3 +5499,35 @@ lignes).
 Import croisé `orders_tab.dart` <-> `order_detail_screen.dart` :
 volontaire, Dart gère nativement les imports mutuels entre fichiers
 d'un même package.
+
+## Commandes/Accueil client — Lot 2/5 : recherche & filtres (03/08)
+
+**`orders_tab.dart`** (`_OrdersListState`) :
+- Filtres 100% côté app (`_filteredOrders` getter) — pas d'aller-retour
+  serveur, le volume de commandes d'un client reste modeste.
+- Filtre statut : `ChoiceChip`s (Tous/Reçue/En préparation/Expédiée/
+  Livrée/Annulée).
+- Filtre période : Toute période / 30 derniers jours / 90 derniers
+  jours, basé sur `created_at`.
+- Recherche par numéro de commande (`order_number`, insensible à la
+  casse).
+- État "Aucune commande ne correspond à ces filtres" distinct de
+  "Aucune commande pour le moment" (liste vraiment vide) — évite de
+  confondre les deux cas.
+
+**`catalog_tab.dart`** — barre de recherche de l'accueil enrichie :
+- Historique de recherche local (`SharedPreferences`, clé
+  `recent_product_searches`, 6 entrées max, même mécanisme de cache
+  déjà utilisé sur cet écran pour le catalogue hors-ligne) — affiché
+  sous forme de `Chip`s quand le champ a le focus et est vide, avec un
+  bouton "Effacer".
+- Suggestions de noms de produits : filtrées localement depuis
+  `_allProductsForReference` (déjà chargé en mémoire pour les puces de
+  catégorie/le cache hors-ligne) — **aucune requête réseau
+  supplémentaire**, juste un `.where(name.contains(query))`, top 5
+  résultats.
+- Un historique n'est enregistré qu'à la validation d'une recherche
+  (`onSubmitted` ou tap sur une suggestion/un historique), pas à
+  chaque frappe — évite de polluer l'historique avec des saisies
+  incomplètes.
+- Bouton "Effacer" (x) dans le champ une fois du texte saisi.
