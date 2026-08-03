@@ -2042,6 +2042,13 @@ class _ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     final category = (product['category'] ?? '').toString();
     final imageUrl = (product['image_url'] as String?) ?? '';
+    final stockQty = (product['stock_quantity'] as num?)?.toDouble();
+    final stockThreshold = (product['low_stock_threshold'] as num?)?.toDouble();
+    final outOfStock = stockQty != null && stockQty <= 0;
+    final lowStock = !outOfStock &&
+        stockQty != null &&
+        stockThreshold != null &&
+        stockQty <= stockThreshold;
 
     return Material(
       color: theme.colorScheme.surface,
@@ -2091,11 +2098,21 @@ class _ProductCard extends StatelessWidget {
                               ),
                       ),
                     ),
-                    if (category.isNotEmpty)
+                    if (category.isNotEmpty || outOfStock || lowStock)
                       Positioned(
                         left: 8,
                         top: 8,
-                        child: _Tag(label: category, theme: theme),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (category.isNotEmpty)
+                              _Tag(label: category, theme: theme),
+                            if (outOfStock || lowStock) ...[
+                              if (category.isNotEmpty) const SizedBox(height: 4),
+                              _StockBadge(outOfStock: outOfStock, theme: theme),
+                            ],
+                          ],
+                        ),
                       ),
                     Positioned(
                       right: 6,
@@ -2273,6 +2290,34 @@ class _Tag extends StatelessWidget {
           color: accent
               ? theme.colorScheme.primary
               : theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Badge "Stock bas" / "Rupture de stock" (Lot 5) — même seuil que côté
+/// admin (`stock_quantity <= low_stock_threshold`, voir alerts_center.dart),
+/// purement informatif : ne bloque pas l'ajout au panier.
+class _StockBadge extends StatelessWidget {
+  final bool outOfStock;
+  final ThemeData theme;
+
+  const _StockBadge({required this.outOfStock, required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        outOfStock ? 'Rupture de stock' : 'Stock bas',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onErrorContainer,
           fontWeight: FontWeight.w600,
         ),
       ),

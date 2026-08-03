@@ -31,6 +31,41 @@ int orderStatusStep(String status) {
   return i < 0 ? 0 : i;
 }
 
+/// Étiquette de période (Lot 5) : "Aujourd'hui"/"Hier"/"Cette semaine" pour
+/// le plus récent, sinon un libellé mois/année ("Juillet 2026") — pour
+/// aider un client avec beaucoup d'historique à repérer une commande sans
+/// scroller ligne par ligne.
+String periodGroupLabel(DateTime date) {
+  final now = DateTime.now();
+  final startOfToday = DateTime(now.year, now.month, now.day);
+  final startOfYesterday = startOfToday.subtract(const Duration(days: 1));
+  final startOfWeek = startOfToday.subtract(Duration(days: now.weekday - 1));
+  if (!date.isBefore(startOfToday)) return "Aujourd'hui";
+  if (!date.isBefore(startOfYesterday)) return 'Hier';
+  if (!date.isBefore(startOfWeek)) return 'Cette semaine';
+  if (date.year == now.year && date.month == now.month) return 'Ce mois-ci';
+  final label = DateFormat('MMMM yyyy', 'fr_FR').format(date);
+  return label[0].toUpperCase() + label.substring(1);
+}
+
+/// Aplatit une liste triée par `created_at` décroissant en une suite de
+/// `String` (en-tête de période) et `Map` (l'élément lui-même), prête pour
+/// un `ListView.builder` sans sous-widgets dédiés à la section.
+List<dynamic> groupRowsByPeriod(List<Map<String, dynamic>> items) {
+  final rows = <dynamic>[];
+  String? currentLabel;
+  for (final item in items) {
+    final date = DateTime.tryParse(item['created_at'] ?? '');
+    final label = date != null ? periodGroupLabel(date) : 'Date inconnue';
+    if (label != currentLabel) {
+      rows.add(label);
+      currentLabel = label;
+    }
+    rows.add(item);
+  }
+  return rows;
+}
+
 const orderPaymentStatusLabels = {
   'en_attente': 'Paiement en attente',
   'acompte_verse': 'Acompte versé',
@@ -293,7 +328,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
     final theme = Theme.of(context);
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const _OrdersSkeleton();
     }
     if (_error != null) {
       return Center(
@@ -316,6 +351,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
     }
 
     final filtered = _filteredOrders;
+    final rows = groupRowsByPeriod(filtered);
 
     return Column(
       children: [
@@ -328,12 +364,24 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                 )
               : RefreshIndicator(
                   onRefresh: _loadOrders,
-                  child: ListView.separated(
+                  child: ListView.builder(
         padding: EdgeInsets.all(4.w),
-        itemCount: filtered.length,
-        separatorBuilder: (_, __) => SizedBox(height: 2.h),
+        itemCount: rows.length,
         itemBuilder: (context, index) {
-          final order = filtered[index];
+          final row = rows[index];
+          if (row is String) {
+            return Padding(
+              padding: EdgeInsets.only(top: index == 0 ? 0 : 1.5.h, bottom: 1.h),
+              child: Text(
+                row,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            );
+          }
+          final order = row as Map<String, dynamic>;
           final status = order['status'] ?? 'recue';
           final cancelled = status == 'annulee';
           final paymentStatus =
@@ -341,7 +389,9 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
           final paymentMethod =
               PaymentMethodX.fromId(order['payment_method'] as String?);
 
-          return Card(
+          return Padding(
+            padding: EdgeInsets.only(bottom: 2.h),
+            child: Card(
             child: InkWell(
               onTap: () async {
                 await Navigator.push(
@@ -458,6 +508,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                 ],
               ),
               ),
+            ),
             ),
           );
         },
@@ -676,7 +727,7 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
     final theme = Theme.of(context);
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const _OrdersSkeleton();
     }
     if (_error != null) {
       return Center(
@@ -708,21 +759,37 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
       );
     }
 
+    final rows = groupRowsByPeriod(_quotes);
+
     return RefreshIndicator(
       onRefresh: _loadQuotes,
-      child: ListView.separated(
+      child: ListView.builder(
         padding: EdgeInsets.all(4.w),
-        itemCount: _quotes.length,
-        separatorBuilder: (_, __) => SizedBox(height: 2.h),
+        itemCount: rows.length,
         itemBuilder: (context, index) {
-          final quote = _quotes[index];
+          final row = rows[index];
+          if (row is String) {
+            return Padding(
+              padding: EdgeInsets.only(top: index == 0 ? 0 : 1.5.h, bottom: 1.h),
+              child: Text(
+                row,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            );
+          }
+          final quote = row as Map<String, dynamic>;
           final status = (quote['status'] ?? 'en_attente').toString();
           final items =
               List<Map<String, dynamic>>.from(quote['quote_items'] ?? []);
           final canReorder = items.isNotEmpty &&
               (status == 'accepte' || status == 'envoye');
 
-          return Card(
+          return Padding(
+            padding: EdgeInsets.only(bottom: 2.h),
+            child: Card(
             child: InkWell(
               onTap: () async {
                 await Navigator.push(
@@ -800,8 +867,102 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
               ),
               ),
             ),
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Rectangle qui pulse doucement — même principe que `_ShimmerBox` dans
+/// catalog_tab.dart (Lot 5), dupliqué ici car privé à son fichier.
+class _ShimmerBox extends StatefulWidget {
+  final double? width;
+  final double? height;
+  final BorderRadius borderRadius;
+
+  const _ShimmerBox({
+    this.width,
+    this.height,
+    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+  });
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final base = theme.colorScheme.surfaceContainerHighest;
+    final highlight = theme.colorScheme.surface;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            gradient: LinearGradient(
+              begin: Alignment(-1 + 2 * _controller.value, 0),
+              end: Alignment(1 + 2 * _controller.value, 0),
+              colors: [base, highlight, base],
+              stops: const [0.35, 0.5, 0.65],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Aperçu skeleton pendant le premier chargement des listes Commandes/Devis
+/// (Lot 5) — remplace le spinner plein écran par 3 cartes fantômes, comme
+/// `_CatalogSkeleton` côté accueil.
+class _OrdersSkeleton extends StatelessWidget {
+  const _OrdersSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: EdgeInsets.all(4.w),
+      itemCount: 3,
+      separatorBuilder: (_, __) => SizedBox(height: 2.h),
+      itemBuilder: (context, __) => Card(
+        child: Padding(
+          padding: EdgeInsets.all(3.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _ShimmerBox(width: 30.w, height: 16),
+                  _ShimmerBox(width: 20.w, height: 16),
+                ],
+              ),
+              SizedBox(height: 1.h),
+              _ShimmerBox(width: 40.w, height: 12),
+              SizedBox(height: 1.5.h),
+              _ShimmerBox(width: double.infinity, height: 30),
+            ],
+          ),
+        ),
       ),
     );
   }
