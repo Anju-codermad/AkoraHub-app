@@ -521,3 +521,6 @@
 
 ## 2026-08-03 07:53 UTC — Claude
 - Merge: fix crash Commandes client (isolation d'erreurs) (`32f2b07`)
+
+## 2026-08-03 08:38 UTC — Claude
+- Merge: bulle de chat flottante sur tout l'espace client (`38678a0`)
