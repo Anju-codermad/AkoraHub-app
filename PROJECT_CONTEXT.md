@@ -5398,3 +5398,35 @@ SQL**, uniquement un nouvel écran Dart.
 
 Avec ce lot, le chantier CRM en 5 lots (Fiche 360°, Suivi commercial,
 Fidélité & support, Segmentation & marketing, Analytique) est complet.
+
+## Correctif : crash "Something went wrong" sur Achats Formation (02/08)
+
+Le crash signalé sur l'onglet "Matières premières" de la fiche
+Achats Formation (préexistant avant la fusion en hub) a été
+diagnostiqué : les 36 demandes en attente n'ont AUCUNE donnée
+manquante/orpheline côté base (vérifié via SQL — `amount`, `status`,
+`requested_at`, `raw_material_id`, `customer_id` tous renseignés,
+0 client/produit disparu). La cause est donc côté app, probablement
+liée à un cas où PostgREST renvoie une relation embarquée "un seul"
+(`profiles`, `raw_materials`, `formation_courses`) comme une **liste**
+plutôt qu'un objet — un `as Map?` classique plante alors avec un
+`TypeError` (une `List` n'est pas un sous-type de `Map?`) au lieu de
+simplement donner `null`.
+
+**Correctifs dans `formation_purchases_management.dart` et
+`course_purchases_management.dart`** :
+- Nouvelle méthode `_embedAsMap(dynamic value)` : accepte un objet OU
+  une liste (prend le premier élément), utilisée partout à la place de
+  `as Map?` pour les relations embarquées.
+- `DateTime.parse(...)` remplacé par un `DateTime.tryParse(...) != null`
+  avant affichage (une date malformée n'empêche plus le rendu).
+- La construction de la liste des batches/demandes est maintenant
+  entourée d'un `try/catch` au niveau de `build()` (erreur globale
+  affichée en texte plutôt que crash) ET au niveau de chaque
+  carte individuelle (`...batches.map((batch) { try {...} catch (e) {
+  return Card(Text('Erreur d'affichage...: $e')); } })`) — une seule
+  demande malformée n'empêche plus l'affichage des autres.
+- Objectif secondaire : si le problème n'est pas entièrement résolu,
+  le message d'erreur affiché à l'écran donnera enfin le détail exact
+  de l'exception (au lieu de l'écran générique "Something went wrong"
+  sans information), permettant un diagnostic précis au prochain test.
