@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/services/service_catalog_repo.dart';
 import '../../core/services/service_request_repo.dart';
-import '../../core/supabase/supabase_config.dart';
 
 const serviceRequestStatusLabels = {
   'nouvelle': 'Nouvelle',
@@ -135,9 +135,15 @@ class _ServiceRequestsTabState extends State<ServiceRequestsTab> {
                           final r = _requests[index];
                           final status =
                               (r['status'] ?? 'nouvelle').toString();
-                          final unit =
-                              _embedAsMap(r['business_units'])?['name']
-                                  as String?;
+                          final catalogItem =
+                              _embedAsMap(r['service_catalog_items']);
+                          final unit = (catalogItem != null
+                                  ? _embedAsMap(
+                                      catalogItem['service_categories'])
+                                      ?['name']
+                                  : _embedAsMap(r['business_units'])
+                                      ?['name'])
+                              as String?;
                           final createdAt =
                               DateTime.tryParse(r['created_at'] ?? '');
                           return Card(
@@ -258,49 +264,51 @@ class _NewServiceRequestSheet extends StatefulWidget {
 }
 
 class _NewServiceRequestSheetState extends State<_NewServiceRequestSheet> {
-  List<Map<String, dynamic>> _businessUnits = [];
-  String? _selectedUnitId;
-  final _titleController = TextEditingController();
+  List<Map<String, dynamic>> _categories = [];
+  String? _selectedCategoryId;
+  String? _selectedItemId;
   final _descriptionController = TextEditingController();
   final _addressController = TextEditingController();
   DateTime? _preferredDate;
-  bool _isLoadingUnits = true;
+  bool _isLoadingCatalog = true;
   bool _isSubmitting = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadBusinessUnits();
+    _loadCatalog();
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
     _descriptionController.dispose();
     _addressController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadBusinessUnits() async {
+  Future<void> _loadCatalog() async {
     try {
-      final rows = await SupabaseConfig.client
-          .from('business_units')
-          .select()
-          .eq('active', true)
-          .order('name');
+      final categories =
+          await ServiceCatalogRepo.fetchCategoriesWithItems();
       setState(() {
-        _businessUnits = List<Map<String, dynamic>>.from(rows);
-        _isLoadingUnits = false;
+        _categories = categories;
+        _isLoadingCatalog = false;
       });
     } catch (_) {
-      setState(() => _isLoadingUnits = false);
+      setState(() => _isLoadingCatalog = false);
     }
   }
 
+  List<Map<String, dynamic>> get _itemsOfSelectedCategory {
+    if (_selectedCategoryId == null) return [];
+    final category = _categories
+        .firstWhere((c) => c['id'] == _selectedCategoryId, orElse: () => {});
+    return List<Map<String, dynamic>>.from(category['items'] ?? []);
+  }
+
   Future<void> _submit() async {
-    if (_selectedUnitId == null ||
-        _titleController.text.trim().isEmpty ||
+    if (_selectedItemId == null ||
         _descriptionController.text.trim().isEmpty) {
       setState(() => _error = 'Merci de remplir les champs obligatoires.');
       return;
@@ -310,9 +318,11 @@ class _NewServiceRequestSheetState extends State<_NewServiceRequestSheet> {
       _error = null;
     });
     try {
+      final item = _itemsOfSelectedCategory
+          .firstWhere((i) => i['id'] == _selectedItemId);
       await ServiceRequestRepo.submit(
-        businessUnitId: _selectedUnitId!,
-        title: _titleController.text.trim(),
+        serviceCatalogItemId: _selectedItemId!,
+        title: item['name'] as String,
         description: _descriptionController.text.trim(),
         preferredDate: _preferredDate,
         address: _addressController.text.trim(),
@@ -344,36 +354,49 @@ class _NewServiceRequestSheetState extends State<_NewServiceRequestSheet> {
             Text('Nouvelle demande de service',
                 style: theme.textTheme.titleMedium),
             SizedBox(height: 2.h),
-            if (_isLoadingUnits)
+            if (_isLoadingCatalog)
               const Center(child: CircularProgressIndicator())
-            else if (_businessUnits.isEmpty)
+            else if (_categories.isEmpty)
               Text(
-                'Aucun pilier disponible pour le moment — contactez le '
+                'Aucun service disponible pour le moment — contactez le '
                 'support pour votre demande.',
                 style: theme.textTheme.bodyMedium,
               )
             else ...[
               DropdownButtonFormField<String>(
-                initialValue: _selectedUnitId,
+                initialValue: _selectedCategoryId,
                 decoration: const InputDecoration(
-                  labelText: 'Pilier concerné *',
+                  labelText: 'Catégorie *',
                   border: OutlineInputBorder(),
                 ),
-                items: _businessUnits
-                    .map((u) => DropdownMenuItem(
-                          value: u['id'] as String,
-                          child: Text(u['name'] ?? ''),
+                items: _categories
+                    .map((c) => DropdownMenuItem(
+                          value: c['id'] as String,
+                          child: Text(c['name'] ?? ''),
                         ))
                     .toList(),
-                onChanged: (v) => setState(() => _selectedUnitId = v),
+                onChanged: (v) => setState(() {
+                  _selectedCategoryId = v;
+                  _selectedItemId = null;
+                }),
               ),
               SizedBox(height: 2.h),
-              TextField(
-                controller: _titleController,
+              DropdownButtonFormField<String>(
+                key: ValueKey(_selectedCategoryId),
+                initialValue: _selectedItemId,
                 decoration: const InputDecoration(
-                  labelText: 'Objet de la demande *',
+                  labelText: 'Service *',
                   border: OutlineInputBorder(),
                 ),
+                items: _itemsOfSelectedCategory
+                    .map((i) => DropdownMenuItem(
+                          value: i['id'] as String,
+                          child: Text(i['name'] ?? ''),
+                        ))
+                    .toList(),
+                onChanged: _selectedCategoryId == null
+                    ? null
+                    : (v) => setState(() => _selectedItemId = v),
               ),
               SizedBox(height: 2.h),
               TextField(

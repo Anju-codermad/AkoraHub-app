@@ -5844,3 +5844,65 @@ Académie, Services, Profil).
 
 **`client_home.dart`** : le `Scaffold` retourné par `_ClientHomeState.build()`
 est maintenant enveloppé dans `FloatingChatBubble(child: ...)`.
+
+## Catalogue de services (Lot post-menu Services, 03/08)
+
+Après le lancement du menu "Services" (phase65), l'utilisateur a fourni
+une vision détaillée de son offre (7 catégories, 35 services précis) et
+veut pouvoir l'activer/désactiver progressivement depuis l'admin,
+plusieurs services de la liste n'étant pas encore réellement proposés.
+Deux décisions produit validées avec l'utilisateur (recommandation
+suivie telle quelle, l'utilisateur ayant délégué le choix) :
+- Un service **désactivé est masqué complètement** côté client — même
+  logique que `active` sur `business_units`/`categories`.
+- Choisir un service dans le catalogue **remplace** l'ancien menu
+  déroulant "Pilier concerné" (chaque service est déjà rattaché à une
+  catégorie en interne, pas besoin de redemander un pilier séparément).
+
+**`supabase/phase66_patch_service_catalog.sql`** : deux nouvelles
+tables `service_categories` (nom, ordre) et `service_catalog_items`
+(catégorie, nom, description, **`available` boolean, défaut `false`**).
+RLS : catégories visibles de tous, services visibles seulement si
+`available = true` OU staff (pour que l'admin voie aussi les inactifs à
+activer) ; écriture réservée au staff (`current_role_is_staff()`,
+même fonction que partout ailleurs). `service_requests` gagne une
+colonne `service_catalog_item_id` (nullable — `business_unit_id` reste
+en base pour les anciennes demandes déjà envoyées avant ce lot).
+Seed : les 7 catégories et 35 services fournis par l'utilisateur,
+**tous `available = false` au départ** — à l'admin d'activer ceux
+réellement disponibles aujourd'hui depuis le nouvel écran.
+
+**`core/services/service_catalog_repo.dart`** (nouveau) :
+`fetchCategoriesWithItems({onlyAvailable})` renvoie les catégories avec
+leurs services imbriqués (`items`), filtre les indisponibles et retire
+les catégories devenues vides quand `onlyAvailable: true` (client) ;
+`onlyAvailable: false` (admin) renvoie tout. CRUD catégories/services +
+`setAvailable` pour le toggle.
+
+**`core/services/service_request_repo.dart`** : `submit()` prend
+maintenant `serviceCatalogItemId` (plus `businessUnitId`) ; `title`
+est renseigné automatiquement avec le nom du service choisi (le champ
+"Objet de la demande" en texte libre a disparu du formulaire — un
+service précis en tient lieu). `fetchMine()` embarque
+`service_catalog_items(name, service_categories(name))`.
+
+**`presentation/client_home/service_requests_tab.dart`** : le
+formulaire "Nouvelle demande" devient Catégorie → Service (deux
+`DropdownButtonFormField` en cascade, le second reconstruit via une
+`ValueKey(categoryId)` pour éviter une valeur sélectionnée qui
+n'existe plus dans la nouvelle liste) + Description/Adresse/Date
+inchangés. L'affichage de chaque demande récupère la catégorie via le
+service catalogué si présent, sinon retombe sur `business_units`
+(anciennes demandes pré-catalogue).
+
+**`presentation/service_catalog_management/service_catalog_management.dart`**
+(nouveau, entrée "Catalogue de services" dans le menu Plus admin, juste
+après "Demandes de service") : catégories en `ExpansionTile`, chaque
+service avec un `Switch` (disponible/non) + éditer/supprimer ; ajout de
+catégorie (FAB) et de service (bouton dans chaque catégorie dépliée).
+Même pattern que `category_management.dart` (catégories produit).
+
+`presentation/service_requests_management/service_requests_management.dart`
+(vue staff des demandes) mis à jour pour afficher la catégorie via le
+service catalogué en priorité, avec repli sur `business_units` pour
+compatibilité avec les demandes envoyées avant ce lot.

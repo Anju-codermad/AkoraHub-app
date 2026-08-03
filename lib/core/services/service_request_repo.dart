@@ -13,14 +13,20 @@ class ServiceRequestRepo {
     if (userId == null || !SupabaseConfig.isConfigured) return [];
     final rows = await SupabaseConfig.client
         .from('service_requests')
-        .select('*, business_units(name)')
+        .select(
+            '*, business_units(name), service_catalog_items(name, service_categories(name))')
         .eq('customer_id', userId)
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(rows);
   }
 
+  /// [serviceCatalogItemId] : service précis choisi dans le catalogue
+  /// (voir supabase/phase66_patch_service_catalog.sql) — remplace
+  /// l'ancien choix de pilier + objet en texte libre. [title] reste
+  /// enregistré (colonne historique) mais vaut désormais le nom du
+  /// service choisi.
   static Future<void> submit({
-    required String businessUnitId,
+    required String serviceCatalogItemId,
     required String title,
     required String description,
     DateTime? preferredDate,
@@ -30,7 +36,7 @@ class ServiceRequestRepo {
     if (userId == null) throw Exception('Non connecté.');
     await SupabaseConfig.client.from('service_requests').insert({
       'customer_id': userId,
-      'business_unit_id': businessUnitId,
+      'service_catalog_item_id': serviceCatalogItemId,
       'title': title,
       'description': description,
       if (preferredDate != null)

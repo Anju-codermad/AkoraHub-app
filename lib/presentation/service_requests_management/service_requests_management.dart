@@ -62,7 +62,8 @@ class _ServiceRequestsManagementState
       final data = await SupabaseConfig.client
           .from('service_requests')
           .select(
-              '*, business_units(name), profiles(full_name, company_name, phone)')
+              '*, business_units(name), profiles(full_name, company_name, phone), '
+              'service_catalog_items(name, service_categories(name))')
           .order('created_at', ascending: false);
       setState(() {
         _requests = List<Map<String, dynamic>>.from(data);
@@ -183,7 +184,12 @@ class _ServiceRequestsManagementState
                         ...filtered.map((r) {
                           final status = (r['status'] ?? 'nouvelle').toString();
                           final customer = _embedAsMap(r['profiles']);
-                          final unit = _embedAsMap(r['business_units']);
+                          final catalogItem =
+                              _embedAsMap(r['service_catalog_items']);
+                          final unit = catalogItem != null
+                              ? _embedAsMap(
+                                  catalogItem['service_categories'])
+                              : _embedAsMap(r['business_units']);
                           final customerName = customer?['company_name'] ??
                               customer?['full_name'] ??
                               'Client';
