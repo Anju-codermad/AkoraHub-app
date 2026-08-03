@@ -5689,3 +5689,55 @@ préexistantes hors de ce chantier (ex. `Colors.green`/`Colors.blue`
 dans `orderPaymentStatusColor`, la teinte des icônes "Nos activités")
 n'ont pas été retouchées : elles prédatent ces 5 lots et aucun problème
 concret n'a été signalé sur elles.
+
+## Nouveau menu client "Services" : demande de service (03/08)
+
+Demande explicite de l'utilisateur ("ajouter une nouvelle menu :
+services"), clarifiée par deux questions avant de coder : (1)
+emplacement → **5ᵉ onglet** de la barre de navigation du bas côté
+client (Accueil, Commandes, Académie, Services, Profil — le Panier n'a
+toujours pas d'onglet dédié) ; (2) contenu → une **vraie demande de
+service** (installation, intervention, consultation...) avec un
+formulaire et un workflow de traitement côté Admin, pas juste une vue
+des piliers existants.
+
+**SQL** : `supabase/phase65_patch_service_requests.sql` — nouvelle
+table `service_requests` (customer_id, business_unit_id optionnel,
+title, description, preferred_date, address, status
+`nouvelle/en_cours/traitee/refusee`, staff_notes, created_at,
+updated_at). RLS : le client peut créer et lire ses propres demandes,
+mais **ne peut pas les modifier après envoi** (pas de bouton
+"annuler", contrairement aux commandes — premier lot volontairement
+minimal) ; seul le staff met à jour statut/notes. Trigger
+`on_new_service_request_push` réutilise `notify_push_on_new_message`
+(Phase 17).
+
+**Edge Function** : nouveau cas `service_requests` dans
+`send-push-notification/index.ts` — notifie Admin/Commercial avec le
+nom du pilier + l'objet de la demande, même modèle que `post_reports`.
+
+**Nouveaux fichiers Dart** :
+- `core/services/service_request_repo.dart` — `fetchMine()`,
+  `submit({businessUnitId, title, description, preferredDate,
+  address})`.
+- `presentation/client_home/service_requests_tab.dart` — liste des
+  demandes du client (statut coloré, note staff si présente) + feuille
+  modale "Nouvelle demande" (dropdown pilier actif, titre, description,
+  adresse optionnelle, date souhaitée optionnelle via `showDatePicker`).
+  Exporte `serviceRequestStatusLabels`/`serviceRequestStatusColor`,
+  réutilisés côté Admin.
+- `presentation/service_requests_management/service_requests_management.dart`
+  — liste Admin filtrable par statut, actions "Prendre en charge" /
+  "Marquer traitée" / "Refuser" selon l'état courant, + note interne
+  éditable (dialog) transmise au client. Entrée ajoutée dans le menu
+  "Plus" de l'Admin.
+
+**Défense embeds PostgREST** : les deux écrans (client et Admin)
+utilisent un helper `_embedAsMap()` sur les relations `business_units`/
+`profiles` — même précaution que le fix Achats Formation (un embed à-un
+peut parfois revenir en `List` plutôt qu'en `Map`), appliquée dès la
+construction cette fois plutôt qu'en correctif après coup.
+
+**`client_home.dart`** : nouvel index de page 5, nouvelle entrée dans
+`_ClientBottomNav` (icône `miscellaneous_services_outlined`), nouvelle
+clé de traduction `nav_services` (fr: "Services", mg: "Serivisy").
