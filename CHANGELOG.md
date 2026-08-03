@@ -491,3 +491,6 @@
 
 ## 2026-08-02 22:36 UTC — Claude
 - Merge: CRM Lot 5 (tableau de bord analytique, dernier lot) (`d544bfa`)
+
+## 2026-08-03 04:57 UTC — Claude
+- Merge: fix crash Achats Formation (embeds PostgREST tolérants) (`b916a2e`)
