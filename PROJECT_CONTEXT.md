@@ -5430,3 +5430,33 @@ simplement donner `null`.
   le message d'erreur affiché à l'écran donnera enfin le détail exact
   de l'exception (au lieu de l'écran générique "Something went wrong"
   sans information), permettant un diagnostic précis au prochain test.
+
+## Accueil client : barre de recherche + photos "Pour vous" (03/08)
+
+**`catalog_tab.dart`** :
+- Barre de recherche : le hint et l'icône héritaient de la couleur
+  `textDisabledLight`/`textDisabledDark` du thème global (même couleur
+  que les vrais widgets désactivés), d'où l'aspect "flou"/lavé. Fix :
+  `hintStyle`/icône de la recherche fixés explicitement sur
+  `theme.colorScheme.onSurfaceVariant` (muet mais lisible), sans
+  toucher au thème global (qui reste correct pour les widgets
+  réellement désactivés).
+- Carrousel "Pour vous" : les cartes produit n'affichaient aucune
+  photo (juste icône "Nouveau produit" + nom + prix). Ajout d'une
+  vignette (`_productImage`, `enableHero: false` — un même produit
+  peut déjà apparaître dans la grille principale avec le même Hero
+  tag, réutiliser le tag ici casserait l'animation, voir le
+  commentaire existant sur "Vous recommandez souvent").
+
+**Point important sur "SLES" (prix à 0 Ar signalé par l'utilisateur,
+qui affirme avoir bien saisi un prix)** : PAS un bug de sauvegarde.
+`products` a deux colonnes prix distinctes, `price_detail` et
+`price_gros` (`phase1_schema.sql:96-97`), avec deux champs côte à côte
+dans le formulaire admin ("Prix Détail (Ar)" / "Prix Gros (Ar)",
+`product_management_real.dart:488-503`). L'affichage client (carte
+catalogue, "Pour vous") lit `price_detail`. Si seul "Prix Gros" a été
+rempli, `price_detail` reste à son défaut (0), d'où le "0 Ar" côté
+client malgré un prix réellement saisi quelque part. Pas de correctif
+de code proposé pour l'instant — à confirmer avec l'utilisateur lequel
+des deux champs il a rempli avant d'envisager un changement d'UX
+(fusionner les deux champs ? rendre "Prix Détail" obligatoire ?).

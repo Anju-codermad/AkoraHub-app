@@ -914,9 +914,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 1.h),
               child: TextField(
+                style: TextStyle(color: theme.colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: ref.tr('search_hint'),
-                  prefixIcon: const Icon(Icons.search),
+                  hintStyle:
+                      TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  prefixIcon: Icon(Icons.search,
+                      color: theme.colorScheme.onSurfaceVariant),
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest
                       .withValues(alpha: 0.5),
@@ -1214,44 +1218,90 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                         ),
                                       ],
                                     )
-                                  : Column(
+                                  : Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Row(
-                                          children: [
-                                            Icon(Icons.fiber_new_outlined,
-                                                size: 14,
-                                                color: theme
-                                                    .colorScheme.primary),
-                                            SizedBox(width: 1.w),
-                                            Text('Nouveau produit',
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          child: Container(
+                                            width: 16.w,
+                                            height: 16.w,
+                                            color: theme.colorScheme
+                                                .surfaceContainerHighest,
+                                            child: ((item.product![
+                                                            'image_url']
+                                                        as String?) ??
+                                                    '')
+                                                .isEmpty
+                                                ? Icon(
+                                                    Icons
+                                                        .inventory_2_outlined,
+                                                    size: 20,
+                                                    color: theme
+                                                        .colorScheme.outline,
+                                                  )
+                                                : _productImage(
+                                                    theme: theme,
+                                                    imageUrl: item.product![
+                                                        'image_url'],
+                                                    enableHero: false,
+                                                    tag:
+                                                        'for-you-${item.product!['id']}',
+                                                  ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 2.w),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                      Icons
+                                                          .fiber_new_outlined,
+                                                      size: 14,
+                                                      color: theme.colorScheme
+                                                          .primary),
+                                                  SizedBox(width: 1.w),
+                                                  Text('Nouveau produit',
+                                                      style: theme.textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600)),
+                                                ],
+                                              ),
+                                              SizedBox(height: 0.5.h),
+                                              Text(
+                                                item.product!['name'] ?? '',
+                                                maxLines: 2,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style:
+                                                    theme.textTheme.bodyMedium,
+                                              ),
+                                              const Spacer(),
+                                              Text(
+                                                _currency.format((item
+                                                            .product![
+                                                        'price_detail'] as num?) ??
+                                                    0),
                                                 style: theme
-                                                    .textTheme.labelSmall
+                                                    .textTheme.bodySmall
                                                     ?.copyWith(
+                                                        color: theme
+                                                            .colorScheme
+                                                            .primary,
                                                         fontWeight:
-                                                            FontWeight.w600)),
-                                          ],
-                                        ),
-                                        SizedBox(height: 0.5.h),
-                                        Text(
-                                          item.product!['name'] ?? '',
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.bodyMedium,
-                                        ),
-                                        const Spacer(),
-                                        Text(
-                                          _currency.format(
-                                              (item.product!['price_detail']
-                                                      as num?) ??
-                                                  0),
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme.primary,
-                                                  fontWeight:
-                                                      FontWeight.w700),
+                                                            FontWeight.w700),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
