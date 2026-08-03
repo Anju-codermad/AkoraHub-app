@@ -5571,3 +5571,44 @@ boutons :
   même principe déjà utilisé par `_QuotesList` pour ses devis.
 - Bouton "Réessayer" ajouté sur l'état d'erreur réseau, pour Commandes
   ET Devis (jusqu'ici seul le pull-to-refresh existait, peu visible).
+
+## Commandes/Accueil client — Lot 4/5 : accueil enrichi (03/08)
+
+**`orders_tab.dart`** : `OrdersTab` accepte désormais un paramètre
+optionnel `initialTabIndex` (défaut 0), passé au
+`DefaultTabController(initialIndex: ...)` — permet d'ouvrir directement
+l'onglet Devis depuis un lien externe (voir bannière ci-dessous) sans
+que le client ait à cliquer une seconde fois.
+
+**`catalog_tab.dart`** — deux nouvelles sections sur l'accueil,
+alimentées par deux requêtes ajoutées au `Future.wait` existant de
+`_loadData()` (silencieuses en cas d'erreur, comme le reste des blocs
+de la page d'accueil) :
+
+- **Bannière "en attente"** (juste après "Flash info", avant la barre
+  de recherche) : remonte en haut de l'accueil la chose la plus urgente
+  à traiter côté client — priorité à un **devis envoyé en attente de
+  réponse** (`quotes` où `status = 'envoye'`), sinon un **paiement de
+  commande en échec** (`orders` où `payment_status = 'echoue'`).
+  Volontairement **exclu** `payment_status = 'en_attente'` : ce statut
+  correspond en général à une vérification manuelle en cours côté
+  staff, pas à une action requise du client — l'afficher aurait ajouté
+  une fausse urgence. Tap → ouvre `OrdersTab` sur le bon onglet
+  (Devis/Commandes) via un `Scaffold` local (pas de route nommée pour
+  ce cas d'usage ponctuel).
+- **"Nouveautés Formation"** (juste avant "Produits populaires"), un
+  carrousel horizontal des 6 derniers cours `formation_courses` avec
+  `status = 'deja_developpee'`, triés par date de création. C'est un
+  **teaser vers l'onglet Académie existant** (`AkoraFormationScreen`,
+  déjà dans la barre de navigation basse) — pas une nouvelle surface de
+  navigation, juste de la découvrabilité croisée depuis l'accueil.
+  Chaque carte pointe vers `AkoraFormationScreen(initialCategory:
+  category)`, un paramètre de deep-link qui existait déjà. Pas de
+  colonne prix dans `formation_courses` (schéma `phase43`), donc les
+  cartes n'affichent que titre + catégorie.
+
+⚠️ **Filtre rapide par pilier** (prévu dans la proposition initiale du
+Lot 4) : jugé déjà couvert par la section existante "Nos activités"
+(tap sur une icône de pilier → `_selectedUnitId` + rechargement du
+catalogue filtré) — pas de nouvelle UI ajoutée pour éviter de dupliquer
+une fonctionnalité qui existe déjà sous une autre forme.
