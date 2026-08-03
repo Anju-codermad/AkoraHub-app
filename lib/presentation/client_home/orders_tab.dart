@@ -350,8 +350,24 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
       return const Center(child: Text('Aucune commande pour le moment.'));
     }
 
+    List<dynamic> rows;
+    String? buildError;
     final filtered = _filteredOrders;
-    final rows = groupRowsByPeriod(filtered);
+    try {
+      rows = groupRowsByPeriod(filtered);
+    } catch (e) {
+      rows = const [];
+      buildError = 'Erreur d\'affichage : $e';
+    }
+
+    if (buildError != null) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6.w),
+          child: Text(buildError, textAlign: TextAlign.center),
+        ),
+      );
+    }
 
     return Column(
       children: [
@@ -368,6 +384,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
         padding: EdgeInsets.all(4.w),
         itemCount: rows.length,
         itemBuilder: (context, index) {
+          try {
           final row = rows[index];
           if (row is String) {
             return Padding(
@@ -511,6 +528,14 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
             ),
             ),
           );
+          } catch (e) {
+            return Card(
+              child: Padding(
+                padding: EdgeInsets.all(3.w),
+                child: Text('Erreur d\'affichage sur une commande : $e'),
+              ),
+            );
+          }
         },
                   ),
                 ),
@@ -759,7 +784,17 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
       );
     }
 
-    final rows = groupRowsByPeriod(_quotes);
+    List<dynamic> rows;
+    try {
+      rows = groupRowsByPeriod(_quotes);
+    } catch (e) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6.w),
+          child: Text('Erreur d\'affichage : $e', textAlign: TextAlign.center),
+        ),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _loadQuotes,
@@ -767,6 +802,7 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
         padding: EdgeInsets.all(4.w),
         itemCount: rows.length,
         itemBuilder: (context, index) {
+          try {
           final row = rows[index];
           if (row is String) {
             return Padding(
@@ -869,6 +905,14 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
             ),
             ),
           );
+          } catch (e) {
+            return Card(
+              child: Padding(
+                padding: EdgeInsets.all(3.w),
+                child: Text('Erreur d\'affichage sur un devis : $e'),
+              ),
+            );
+          }
         },
       ),
     );

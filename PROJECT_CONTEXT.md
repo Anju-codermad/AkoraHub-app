@@ -5741,3 +5741,33 @@ construction cette fois plutôt qu'en correctif après coup.
 **`client_home.dart`** : nouvel index de page 5, nouvelle entrée dans
 `_ClientBottomNav` (icône `miscellaneous_services_outlined`), nouvelle
 clé de traduction `nav_services` (fr: "Services", mg: "Serivisy").
+
+## Crash "Something went wrong" sur l'onglet Commandes client (03/08)
+
+Signalé par l'utilisateur (capture) juste après avoir testé le menu
+Services — probablement la première ouverture de l'onglet Commandes
+depuis les Lots 1 à 5 (fiche détail, filtres, actions rapides, accueil
+enrichi, regroupement par période). Root cause exacte non confirmée
+(pas d'accès direct aux logs de l'appareil) — deux casts directs
+repérés comme suspects dans `orders_tab.dart` :
+`(order['payment_status'] ?? 'en_attente') as String` et
+`PaymentMethodX.fromId(order['payment_method'] as String?)`, plus
+`groupRowsByPeriod`/`periodGroupLabel` (Lot 5, jamais exercés en
+production avant cette capture).
+
+**Fix défensif** (même pattern que le crash Achats Formation,
+02-03/08) dans `_OrdersListState.build()` et `_QuotesListState.build()` :
+le calcul `groupRowsByPeriod(...)` est maintenant dans un try/catch
+(erreur affichée en texte simple au lieu de l'écran générique), et la
+construction de chaque `Card` de commande/devis dans `itemBuilder` est
+elle-même isolée par un try/catch (une commande malformée affiche
+"Erreur d'affichage sur une commande : $e" au lieu de faire planter
+tout l'onglet). Objectif double : ne plus perdre tout l'écran pour une
+seule ligne à problème, ET faire apparaître le vrai message
+d'exception si le problème se reproduit, pour un diagnostic précis
+(le `CustomErrorWidget` global de l'app ne donne aucun détail).
+
+⚠️ **Pas encore confirmé résolu** — demander à l'utilisateur de
+retester l'onglet Commandes et, si un message d'erreur détaillé
+apparaît au lieu de "Something went wrong", de le partager pour cibler
+le vrai correctif.
