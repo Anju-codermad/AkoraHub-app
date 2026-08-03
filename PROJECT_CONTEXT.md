@@ -5906,3 +5906,57 @@ Même pattern que `category_management.dart` (catégories produit).
 (vue staff des demandes) mis à jour pour afficher la catégorie via le
 service catalogué en priorité, avec repli sur `business_units` pour
 compatibilité avec les demandes envoyées avant ce lot.
+
+## Barre de raccourcis Profil + Programme de parrainage (03/08)
+
+Suite à la vision "barre de menu dans le profil" proposée par l'utilisateur :
+décision validée après échange — **seules 4 actions "utilitaires"**
+(pas du contenu à parcourir) rejoignent une barre de raccourcis en haut
+du profil, le reste (Mes achats, Communauté & Formation) reste en
+cards en dessous, juste débarrassé des entrées désormais dupliquées.
+
+**`profile_tab.dart`** : nouvelle `_buildShortcutsBar()` — 4 icônes
+(Paramètres, Parrainage, Assistance, Scanner un produit) insérée juste
+sous les boutons Modifier le profil/Partager/Personnaliser, avant la
+barre "Profil complété à X%". Volontairement limitée à 4 pour rester
+lisible d'un coup d'œil (au-delà, une rangée d'icônes perd son intérêt
+de raccourci rapide). "Scanner un produit" retiré de la card "Mes
+achats", "Assistance" et "Paramètres" retirés de leurs cards dédiées en
+bas de page pour ne pas les dupliquer.
+
+**Programme de parrainage** (nouveau, un des 4 raccourcis) — décision
+utilisateur explicite : **pas de récompense automatique** pour l'instant,
+juste un suivi parrain/filleul, le staff décide manuellement quoi
+offrir en dehors de l'app.
+
+**`supabase/phase67_patch_referral_program.sql`** : `profiles` gagne
+`referral_code` (unique, généré automatiquement par trigger
+`before insert` — couvre aussi bien les inscriptions via
+`handle_new_user` que tout futur insert direct) et `referred_by`
+(uuid, nullable, FK vers profiles). Fonction `resolve_referral_code(code)`
+— `security definer`, callable en `anon` (avant toute session, à
+l'inscription) — ne renvoie qu'un id, jamais d'autres colonnes. La vue
+`public_profiles` (Phase 9/47/52, déjà utilisée pour le nom/avatar des
+autres clients côté Communauté) gagne `referred_by`/`created_at` pour
+que l'écran Parrainage liste les filleuls sans nouvelle policy RLS sur
+la table de base.
+
+**`core/services/referral_repo.dart`** (nouveau) : `fetchMyCode()`,
+`fetchMyReferrals()` (via `public_profiles`, filtré `referred_by = moi`),
+`resolveCode(code)` (RPC, utilisé à l'inscription).
+
+**`presentation/client_home/referral_screen.dart`** (nouveau) : code
+personnel affiché en gros + copier/partager (`SharePlus`, même pattern
+que la carte de contact), liste des filleuls avec date d'inscription.
+
+**`registration_screen.dart`** : champ "Code de parrainage (optionnel)"
+ajouté en étape 2 (juste avant les conditions d'utilisation). À la
+soumission, résolution du code via `ReferralRepo.resolveCode()` **avant**
+`signUp()` — un code saisi mais invalide bloque l'inscription (erreur
+affichée) plutôt que d'être ignoré silencieusement ; `referred_by`
+rejoint `pendingProfileUpdate`, déjà appliqué génériquement après
+confirmation email par `email_otp_verification_screen.dart` (aucune
+modif nécessaire sur cet écran).
+
+⚠️ Migration `phase67_patch_referral_program.sql` à exécuter dans
+Supabase avant de tester le raccourci Parrainage.

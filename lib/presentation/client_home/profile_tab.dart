@@ -23,6 +23,7 @@ import 'my_contact_qr_screen.dart';
 import 'my_reviews_screen.dart';
 import 'orders_tab.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
+import 'referral_screen.dart';
 import 'settings/settings_screen.dart';
 import 'wall/wall_tab.dart';
 
@@ -609,6 +610,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     ),
                   ],
                 ),
+                SizedBox(height: 2.h),
+                _buildShortcutsBar(theme),
                 if (completionRatio < 1) ...[
                   SizedBox(height: 2.h),
                   _buildCompletionBar(theme, completionRatio, accentColor),
@@ -735,6 +738,52 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
+  /// Barre de raccourcis (03/08) — 4 actions "utilitaires" transverses
+  /// (pas du contenu à parcourir, contrairement aux cartes plus bas) :
+  /// Paramètres, Parrainage, Assistance, Scanner un produit. Volontairement
+  /// limitée à 4 icônes pour rester lisible d'un coup d'œil ; Scanner et
+  /// Assistance ont donc été retirés des cartes "Mes achats"/"Assistance"
+  /// plus bas pour ne pas les dupliquer.
+  Widget _buildShortcutsBar(ThemeData theme) {
+    final shortcuts = [
+      (Icons.settings_outlined, 'Paramètres', () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const SettingsScreen()))),
+      (Icons.card_giftcard_outlined, 'Parrainage', () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ReferralScreen()))),
+      (Icons.chat_bubble_outline, 'Assistance', () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const ChatScreen()))),
+      (Icons.qr_code_scanner, 'Scanner',
+          () => Navigator.pushNamed(context, '/product-scanner')),
+    ];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        for (final (icon, label, onTap) in shortcuts)
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 1.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    child:
+                        Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  SizedBox(height: 0.6.h),
+                  Text(label, style: theme.textTheme.labelSmall),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   /// Barre "Profil complété à X%" (Lot 2, 03/08) — disparaît une fois le
   /// profil complet plutôt que de rester affichée indéfiniment.
   Widget _buildCompletionBar(ThemeData theme, double ratio, Color? accent) {
@@ -793,12 +842,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   /// "Informations personnelles" (Email/Société/Téléphone/Localisation)
   /// retiré de cette vue, déjà consultable/modifiable via "Modifier le
   /// profil" (société également affichée dans l'en-tête) et Email
-  /// affiché dans Paramètres → Compte. Les achats (Commandes
-  /// récurrentes/Fidélité/Scanner) sont regroupés sous un titre dédié,
-  /// séparés de l'assistance (Messagerie, renommée "Contacter l'équipe"
-  /// pour ne pas la confondre avec la messagerie entre clients de la
-  /// Communauté — voir PROJECT_CONTEXT.md). Déconnexion retirée d'ici,
-  /// désormais uniquement dans Paramètres.
+  /// affiché dans Paramètres → Compte. Déconnexion retirée d'ici,
+  /// désormais uniquement dans Paramètres. Scanner un produit, Assistance
+  /// et Paramètres sont sortis d'ici (03/08, barre de raccourcis
+  /// `_buildShortcutsBar`) pour ne pas les dupliquer.
   Widget _buildAllTabContent(ThemeData theme) {
     return Column(
       children: [
@@ -867,14 +914,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const LoyaltyScreen())),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.qr_code_scanner),
-                title: const Text('Scanner un produit'),
-                subtitle: const Text('Vérifier la traçabilité d\'un lot'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.pushNamed(context, '/product-scanner'),
               ),
               const Divider(height: 1),
               ListTile(
@@ -974,33 +1013,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     '$_reactionsReceived réaction${_reactionsReceived > 1 ? 's' : ''} · $_commentsReceived commentaire${_commentsReceived > 1 ? 's' : ''} reçus'),
               ),
             ],
-          ),
-        ),
-        SizedBox(height: 2.h),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text('Assistance', style: theme.textTheme.labelLarge),
-        ),
-        SizedBox(height: 1.h),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.chat_bubble_outline),
-            title: const Text('Contacter l\'équipe'),
-            subtitle: const Text('Messagerie avec le support AkoraHub'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const ChatScreen())),
-          ),
-        ),
-        SizedBox(height: 2.h),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Paramètres'),
-            subtitle: const Text('Compte, notifications, langue, sécurité, aide'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen())),
           ),
         ),
       ],
