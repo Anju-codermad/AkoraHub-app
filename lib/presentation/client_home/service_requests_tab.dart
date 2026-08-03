@@ -137,13 +137,11 @@ class _ServiceRequestsTabState extends State<ServiceRequestsTab> {
                               (r['status'] ?? 'nouvelle').toString();
                           final catalogItem =
                               _embedAsMap(r['service_catalog_items']);
-                          final unit = (catalogItem != null
-                                  ? _embedAsMap(
-                                      catalogItem['service_categories'])
-                                      ?['name']
-                                  : _embedAsMap(r['business_units'])
-                                      ?['name'])
-                              as String?;
+                          final categoryMap = catalogItem != null
+                              ? _embedAsMap(
+                                  catalogItem['service_categories'])
+                              : _embedAsMap(r['business_units']);
+                          final unit = categoryMap?['name'] as String?;
                           final createdAt =
                               DateTime.tryParse(r['created_at'] ?? '');
                           return Card(
