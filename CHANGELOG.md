@@ -518,3 +518,6 @@
 
 ## 2026-08-03 07:13 UTC — Claude
 - Merge: nouveau menu client Services (demande de service) (`0c6b9f5`)
+
+## 2026-08-03 07:53 UTC — Claude
+- Merge: fix crash Commandes client (isolation d'erreurs) (`32f2b07`)
