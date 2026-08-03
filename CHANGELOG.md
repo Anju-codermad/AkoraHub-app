@@ -515,3 +515,6 @@
 
 ## 2026-08-03 06:59 UTC — Claude
 - Merge: FiveOne Pay - activer Orange Money côté Admin (`43dd61f`)
+
+## 2026-08-03 07:13 UTC — Claude
+- Merge: nouveau menu client Services (demande de service) (`0c6b9f5`)
