@@ -8,6 +8,7 @@ import '../../core/pdf/document_pdf_generator.dart';
 import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'chat_screen.dart';
 import 'delivery_tracking_screen.dart';
 import 'orders_tab.dart';
 
@@ -50,6 +51,58 @@ class OrderDetailScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Erreur lors de la génération du PDF.')),
       );
+    }
+  }
+
+  void _contactSupport(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          initialMessage:
+              'Bonjour, j\'ai une question concernant ma commande '
+              '${order['order_number'] ?? ''}.',
+        ),
+      ),
+    );
+  }
+
+  /// Réservé aux commandes encore "reçue" — voir la policy RLS dédiée
+  /// `orders_update_own_cancel_if_recue` (Phase 64) : un client ne peut
+  /// annuler que depuis ce statut précis, jamais une commande déjà en
+  /// préparation/expédiée.
+  Future<void> _cancelOrder(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Annuler la commande'),
+        content: Text(
+            'Voulez-vous vraiment annuler la commande ${order['order_number'] ?? ''} ? Cette action est définitive.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Retour'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Annuler la commande'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client
+          .from('orders')
+          .update({'status': 'annulee'})
+          .eq('id', order['id'])
+          .eq('status', 'recue');
+      if (!context.mounted) return;
+      Navigator.pop(context);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible d\'annuler cette commande.')));
     }
   }
 
@@ -245,6 +298,21 @@ class OrderDetailScreen extends ConsumerWidget {
                 icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                 label: const Text('Facture PDF'),
               ),
+              OutlinedButton.icon(
+                onPressed: () => _contactSupport(context),
+                icon: const Icon(Icons.support_agent_outlined, size: 18),
+                label: const Text('Contacter le support'),
+              ),
+              if (status == 'recue')
+                OutlinedButton.icon(
+                  onPressed: () => _cancelOrder(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    side: BorderSide(color: theme.colorScheme.error),
+                  ),
+                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                  label: const Text('Annuler la commande'),
+                ),
               FilledButton.icon(
                 onPressed: () => _reorder(context, ref),
                 icon: const Icon(Icons.refresh, size: 18),
