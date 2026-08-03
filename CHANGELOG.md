@@ -512,3 +512,6 @@
 
 ## 2026-08-03 06:15 UTC — Claude
 - Merge: Commandes/Accueil client Lot 5 : design & finitions (`b10a564`)
+
+## 2026-08-03 06:59 UTC — Claude
+- Merge: FiveOne Pay - activer Orange Money côté Admin (`43dd61f`)
