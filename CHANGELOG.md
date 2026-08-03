@@ -506,3 +506,6 @@
 
 ## 2026-08-03 05:49 UTC — Claude
 - Merge: Commandes client Lot 3 (actions rapides) (`4b07129`)
+
+## 2026-08-03 06:04 UTC — Claude
+- Merge: Commandes/Accueil client Lot 4 : accueil enrichi (`e0ffc3e`)
