@@ -524,3 +524,6 @@
 
 ## 2026-08-03 08:38 UTC — Claude
 - Merge: bulle de chat flottante sur tout l'espace client (`38678a0`)
+
+## 2026-08-03 09:33 UTC — Claude
+- Catalogue de services (7 catégories, 35 services) gérable depuis l'admin (`c102eb3`)
