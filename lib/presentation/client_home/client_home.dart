@@ -6,6 +6,7 @@ import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
 import 'cart_tab.dart';
 import 'catalog_tab.dart';
+import 'floating_chat_bubble.dart';
 import 'formation/formation_hub_screen.dart';
 import 'orders_tab.dart';
 import 'profile_tab.dart';
@@ -93,7 +94,8 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
     }
     _wasOnline = isOnline;
 
-    return Scaffold(
+    return FloatingChatBubble(
+      child: Scaffold(
       appBar: _currentIndex == 0
           ? null
           : AppBar(title: Text(titles[_currentIndex])),
@@ -132,6 +134,7 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       bottomNavigationBar: _ClientBottomNav(
         currentIndex: _currentIndex,
         onSelect: (index) => setState(() => _currentIndex = index),
+      ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/chat/unread_support_messages.dart';
 import '../../core/localization/app_translations.dart';
 import '../../core/navigation/product_detail_route.dart';
 import '../../core/notifications/category_subscription_repo.dart';
@@ -375,26 +376,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         }
       }
 
-      Future<int> loadUnreadCount() async {
-        if (userId == null) return 0;
-        try {
-          final convo = await SupabaseConfig.client
-              .from('conversations')
-              .select('id')
-              .eq('customer_id', userId)
-              .maybeSingle();
-          if (convo == null) return 0;
-          final unread = await SupabaseConfig.client
-              .from('messages')
-              .select('id')
-              .eq('conversation_id', convo['id'])
-              .eq('sender_role', 'staff')
-              .eq('read_by_client', false);
-          return List.from(unread).length;
-        } catch (_) {
-          return 0;
-        }
-      }
+      Future<int> loadUnreadCount() => fetchUnreadSupportMessagesCount();
 
       Future<List<_ActivityItem>> loadActivityFeed() async {
         try {
