@@ -527,3 +527,6 @@
 
 ## 2026-08-03 09:33 UTC — Claude
 - Catalogue de services (7 catégories, 35 services) gérable depuis l'admin (`c102eb3`)
+
+## 2026-08-03 09:46 UTC — Claude
+- Fix: erreur de syntaxe Dart dans service_requests_tab.dart (`3f0b610`)
