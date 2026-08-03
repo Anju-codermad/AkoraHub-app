@@ -533,3 +533,6 @@
 
 ## 2026-08-03 10:24 UTC — Claude
 - Barre de raccourcis Profil (Paramètres/Parrainage/Assistance/Scanner) + programme de parrainage (`ecbcd1c`)
+
+## 2026-08-03 20:13 UTC — Claude
+- Badge messages non lus sur le raccourci Assistance du profil (`5d896b5`)
