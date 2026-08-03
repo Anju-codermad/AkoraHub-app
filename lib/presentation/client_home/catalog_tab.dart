@@ -17,6 +17,8 @@ import 'chat_screen.dart';
 import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
 import 'flash_infos_screen.dart';
+import 'formation/akora_formation_screen.dart';
+import 'orders_tab.dart';
 import 'product_detail_client.dart';
 import 'wall/wall_tab.dart';
 
@@ -83,6 +85,12 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   List<_ActivityItem> _activityFeed = [];
   List<Map<String, dynamic>> _reorderSuggestions = [];
   String? _flashInfo;
+  List<Map<String, dynamic>> _recentFormationCourses = [];
+
+  /// Devis en attente de réponse ou paiement en échec — la chose la plus
+  /// urgente qui nécessite une action du client, mise en avant en haut de
+  /// l'accueil plutôt que noyée dans l'onglet Commandes (Lot 4).
+  Map<String, dynamic>? _pendingAction;
 
   final PageController _bannerController = PageController();
   int _bannerIndex = 0;
@@ -475,18 +483,72 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         }
       }
 
+      Future<List<Map<String, dynamic>>> loadRecentFormationCourses() async {
+        try {
+          final rows = await SupabaseConfig.client
+              .from('formation_courses')
+              .select('id, title, category, status')
+              .eq('status', 'deja_developpee')
+              .order('created_at', ascending: false)
+              .limit(6);
+          return List<Map<String, dynamic>>.from(rows);
+        } catch (_) {
+          return [];
+        }
+      }
+
+      // Priorité : un devis envoyé attend une réponse du client avant tout
+      // (décision à prendre) ; sinon, une commande dont le paiement a
+      // échoué (action à refaire). "en_attente" n'est volontairement pas
+      // inclus ici : ça signifie le plus souvent "en cours de vérification
+      // manuelle par le staff", pas une action qui attend le client.
+      Future<Map<String, dynamic>?> loadPendingAction() async {
+        if (userId == null) return null;
+        try {
+          final quote = await SupabaseConfig.client
+              .from('quotes')
+              .select('id, quote_number')
+              .eq('customer_id', userId)
+              .eq('status', 'envoye')
+              .order('created_at', ascending: false)
+              .limit(1)
+              .maybeSingle();
+          if (quote != null) {
+            return {'type': 'quote', ...quote};
+          }
+          final order = await SupabaseConfig.client
+              .from('orders')
+              .select('id, order_number')
+              .eq('customer_id', userId)
+              .eq('payment_status', 'echoue')
+              .order('created_at', ascending: false)
+              .limit(1)
+              .maybeSingle();
+          if (order != null) {
+            return {'type': 'order_payment', ...order};
+          }
+          return null;
+        } catch (_) {
+          return null;
+        }
+      }
+
       final parallel = await Future.wait([
         loadBanners(),
         loadUnreadCount(),
         loadActivityFeed(),
         loadReorderSuggestions(),
         loadFlashInfo(),
+        loadRecentFormationCourses(),
+        loadPendingAction(),
       ]);
       final loadedSlides = parallel[0] as List<_PromoSlide>;
       final unreadMessages = parallel[1] as int;
       final activityFeed = parallel[2] as List<_ActivityItem>;
       final reorderSuggestions = parallel[3] as List<Map<String, dynamic>>;
       final flashInfo = parallel[4] as String?;
+      final recentFormationCourses = parallel[5] as List<Map<String, dynamic>>;
+      final pendingAction = parallel[6] as Map<String, dynamic>?;
 
       final productsPage = List<Map<String, dynamic>>.from(results[1] as List);
       setState(() {
@@ -501,6 +563,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _activityFeed = activityFeed;
         _reorderSuggestions = reorderSuggestions;
         _flashInfo = flashInfo;
+        _recentFormationCourses = recentFormationCourses;
+        _pendingAction = pendingAction;
         _isLoading = false;
       });
 
@@ -974,6 +1038,68 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                         Icon(Icons.chevron_right,
                             size: 18,
                             color: theme.colorScheme.onPrimaryContainer),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // --- Raccourci "en attente" (Lot 4) : devis à répondre ou
+          // paiement en échec — la chose la plus urgente à traiter,
+          // remontée en haut de l'accueil plutôt que noyée dans l'onglet
+          // Commandes. ---
+          if (_pendingAction != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 0),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(title: const Text('Commandes')),
+                        body: OrdersTab(
+                          initialTabIndex:
+                              _pendingAction!['type'] == 'quote' ? 1 : 0,
+                        ),
+                      ),
+                    ),
+                  ),
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 3.w, vertical: 1.2.h),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _pendingAction!['type'] == 'quote'
+                              ? Icons.request_quote_outlined
+                              : Icons.error_outline,
+                          size: 18,
+                          color: theme.colorScheme.onTertiaryContainer,
+                        ),
+                        SizedBox(width: 2.w),
+                        Expanded(
+                          child: Text(
+                            _pendingAction!['type'] == 'quote'
+                                ? 'Devis ${_pendingAction!['quote_number']} en attente de votre réponse'
+                                : 'Le paiement de la commande ${_pendingAction!['order_number']} a échoué — à refaire',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onTertiaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right,
+                            size: 18,
+                            color: theme.colorScheme.onTertiaryContainer),
                       ],
                     ),
                   ),
@@ -1646,6 +1772,102 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 ),
               ),
             ),
+
+          // --- Nouveautés Formation (Lot 4) : cours disponibles ajoutés
+          // récemment — l'Académie a son propre onglet dans la barre du
+          // bas, cette rangée sert juste de teaser/découvrabilité depuis
+          // l'accueil. ---
+          if (_recentFormationCourses.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Nouveautés Formation',
+                        style: theme.textTheme.titleMedium),
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AkoraFormationScreen()),
+                      ),
+                      child: const Text('Voir tout'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 13.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  itemCount: _recentFormationCourses.length,
+                  itemBuilder: (context, index) {
+                    final course = _recentFormationCourses[index];
+                    final category = (course['category'] ?? '').toString();
+                    return Padding(
+                      padding: EdgeInsets.only(right: 3.w),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AkoraFormationScreen(
+                                initialCategory: category),
+                          ),
+                        ),
+                        child: Container(
+                          width: 45.w,
+                          padding: EdgeInsets.all(3.w),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.primary
+                                    .withValues(alpha: 0.75),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(iconForFormationCategory(category),
+                                  color: Colors.white, size: 22),
+                              const Spacer(),
+                              Text(
+                                course['title'] ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                category,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
 
           // --- Produits populaires / catalogue ---
           SliverToBoxAdapter(

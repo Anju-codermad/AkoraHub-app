@@ -110,12 +110,19 @@ class OrderProgressBar extends StatelessWidget {
 /// ("Mes devis" — les devis existaient déjà en base, mais n'étaient
 /// visibles nulle part côté client avant cet ajout).
 class OrdersTab extends StatelessWidget {
-  const OrdersTab({super.key});
+  /// Onglet ouvert au départ (0 = Commandes, 1 = Devis) — utilisé par le
+  /// raccourci "en attente" de l'accueil (catalog_tab.dart, Lot 4) pour
+  /// amener directement sur le bon onglet selon ce qui nécessite une
+  /// action du client.
+  final int initialTabIndex;
+
+  const OrdersTab({super.key, this.initialTabIndex = 0});
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
+      initialIndex: initialTabIndex,
       child: Column(
         children: [
           TabBar(
