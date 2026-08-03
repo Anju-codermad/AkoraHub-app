@@ -118,6 +118,18 @@ class _FormationPurchasesManagementState
     }
   }
 
+  /// PostgREST embarque parfois une relation "un seul" (FK) comme une
+  /// liste plutôt qu'un objet (cache de schéma pas à jour, ambiguïté de
+  /// relation) — `as Map?` plante alors avec un TypeError au lieu de
+  /// simplement donner `null`. Ce cast tolère les deux formes.
+  Map? _embedAsMap(dynamic value) {
+    if (value is Map) return value;
+    if (value is List && value.isNotEmpty && value.first is Map) {
+      return value.first as Map;
+    }
+    return null;
+  }
+
   /// Regroupe les lignes par `batch_id` — un même achat (plusieurs
   /// produits en une fois) se valide/refuse en bloc.
   List<List<Map<String, dynamic>>> _groupByBatch(
@@ -196,16 +208,31 @@ class _FormationPurchasesManagementState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final filtered = _purchases
-        .where((p) => _statusFilter == 'tous' || p['status'] == _statusFilter)
-        .toList();
-    final batches = _groupByBatch(filtered);
+    List<List<Map<String, dynamic>>> batches = [];
+    String? buildError;
+    try {
+      final filtered = _purchases
+          .where(
+              (p) => _statusFilter == 'tous' || p['status'] == _statusFilter)
+          .toList();
+      batches = _groupByBatch(filtered);
+    } catch (e) {
+      buildError = 'Erreur d\'affichage (matières premières) : $e';
+    }
 
     return _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
             ? Center(child: Text(_error!))
-            : RefreshIndicator(
+            : buildError != null
+                ? Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(4.w),
+                      child: Text(buildError,
+                          style: theme.textTheme.bodySmall),
+                    ),
+                  )
+                : RefreshIndicator(
                 onRefresh: _loadData,
                 child: ListView(
                     padding: EdgeInsets.all(4.w),
@@ -263,11 +290,12 @@ class _FormationPurchasesManagementState
                         )
                       else
                         ...batches.map((batch) {
+                          try {
                           final first = batch.first;
-                          final profile = first['profiles'] as Map?;
-                          final status = first['status'] as String;
+                          final profile = _embedAsMap(first['profiles']);
+                          final status = first['status'] as String? ?? '';
                           final total = batch.fold<num>(
-                              0, (sum, p) => sum + (p['amount'] as num));
+                              0, (sum, p) => sum + ((p['amount'] as num?) ?? 0));
                           return Card(
                             child: Padding(
                               padding: const EdgeInsets.all(12),
@@ -295,15 +323,20 @@ class _FormationPurchasesManagementState
                                   SizedBox(height: 0.5.h),
                                   Text(batch
                                       .map((p) =>
-                                          (p['raw_materials'] as Map?)?['name'] ??
-                                          '')
+                                          _embedAsMap(p['raw_materials'])
+                                                  ?['name'] ??
+                                              '')
                                       .join(', ')),
                                   Text(
                                       '${batch.length} produit(s) · ${_currency.format(total)}'),
                                   if (first['payment_reference'] != null)
                                     Text('Référence : ${first['payment_reference']}'),
-                                  Text(
-                                      'Demandé le ${_dateFormat.format(DateTime.parse(first['requested_at']))}'),
+                                  if (DateTime.tryParse(
+                                          first['requested_at'] as String? ??
+                                              '') !=
+                                      null)
+                                    Text(
+                                        'Demandé le ${_dateFormat.format(DateTime.parse(first['requested_at']))}'),
                                   const SizedBox(height: 8),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
@@ -331,6 +364,17 @@ class _FormationPurchasesManagementState
                               ),
                             ),
                           );
+                          } catch (e) {
+                            return Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text(
+                                  'Erreur d\'affichage sur une demande : $e',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
+                            );
+                          }
                         }),
                     ],
                   ),

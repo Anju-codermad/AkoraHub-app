@@ -108,6 +108,17 @@ class _CoursePurchasesManagementState
     }
   }
 
+  /// Voir formation_purchases_management.dart pour le détail : PostgREST
+  /// embarque parfois une relation "un seul" comme une liste plutôt
+  /// qu'un objet, ce qui fait planter un `as Map?` classique.
+  Map? _embedAsMap(dynamic value) {
+    if (value is Map) return value;
+    if (value is List && value.isNotEmpty && value.first is Map) {
+      return value.first as Map;
+    }
+    return null;
+  }
+
   Future<void> _viewProof(Map<String, dynamic> p) async {
     final path = p['payment_proof_path'] as String?;
     if (path == null) return;
@@ -135,15 +146,30 @@ class _CoursePurchasesManagementState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final filtered = _purchases
-        .where((p) => _statusFilter == 'tous' || p['status'] == _statusFilter)
-        .toList();
+    List<Map<String, dynamic>> filtered = [];
+    String? buildError;
+    try {
+      filtered = _purchases
+          .where(
+              (p) => _statusFilter == 'tous' || p['status'] == _statusFilter)
+          .toList();
+    } catch (e) {
+      buildError = 'Erreur d\'affichage (cours) : $e';
+    }
 
     return _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
             ? Center(child: Text(_error!))
-            : RefreshIndicator(
+            : buildError != null
+                ? Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(4.w),
+                      child: Text(buildError,
+                          style: theme.textTheme.bodySmall),
+                    ),
+                  )
+                : RefreshIndicator(
                 onRefresh: _loadData,
                 child: ListView(
                     padding: EdgeInsets.all(4.w),
@@ -182,9 +208,10 @@ class _CoursePurchasesManagementState
                         )
                       else
                         ...filtered.map((p) {
-                          final profile = p['profiles'] as Map?;
-                          final course = p['formation_courses'] as Map?;
-                          final status = p['status'] as String;
+                          try {
+                          final profile = _embedAsMap(p['profiles']);
+                          final course = _embedAsMap(p['formation_courses']);
+                          final status = p['status'] as String? ?? '';
                           return Card(
                             child: Padding(
                               padding: const EdgeInsets.all(12),
@@ -212,11 +239,14 @@ class _CoursePurchasesManagementState
                                   SizedBox(height: 0.5.h),
                                   Text(
                                       '${course?['title'] ?? ''} · ${course?['category'] ?? ''}'),
-                                  Text(_currency.format(p['amount'])),
+                                  Text(_currency.format(p['amount'] ?? 0)),
                                   if (p['payment_reference'] != null)
                                     Text('Référence : ${p['payment_reference']}'),
-                                  Text(
-                                      'Demandé le ${_dateFormat.format(DateTime.parse(p['created_at']))}'),
+                                  if (DateTime.tryParse(
+                                          p['created_at'] as String? ?? '') !=
+                                      null)
+                                    Text(
+                                        'Demandé le ${_dateFormat.format(DateTime.parse(p['created_at']))}'),
                                   const SizedBox(height: 8),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
@@ -244,6 +274,17 @@ class _CoursePurchasesManagementState
                               ),
                             ),
                           );
+                          } catch (e) {
+                            return Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text(
+                                  'Erreur d\'affichage sur une demande : $e',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
+                            );
+                          }
                         }),
                     ],
                   ),
