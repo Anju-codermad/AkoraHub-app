@@ -536,3 +536,6 @@
 
 ## 2026-08-03 20:13 UTC — Claude
 - Badge messages non lus sur le raccourci Assistance du profil (`5d896b5`)
+
+## 2026-08-03 20:26 UTC — Claude
+- Activer/désactiver la bulle de chat flottante (admin global + client personnel) (`717756c`)
