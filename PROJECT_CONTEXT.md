@@ -6015,3 +6015,42 @@ chargé au `initState()` et rafraîchi au retour de l'écran Assistance
 un tuple `(icône, libellé, compteur de badge, action)` — un badge rouge
 façon Facebook (cercle avec bordure couleur fond, "9+" au-delà de 9)
 s'affiche uniquement si le compteur est > 0.
+
+## Activer/désactiver la bulle de chat flottante (admin + client) (03/08)
+
+Demande utilisateur : pouvoir couper la bulle de chat flottante des
+deux côtés, chacun indépendamment ("les deux côtés peuvent choisir ce
+qu'ils veulent").
+
+**`supabase/phase68_patch_chat_bubble_toggle.sql`** :
+- `company_settings.floating_chat_bubble_enabled` (colonne à part de
+  `data` jsonb — volontairement, pour ne pas risquer d'être écrasée par
+  le prochain enregistrement du formulaire "Profil entreprise" qui ne
+  réécrit que `id`/`data`) : réglage **global admin**, coupe la bulle
+  pour tous les clients.
+- `profiles.hide_chat_bubble` : réglage **personnel client**, cache la
+  bulle juste pour lui.
+- Vue `app_feature_flags` (même principe que `public_profiles`) expose
+  uniquement le booléen global aux clients — `company_settings` reste
+  par ailleurs réservé au staff en lecture (Phase 4).
+
+**`core/chat/chat_bubble_settings_repo.dart`** (nouveau) :
+`isEnabledGlobally`/`setEnabledGlobally` (via la vue + upsert sur
+`company_settings`), `isHiddenByClient`/`setHiddenByClient` (sur son
+propre profil).
+
+**`floating_chat_bubble.dart`** : charge les deux réglages au
+`initState()`, ne s'affiche que si global ET pas masqué par le client
+(`_visible = enabledGlobally && !hiddenByClient`) ; si masquée,
+`build()` renvoie directement `widget.child` sans le `Stack`.
+
+**`business_profile_settings.dart`** (admin) : nouveau `SwitchListTile`
+"Bulle de chat flottante" après la section Contact — écriture
+immédiate au changement, indépendante du bouton "Enregistrer" du
+formulaire.
+
+**`settings_screen.dart`** (Paramètres, partagé client/admin) :
+nouveau `_ChatBubbleVisibilityTile` (widget à état dédié) juste après
+"Mode sombre" — personnel, écriture immédiate. Reste affiché côté admin
+aussi (l'écran est documenté comme générique/non lié au rôle) mais sans
+effet visible puisque la bulle n'existe que côté client.

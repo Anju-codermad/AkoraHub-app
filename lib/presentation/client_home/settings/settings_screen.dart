@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../../core/chat/chat_bubble_settings_repo.dart';
 import '../../../core/chat/chat_bubble_style.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/providers/theme_provider.dart';
@@ -185,6 +186,8 @@ class SettingsScreen extends ConsumerWidget {
                         value ? ThemeMode.dark : ThemeMode.light);
                   },
                 ),
+                const Divider(height: 1),
+                const _ChatBubbleVisibilityTile(),
               ],
             ),
           ),
@@ -226,6 +229,63 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Réglage personnel (03/08, voir supabase/phase68_patch_chat_bubble_toggle.sql)
+/// — masque la bulle de chat flottante juste pour l'utilisateur connecté,
+/// indépendamment du réglage global admin (`business_profile_settings.dart`).
+/// Widget à part (plutôt que dans `SettingsScreen`, un `ConsumerWidget`
+/// sans état) pour porter son propre chargement/écriture.
+class _ChatBubbleVisibilityTile extends StatefulWidget {
+  const _ChatBubbleVisibilityTile();
+
+  @override
+  State<_ChatBubbleVisibilityTile> createState() =>
+      _ChatBubbleVisibilityTileState();
+}
+
+class _ChatBubbleVisibilityTileState
+    extends State<_ChatBubbleVisibilityTile> {
+  bool _hidden = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final hidden = await ChatBubbleSettingsRepo.isHiddenByClient();
+    if (mounted) setState(() {
+      _hidden = hidden;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _toggle(bool showBubble) async {
+    final hidden = !showBubble;
+    setState(() => _hidden = hidden);
+    try {
+      await ChatBubbleSettingsRepo.setHiddenByClient(hidden);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _hidden = !hidden);
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de modifier ce réglage.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      secondary: const Icon(Icons.chat_bubble_outline),
+      title: const Text('Bulle de chat flottante'),
+      subtitle: const Text('Afficher le raccourci vers l\'assistance sur toutes les pages'),
+      value: !_hidden,
+      onChanged: _isLoading ? null : _toggle,
     );
   }
 }

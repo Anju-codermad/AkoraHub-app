@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/app_export.dart';
+import '../../core/chat/chat_bubble_settings_repo.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_icon_widget.dart';
 import './widgets/business_information_section.dart';
@@ -30,6 +31,7 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   bool _hasUnsavedChanges = false;
+  bool _bubbleEnabledGlobally = true;
 
   // Données réelles de l'entreprise, chargées depuis Supabase
   // (structure conservée pour compatibilité avec les widgets existants).
@@ -92,6 +94,27 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
   void initState() {
     super.initState();
     _loadFromSupabase();
+    _loadBubbleSetting();
+  }
+
+  Future<void> _loadBubbleSetting() async {
+    final enabled = await ChatBubbleSettingsRepo.isEnabledGlobally();
+    if (mounted) setState(() => _bubbleEnabledGlobally = enabled);
+  }
+
+  /// Écriture immédiate (pas liée au bouton "Enregistrer" du formulaire
+  /// ci-dessous) — colonne à part de `data`, voir
+  /// supabase/phase68_patch_chat_bubble_toggle.sql pour l'explication.
+  Future<void> _toggleBubbleGlobally(bool enabled) async {
+    setState(() => _bubbleEnabledGlobally = enabled);
+    try {
+      await ChatBubbleSettingsRepo.setEnabledGlobally(enabled);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _bubbleEnabledGlobally = !enabled);
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de modifier ce réglage.')));
+    }
   }
 
   Future<void> _loadFromSupabase() async {
@@ -435,6 +458,23 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                     onChanged: () {
                       setState(() => _hasUnsavedChanges = true);
                     },
+                  ),
+
+                  SizedBox(height: 2.h),
+
+                  // Préférences d'app (03/08) — réglage global,
+                  // indépendant du formulaire ci-dessus (écriture
+                  // immédiate au changement, pas besoin de cliquer sur
+                  // "Enregistrer").
+                  Card(
+                    child: SwitchListTile(
+                      secondary: const Icon(Icons.chat_bubble_outline),
+                      title: const Text('Bulle de chat flottante'),
+                      subtitle: const Text(
+                          'Autoriser la bulle de chat sur l\'espace client (tous les clients)'),
+                      value: _bubbleEnabledGlobally,
+                      onChanged: _toggleBubbleGlobally,
+                    ),
                   ),
 
                   SizedBox(height: 4.h),

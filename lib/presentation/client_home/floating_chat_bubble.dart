@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/chat/chat_bubble_settings_repo.dart';
 import '../../core/chat/unread_support_messages.dart';
 import 'chat_screen.dart';
 
@@ -31,16 +32,30 @@ class _FloatingChatBubbleState extends State<FloatingChatBubble> {
   Offset? _position;
   int _unreadCount = 0;
   Timer? _pollTimer;
+  bool _visible = true;
 
   @override
   void initState() {
     super.initState();
     _refreshUnreadCount();
+    _loadVisibility();
     // Simple polling (comme le badge de l'accueil, pas de flux temps réel
     // dédié) : suffisant pour une pastille qui n'a pas besoin d'être
     // instantanée à la seconde près.
     _pollTimer = Timer.periodic(
         const Duration(seconds: 25), (_) => _refreshUnreadCount());
+  }
+
+  /// La bulle ne s'affiche que si l'admin l'autorise globalement ET que
+  /// le client ne l'a pas masquée pour lui-même (voir
+  /// supabase/phase68_patch_chat_bubble_toggle.sql).
+  Future<void> _loadVisibility() async {
+    final results = await Future.wait([
+      ChatBubbleSettingsRepo.isEnabledGlobally(),
+      ChatBubbleSettingsRepo.isHiddenByClient(),
+    ]);
+    if (!mounted) return;
+    setState(() => _visible = results[0] && !results[1]);
   }
 
   @override
@@ -64,6 +79,8 @@ class _FloatingChatBubbleState extends State<FloatingChatBubble> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_visible) return widget.child;
+
     final theme = Theme.of(context);
     final screenSize = MediaQuery.of(context).size;
     const bubbleSize = 56.0;
