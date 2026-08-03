@@ -497,3 +497,6 @@
 
 ## 2026-08-03 05:15 UTC — Claude
 - Merge: accueil client — barre de recherche + photos Pour vous (`d809480`)
+
+## 2026-08-03 05:26 UTC — Claude
+- Merge: Commandes client Lot 1 (fiche détail commande) (`63dc7af`)
