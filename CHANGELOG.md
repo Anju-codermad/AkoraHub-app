@@ -569,3 +569,6 @@
 
 ## 2026-08-04 12:38 UTC — Claude
 - fix: secrets.* dans un if: d'étape empêchait tout le build de démarrer (`237a41f`)
+
+## 2026-08-04 13:05 UTC — Claude
+- feat: vérification de mise à jour in-app (client + admin) (`c3615bc`)
