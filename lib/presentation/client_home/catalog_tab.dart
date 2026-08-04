@@ -1432,45 +1432,83 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             child: Padding(
                               padding: EdgeInsets.all(2.5.w),
                               child: item.isPost
-                                  ? Column(
+                                  ? Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Row(
-                                          children: [
-                                            Icon(Icons.groups_outlined,
-                                                size: 14,
-                                                color: theme
-                                                    .colorScheme.primary),
-                                            SizedBox(width: 1.w),
-                                            Expanded(
-                                              child: Text(
-                                                PublicProfilesRepo
-                                                    .displayName(
-                                                        item.authorProfile),
-                                                style: theme
-                                                    .textTheme.labelSmall
-                                                    ?.copyWith(
-                                                        fontWeight:
-                                                            FontWeight.w600),
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          child: Container(
+                                            width: 16.w,
+                                            height: 16.w,
+                                            color: theme.colorScheme
+                                                .surfaceContainerHighest,
+                                            child: ((item.post!['image_url']
+                                                        as String?) ??
+                                                    '')
+                                                .isEmpty
+                                                ? Icon(
+                                                    Icons.groups_outlined,
+                                                    size: 20,
+                                                    color: theme
+                                                        .colorScheme.outline,
+                                                  )
+                                                : _productImage(
+                                                    theme: theme,
+                                                    imageUrl:
+                                                        item.post!['image_url'],
+                                                    enableHero: false,
+                                                    tag:
+                                                        'for-you-post-${item.post!['id']}',
+                                                  ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 2.w),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.groups_outlined,
+                                                      size: 14,
+                                                      color: theme.colorScheme
+                                                          .primary),
+                                                  SizedBox(width: 1.w),
+                                                  Expanded(
+                                                    child: Text(
+                                                      PublicProfilesRepo
+                                                          .displayName(item
+                                                              .authorProfile),
+                                                      style: theme.textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600),
+                                                      overflow: TextOverflow
+                                                          .ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              SizedBox(height: 0.5.h),
+                                              Text(
+                                                (item.post!['content'] ?? '')
+                                                        .toString()
+                                                        .isNotEmpty
+                                                    ? item.post!['content']
+                                                    : 'Nouvelle publication'
+                                                        ' dans la Communauté',
+                                                maxLines: 2,
                                                 overflow:
                                                     TextOverflow.ellipsis,
+                                                style:
+                                                    theme.textTheme.bodySmall,
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(height: 0.5.h),
-                                        Expanded(
-                                          child: Text(
-                                            (item.post!['content'] ?? '')
-                                                    .toString()
-                                                    .isNotEmpty
-                                                ? item.post!['content']
-                                                : 'Nouvelle publication'
-                                                    ' dans la Communauté',
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: theme.textTheme.bodySmall,
+                                            ],
                                           ),
                                         ),
                                       ],
