@@ -566,3 +566,6 @@
 
 ## 2026-08-04 12:31 UTC — Claude
 - docs: documenter la mise en place de Firebase App Distribution (`8f93db9`)
+
+## 2026-08-04 12:38 UTC — Claude
+- fix: secrets.* dans un if: d'étape empêchait tout le build de démarrer (`237a41f`)
