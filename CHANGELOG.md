@@ -551,3 +551,6 @@
 
 ## 2026-08-04 10:03 UTC — Claude
 - feat: photo des publications dans le fil Pour vous de l'Accueil (`3534947`)
+
+## 2026-08-04 10:08 UTC — Claude
+- feat: photo de profil de l'Accueil ouvre l'onglet Profil (`83f9e0e`)
