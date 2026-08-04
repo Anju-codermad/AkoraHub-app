@@ -6054,3 +6054,45 @@ nouveau `_ChatBubbleVisibilityTile` (widget à état dédié) juste après
 "Mode sombre" — personnel, écriture immédiate. Reste affiché côté admin
 aussi (l'écran est documenté comme générique/non lié au rôle) mais sans
 effet visible puisque la bulle n'existe que côté client.
+
+## Distribution gratuite en attendant Play Store : Firebase App Distribution (04/08)
+
+Suite à la question de l'utilisateur sur les plateformes gratuites pour
+publier en attendant le budget Google Play (25$) : mise en place de
+**Firebase App Distribution** comme canal de bêta-test, en plus des
+Releases GitHub existantes — avantage : les testeurs reçoivent un email
++ une notification à chaque nouvelle version, sans avoir à connaître le
+lien GitHub à chaque fois.
+
+**`build-apk.yml`** : nouvelle étape "Publier sur Firebase App
+Distribution" (action `wzieba/Firebase-Distribution-Github-Action@v1`)
+après la compilation de l'APK, purement optionnelle — ne s'exécute que
+si le secret `FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT` est configuré
+(même logique conditionnelle que `google-services.json`/keystore).
+L'ID d'app Firebase est extrait automatiquement de
+`google-services.json` (`jq '.client[0].client_info.mobilesdk_app_id'`)
+via une nouvelle étape dédiée — pas de secret supplémentaire à saisir
+pour ça.
+
+**Mise en place (compte de service dédié, projet Firebase
+`akorahub-7ee66`)** — guidée pas à pas avec l'utilisateur :
+1. Compte de service créé dans Google Cloud Console IAM
+   (`github-actions-distribution@akorahub-7ee66.iam.gserviceaccount.com`)
+2. Rôle **Firebase App Distribution Admin** attribué — a nécessité
+   d'activer l'API Firebase App Distribution au préalable (le rôle
+   n'apparaît pas dans le sélecteur tant que l'API n'est pas activée
+   sur le projet — piège rencontré en direct).
+3. Clé JSON générée pour ce compte de service, collée dans le secret
+   GitHub `FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT`.
+4. Groupe de testeurs `testeurs` créé dans Firebase Console → App
+   Distribution → Testeurs et groupes, nom renseigné dans le secret
+   optionnel `FIREBASE_APP_DISTRIBUTION_GROUPS`.
+
+**Note technique (piège rencontré)** : `secrets.*` référencé
+directement dans un `if:` de step fonctionne bien pour les runs
+déclenchés par un `push`, mais fait échouer la validation d'un
+déclenchement manuel via l'API `workflow_dispatch`
+(`Unrecognized named-value: 'secrets'`) — limitation connue de GitHub
+Actions (validation stricte au moment du dispatch manuel, contexte
+`secrets` non résolu à ce stade). Sans impact sur l'usage réel du
+déclenchement automatique à chaque push sur `main`.
