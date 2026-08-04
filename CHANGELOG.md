@@ -542,3 +542,6 @@
 
 ## 2026-08-04 09:33 UTC — Claude
 - fix: bouton double authentification bloqué après désactivation (`f824b2c`)
+
+## 2026-08-04 09:37 UTC — Claude
+- feat: grille 2 colonnes pour l'écran Académie (`8505712`)
