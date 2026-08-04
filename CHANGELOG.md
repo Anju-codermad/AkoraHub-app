@@ -548,3 +548,6 @@
 
 ## 2026-08-04 09:51 UTC — Claude
 - feat: onglets soulignés + vue Débloqués dans le catalogue Formation (`b2e5aa6`)
+
+## 2026-08-04 10:03 UTC — Claude
+- feat: photo des publications dans le fil Pour vous de l'Accueil (`3534947`)
