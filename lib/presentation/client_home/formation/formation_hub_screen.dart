@@ -100,62 +100,126 @@ class _FormationHubScreenState extends State<FormationHubScreen> {
               ? Center(child: Text(_error!))
               : RefreshIndicator(
                   onRefresh: _loadData,
-                  child: ListView(
-                    padding: EdgeInsets.all(4.w),
-                    children: [
-                      Text(
-                        'Cours, modules et matières premières — tout au même endroit.',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      SizedBox(height: 2.h),
-                      for (final c in _categoryCounts)
-                        Card(
-                          margin: EdgeInsets.only(bottom: 1.h),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  theme.colorScheme.primaryContainer,
-                              child: Icon(
-                                iconForFormationCategory(
-                                    c['category'] as String),
-                                color: theme.colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                            title: Text(c['category'] as String),
-                            subtitle: Text('${c['count']} formations'),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => AkoraFormationScreen(
-                                  initialCategory: c['category'] as String,
-                                ),
-                              ),
-                            ),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(4.w, 4.w, 4.w, 0),
+                        sliver: SliverToBoxAdapter(
+                          child: Text(
+                            'Cours, modules et matières premières — tout au même endroit.',
+                            style: theme.textTheme.bodySmall,
                           ),
                         ),
-                      Card(
-                        margin: EdgeInsets.only(bottom: 1.h),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: theme.colorScheme.secondaryContainer,
-                            child: Icon(Icons.science_outlined,
-                                color: theme.colorScheme.onSecondaryContainer),
+                      ),
+                      SliverPadding(
+                        padding: EdgeInsets.all(4.w),
+                        sliver: SliverGrid(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 3.w,
+                            crossAxisSpacing: 3.w,
+                            childAspectRatio: 0.92,
                           ),
-                          title: const Text('Matières premières'),
-                          subtitle: const Text(
-                              'Fiches ingrédients — détail complet à l\'achat'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const FormationCatalogScreen()),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              // Matières premières apparaît comme une
+                              // catégorie de plus, en dernière position
+                              // (demande explicite de l'utilisatrice :
+                              // "le matières premières fait partie
+                              // d'autres modules de formation").
+                              if (index == _categoryCounts.length) {
+                                return _buildCategoryTile(
+                                  theme,
+                                  icon: Icons.science_outlined,
+                                  iconBg: theme.colorScheme.secondaryContainer,
+                                  iconColor:
+                                      theme.colorScheme.onSecondaryContainer,
+                                  title: 'Matières premières',
+                                  subtitle: 'Fiches ingrédients',
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const FormationCatalogScreen()),
+                                  ),
+                                );
+                              }
+                              final c = _categoryCounts[index];
+                              return _buildCategoryTile(
+                                theme,
+                                icon: iconForFormationCategory(
+                                    c['category'] as String),
+                                iconBg: theme.colorScheme.primaryContainer,
+                                iconColor: theme.colorScheme.onPrimaryContainer,
+                                title: c['category'] as String,
+                                subtitle: '${c['count']} formations',
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AkoraFormationScreen(
+                                      initialCategory: c['category'] as String,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            childCount: _categoryCounts.length + 1,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildCategoryTile(
+    ThemeData theme, {
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.all(3.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 7.w,
+                backgroundColor: iconBg,
+                child: Icon(icon, color: iconColor, size: 7.w),
+              ),
+              SizedBox(height: 1.5.h),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall,
+              ),
+              SizedBox(height: 0.5.h),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
