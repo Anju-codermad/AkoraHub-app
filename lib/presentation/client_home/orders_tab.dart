@@ -8,6 +8,7 @@ import '../../core/pdf/document_pdf_generator.dart';
 import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'archived_orders_screen.dart';
 import 'delivery_tracking_screen.dart';
 import 'order_detail_screen.dart';
 import 'quote_thread_client.dart';
@@ -144,7 +145,13 @@ class OrderProgressBar extends StatelessWidget {
 /// Écran "Commandes" du client, avec deux sous-onglets : Commandes et Devis
 /// ("Mes devis" — les devis existaient déjà en base, mais n'étaient
 /// visibles nulle part côté client avant cet ajout).
-class OrdersTab extends StatelessWidget {
+///
+/// Possède sa propre AppBar (04/08, comme Accueil/Profil) pour exposer un
+/// menu d'archivage : masquer une commande individuellement retire un
+/// bouton de la carte plutôt qu'une "vraie" suppression (une commande
+/// reste une pièce comptable/une preuve en cas de litige) — voir
+/// `_hideOrder` plus bas et `supabase/phase69_patch_order_archiving.sql`.
+class OrdersTab extends StatefulWidget {
   /// Onglet ouvert au départ (0 = Commandes, 1 = Devis) — utilisé par le
   /// raccourci "en attente" de l'accueil (catalog_tab.dart, Lot 4) pour
   /// amener directement sur le bon onglet selon ce qui nécessite une
@@ -154,35 +161,105 @@ class OrdersTab extends StatelessWidget {
   const OrdersTab({super.key, this.initialTabIndex = 0});
 
   @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      initialIndex: initialTabIndex,
-      child: Column(
-        children: [
-          TabBar(
-            tabs: const [
-              Tab(text: 'Commandes'),
-              Tab(text: 'Devis'),
-            ],
-            labelColor: Theme.of(context).colorScheme.primary,
+  State<OrdersTab> createState() => _OrdersTabState();
+}
+
+class _OrdersTabState extends State<OrdersTab> {
+  final _ordersListKey = GlobalKey<_OrdersListState>();
+
+  Future<void> _confirmClearHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Vider l\'historique des commandes'),
+        content: const Text(
+            'Toutes vos commandes seront masquées de cette liste. Elles '
+            'restent consultables via "Commandes archivées" et ne sont '
+            'jamais supprimées. Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
           ),
-          const Expanded(
-            child: TabBarView(
-              children: [
-                _OrdersList(),
-                _QuotesList(),
-              ],
-            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Vider'),
           ),
         ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client.rpc('hide_all_my_orders');
+      _ordersListKey.currentState?.reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Historique masqué.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de vider l\'historique.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Commandes'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'archived') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ArchivedOrdersScreen()),
+                ).then((_) => _ordersListKey.currentState?.reload());
+              } else if (value == 'clear') {
+                _confirmClearHistory();
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                  value: 'archived', child: Text('Commandes archivées')),
+              PopupMenuItem(
+                  value: 'clear', child: Text('Vider l\'historique')),
+            ],
+          ),
+        ],
+      ),
+      body: DefaultTabController(
+        length: 2,
+        initialIndex: widget.initialTabIndex,
+        child: Column(
+          children: [
+            TabBar(
+              tabs: const [
+                Tab(text: 'Commandes'),
+                Tab(text: 'Devis'),
+              ],
+              labelColor: Theme.of(context).colorScheme.primary,
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _OrdersList(key: _ordersListKey),
+                  const _QuotesList(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _OrdersList extends ConsumerStatefulWidget {
-  const _OrdersList();
+  const _OrdersList({super.key});
 
   @override
   ConsumerState<_OrdersList> createState() => _OrdersListState();
@@ -260,6 +337,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
           .from('orders')
           .select('*, order_items(*)')
           .eq('customer_id', userId)
+          .eq('hidden_by_customer', false)
           .order('created_at', ascending: false);
       setState(() {
         _orders = List<Map<String, dynamic>>.from(orders);
@@ -270,6 +348,50 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
         _isLoading = false;
         _error = 'Impossible de charger vos commandes.';
       });
+    }
+  }
+
+  /// Point d'entrée pour `_OrdersTabState` (retour de l'écran Commandes
+  /// archivées, ou après "Vider l'historique") — recharge la liste sans
+  /// exposer d'autre état interne.
+  void reload() => _loadOrders();
+
+  /// Masque une commande de la liste du client (jamais une suppression —
+  /// voir doc de classe `OrdersTab` et phase69_patch_order_archiving.sql).
+  Future<void> _hideOrder(Map<String, dynamic> order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Masquer cette commande'),
+        content: Text(
+            'La commande ${order['order_number'] ?? ''} sera retirée de '
+            'cette liste. Vous pourrez la retrouver dans "Commandes '
+            'archivées" (menu ⋮ en haut). Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Masquer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client.rpc('set_order_hidden', params: {
+        'p_order_id': order['id'],
+        'p_hidden': true,
+      });
+      if (!mounted) return;
+      setState(() => _orders.removeWhere((o) => o['id'] == order['id']));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de masquer cette commande.')),
+      );
     }
   }
 
@@ -427,9 +549,24 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(order['order_number'] ?? '',
-                          style: theme.textTheme.titleSmall),
+                      Expanded(
+                        child: Text(order['order_number'] ?? '',
+                            style: theme.textTheme.titleSmall),
+                      ),
                       Text(_currency.format(order['total_amount'] ?? 0)),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, size: 18),
+                        padding: EdgeInsets.zero,
+                        onSelected: (value) {
+                          if (value == 'hide') _hideOrder(order);
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: 'hide',
+                            child: Text('Masquer cette commande'),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                   SizedBox(height: 0.3.h),

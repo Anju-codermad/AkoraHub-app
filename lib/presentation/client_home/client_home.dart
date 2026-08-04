@@ -99,11 +99,12 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
 
     return FloatingChatBubble(
       child: Scaffold(
-      // Accueil (index 0) gère son propre en-tête (avatar, salutation...) et
+      // Accueil (index 0) gère son propre en-tête (avatar, salutation...),
+      // Commandes (index 2) sa propre AppBar + menu d'archivage (04/08) et
       // Profil (index 3) sa propre AppBar + son menu latéral (voir
-      // ProfileTab/ProfileMenuDrawer, 04/08) — ni l'un ni l'autre n'a besoin
+      // ProfileTab/ProfileMenuDrawer, 04/08) — aucun des trois n'a besoin
       // de l'AppBar générique ci-dessous.
-      appBar: (_currentIndex == 0 || _currentIndex == 3)
+      appBar: (_currentIndex == 0 || _currentIndex == 2 || _currentIndex == 3)
           ? null
           : AppBar(title: Text(titles[_currentIndex])),
       // SafeArea(bottom: false) car la barre de navigation du bas gère déjà
