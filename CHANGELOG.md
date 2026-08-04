@@ -575,3 +575,6 @@
 
 ## 2026-08-04 13:32 UTC — Claude
 - chore: bump version 1.0.0+2 — teste la notification de mise à jour in-app (`c381ff5`)
+
+## 2026-08-04 14:34 UTC — Claude
+- feat: onglet Catalogue dédié dans la barre du bas, Commandes déplacé en en-tête (`7719a45`)
