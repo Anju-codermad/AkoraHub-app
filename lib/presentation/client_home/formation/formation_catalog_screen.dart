@@ -86,23 +86,46 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
 
   List<String> get _categories => _materials
       .where((m) =>
-          _selectedUnitId == 'tous' || m['business_unit_id'] == _selectedUnitId)
+          (_selectedUnitId == 'tous' ||
+              _selectedUnitId == 'debloques' ||
+              m['business_unit_id'] == _selectedUnitId) &&
+          (_selectedUnitId != 'debloques' || _ownedIds.contains(m['id'])))
       .map((m) => m['category_name'] as String? ?? '')
       .toSet()
       .toList()
     ..sort();
 
-  List<Map<String, dynamic>> get _filtered => _materials.where((m) {
-        final matchesUnit = _selectedUnitId == 'tous' ||
-            m['business_unit_id'] == _selectedUnitId;
-        final matchesCategory = _selectedCategory == 'toutes' ||
-            m['category_name'] == _selectedCategory;
-        final matchesSearch = _search.isEmpty ||
-            (m['name'] as String? ?? '')
-                .toLowerCase()
-                .contains(_search.toLowerCase());
-        return matchesUnit && matchesCategory && matchesSearch;
-      }).toList();
+  List<Map<String, dynamic>> get _filtered {
+    // Vue "Débloqués" : remonte au même niveau que le filtre par pilier
+    // plutôt que d'ajouter une rangée de filtres supplémentaire (retour
+    // explicite de l'utilisatrice — trop de rangées de puces rend
+    // l'écran désorganisé).
+    final list = _materials.where((m) {
+      final matchesUnit = _selectedUnitId == 'tous' ||
+          _selectedUnitId == 'debloques' ||
+          m['business_unit_id'] == _selectedUnitId;
+      final matchesAccess =
+          _selectedUnitId != 'debloques' || _ownedIds.contains(m['id']);
+      final matchesCategory = _selectedCategory == 'toutes' ||
+          m['category_name'] == _selectedCategory;
+      final matchesSearch = _search.isEmpty ||
+          (m['name'] as String? ?? '')
+              .toLowerCase()
+              .contains(_search.toLowerCase());
+      return matchesUnit && matchesAccess && matchesCategory && matchesSearch;
+    }).toList();
+    if (_selectedUnitId == 'tous') {
+      // Dans la vue par défaut, les produits déjà débloqués remontent en
+      // tête plutôt que d'être noyés par ordre alphabétique.
+      list.sort((a, b) {
+        final aOwned = _ownedIds.contains(a['id']) ? 0 : 1;
+        final bOwned = _ownedIds.contains(b['id']) ? 0 : 1;
+        if (aOwned != bOwned) return aOwned.compareTo(bOwned);
+        return (a['name'] as String? ?? '').compareTo(b['name'] as String? ?? '');
+      });
+    }
+    return list;
+  }
 
   void _openMaterial(Map<String, dynamic> material) {
     final id = material['id'] as String;
@@ -122,6 +145,73 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
       return;
     }
     openFormationPurchaseWeb(context);
+  }
+
+  /// Onglets soulignés (façon capture d'écran fournie par l'utilisatrice)
+  /// plutôt que des puces : remplace la rangée "piliers" existante sans
+  /// ajouter de rangée, et intègre "Débloqués" comme un onglet de plus au
+  /// même niveau que les piliers pour retrouver facilement ce qu'on a
+  /// déjà acheté.
+  Widget _buildAccessTabsRow(ThemeData theme) {
+    final tabs = <Map<String, String>>[
+      {'id': 'tous', 'name': 'Tous'},
+      {'id': 'debloques', 'name': 'Débloqués'},
+      ..._units,
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: SizedBox(
+        height: 6.h,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.symmetric(horizontal: 4.w),
+          children: [
+            for (final t in tabs)
+              Padding(
+                padding: const EdgeInsets.only(right: 20),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() {
+                    _selectedUnitId = t['id']!;
+                    _selectedCategory = 'toutes';
+                  }),
+                  child: IntrinsicWidth(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          t['name'] ?? '',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: _selectedUnitId == t['id']
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                            color: _selectedUnitId == t['id']
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        SizedBox(height: 1.h),
+                        Container(
+                          height: 2,
+                          color: _selectedUnitId == t['id']
+                              ? theme.colorScheme.primary
+                              : Colors.transparent,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -180,38 +270,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                           onChanged: (v) => setState(() => _search = v),
                         ),
                       ),
-                      if (_units.length > 1)
-                        SizedBox(
-                          height: 5.h,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: EdgeInsets.symmetric(horizontal: 4.w),
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: const Text('Tous les piliers'),
-                                  selected: _selectedUnitId == 'tous',
-                                  onSelected: (_) => setState(() {
-                                    _selectedUnitId = 'tous';
-                                    _selectedCategory = 'toutes';
-                                  }),
-                                ),
-                              ),
-                              ..._units.map((u) => Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: ChoiceChip(
-                                      label: Text(u['name'] ?? ''),
-                                      selected: _selectedUnitId == u['id'],
-                                      onSelected: (_) => setState(() {
-                                        _selectedUnitId = u['id']!;
-                                        _selectedCategory = 'toutes';
-                                      }),
-                                    ),
-                                  )),
-                            ],
-                          ),
-                        ),
+                      if (_materials.isNotEmpty) _buildAccessTabsRow(theme),
                       if (_categories.isNotEmpty)
                         SizedBox(
                           height: 5.h,
