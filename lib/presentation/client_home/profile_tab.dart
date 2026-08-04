@@ -8,34 +8,27 @@ import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
-import '../../core/chat/unread_support_messages.dart';
 import '../../core/loyalty/loyalty_tiers.dart';
 import '../../core/providers/profile_accent_provider.dart';
 import '../../core/supabase/supabase_config.dart';
-import 'chat_screen.dart';
-import 'community/public_profile_screen.dart';
 import 'community/realisations_gallery_screen.dart';
-import 'delivery_addresses/delivery_addresses_screen.dart';
-import 'favorites_provider.dart';
-import 'favorites_screen.dart';
-import 'formation/my_formation_groups_screen.dart';
 import 'loyalty/loyalty_screen.dart';
-import 'my_contact_qr_screen.dart';
-import 'my_reviews_screen.dart';
 import 'orders_tab.dart';
-import 'recurring_orders/recurring_orders_screen.dart';
-import 'referral_screen.dart';
-import 'settings/settings_screen.dart';
+import 'profile_menu_drawer.dart';
 import 'wall/wall_tab.dart';
 
 /// Profil client — mise en page centrée façon Facebook mobile (photo de
-/// couverture, avatar chevauchant, identité centrée, onglets centrés),
-/// mais dont le contenu est entièrement adapté à ce qui existe vraiment
-/// dans `profiles` : pas de système d'amis, pas de stories "à la une",
-/// pas de centres d'intérêt/loisirs (aucune table pour ça) — ces
-/// sections Facebook ont été remplacées par des équivalents réels
-/// (nombre de publications, catégories favorites déduites des favoris,
-/// partage des coordonnées). Voir PROJECT_CONTEXT.md Phase 20.
+/// couverture, avatar chevauchant, identité centrée), mais dont le
+/// contenu est entièrement adapté à ce qui existe vraiment dans
+/// `profiles`. Voir PROJECT_CONTEXT.md Phase 20.
+///
+/// Depuis le 04/08, toutes les fonctions transverses (Paramètres,
+/// Parrainage, Assistance, Scanner, Mes achats, Communauté & Formation,
+/// Favoris) sont regroupées dans le menu latéral `ProfileMenuDrawer`
+/// (icône ☰ dans la barre du haut) plutôt que sur cette page — celle-ci
+/// se concentre sur l'essentiel visuel : couverture/identité,
+/// réalisations, publications. Les informations personnelles restent
+/// exclusivement modifiables via "Modifier le profil".
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({super.key});
 
@@ -50,17 +43,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   int _postsCount = 0;
   int _ordersCount = 0;
-  int _reviewsCount = 0;
-  int _reactionsReceived = 0;
-  int _commentsReceived = 0;
   List<Map<String, dynamic>> _recentPosts = [];
   List<Map<String, dynamic>> _realisationsPreview = [];
-  List<String> _favoriteCategories = [];
-  List<Map<String, dynamic>> _favoritePreview = [];
-  int _unreadSupportCount = 0;
-
-  /// 0 = Tout, 1 = Publications, 2 = Favoris
-  int _selectedTab = 0;
 
   bool _isUploadingAvatar = false;
   bool _isUploadingCover = false;
@@ -90,15 +74,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   void initState() {
     super.initState();
     _loadAll();
-    _loadUnreadSupportCount();
-  }
-
-  /// Badge sur le raccourci Assistance (03/08) — même source que la
-  /// bulle de chat flottante, pas de requête dupliquée.
-  Future<void> _loadUnreadSupportCount() async {
-    final count = await fetchUnreadSupportMessagesCount();
-    if (!mounted) return;
-    setState(() => _unreadSupportCount = count);
   }
 
   Future<void> _loadAll() async {
@@ -132,9 +107,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
     try {
       // Nombre réel de publications via count() (le fil limité à 30 en
-      // dessous sert juste aux aperçus/à l'engagement, pas au total —
-      // corrige au passage un compteur qui plafonnait silencieusement à
-      // 30 avant le Lot 3 du Profil).
+      // dessous sert juste aux aperçus, pas au total — corrige au passage
+      // un compteur qui plafonnait silencieusement à 30 avant le Lot 3 du
+      // Profil).
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client
             .from('posts')
@@ -149,41 +124,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             .limit(30),
       ]);
       final list = List<Map<String, dynamic>>.from(results[1] as List);
-      final postIds = list.map((p) => p['id'] as String).toList();
-
-      // Engagement reçu (Lot 3 du Profil, 03/08) — calculé sur les 30
-      // dernières publications, pas l'historique complet : suffisant
-      // pour un résumé d'activité récente.
-      Future<int> loadReactionsReceived() async {
-        if (postIds.isEmpty) return 0;
-        try {
-          final r = await SupabaseConfig.client
-              .from('post_likes')
-              .select('id')
-              .inFilter('post_id', postIds)
-              .count();
-          return r.count;
-        } catch (_) {
-          return 0;
-        }
-      }
-
-      Future<int> loadCommentsReceived() async {
-        if (postIds.isEmpty) return 0;
-        try {
-          final r = await SupabaseConfig.client
-              .from('post_comments')
-              .select('id')
-              .inFilter('post_id', postIds)
-              .count();
-          return r.count;
-        } catch (_) {
-          return 0;
-        }
-      }
-
-      final engagement = await Future.wait<int>(
-          [loadReactionsReceived(), loadCommentsReceived()]);
 
       if (mounted) {
         setState(() {
@@ -194,8 +134,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   p['image_url'] != null && p['mentioned_product_id'] != null)
               .take(6)
               .toList();
-          _reactionsReceived = engagement[0];
-          _commentsReceived = engagement[1];
         });
       }
     } catch (_) {}
@@ -207,38 +145,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           .eq('customer_id', userId)
           .count();
       if (mounted) setState(() => _ordersCount = result.count);
-    } catch (_) {}
-
-    try {
-      final result = await SupabaseConfig.client
-          .from('product_reviews')
-          .select('id')
-          .eq('author_id', userId)
-          .count();
-      if (mounted) setState(() => _reviewsCount = result.count);
-    } catch (_) {}
-
-    try {
-      final favoriteIds = ref.read(favoritesProvider);
-      if (favoriteIds.isNotEmpty) {
-        final products = await SupabaseConfig.client
-            .from('products')
-            .select()
-            .inFilter('id', favoriteIds.toList());
-        final list = List<Map<String, dynamic>>.from(products);
-        final categories = list
-            .map((p) => (p['category'] ?? '').toString())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .take(8)
-            .toList();
-        if (mounted) {
-          setState(() {
-            _favoriteCategories = categories;
-            _favoritePreview = list.take(4).toList();
-          });
-        }
-      }
     } catch (_) {}
   }
 
@@ -384,7 +290,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profil')),
+        drawer: const ProfileMenuDrawer(),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     final theme = Theme.of(context);
@@ -427,7 +337,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final completionRatio =
         completionFields.where((f) => f).length / completionFields.length;
 
-    return RefreshIndicator(
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profil')),
+      drawer: const ProfileMenuDrawer(),
+      body: RefreshIndicator(
       onRefresh: _loadAll,
       child: ListView(
         padding: EdgeInsets.zero,
@@ -544,7 +457,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       value: '$_postsCount',
                       label: 'Publications',
                       color: accentColor,
-                      onTap: () => setState(() => _selectedTab = 1),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const WallTab(initialOnlyMine: true)),
+                      ),
                     ),
                     _StatItem(
                       value: '$_ordersCount',
@@ -621,26 +539,26 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     ),
                   ],
                 ),
-                SizedBox(height: 2.h),
-                _buildShortcutsBar(theme),
                 if (completionRatio < 1) ...[
                   SizedBox(height: 2.h),
                   _buildCompletionBar(theme, completionRatio, accentColor),
                 ],
                 SizedBox(height: 2.5.h),
-                _buildTabSelector(theme),
-                SizedBox(height: 2.h),
-                if (_selectedTab == 0)
-                  _buildAllTabContent(theme)
-                else if (_selectedTab == 1)
-                  _buildPublicationsPreview(theme)
-                else
-                  _buildFavoritesPreview(theme),
+                if (_realisationsPreview.isNotEmpty)
+                  _buildRealisationsPreview(theme),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child:
+                      Text('Mes publications', style: theme.textTheme.labelLarge),
+                ),
+                SizedBox(height: 1.h),
+                _buildPublicationsPreview(theme),
                 SizedBox(height: 3.h),
               ],
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -749,91 +667,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  /// Barre de raccourcis (03/08, inspirée de la barre d'icônes Facebook
-  /// avec badges) — 4 actions "utilitaires" transverses (pas du contenu à
-  /// parcourir, contrairement aux cartes plus bas) : Paramètres,
-  /// Parrainage, Assistance, Scanner un produit. Volontairement limitée à
-  /// 4 icônes pour rester lisible d'un coup d'œil ; Scanner et Assistance
-  /// ont donc été retirés des cartes "Mes achats"/"Assistance" plus bas
-  /// pour ne pas les dupliquer. Un seul badge (Assistance, messages
-  /// support non lus) — les autres icônes sont des actions ponctuelles
-  /// sans vraie "file d'attente", pas de badge à leur mettre.
-  Widget _buildShortcutsBar(ThemeData theme) {
-    final shortcuts = [
-      (Icons.settings_outlined, 'Paramètres', 0, () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const SettingsScreen()))),
-      (Icons.card_giftcard_outlined, 'Parrainage', 0, () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ReferralScreen()))),
-      // Badge = messages support non lus (même compteur que la bulle de
-      // chat flottante) — seule icône avec une vraie "file d'attente",
-      // rafraîchi au retour du chat (même logique que catalog_tab.dart).
-      (Icons.chat_bubble_outline, 'Assistance', _unreadSupportCount,
-          () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ChatScreen()))
-              .then((_) => _loadUnreadSupportCount())),
-      (Icons.qr_code_scanner, 'Scanner', 0,
-          () => Navigator.pushNamed(context, '/product-scanner')),
-    ];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        for (final (icon, label, badgeCount, onTap) in shortcuts)
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 1.h),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor:
-                            theme.colorScheme.surfaceContainerHighest,
-                        child: Icon(icon,
-                            color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      if (badgeCount > 0)
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.error,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: theme.scaffoldBackgroundColor,
-                                  width: 1.5),
-                            ),
-                            child: Text(
-                              badgeCount > 9 ? '9+' : '$badgeCount',
-                              style: TextStyle(
-                                color: theme.colorScheme.onError,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 0.6.h),
-                  Text(label, style: theme.textTheme.labelSmall),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
   /// Barre "Profil complété à X%" (Lot 2, 03/08) — disparaît une fois le
   /// profil complet plutôt que de rester affichée indéfiniment.
   Widget _buildCompletionBar(ThemeData theme, double ratio, Color? accent) {
@@ -872,199 +705,59 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  Widget _buildTabSelector(ThemeData theme) {
-    final tabs = ['Tout', 'Publications', 'Favoris'];
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 8,
-      children: [
-        for (var i = 0; i < tabs.length; i++)
-          ChoiceChip(
-            label: Text(tabs[i]),
-            selected: _selectedTab == i,
-            onSelected: (_) => setState(() => _selectedTab = i),
-          ),
-      ],
-    );
-  }
-
   /// Lot 1 (03/08) de la refonte du Profil — nettoyage structurel :
   /// "Informations personnelles" (Email/Société/Téléphone/Localisation)
   /// retiré de cette vue, déjà consultable/modifiable via "Modifier le
   /// profil" (société également affichée dans l'en-tête) et Email
   /// affiché dans Paramètres → Compte. Déconnexion retirée d'ici,
-  /// désormais uniquement dans Paramètres. Scanner un produit, Assistance
-  /// et Paramètres sont sortis d'ici (03/08, barre de raccourcis
-  /// `_buildShortcutsBar`) pour ne pas les dupliquer.
-  Widget _buildAllTabContent(ThemeData theme) {
+  /// désormais uniquement dans Paramètres.
+  ///
+  /// Lot 6 (04/08) : Scanner, Assistance, Paramètres, Parrainage, "Mes
+  /// achats" et "Communauté & Formation" sont sortis d'ici vers le menu
+  /// latéral (`ProfileMenuDrawer`, icône ☰ dans la barre du haut) — la
+  /// page Profil se concentre désormais sur l'essentiel visuel :
+  /// couverture/identité, réalisations, publications.
+  Widget _buildRealisationsPreview(ThemeData theme) {
     return Column(
       children: [
-        if (_realisationsPreview.isNotEmpty) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Mes réalisations', style: theme.textTheme.labelLarge),
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RealisationsGalleryScreen(
-                        authorId: SupabaseConfig.client.auth.currentUser?.id),
-                  ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Mes réalisations', style: theme.textTheme.labelLarge),
+            TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RealisationsGalleryScreen(
+                      authorId: SupabaseConfig.client.auth.currentUser?.id),
                 ),
-                child: const Text('Voir tout'),
               ),
-            ],
-          ),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-            children: _realisationsPreview
-                .map((p) => ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        p['image_url'],
-                        fit: BoxFit.cover,
-                        cacheWidth: 300,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          child: const Icon(Icons.image_not_supported_outlined),
-                        ),
+              child: const Text('Voir tout'),
+            ),
+          ],
+        ),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+          children: _realisationsPreview
+              .map((p) => ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(
+                      p['image_url'],
+                      fit: BoxFit.cover,
+                      cacheWidth: 300,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.image_not_supported_outlined),
                       ),
-                    ))
-                .toList(),
-          ),
-          SizedBox(height: 2.h),
-        ],
-        Align(
-          alignment: Alignment.centerLeft,
-          child:
-              Text('Mes achats', style: theme.textTheme.labelLarge),
-        ),
-        SizedBox(height: 1.h),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.autorenew),
-                title: const Text('Commandes récurrentes'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const RecurringOrdersScreen())),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.emoji_events_outlined),
-                title: const Text('Fidélité'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const LoyaltyScreen())),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.location_on_outlined),
-                title: const Text('Adresses de livraison'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const DeliveryAddressesScreen())),
-              ),
-            ],
-          ),
-        ),
-        if (_favoriteCategories.isNotEmpty) ...[
-          SizedBox(height: 2.h),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Catégories favorites',
-                style: theme.textTheme.labelLarge),
-          ),
-          SizedBox(height: 1.h),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final cat in _favoriteCategories) Chip(label: Text(cat)),
-            ],
-          ),
-        ],
-        SizedBox(height: 2.h),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text('Communauté & Formation',
-              style: theme.textTheme.labelLarge),
-        ),
-        SizedBox(height: 1.h),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.badge_outlined),
-                title: const Text('Voir mon profil public'),
-                subtitle: const Text('Ce que voient les autres clients'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  final myId = SupabaseConfig.client.auth.currentUser?.id;
-                  if (myId == null) return;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => PublicProfileScreen(userId: myId)),
-                  );
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.qr_code_2),
-                title: const Text('Ma carte de contact'),
-                subtitle: const Text('QR à faire scanner'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MyContactQrScreen(
-                      fullName: _profile?['full_name'] as String?,
-                      companyName: _profile?['company_name'] as String?,
-                      phone: _profile?['phone'] as String?,
                     ),
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.star_outline),
-                title: const Text('Mes avis laissés'),
-                subtitle: Text('$_reviewsCount avis'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const MyReviewsScreen())),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.groups_outlined),
-                title: const Text('Mes groupes Formation'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const MyFormationGroupsScreen())),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.favorite_border),
-                title: const Text('Mon engagement'),
-                subtitle: Text(
-                    '$_reactionsReceived réaction${_reactionsReceived > 1 ? 's' : ''} · $_commentsReceived commentaire${_commentsReceived > 1 ? 's' : ''} reçus'),
-              ),
-            ],
-          ),
+                  ))
+              .toList(),
         ),
+        SizedBox(height: 2.h),
       ],
     );
   }
@@ -1109,66 +802,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               MaterialPageRoute(
                   builder: (_) => const WallTab(initialOnlyMine: true))),
           child: const Text('Voir toutes mes publications'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFavoritesPreview(ThemeData theme) {
-    return Column(
-      children: [
-        if (_favoritePreview.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 4.h),
-            child: Text('Aucun favori pour l\'instant.',
-                style: theme.textTheme.bodyMedium),
-          )
-        else
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 0.85,
-            children: _favoritePreview
-                .map((p) => Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: (p['image_url'] as String?)
-                                            ?.isNotEmpty ==
-                                        true
-                                    ? Image.network(p['image_url'],
-                                        fit: BoxFit.cover,
-                                        width: double.infinity)
-                                    : Container(
-                                        color: theme.colorScheme
-                                            .surfaceContainerHighest,
-                                        child: const Icon(
-                                            Icons.inventory_2_outlined),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text((p['name'] ?? '').toString(),
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-        SizedBox(height: 1.h),
-        OutlinedButton(
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const FavoritesScreen())),
-          child: const Text('Voir tous mes favoris'),
         ),
       ],
     );
