@@ -539,3 +539,6 @@
 
 ## 2026-08-03 20:26 UTC — Claude
 - Activer/désactiver la bulle de chat flottante (admin global + client personnel) (`717756c`)
+
+## 2026-08-04 09:33 UTC — Claude
+- fix: bouton double authentification bloqué après désactivation (`f824b2c`)
