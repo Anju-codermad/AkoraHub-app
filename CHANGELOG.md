@@ -560,3 +560,6 @@
 
 ## 2026-08-04 11:53 UTC — Claude
 - fix: le filtre par catégorie Académie n'affichait pas que la catégorie (`c22d64d`)
+
+## 2026-08-04 11:57 UTC — Claude
+- feat: publication automatique sur Firebase App Distribution (`64ace7f`)
