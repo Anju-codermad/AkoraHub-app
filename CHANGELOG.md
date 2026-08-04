@@ -572,3 +572,6 @@
 
 ## 2026-08-04 13:05 UTC — Claude
 - feat: vérification de mise à jour in-app (client + admin) (`c3615bc`)
+
+## 2026-08-04 13:32 UTC — Claude
+- chore: bump version 1.0.0+2 — teste la notification de mise à jour in-app (`c381ff5`)
