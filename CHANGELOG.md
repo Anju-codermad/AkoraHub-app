@@ -563,3 +563,6 @@
 
 ## 2026-08-04 11:57 UTC — Claude
 - feat: publication automatique sur Firebase App Distribution (`64ace7f`)
+
+## 2026-08-04 12:31 UTC — Claude
+- docs: documenter la mise en place de Firebase App Distribution (`8f93db9`)
