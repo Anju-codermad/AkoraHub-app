@@ -136,6 +136,7 @@ class _TwoFactorSetupScreenState extends State<TwoFactorSetupScreen> {
             params: {'p_event_type': 'mfa_disabled'});
       } catch (_) {}
       if (!mounted) return;
+      setState(() => _isProcessing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Double authentification désactivée.')),
       );
