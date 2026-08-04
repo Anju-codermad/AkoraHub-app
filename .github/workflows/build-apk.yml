@@ -117,6 +117,23 @@ jobs:
           file: build/app/outputs/flutter-apk/app-release.apk
           releaseNotes: ${{ github.event.head_commit.message }}
 
+      - name: Notifier Supabase de la nouvelle version disponible
+        # Alimente `app_latest_version` (via l'Edge Function
+        # update-latest-version) pour que l'app elle-même propose une
+        # mise à jour au démarrage — voir core/updates/update_checker.dart.
+        # Volontairement pas de `if:` sur un secret (voir plus haut) :
+        # curl échoue simplement si UPDATE_VERSION_WEBHOOK_SECRET est
+        # absent, capté par le `||` sans casser le build.
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
+          curl -sf -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/update-latest-version" \
+            -H "Content-Type: application/json" \
+            -H "x-webhook-secret: ${{ secrets.UPDATE_VERSION_WEBHOOK_SECRET }}" \
+            -d "{\"versionName\":\"$VERSION_NAME\",\"buildNumber\":$BUILD_NUMBER,\"downloadUrl\":\"https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}\"}" \
+          || echo "Notification de version échouée (non bloquant — secret UPDATE_VERSION_WEBHOOK_SECRET probablement absent)."
+
       - name: Publier l'App Bundle et l'APK comme Release GitHub
         # Contourne totalement le quota de stockage Actions (500 Mo,
         # partagé entre tous les dépôts du compte) — les fichiers d'une

@@ -9,6 +9,7 @@ import '../core/auth/global_auth_listener.dart';
 import '../core/notifications/push_notification_service.dart';
 import '../core/providers/theme_provider.dart';
 import '../core/supabase/supabase_config.dart';
+import '../core/updates/update_checker.dart';
 import '../widgets/custom_error_widget.dart';
 
 void main() async {
@@ -64,6 +65,11 @@ void main() async {
   // déjà visible. Si google-services.json est absent, échoue en
   // silence (try/catch dans le service) sans rien casser.
   PushNotificationService.initialize();
+
+  // Vérification de mise à jour in-app (04/08) — même raison que
+  // ci-dessus pour ne pas "await" : ne doit jamais retarder le premier
+  // écran. Fonctionne à l'identique côté client et admin.
+  UpdateChecker.checkAndPrompt();
 
   // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
   Future.wait([

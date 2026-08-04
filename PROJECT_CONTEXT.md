@@ -6096,3 +6096,43 @@ déclenchement manuel via l'API `workflow_dispatch`
 Actions (validation stricte au moment du dispatch manuel, contexte
 `secrets` non résolu à ce stade). Sans impact sur l'usage réel du
 déclenchement automatique à chaque push sur `main`.
+
+## Vérification de mise à jour in-app (04/08)
+
+Demande explicite de l'utilisateur : proposer une mise à jour depuis
+l'app elle-même, côté client ET admin, en attendant la publication sur
+le Play Store (pas de mécanisme de mise à jour automatique natif tant
+qu'on distribue par GitHub Releases/Firebase App Distribution).
+
+**SQL (`phase70_patch_app_latest_version.sql`)** : table
+`app_latest_version`, une seule ligne (id=1) contenant
+`version_name`/`build_number`/`download_url`/`release_notes`. Lecture
+ouverte à tous (y compris avant connexion), aucune policy d'écriture —
+seule l'Edge Function (clé service role) la met à jour.
+
+**Edge Function `update-latest-version`** : appelée par la CI après
+chaque build réussi, protégée par un secret partagé
+`UPDATE_VERSION_WEBHOOK_SECRET` (même pattern que les autres webhooks
+de ce projet — header `x-webhook-secret`). À configurer à la fois côté
+Supabase (secrets Edge Functions) et côté GitHub Actions (secrets du
+dépôt) avec la même valeur.
+
+**`build-apk.yml`** : nouvelle étape "Notifier Supabase de la nouvelle
+version disponible" — extrait `version_name`/`build_number` de
+`pubspec.yaml`, appelle l'Edge Function avec le lien vers la Release
+GitHub du build (`releases/tag/build-<run_number>`). Volontairement
+sans `if:` sur un secret (voir plus haut, ce jour même : `secrets.*`
+n'est pas lisible dans un `if:` d'étape) — `curl -f` échoue simplement
+si le secret est absent, capté par un `||` sans casser le build.
+
+**Client (`core/updates/update_checker.dart`)** : au démarrage,
+compare `PackageInfo.buildNumber` (package `package_info_plus`,
+ajouté) au `build_number` enregistré ; si plus récent, affiche un
+dialogue "Mise à jour disponible" avec un bouton qui ouvre le lien de
+téléchargement (page de la Release GitHub pour l'instant, remplaçable
+par un lien Play Store plus tard sans changer le mécanisme). Appelé
+depuis `main.dart` sans `await` (comme les notifications push) pour ne
+jamais retarder le premier écran ; utilise le `navigatorKey` global
+(`GlobalAuthListener`) pour afficher le dialogue quel que soit l'écran
+affiché, donc fonctionne à l'identique côté client et admin sans
+câblage séparé dans chaque écran d'accueil.
