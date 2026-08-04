@@ -557,3 +557,6 @@
 
 ## 2026-08-04 11:02 UTC — Claude
 - fix: workflow changelog cassé par guillemets/backticks dans le message de commit (`2107c23`)
+
+## 2026-08-04 11:53 UTC — Claude
+- fix: le filtre par catégorie Académie n'affichait pas que la catégorie (`c22d64d`)
