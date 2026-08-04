@@ -6136,3 +6136,29 @@ jamais retarder le premier écran ; utilise le `navigatorKey` global
 (`GlobalAuthListener`) pour afficher le dialogue quel que soit l'écran
 affiché, donc fonctionne à l'identique côté client et admin sans
 câblage séparé dans chaque écran d'accueil.
+
+## Réponse du support Papi.mg — versement automatique et retraits (04/08)
+
+Suite à la question envoyée le 30/07 sur le versement des fonds collectés
+via Papi (Mvola/Orange Money/Airtel Money), réponse du support
+(support@papi.mg, 04/08) :
+
+1. **Seuil de versement automatique** : le versement est automatique,
+   gratuit et sans frais de retrait à partir de **2 000 000 MGA**
+   (2 millions d'ariary) collectés. En dessous de ce seuil, le versement
+   se fait **sur demande** et des frais de retrait s'appliquent selon le
+   compte de réception. Détail des frais dans les Conditions
+   d'utilisation Papi (en cours de réévaluation à la baisse, "d'ici
+   quelques semaines" au 04/08).
+2. **Process actuel des demandes de retrait** : par email uniquement.
+   Papi prévoit de déployer cette fonctionnalité directement sur leur
+   plateforme "d'ici fin août" (2026) — pas d'action côté AkoraHub en
+   attendant, juste à garder en tête que la demande manuelle par email
+   restera nécessaire jusque-là.
+3. Détail des frais également accessible depuis Conditions d'utilisation
+   > Méthode de règlement (profil du compte marchand Papi).
+
+Complète la section "Grille tarifaire Papi" du 31/07 (recherche
+"Grille tarifaire Papi" plus haut dans ce document) — aucun changement
+de code nécessaire, information à usage de suivi/négociation côté
+gestion du compte marchand Papi.
