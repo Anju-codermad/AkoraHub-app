@@ -1,18 +1,12 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/chat/unread_support_messages.dart';
 import '../../core/localization/app_translations.dart';
 import '../../core/navigation/product_detail_route.dart';
-import '../../core/notifications/category_subscription_repo.dart';
 import '../../core/providers/cart_provider.dart';
-import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'chat_screen.dart';
 import 'community/public_profiles_repo.dart';
@@ -26,58 +20,23 @@ import 'wall/wall_tab.dart';
 class CatalogTab extends ConsumerStatefulWidget {
   final VoidCallback onOpenCart;
   final VoidCallback onOpenProfile;
+  final VoidCallback onOpenCatalog;
 
-  const CatalogTab(
-      {super.key, required this.onOpenCart, required this.onOpenProfile});
+  const CatalogTab({
+    super.key,
+    required this.onOpenCart,
+    required this.onOpenProfile,
+    required this.onOpenCatalog,
+  });
 
   @override
   ConsumerState<CatalogTab> createState() => _CatalogTabState();
 }
 
 class _CatalogTabState extends ConsumerState<CatalogTab> {
-  List<Map<String, dynamic>> _businessUnits = [];
-  List<Map<String, dynamic>> _products = [];
   bool _isLoading = true;
   String? _error;
-  String? _selectedUnitId;
-  String _selectedCategory = 'toutes';
-  String _searchQuery = '';
 
-  // Abonnement aux notifications pour la catégorie actuellement
-  // sélectionnée (uniquement pertinent quand un pilier ET une catégorie
-  // précis sont choisis — voir CategorySubscriptionRepo).
-  bool _isSubscribedToCategory = false;
-  bool _isTogglingSubscription = false;
-
-  // Pagination : la grille produits n'avait pas de limite (catalogue
-  // entier chargé d'un coup) — remplacé par un chargement par pages de
-  // 20, filtré côté serveur (pilier/catégorie/recherche), la suite
-  // arrivant en scrollant vers le bas. La recherche attend une courte
-  // pause après la dernière frappe avant de relancer la requête (pas une
-  // requête réseau par lettre tapée).
-  //
-  // `_allProductsForReference` reste un chargement complet séparé (en
-  // arrière-plan, sans bloquer l'affichage) : les puces de catégorie et
-  // le cache hors-ligne ont besoin de connaître TOUT le catalogue, pas
-  // seulement la page actuellement affichée à l'écran.
-  static const _pageSize = 20;
-  int _page = 0;
-  bool _hasMore = true;
-  bool _isLoadingMore = false;
-  bool _isLoadingProducts = false;
-  Timer? _searchDebounce;
-  List<Map<String, dynamic>> _allProductsForReference = [];
-  final _scrollController = ScrollController();
-  final _searchController = TextEditingController();
-  final _searchFocusNode = FocusNode();
-
-  /// Historique de recherche (local, `SharedPreferences`) + suggestions
-  /// tapées dans le nom des produits déjà chargés (`_allProductsForReference`,
-  /// pas de requête réseau supplémentaire) — affichés sous la barre de
-  /// recherche tant qu'elle a le focus.
-  static const _recentSearchesPrefsKey = 'recent_product_searches';
-  static const _maxRecentSearches = 6;
-  List<String> _recentSearches = [];
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -121,191 +80,16 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
 
   List<_PromoSlide> _promoSlides = _defaultPromoSlides;
 
-  // Palette dérivée du vert de marque AkoraHub (voir app_theme.dart,
-  // primaryLight #085041) plutôt que les couleurs Material par défaut
-  // (vert/bleu/orange/violet/rouge/cyan saturés qui ne partagent aucune
-  // tonalité commune) — tons apparentés (mêmes niveaux de saturation et
-  // de luminosité), pour un ensemble qui se lit comme dessiné ensemble.
-  final List<Color> _unitColors = const [
-    Color(0xFF085041), // vert de marque
-    Color(0xFF3E7C59), // sauge
-    Color(0xFFB8863B), // ocre
-    Color(0xFF8C5A3C), // terracotta
-    Color(0xFF3D5A6C), // ardoise
-    Color(0xFF6B4C6B), // prune
-  ];
-
   @override
   void initState() {
     super.initState();
     _loadData();
-    _scrollController.addListener(_onScroll);
-    _searchFocusNode.addListener(() => setState(() {}));
-    _loadRecentSearches();
   }
 
   @override
   void dispose() {
     _bannerController.dispose();
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    _searchDebounce?.cancel();
-    _searchController.dispose();
-    _searchFocusNode.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadRecentSearches() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (!mounted) return;
-      setState(() {
-        _recentSearches = prefs.getStringList(_recentSearchesPrefsKey) ?? [];
-      });
-    } catch (_) {
-      // Pas grave : l'historique reste simplement vide.
-    }
-  }
-
-  Future<void> _saveRecentSearch(String term) async {
-    final trimmed = term.trim();
-    if (trimmed.isEmpty) return;
-    final updated = [
-      trimmed,
-      ..._recentSearches.where((s) => s.toLowerCase() != trimmed.toLowerCase()),
-    ].take(_maxRecentSearches).toList();
-    setState(() => _recentSearches = updated);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_recentSearchesPrefsKey, updated);
-    } catch (_) {
-      // Pas grave : la session courante garde quand même l'historique.
-    }
-  }
-
-  Future<void> _clearRecentSearches() async {
-    setState(() => _recentSearches = []);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_recentSearchesPrefsKey);
-    } catch (_) {}
-  }
-
-  void _applySearch(String term) {
-    _searchController.text = term;
-    _searchFocusNode.unfocus();
-    _onSearchChanged(term);
-    _saveRecentSearch(term);
-  }
-
-  /// Suggestions de noms de produits correspondant à la saisie en cours,
-  /// dérivées du catalogue déjà chargé en mémoire — pas de requête réseau
-  /// dédiée, juste un filtre local sur `_allProductsForReference`.
-  List<String> get _searchSuggestions {
-    final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return [];
-    final names = _allProductsForReference
-        .map((p) => (p['name'] as String?) ?? '')
-        .where((name) => name.toLowerCase().contains(query))
-        .toSet()
-        .toList();
-    names.sort();
-    return names.take(5).toList();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 300) {
-      _loadMoreProducts();
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchProductsPage(int page) async {
-    var query =
-        SupabaseConfig.client.from('products').select().eq('visibility', true);
-    if (_selectedUnitId != null) {
-      query = query.eq('business_unit_id', _selectedUnitId!);
-    }
-    if (_selectedCategory != 'toutes') {
-      query = query.eq('category', _selectedCategory);
-    }
-    if (_searchQuery.trim().isNotEmpty) {
-      query = query.ilike('name', '%${_searchQuery.trim()}%');
-    }
-    final data = await query
-        .order('name')
-        .range(page * _pageSize, page * _pageSize + _pageSize - 1);
-    return List<Map<String, dynamic>>.from(data);
-  }
-
-  /// Relance la page 0 avec les filtres actuels (changement de pilier,
-  /// catégorie ou recherche) — ne recharge que la grille produits, pas le
-  /// reste de l'écran (bannières, fil d'activité...).
-  Future<void> _reloadProductsPage() async {
-    setState(() {
-      _page = 0;
-      _hasMore = true;
-      _isLoadingProducts = true;
-    });
-    try {
-      final rows = await _fetchProductsPage(0);
-      if (!mounted) return;
-      setState(() {
-        _products = rows;
-        _hasMore = rows.length == _pageSize;
-        _isLoadingProducts = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingProducts = false);
-    }
-  }
-
-  Future<void> _loadMoreProducts() async {
-    if (_isLoadingMore || !_hasMore) return;
-    setState(() => _isLoadingMore = true);
-    try {
-      final nextPage = _page + 1;
-      final rows = await _fetchProductsPage(nextPage);
-      if (!mounted) return;
-      setState(() {
-        _products = [..._products, ...rows];
-        _page = nextPage;
-        _hasMore = rows.length == _pageSize;
-        _isLoadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingMore = false);
-    }
-  }
-
-  void _onSearchChanged(String value) {
-    setState(() => _searchQuery = value);
-    _searchDebounce?.cancel();
-    _searchDebounce =
-        Timer(const Duration(milliseconds: 400), _reloadProductsPage);
-  }
-
-  /// Chargement complet du catalogue (arrière-plan, sans bloquer l'écran) —
-  /// alimente les puces de catégorie (`_categories`) et le cache
-  /// hors-ligne, qui ont besoin de connaître tout le catalogue, pas juste
-  /// la page actuellement affichée.
-  Future<void> _refreshFullCatalogReference() async {
-    try {
-      final data = await SupabaseConfig.client
-          .from('products')
-          .select()
-          .eq('visibility', true)
-          .order('name');
-      if (!mounted) return;
-      setState(() {
-        _allProductsForReference = List<Map<String, dynamic>>.from(data);
-      });
-      _cacheCatalogOffline();
-    } catch (_) {
-      // Pas grave : les puces de catégorie et le cache hors-ligne restent
-      // sur leur dernière valeur connue.
-    }
   }
 
   Future<void> _loadData() async {
@@ -319,23 +103,16 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     setState(() {
       _isLoading = true;
       _error = null;
-      _page = 0;
-      _hasMore = true;
     });
     try {
       final userId = SupabaseConfig.client.auth.currentUser?.id;
-      final results = await Future.wait<dynamic>([
-        SupabaseConfig.client.from('business_units').select().eq('active', true),
-        _fetchProductsPage(0),
-        if (userId != null)
-          SupabaseConfig.client
+      final profile = userId == null
+          ? null
+          : await SupabaseConfig.client
               .from('profiles')
               .select('full_name, avatar_url, location')
               .eq('id', userId)
-              .single(),
-      ]);
-      final profile =
-          userId != null ? results[2] as Map<String, dynamic> : null;
+              .single();
 
       // Les 5 blocs suivants sont indépendants les uns des autres (filtre
       // catégories, bannières, badge messages, fil d'activité, suggestions
@@ -534,11 +311,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       final recentFormationCourses = parallel[5] as List<Map<String, dynamic>>;
       final pendingAction = parallel[6] as Map<String, dynamic>?;
 
-      final productsPage = List<Map<String, dynamic>>.from(results[1] as List);
       setState(() {
-        _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
-        _products = productsPage;
-        _hasMore = productsPage.length == _pageSize;
         _clientName = profile?['full_name'] as String?;
         _clientAvatarUrl = profile?['avatar_url'] as String?;
         _clientLocation = profile?['location'] as String?;
@@ -551,80 +324,11 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _pendingAction = pendingAction;
         _isLoading = false;
       });
-
-      // Chargement complet du catalogue en arrière-plan (sans bloquer
-      // l'affichage de cette première page) : alimente les puces de
-      // catégorie et le cache hors-ligne, qui ont besoin de connaître
-      // tout le catalogue — voir _refreshFullCatalogReference.
-      _refreshFullCatalogReference();
     } catch (e) {
-      final cached = await _loadCatalogFromCache();
-      if (cached) {
-        setState(() => _isLoading = false);
-      } else {
-        setState(() {
-          _isLoading = false;
-          _error = 'Impossible de charger le catalogue.';
-        });
-      }
-    }
-  }
-
-  static const _offlineCacheKey = 'offline_catalog_cache';
-
-  Future<void> _cacheCatalogOffline() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _offlineCacheKey,
-        jsonEncode({
-          'businessUnits': _businessUnits,
-          // Le catalogue COMPLET (pas juste la page affichée) — voir
-          // _refreshFullCatalogReference, seule source fiable de "tout
-          // le catalogue" depuis que _products est paginé.
-          'products': _allProductsForReference,
-          'cachedAt': DateTime.now().toIso8601String(),
-        }),
-      );
-    } catch (_) {
-      // Pas grave si le cache échoue (ex: stockage plein) — l'app reste
-      // utilisable en ligne, juste pas de repli hors-ligne cette fois.
-    }
-  }
-
-  /// Retourne `true` si un catalogue en cache a bien été chargé (hors-ligne).
-  /// Hors-ligne, pas de pagination possible (pas de réseau pour charger la
-  /// suite) : on affiche directement tout le catalogue mis en cache.
-  Future<bool> _loadCatalogFromCache() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_offlineCacheKey);
-      if (raw == null) return false;
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
-      final cachedAt = DateTime.tryParse(decoded['cachedAt'] ?? '');
-      final cachedProducts =
-          List<Map<String, dynamic>>.from(decoded['products'] ?? []);
       setState(() {
-        _businessUnits =
-            List<Map<String, dynamic>>.from(decoded['businessUnits'] ?? []);
-        _products = cachedProducts;
-        _allProductsForReference = cachedProducts;
-        _hasMore = false;
+        _isLoading = false;
+        _error = 'Impossible de charger les données.';
       });
-      if (mounted && cachedAt != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Hors-ligne — catalogue affiché tel que vu le ${DateFormat('dd/MM à HH:mm').format(cachedAt)}.',
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-      return _products.isNotEmpty || _businessUnits.isNotEmpty;
-    } catch (_) {
-      return false;
     }
   }
 
@@ -676,149 +380,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     _loadData();
   }
 
-  IconData _iconForUnit(Map<String, dynamic> unit) {
-    final slug = (unit['slug'] ?? '').toString();
-    // Peinture vérifié en premier : "matieres-premieres-peinture" contient
-    // aussi "premieres" mais doit avoir l'icône pinceau, pas fiole.
-    if (slug.contains('paint') || slug.contains('peinture')) {
-      return Icons.format_paint;
-    }
-    if (slug.contains('formation')) return Icons.school;
-    if (slug.contains('chimie') ||
-        slug.contains('chimique') ||
-        slug.contains('chemical')) {
-      return Icons.science_outlined;
-    }
-    if (slug.contains('cosmet')) return Icons.spa_outlined;
-    if (slug.contains('insecticide') ||
-        slug.contains('insect') ||
-        slug.contains('nuisible')) {
-      return Icons.pest_control_outlined;
-    }
-    return Icons.cleaning_services;
-  }
-
-  /// Icône approximative par mot-clé du nom de catégorie (pas de slug
-  /// dédié pour les catégories, contrairement aux piliers — voir
-  /// `_iconForUnit` ci-dessus, même principe).
-  IconData _iconForCategory(String category) {
-    final name = category.toLowerCase();
-    if (name.contains('peinture') || name.contains('paint')) {
-      return Icons.format_paint;
-    }
-    if (name.contains('acide') || name.contains('base')) {
-      return Icons.science_outlined;
-    }
-    if (name.contains('carrelage') || name.contains('sol')) {
-      return Icons.grid_view_outlined;
-    }
-    if (name.contains('insecticide') ||
-        name.contains('nuisible') ||
-        name.contains('anti-')) {
-      return Icons.pest_control_outlined;
-    }
-    if (name.contains('soin') || name.contains('cosmet')) {
-      return Icons.spa_outlined;
-    }
-    if (name.contains('parfum') || name.contains('odeur')) {
-      return Icons.local_florist_outlined;
-    }
-    if (name.contains('désinfect') || name.contains('desinfect')) {
-      return Icons.sanitizer_outlined;
-    }
-    if (name.contains('emballage') || name.contains('contenant')) {
-      return Icons.inventory_2_outlined;
-    }
-    return Icons.category_outlined;
-  }
-
-  List<String> get _categories {
-    // Basé sur le catalogue complet (_allProductsForReference), pas sur
-    // _products qui n'est plus qu'une page — sinon les puces
-    // apparaîtraient/disparaîtraient au fil du scroll infini.
-    final relevant = _selectedUnitId == null
-        ? _allProductsForReference
-        : _allProductsForReference
-            .where((p) => p['business_unit_id'] == _selectedUnitId);
-    // Catégories désactivées par l'Admin (voir category_management.dart) —
-    // via le cache partagé plutôt qu'une requête dédiée à chaque ouverture
-    // du catalogue (lib/core/reference_data/reference_table_cache.dart).
-    final inactiveCategoryNames = ref
-        .watch(categoriesCacheProvider)
-        .where((c) => c['active'] == false)
-        .map((c) => c['name'] as String)
-        .toSet();
-    final cats = relevant
-        .map((p) => (p['category'] ?? '').toString())
-        .where((c) => c.isNotEmpty && !inactiveCategoryNames.contains(c))
-        .toSet()
-        .toList();
-    cats.sort();
-    return cats;
-  }
-
-  /// Recharge le statut d'abonnement pour le (pilier, catégorie)
-  /// actuellement sélectionnés — pas pertinent si l'un des deux vaut
-  /// "tous" (une catégorie choisie sans pilier précis pourrait exister
-  /// dans plusieurs piliers, donc ambigu pour l'abonnement).
-  Future<void> _refreshSubscriptionStatus() async {
-    if (_selectedUnitId == null || _selectedCategory == 'toutes') {
-      if (_isSubscribedToCategory) {
-        setState(() => _isSubscribedToCategory = false);
-      }
-      return;
-    }
-    final subscribed = await CategorySubscriptionRepo.isSubscribed(
-        _selectedUnitId!, _selectedCategory);
-    if (!mounted) return;
-    setState(() => _isSubscribedToCategory = subscribed);
-  }
-
-  Future<void> _toggleCategorySubscription() async {
-    if (_selectedUnitId == null ||
-        _selectedCategory == 'toutes' ||
-        _isTogglingSubscription) {
-      return;
-    }
-    setState(() => _isTogglingSubscription = true);
-    try {
-      if (_isSubscribedToCategory) {
-        await CategorySubscriptionRepo.unsubscribe(
-            _selectedUnitId!, _selectedCategory);
-      } else {
-        await CategorySubscriptionRepo.subscribe(
-            _selectedUnitId!, _selectedCategory);
-      }
-      if (!mounted) return;
-      setState(() => _isSubscribedToCategory = !_isSubscribedToCategory);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Une erreur est survenue. Réessayez.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isTogglingSubscription = false);
-    }
-  }
-
-  List<Map<String, dynamic>> get _filteredProducts {
-    return _products.where((p) {
-      final matchesUnit =
-          _selectedUnitId == null || p['business_unit_id'] == _selectedUnitId;
-      final matchesCategory = _selectedCategory == 'toutes' ||
-          p['category'] == _selectedCategory;
-      final matchesSearch = _searchQuery.isEmpty ||
-          (p['name'] ?? '')
-              .toString()
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase());
-      return matchesUnit && matchesCategory && matchesSearch;
-    }).toList();
-  }
-
   void _quickAddToCart(Map<String, dynamic> product) {
     ref.read(cartProvider.notifier).addItem(
           CartItem(
@@ -841,7 +402,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cartCount = ref.watch(cartProvider).length;
-    final favorites = ref.watch(favoritesProvider);
 
     if (_isLoading) {
       return const _CatalogSkeleton();
@@ -864,7 +424,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     return RefreshIndicator(
       onRefresh: _loadData,
       child: CustomScrollView(
-        controller: _scrollController,
         slivers: [
           // --- En-tête personnalisé : avatar, salutation, localisation, notifs ---
           SliverToBoxAdapter(
@@ -937,6 +496,24 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                 icon: const Icon(Icons.shopping_cart_outlined),
                                 tooltip: 'Panier',
                                 onPressed: widget.onOpenCart,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 2.w),
+                          Material(
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              icon: const Icon(Icons.receipt_long_outlined),
+                              tooltip: 'Commandes',
+                              // Commandes a quitté la barre du bas (04/08)
+                              // pour laisser la place à l'onglet Catalogue
+                              // — accès conservé ici, comme Messagerie.
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const OrdersTab()),
                               ),
                             ),
                           ),
@@ -1042,15 +619,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 0),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(10),
+                  // OrdersTab a déjà sa propre AppBar (voir orders_tab.dart) —
+                  // pas besoin de la ré-envelopper dans une seconde ici.
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        appBar: AppBar(title: const Text('Commandes')),
-                        body: OrdersTab(
-                          initialTabIndex:
-                              _pendingAction!['type'] == 'quote' ? 1 : 0,
-                        ),
+                      builder: (_) => OrdersTab(
+                        initialTabIndex:
+                            _pendingAction!['type'] == 'quote' ? 1 : 0,
                       ),
                     ),
                   ),
@@ -1088,109 +664,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             size: 18,
                             color: theme.colorScheme.onTertiaryContainer),
                       ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-          // --- Barre de recherche ---
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 1.h),
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                style: TextStyle(color: theme.colorScheme.onSurface),
-                decoration: InputDecoration(
-                  hintText: ref.tr('search_hint'),
-                  hintStyle:
-                      TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                  prefixIcon: Icon(Icons.search,
-                      color: theme.colorScheme.onSurfaceVariant),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(Icons.close,
-                              size: 18,
-                              color: theme.colorScheme.onSurfaceVariant),
-                          onPressed: () => _applySearch(''),
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  isDense: true,
-                ),
-                onChanged: (value) {
-                  _onSearchChanged(value);
-                  setState(() {});
-                },
-                onSubmitted: _applySearch,
-              ),
-            ),
-          ),
-
-          // --- Suggestions / historique de recherche (uniquement quand la
-          // barre a le focus) : recherches passées si le champ est vide,
-          // sinon noms de produits correspondant, dérivés du catalogue déjà
-          // en mémoire (`_allProductsForReference`, pas de requête réseau
-          // dédiée). ---
-          if (_searchFocusNode.hasFocus &&
-              (_searchController.text.trim().isEmpty
-                  ? _recentSearches.isNotEmpty
-                  : _searchSuggestions.isNotEmpty))
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 3.w, vertical: 1.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _searchController.text.trim().isEmpty
-                          ? [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Recherches récentes',
-                                      style: theme.textTheme.labelMedium),
-                                  TextButton(
-                                    onPressed: _clearRecentSearches,
-                                    child: const Text('Effacer'),
-                                  ),
-                                ],
-                              ),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: [
-                                  for (final term in _recentSearches)
-                                    ActionChip(
-                                      avatar: const Icon(Icons.history,
-                                          size: 16),
-                                      label: Text(term),
-                                      onPressed: () => _applySearch(term),
-                                    ),
-                                ],
-                              ),
-                            ]
-                          : [
-                              for (final name in _searchSuggestions)
-                                ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(Icons.search, size: 18),
-                                  title: Text(name),
-                                  onTap: () => _applySearch(name),
-                                ),
-                            ],
                     ),
                   ),
                 ),
@@ -1354,7 +827,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                         // superposition avec l'étiquette de catégorie que ça
                         // provoquait auparavant (les deux au même repère
                         // top:8/left:8, dans deux Stack différents).
-                        child: _ProductCard(
+                        child: ProductCard(
                           product: p,
                           currency: _currency,
                           isFavorite:
@@ -1616,188 +1089,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             ),
           ],
 
-          // --- Nos activités : icônes rondes colorées ---
-          if (_businessUnits.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(ref.tr('our_activities'), style: theme.textTheme.titleMedium),
-                    if (_selectedUnitId != null)
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedUnitId = null;
-                            _selectedCategory = 'toutes';
-                          });
-                          _reloadProductsPage();
-                          _refreshSubscriptionStatus();
-                        },
-                        child: const Text('Voir tout'),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 12.h,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 4.w),
-                  itemCount: _businessUnits.length,
-                  itemBuilder: (context, index) {
-                    final unit = _businessUnits[index];
-                    final selected = _selectedUnitId == unit['id'];
-                    final color = _unitColors[index % _unitColors.length];
-                    return Padding(
-                      padding: EdgeInsets.only(right: 4.w),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(32),
-                        onTap: () {
-                          // Tous les piliers se comportent maintenant de la
-                          // même façon (filtrent la grille produits) — la
-                          // base Formation (matières premières) n'est plus
-                          // accrochée à un pilier "Produits" détourné de son
-                          // rôle (ex: "Akora Protect" doit pouvoir vendre de
-                          // vrais insecticides finis un jour). Accès à
-                          // Formation centralisé dans un seul point d'entrée
-                          // (voir profile_tab.dart), voir PROJECT_CONTEXT.md.
-                          setState(() {
-                            _selectedUnitId = selected ? null : unit['id'];
-                            _selectedCategory = 'toutes';
-                          });
-                          _reloadProductsPage();
-                          _refreshSubscriptionStatus();
-                        },
-                        child: SizedBox(
-                          width: 18.w,
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 15.w,
-                                height: 15.w,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: selected
-                                        ? [
-                                            color,
-                                            color.withValues(alpha: 0.75),
-                                          ]
-                                        : [
-                                            color.withValues(alpha: 0.24),
-                                            color.withValues(alpha: 0.08),
-                                          ],
-                                  ),
-                                  shape: BoxShape.circle,
-                                  border: selected
-                                      ? Border.all(color: color, width: 2)
-                                      : null,
-                                ),
-                                child: Icon(
-                                  _iconForUnit(unit),
-                                  color: selected ? Colors.white : color,
-                                  size: 22,
-                                ),
-                              ),
-                              SizedBox(height: 0.6.h),
-                              Text(
-                                unit['name'] ?? '',
-                                // `labelSmall` du thème est prévu pour du
-                                // texte désactivé/atténué (voir
-                                // app_theme.dart) — pas adapté ici, le nom
-                                // du pilier doit rester bien lisible.
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-
-          if (_categories.isNotEmpty)
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 5.h,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        avatar: const Icon(Icons.apps, size: 18),
-                        label: Text(ref.tr('all_categories')),
-                        selected: _selectedCategory == 'toutes',
-                        onSelected: (_) {
-                          setState(() => _selectedCategory = 'toutes');
-                          _reloadProductsPage();
-                          _refreshSubscriptionStatus();
-                        },
-                      ),
-                    ),
-                    ..._categories.map((c) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            avatar: Icon(_iconForCategory(c), size: 18),
-                            label: Text(c),
-                            selected: _selectedCategory == c,
-                            onSelected: (_) {
-                              setState(() => _selectedCategory = c);
-                              _reloadProductsPage();
-                              _refreshSubscriptionStatus();
-                            },
-                          ),
-                        )),
-                  ],
-                ),
-              ),
-            ),
-
-          if (_selectedUnitId != null && _selectedCategory != 'toutes')
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: ActionChip(
-                    avatar: Icon(
-                      _isSubscribedToCategory
-                          ? Icons.notifications_active
-                          : Icons.notifications_none,
-                      size: 18,
-                      color: _isSubscribedToCategory
-                          ? theme.colorScheme.primary
-                          : null,
-                    ),
-                    label: Text(
-                      _isSubscribedToCategory
-                          ? 'Abonné aux nouveautés'
-                          : 'S\'abonner aux nouveautés',
-                    ),
-                    onPressed: _isTogglingSubscription
-                        ? null
-                        : _toggleCategorySubscription,
-                  ),
-                ),
-              ),
-            ),
-
           // --- Nouveautés Formation (Lot 4) : cours disponibles ajoutés
           // récemment — l'Académie a son propre onglet dans la barre du
           // bas, cette rangée sert juste de teaser/découvrabilité depuis
@@ -1894,73 +1185,23 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             ),
           ],
 
-          // --- Produits populaires / catalogue ---
+          // --- Raccourci vers le catalogue complet (04/08) : la recherche,
+          // les filtres et la grille paginée vivent maintenant dans leur
+          // propre onglet (voir product_catalog_tab.dart) — Accueil se
+          // contente d'un raccourci plutôt que de dupliquer cette UI. ---
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
-              child: Text(ref.tr('products'), style: theme.textTheme.titleMedium),
-            ),
-          ),
-          _filteredProducts.isEmpty
-              ? SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 6.h),
-                    child: Center(
-                      child: Text(
-                        'Aucun produit trouvé.',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                  ),
-                )
-              : SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: 4.w),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 3.w,
-                      mainAxisSpacing: 2.h,
-                      childAspectRatio: 0.72,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final p = _filteredProducts[index];
-                        return _ProductCard(
-                          product: p,
-                          currency: _currency,
-                          isFavorite: favorites.contains(p['id']),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              productDetailRoute(
-                                  ProductDetailClient(product: p)),
-                            );
-                          },
-                          onQuickAdd: () => _quickAddToCart(p),
-                          onToggleFavorite: () => ref
-                              .read(favoritesProvider.notifier)
-                              .toggle(p['id']),
-                        );
-                      },
-                      childCount: _filteredProducts.length,
-                    ),
-                  ),
-                ),
-          if (_hasMore || _isLoadingMore || _isLoadingProducts)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 2.h),
-                child: const Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+              padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 2.h),
+              child: OutlinedButton.icon(
+                onPressed: widget.onOpenCatalog,
+                icon: const Icon(Icons.grid_view_rounded),
+                label: const Text('Voir tout le catalogue'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: Size(double.infinity, 48),
                 ),
               ),
             ),
+          ),
           SliverToBoxAdapter(child: SizedBox(height: 4.h)),
         ],
       ),
@@ -2031,7 +1272,10 @@ Widget _productImage({
   return enableHero ? Hero(tag: tag, child: image) : image;
 }
 
-class _ProductCard extends StatelessWidget {
+/// Fiche produit (image, prix, nom, favori, ajout rapide) — rendue
+/// publique (04/08) pour être réutilisée par `product_catalog_tab.dart`
+/// sans dupliquer ce widget.
+class ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
   final NumberFormat currency;
   final bool isFavorite;
@@ -2051,7 +1295,7 @@ class _ProductCard extends StatelessWidget {
   /// uniquement dans la section "Vous recommandez souvent" (catalog_tab).
   final bool reorderBadge;
 
-  const _ProductCard({
+  const ProductCard({
     required this.product,
     required this.currency,
     required this.isFavorite,

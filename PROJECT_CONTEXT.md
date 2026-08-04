@@ -6162,3 +6162,53 @@ Complète la section "Grille tarifaire Papi" du 31/07 (recherche
 "Grille tarifaire Papi" plus haut dans ce document) — aucun changement
 de code nécessaire, information à usage de suivi/négociation côté
 gestion du compte marchand Papi.
+
+## Onglet Catalogue dédié + Commandes déplacé dans l'en-tête (04/08)
+
+Demande explicite de l'utilisateur : un onglet séparé pour parcourir le
+catalogue produit (au lieu qu'il ne vive que noyé dans l'Accueil), sans
+pour autant dépasser 5 destinations dans la barre du bas (déjà pleine).
+Solution retenue après discussion : Commandes quitte la barre du bas
+pour une icône dans l'en-tête d'Accueil (comme Panier/Messagerie/
+Notifications), ce qui libère une place pour le nouvel onglet Catalogue.
+
+**Nouvelle barre du bas (5 onglets)** : Accueil, **Catalogue**, Académie,
+Services, Profil. Commandes et Panier sont désormais tous les deux des
+icônes dans l'en-tête d'Accueil (`catalog_tab.dart`), ouverts en `push`
+(`Navigator.push(OrdersTab())`) — même mécanisme que Messagerie.
+
+**`lib/presentation/client_home/product_catalog_tab.dart`** (nouveau) :
+contient tout ce qui a été extrait d'Accueil — barre de recherche +
+historique/suggestions, filtre par activité (piliers colorés), puces de
+catégorie, abonnement aux nouveautés d'une catégorie, grille produits en
+**2 colonnes** avec pagination infinie (20 par page), cache hors-ligne du
+catalogue complet. Réutilise `ProductCard` (rendu public dans
+`catalog_tab.dart`, était `_ProductCard`) pour ne pas dupliquer la fiche
+produit — seule cette classe est partagée entre les deux fichiers, le
+reste de la logique de filtrage/pagination est un code propre à ce
+nouvel onglet (a nécessité de dupliquer certains petits helpers comme
+`_iconForUnit`/`_iconForCategory`, trop couplés à l'état local pour être
+extraits sans plus de cérémonie).
+
+**`catalog_tab.dart` (Accueil) simplifié** : ne garde plus que les
+raccourcis — en-tête (avatar/salutation/localisation + icônes Panier/
+Commandes/Messagerie/Notifications), flash info, raccourci "en attente"
+(devis/paiement), bannières, "Vous recommandez souvent", "Pour vous",
+"Nouveautés Formation", et un bouton "Voir tout le catalogue" en bas qui
+bascule vers le nouvel onglet (`widget.onOpenCatalog`, comme
+`onOpenCart`/`onOpenProfile`). Le bloc "Nos activités" (piliers colorés)
+et le chargement du catalogue complet (`_loadData` ne fetch plus
+`business_units`/`products`) ont été retirés d'Accueil : ils vivent
+maintenant exclusivement dans l'onglet Catalogue, pour éviter de
+dupliquer deux fois la même UI de filtrage.
+
+**Piège corrigé au passage** : deux points d'entrée vers `OrdersTab`
+(le raccourci "en attente" d'Accueil et "Commandes" dans les stats du
+Profil) l'enveloppaient dans un second `Scaffold(appBar: AppBar(...))`
+alors qu'`OrdersTab` a déjà sa propre AppBar — corrigé pour éviter un
+double bandeau visuel (probablement jamais remarqué parce que discret,
+mais réel).
+
+**`client_home.dart`** : nouveaux index (0 Accueil, 1 Catalogue,
+2 Académie, 3 Services, 4 Profil, 5 Panier masqué) — Panier et Commandes
+n'ont plus d'entrée dans `_ClientBottomNav`.

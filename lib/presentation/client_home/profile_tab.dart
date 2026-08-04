@@ -468,15 +468,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       value: '$_ordersCount',
                       label: 'Commandes',
                       color: accentColor,
+                      // OrdersTab a déjà sa propre AppBar (voir
+                      // orders_tab.dart) — pas besoin de la ré-envelopper.
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => Scaffold(
-                            appBar:
-                                AppBar(title: const Text('Mes commandes')),
-                            body: const OrdersTab(),
-                          ),
-                        ),
+                        MaterialPageRoute(builder: (_) => const OrdersTab()),
                       ),
                     ),
                     _StatItem(

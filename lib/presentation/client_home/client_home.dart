@@ -8,23 +8,28 @@ import 'cart_tab.dart';
 import 'catalog_tab.dart';
 import 'floating_chat_bubble.dart';
 import 'formation/formation_hub_screen.dart';
-import 'orders_tab.dart';
+import 'product_catalog_tab.dart';
 import 'profile_tab.dart';
 import 'service_requests_tab.dart';
 
-/// Espace client : accueil (catalogue), panier, commandes, Académie,
-/// profil. Point d'entrée pour tout utilisateur avec le rôle "client".
+/// Espace client : accueil, catalogue, Académie, Services, profil.
+/// Point d'entrée pour tout utilisateur avec le rôle "client".
 ///
 /// Schéma de navigation : le Panier n'a pas d'onglet dans la barre du bas
-/// (accessible via l'icône dans l'en-tête de l'écran Accueil, à côté des
-/// notifications). L'onglet "Communauté" (ex-"Mur", renommé 01/08) a été
-/// retiré du menu — le code reste dans wall/wall_tab.dart en vue de son
-/// intégration future dans le Profil (voir PROJECT_CONTEXT.md, plan profil
-/// étape 3).
-/// **Académie** (01/08) : 4ᵉ onglet, regroupe en un seul point d'accès
-/// les catégories de cours AkoraFormation et la base de matières
-/// premières (voir `formation/formation_hub_screen.dart`).
-/// **Services** (03/08) : 5ᵉ onglet, demande de service (installation,
+/// (accessible via l'icône dans l'en-tête de l'écran Accueil). Commandes
+/// non plus (04/08, a quitté la barre du bas pour laisser la place à
+/// l'onglet Catalogue) — accessible depuis la même en-tête, à côté de
+/// Messagerie/Notifications (voir `catalog_tab.dart`). L'onglet
+/// "Communauté" (ex-"Mur", renommé 01/08) a été retiré du menu — le code
+/// reste dans wall/wall_tab.dart en vue de son intégration future dans le
+/// Profil (voir PROJECT_CONTEXT.md, plan profil étape 3).
+/// **Catalogue** (04/08) : parcours complet du catalogue produits
+/// (recherche, filtres, grille) — extrait de l'Accueil pour lui donner
+/// son propre onglet (voir `product_catalog_tab.dart`).
+/// **Académie** (01/08) : regroupe en un seul point d'accès les
+/// catégories de cours AkoraFormation et la base de matières premières
+/// (voir `formation/formation_hub_screen.dart`).
+/// **Services** (03/08) : demande de service (installation,
 /// intervention, consultation...) traitée manuellement par le staff —
 /// distinct d'une commande de produit ou d'un devis (voir
 /// `service_requests_tab.dart`).
@@ -36,8 +41,8 @@ class ClientHome extends ConsumerStatefulWidget {
 }
 
 class _ClientHomeState extends ConsumerState<ClientHome> {
-  // 0 = Accueil, 1 = Panier, 2 = Commandes, 3 = Profil, 4 = Académie,
-  // 5 = Services
+  // 0 = Accueil, 1 = Catalogue, 2 = Académie, 3 = Services, 4 = Profil,
+  // 5 = Panier (masqué, pas d'onglet — voir _ClientBottomNav).
   int _currentIndex = 0;
   bool? _wasOnline;
 
@@ -56,22 +61,23 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
     final locale = ref.watch(localeProvider);
     final titles = [
       AppTranslations.t('nav_home', locale),
-      AppTranslations.t('nav_cart', locale),
-      AppTranslations.t('nav_orders', locale),
-      AppTranslations.t('nav_profile', locale),
+      'Catalogue',
       'Académie',
       AppTranslations.t('nav_services', locale),
+      AppTranslations.t('nav_profile', locale),
+      AppTranslations.t('nav_cart', locale),
     ];
     final pages = [
       CatalogTab(
-        onOpenCart: () => setState(() => _currentIndex = 1),
-        onOpenProfile: () => setState(() => _currentIndex = 3),
+        onOpenCart: () => setState(() => _currentIndex = 5),
+        onOpenProfile: () => setState(() => _currentIndex = 4),
+        onOpenCatalog: () => setState(() => _currentIndex = 1),
       ),
-      const CartTab(),
-      const OrdersTab(),
-      const ProfileTab(),
+      const ProductCatalogTab(),
       const FormationHubScreen(),
       const ServiceRequestsTab(),
+      const ProfileTab(),
+      const CartTab(),
     ];
 
     final connectivity = ref.watch(connectivityProvider);
@@ -99,12 +105,11 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
 
     return FloatingChatBubble(
       child: Scaffold(
-      // Accueil (index 0) gère son propre en-tête (avatar, salutation...),
-      // Commandes (index 2) sa propre AppBar + menu d'archivage (04/08) et
-      // Profil (index 3) sa propre AppBar + son menu latéral (voir
-      // ProfileTab/ProfileMenuDrawer, 04/08) — aucun des trois n'a besoin
-      // de l'AppBar générique ci-dessous.
-      appBar: (_currentIndex == 0 || _currentIndex == 2 || _currentIndex == 3)
+      // Accueil (index 0) gère son propre en-tête (avatar, salutation...) et
+      // Profil (index 4) sa propre AppBar + son menu latéral (voir
+      // ProfileTab/ProfileMenuDrawer, 04/08) — aucun des deux n'a besoin de
+      // l'AppBar générique ci-dessous.
+      appBar: (_currentIndex == 0 || _currentIndex == 4)
           ? null
           : AppBar(title: Text(titles[_currentIndex])),
       // SafeArea(bottom: false) car la barre de navigation du bas gère déjà
@@ -162,9 +167,10 @@ class _NavItem {
   });
 }
 
-/// Barre de navigation du bas à 5 destinations (Accueil, Commandes,
-/// Académie, Services, Profil). Le Panier n'y figure pas : on y accède
-/// depuis l'en-tête de l'Accueil.
+/// Barre de navigation du bas à 5 destinations (Accueil, Catalogue,
+/// Académie, Services, Profil). Ni le Panier ni Commandes n'y figurent :
+/// on y accède depuis l'en-tête de l'Accueil (Commandes a quitté la
+/// barre du bas le 04/08 pour laisser la place à Catalogue).
 class _ClientBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onSelect;
@@ -178,26 +184,26 @@ class _ClientBottomNav extends ConsumerWidget {
           selectedIcon: Icons.home,
           label: AppTranslations.t('nav_home', locale),
         ),
-        _NavItem(
-          pageIndex: 2,
-          icon: Icons.receipt_long_outlined,
-          selectedIcon: Icons.receipt_long,
-          label: AppTranslations.t('nav_orders', locale),
+        const _NavItem(
+          pageIndex: 1,
+          icon: Icons.grid_view_outlined,
+          selectedIcon: Icons.grid_view_rounded,
+          label: 'Catalogue',
         ),
         const _NavItem(
-          pageIndex: 4,
+          pageIndex: 2,
           icon: Icons.school_outlined,
           selectedIcon: Icons.school,
           label: 'Académie',
         ),
         _NavItem(
-          pageIndex: 5,
+          pageIndex: 3,
           icon: Icons.miscellaneous_services_outlined,
           selectedIcon: Icons.miscellaneous_services,
           label: AppTranslations.t('nav_services', locale),
         ),
         _NavItem(
-          pageIndex: 3,
+          pageIndex: 4,
           icon: Icons.person_outline,
           selectedIcon: Icons.person,
           label: AppTranslations.t('nav_profile', locale),
