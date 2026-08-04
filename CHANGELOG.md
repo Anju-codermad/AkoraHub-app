@@ -554,3 +554,6 @@
 
 ## 2026-08-04 10:08 UTC — Claude
 - feat: photo de profil de l'Accueil ouvre l'onglet Profil (`83f9e0e`)
+
+## 2026-08-04 11:02 UTC — Claude
+- fix: workflow changelog cassé par guillemets/backticks dans le message de commit (`2107c23`)
