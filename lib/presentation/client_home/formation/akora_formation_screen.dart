@@ -120,14 +120,16 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
     }
   }
 
-  /// Catégories, avec `initialCategory` placée en premier si fournie.
+  /// Catégories affichées : uniquement `initialCategory` si fournie (vrai
+  /// filtre — avant le 04/08, elle ne faisait que passer en premier dans
+  /// la liste complète, ce qui donnait l'impression que "toutes les
+  /// formations sont répétées dans chaque catégorie" une fois qu'on
+  /// tapait une catégorie précise depuis Académie), sinon toutes.
   List<String> get _categories {
     final all = _courses.map((c) => c['category'] as String).toSet().toList()
       ..sort();
     final initial = widget.initialCategory;
-    if (initial != null && all.remove(initial)) {
-      all.insert(0, initial);
-    }
+    if (initial != null) return all.contains(initial) ? [initial] : [];
     return all;
   }
 
@@ -184,12 +186,12 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
     final categories = _categories;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AkoraFormation')),
+      appBar: AppBar(title: Text(widget.initialCategory ?? 'AkoraFormation')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
-              : _courses.isEmpty
+              : categories.isEmpty
                   ? RefreshIndicator(
                       onRefresh: _loadData,
                       child: ListView(
