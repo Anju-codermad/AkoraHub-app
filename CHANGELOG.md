@@ -545,3 +545,6 @@
 
 ## 2026-08-04 09:37 UTC — Claude
 - feat: grille 2 colonnes pour l'écran Académie (`8505712`)
+
+## 2026-08-04 09:51 UTC — Claude
+- feat: onglets soulignés + vue Débloqués dans le catalogue Formation (`b2e5aa6`)
