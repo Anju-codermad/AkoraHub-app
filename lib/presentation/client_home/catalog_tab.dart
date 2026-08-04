@@ -25,8 +25,10 @@ import 'wall/wall_tab.dart';
 
 class CatalogTab extends ConsumerStatefulWidget {
   final VoidCallback onOpenCart;
+  final VoidCallback onOpenProfile;
 
-  const CatalogTab({super.key, required this.onOpenCart});
+  const CatalogTab(
+      {super.key, required this.onOpenCart, required this.onOpenProfile});
 
   @override
   ConsumerState<CatalogTab> createState() => _CatalogTabState();
@@ -870,14 +872,17 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundImage: _clientAvatarUrl != null
-                        ? NetworkImage(_clientAvatarUrl!)
-                        : null,
-                    child: _clientAvatarUrl == null
-                        ? const Icon(Icons.person)
-                        : null,
+                  GestureDetector(
+                    onTap: widget.onOpenProfile,
+                    child: CircleAvatar(
+                      radius: 22,
+                      backgroundImage: _clientAvatarUrl != null
+                          ? NetworkImage(_clientAvatarUrl!)
+                          : null,
+                      child: _clientAvatarUrl == null
+                          ? const Icon(Icons.person)
+                          : null,
+                    ),
                   ),
                   SizedBox(width: 3.w),
                   Expanded(

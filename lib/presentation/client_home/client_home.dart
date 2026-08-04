@@ -63,7 +63,10 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       AppTranslations.t('nav_services', locale),
     ];
     final pages = [
-      CatalogTab(onOpenCart: () => setState(() => _currentIndex = 1)),
+      CatalogTab(
+        onOpenCart: () => setState(() => _currentIndex = 1),
+        onOpenProfile: () => setState(() => _currentIndex = 3),
+      ),
       const CartTab(),
       const OrdersTab(),
       const ProfileTab(),
