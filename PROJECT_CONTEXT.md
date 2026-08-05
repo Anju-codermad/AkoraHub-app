@@ -6212,3 +6212,28 @@ mais réel).
 **`client_home.dart`** : nouveaux index (0 Accueil, 1 Catalogue,
 2 Académie, 3 Services, 4 Profil, 5 Panier masqué) — Panier et Commandes
 n'ont plus d'entrée dans `_ClientBottomNav`.
+
+## Texte d'onboarding corrigé — AkoraHub n'est pas un SaaS multi-commerces (04/08)
+
+En discutant du remplacement des icônes de l'onboarding par de vraies
+photos, l'utilisateur a rappelé un point de fond mal reflété par
+l'ancien texte : **AkoraHub est l'app dédiée d'Akora Fanadiovana**,
+pas une plateforme où n'importe qui crée sa propre entreprise/catalogue
+("Personne ne peut pas créer son page dedans"). L'ancien texte
+("Créez Votre Profil d'Entreprise", "Gérez Votre Catalogue Produits",
+"Développez Votre Activité"...) donnait l'impression trompeuse d'un
+onboarding façon SaaS multi-commerces (comme Shopify), alors qu'un
+nouvel utilisateur — client ou staff — arrive dans l'app d'une seule
+entreprise déjà existante.
+
+**`onboarding_flow.dart`** : les 5 titres/descriptions ont été réécrits
+en neutre, décrivant ce qu'AkoraHub fait réellement (parcourir le
+catalogue, échanger avec l'équipe/la communauté, suivre ses commandes,
+accéder à l'Académie) plutôt que ce qu'un propriétaire d'entreprise
+configurerait lui-même. **Les icônes n'ont volontairement pas été
+touchées** (demande explicite : changer le texte, pas l'icône) — la
+question des vraies photos reste ouverte, en attente que l'utilisateur
+fournisse des photos réelles de sa boutique/ses produits/son équipe
+(pistes proposées : boutique, étagère de produits, échange client,
+suivi de commande, formation — voir la proposition d'illustrations
+générée ce même jour, non retenue, dans le chat).

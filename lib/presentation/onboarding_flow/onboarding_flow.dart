@@ -19,41 +19,47 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  // Onboarding pages data
+  // Onboarding pages data — texte neutre (04/08) : AkoraHub est l'app
+  // dédiée d'Akora Fanadiovana, pas une plateforme où chaque utilisateur
+  // crée sa propre entreprise/catalogue. L'ancien texte ("Créez Votre
+  // Profil d'Entreprise", "Gérez Votre Catalogue"...) laissait croire à
+  // un onboarding multi-commerces façon SaaS — corrigé pour décrire ce
+  // que l'app fait réellement, pour tout nouvel utilisateur (client ou
+  // staff), avant même le choix du rôle à la connexion.
   final List<Map<String, dynamic>> _onboardingPages = [
     {
-      "title": "Créez Votre Profil d'Entreprise",
+      "title": "Bienvenue sur AkoraHub",
       "description":
-          "Configurez votre identité visuelle avec logo, photos et informations complètes pour attirer vos clients.",
-      "semanticLabel": "Icône représentant la gestion du profil d'entreprise",
+          "L'application d'Akora Fanadiovana : produits d'hygiène, peinture ARCA et formations professionnelles, réunis au même endroit.",
+      "semanticLabel": "Icône représentant AkoraHub",
       "iconName": "business",
     },
     {
-      "title": "Gérez Votre Catalogue Produits",
+      "title": "Parcourez le Catalogue",
       "description":
-          "Ajoutez vos produits avec photos, vidéos et descriptions détaillées. Organisez facilement votre inventaire.",
-      "semanticLabel": "Icône représentant la gestion du catalogue produits",
+          "Découvrez nos produits avec photos, prix détail et prix gros, et commandez en quelques clics.",
+      "semanticLabel": "Icône représentant le catalogue de produits",
       "iconName": "inventory_2",
     },
     {
-      "title": "Engagez Vos Clients",
+      "title": "Échangez Facilement",
       "description":
-          "Communiquez directement via WhatsApp, suivez les prospects et gérez les rendez-vous en un seul endroit.",
-      "semanticLabel": "Icône représentant l'engagement client",
+          "Contactez notre équipe par messagerie ou WhatsApp, et retrouvez la communauté AkoraHub.",
+      "semanticLabel": "Icône représentant l'échange avec l'équipe et la communauté",
       "iconName": "people",
     },
     {
-      "title": "Analysez Vos Performances",
+      "title": "Suivez Vos Commandes",
       "description":
-          "Suivez vos ventes, conversions et statistiques en temps réel avec des rapports détaillés exportables.",
-      "semanticLabel": "Icône représentant l'analyse des performances",
+          "Consultez l'état de vos commandes et devis, de la validation jusqu'à la livraison.",
+      "semanticLabel": "Icône représentant le suivi des commandes",
       "iconName": "analytics",
     },
     {
-      "title": "Développez Votre Activité",
+      "title": "Formez-Vous avec Akora",
       "description":
-          "Accédez à tous les outils professionnels d'AkoraHub — catalogue, commandes, livraison et communauté — pour faire grandir votre activité au quotidien.",
-      "semanticLabel": "Icône représentant la croissance de l'activité",
+          "Accédez à l'Académie AkoraHub pour développer vos compétences et suivre nos dernières nouveautés.",
+      "semanticLabel": "Icône représentant l'Académie AkoraHub",
       "iconName": "trending_up",
     },
   ];
