@@ -581,3 +581,6 @@
 
 ## 2026-08-05 04:35 UTC — Claude
 - fix: texte d'onboarding neutre (AkoraHub n'est pas un SaaS multi-commerces) (`36a7aa0`)
+
+## 2026-08-05 04:38 UTC — Claude
+- fix: le bandeau flash info disparaît une fois lu par le client (`ec5989c`)
