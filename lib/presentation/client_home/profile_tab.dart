@@ -49,6 +49,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   bool _isUploadingAvatar = false;
   bool _isUploadingCover = false;
 
+  // Chevauchement entre l'avatar et la carte blanche en dessous (style
+  // "carte de profil" façon carte de visite, 05/08) — même valeur utilisée
+  // dans _buildCoverAndAvatar (position de l'avatar) et dans build()
+  // (décalage de la carte) pour que l'avatar reste centré exactement sur
+  // la jonction entre le bandeau et la carte. Correspond au rayon de
+  // l'avatar (44) + son liseré blanc (3).
+  static const double _avatarOverlap = 47;
+
   final Map<String, String> _sectorLabels = const {
     'hotel': 'Hôtel',
     'hopital': 'Hôpital',
@@ -351,11 +359,31 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               child: Text(_error!, style: const TextStyle(color: Colors.red)),
             ),
           _buildCoverAndAvatar(theme, coverUrl, avatarUrl),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4.w),
-            child: Column(
-              children: [
-                SizedBox(height: 1.5.h),
+          // Carte blanche à coins arrondis qui chevauche le bas du bandeau
+          // (style "carte de profil", 05/08) — décalée vers le haut de
+          // _avatarOverlap pour que l'avatar (positionné dans
+          // _buildCoverAndAvatar) reste à cheval exactement sur la
+          // jonction entre le bandeau coloré et la carte.
+          Transform.translate(
+            offset: const Offset(0, -_avatarOverlap),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, -6),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: Column(
+                  children: [
+                    SizedBox(height: _avatarOverlap + 1.5.h),
                 Text(
                   displayName,
                   style: theme.textTheme.titleLarge
@@ -549,8 +577,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 ),
                 SizedBox(height: 1.h),
                 _buildPublicationsPreview(theme),
-                SizedBox(height: 3.h),
-              ],
+                    SizedBox(height: 3.h),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -561,8 +591,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   Widget _buildCoverAndAvatar(
       ThemeData theme, String? coverUrl, String? avatarUrl) {
+    // Bandeau plus compact que l'ancien (18h -> 15h) : la carte blanche
+    // ajoutée dans build() chevauche sa base sur _avatarOverlap, donnant
+    // l'effet "carte de profil" où l'avatar est à cheval sur la jonction.
+    final coverHeight = 15.h;
     return SizedBox(
-      height: 24.h,
+      height: coverHeight + _avatarOverlap,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -570,7 +604,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             top: 0,
             left: 0,
             right: 0,
-            height: 18.h,
+            height: coverHeight,
             child: GestureDetector(
               onTap: _isUploadingCover ? null : _pickAndUploadCover,
               child: Stack(
@@ -615,7 +649,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ),
           ),
           Positioned(
-            top: 18.h - 9.h,
+            top: coverHeight - _avatarOverlap,
             left: 0,
             right: 0,
             child: Center(

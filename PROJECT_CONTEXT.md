@@ -6716,3 +6716,48 @@ comme suggestion cochable sur tous les produits suivants, dès le
 prochain chargement de la liste (rechargée après chaque sauvegarde).
 Pas de nouvelle table : simple agrégation de la colonne `text[]`
 existante.
+
+### CI de secours sur Codemagic + carte de profil client (05/08)
+
+Le quota gratuit GitHub Actions (2000 min/mois) a été épuisé ce jour
+(constaté via `github.com/settings/billing`, plusieurs dizaines de
+builds complets enchaînés) — reset dans ~27 jours. En attendant, le
+`codemagic.yaml` déjà présent dans le dépôt (compte Codemagic existant,
+quota séparé) a été étendu pour retrouver la parité fonctionnelle avec
+GitHub Actions : déploiement Netlify (APK + pages publiques, lien
+stable `akorahub-latest.apk`), notification Supabase
+(`update-latest-version`), et publication Firebase App Distribution
+(groupe "testeurs").
+
+Deux pièges rencontrés et corrigés en configurant Firebase App
+Distribution côté Codemagic :
+- `FIREBASE_APP_ID` doit être une variable **statique** (déclarée dans
+  `environment.vars`), pas générée dynamiquement par un script via
+  `$CM_ENV` — Codemagic valide/résout la section `publishing` avant
+  d'exécuter le moindre script, donc une variable créée en cours de
+  build lui est invisible (erreur "is not accessible").
+- Sans `artifact_type: apk` explicite dans `publishing.firebase.android`,
+  Codemagic publie par défaut l'AAB (présent lui aussi dans les
+  artefacts du build) plutôt que l'APK — or distribuer un AAB via
+  Firebase App Distribution exige que le projet Firebase soit lié à un
+  compte Google Play, ce qui n'est pas notre cas ("This project is not
+  linked to a Google Play account"). L'APK n'a pas cette contrainte.
+
+Build #23 confirmé entièrement vert (Netlify + Supabase + Firebase) —
+Codemagic est désormais le pipeline de secours pleinement fonctionnel
+tant que le quota GitHub Actions n'est pas reconstitué.
+
+**Carte de profil client (`profile_tab.dart`)** : nouvel habillage
+visuel façon "carte de visite" (bandeau + avatar à cheval sur la
+jonction + carte blanche arrondie en dessous), sur demande explicite
+avec une image de référence — en gardant la photo de couverture
+existante (contrairement à l'option alternative proposée, qui aurait
+remplacé la couverture par un aplat de couleur d'accent). Le bandeau
+(`_buildCoverAndAvatar`) est réduit (18h → 15h) ; juste en dessous, le
+bloc identité (nom, société, badges, stats, bio…) est désormais enrobé
+dans un `Container` à coins arrondis en haut (`surface` + ombre légère)
+remonté via `Transform.translate` d'exactement `_avatarOverlap` (47,
+= rayon avatar 44 + liseré 3) — une constante partagée avec le
+positionnement de l'avatar dans `_buildCoverAndAvatar`, pour que
+celui-ci reste toujours centré pile sur la jonction bandeau/carte,
+quel que soit l'appareil.
