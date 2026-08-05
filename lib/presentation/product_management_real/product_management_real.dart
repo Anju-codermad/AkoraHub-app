@@ -12,6 +12,31 @@ import '../../core/supabase/supabase_config.dart';
 import 'product_variants_screen.dart';
 import 'batch_list_screen.dart';
 
+/// Usages suggérés à la publication d'un produit (Savonnerie, Industriel,
+/// Nettoyage...) — reproduit les badges déjà utilisés sur les visuels
+/// marketing des produits (ex. "Soude Caustique"). Liste de départ,
+/// complétable à tout moment depuis le formulaire (voir
+/// `_showProductDialog`) : rester un `text[]` libre sur `products.use_cases`
+/// plutôt qu'une table à part, un simple tag descriptif n'a pas besoin
+/// d'être une entité normalisée.
+const List<String> kProductUsageSuggestions = [
+  'Savonnerie',
+  'Industriel',
+  'Nettoyage',
+  'Construction & BTP',
+  'Détergents',
+  'Médical',
+  'Cosmétique',
+  'Lessive',
+  'Désinfection',
+  'Agriculture',
+  'Traitement de l\'eau',
+  'Textile',
+  'Papier',
+  'Métallurgie',
+  'Alimentaire',
+];
+
 /// Gestion réelle des produits : tarification Gros/Détail par seuil de
 /// quantité, stock, et lots de production (n° lot, fabrication, DLC).
 /// Remplace progressivement l'ancien écran basé sur des données fictives.
@@ -226,6 +251,14 @@ class _ProductManagementRealState
     // de la retaper à la main (évite les fautes de frappe qui cassent le
     // regroupement des filtres côté client).
     String? selectedCategoryName = product?['category'];
+
+    // Usages du produit (Savonnerie, Industriel, Nettoyage...) — voir
+    // `kProductUsageSuggestions`. Simple liste de tags cochés, affichés en
+    // badges sur la fiche produit côté client.
+    final selectedUsages = <String>{
+      ...List<String>.from(product?['use_cases'] ?? const []),
+    };
+    final usageCustomCtrl = TextEditingController();
 
     // Galerie photo (jusqu'à 10). `existingPhotos` = déjà en base (si
     // édition) ; `newPhotos` = fraîchement sélectionnées, pas encore
@@ -482,6 +515,70 @@ class _ProductManagementRealState
                   }).toList(),
                 ),
                 const SizedBox(height: 12),
+                const Text('Usages (affichés sur la fiche produit)'),
+                const SizedBox(height: 4),
+                Builder(builder: (context) {
+                  // Suggestions + tags déjà choisis mais absents de la liste
+                  // de départ (ajoutés manuellement sur un produit précédent).
+                  final allOptions = <String>{
+                    ...kProductUsageSuggestions,
+                    ...selectedUsages,
+                  }.toList();
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: allOptions.map((usage) {
+                      return FilterChip(
+                        label: Text(usage),
+                        selected: selectedUsages.contains(usage),
+                        onSelected: (selected) {
+                          setDialogState(() {
+                            if (selected) {
+                              selectedUsages.add(usage);
+                            } else {
+                              selectedUsages.remove(usage);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  );
+                }),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: usageCustomCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Autre usage (optionnel)',
+                          isDense: true,
+                        ),
+                        onSubmitted: (_) {
+                          final value = usageCustomCtrl.text.trim();
+                          if (value.isEmpty) return;
+                          setDialogState(() {
+                            selectedUsages.add(value);
+                            usageCustomCtrl.clear();
+                          });
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      tooltip: 'Ajouter cet usage',
+                      onPressed: () {
+                        final value = usageCustomCtrl.text.trim();
+                        if (value.isEmpty) return;
+                        setDialogState(() {
+                          selectedUsages.add(value);
+                          usageCustomCtrl.clear();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
@@ -546,6 +643,7 @@ class _ProductManagementRealState
                       : barcodeCtrl.text.trim(),
                   'category': selectedCategoryName ?? '',
                   'business_unit_id': selectedUnitId,
+                  'use_cases': selectedUsages.toList(),
                   'price_detail':
                       double.tryParse(priceDetailCtrl.text) ?? 0,
                   'price_gros': double.tryParse(priceGrosCtrl.text) ?? 0,

@@ -6604,3 +6604,29 @@ suppression. Ajout :
   (`ChatBubbleSettingsRepo.setHiddenByClient`, phase68) plutôt qu'un
   nouvel état — réactivable depuis Paramètres, comme le
   "masquer/afficher" déjà proposé là-bas.
+
+## Usages produit (badges Savonnerie/Industriel/Nettoyage...) (05/08)
+
+Demande à partir de visuels marketing existants (ex. "Soude
+Caustique") qui listent toujours les usages possibles du produit en
+badges (Savonnerie, Industriel, Nettoyage...) : reproduire ça dans
+l'app, choisi par l'admin **au moment de publier le produit** (pas de
+saisie libre uniquement — une liste de suggestions prêtes à cocher).
+
+**SQL phase73** : `products.use_cases text[]` (défaut `'{}'`).
+
+**`product_management_real.dart`** : nouvelle constante
+`kProductUsageSuggestions` (15 usages de départ : Savonnerie,
+Industriel, Nettoyage, Construction & BTP, Détergents, Médical,
+Cosmétique, Lessive, Désinfection, Agriculture, Traitement de l'eau,
+Textile, Papier, Métallurgie, Alimentaire). Dans le formulaire produit,
+section "Usages" sous "Pilier d'entreprise" : `FilterChip` multi-
+sélection sur ces suggestions (+ les usages déjà choisis sur ce produit
+mais absents de la liste, pour ne jamais en perdre à l'édition) + un
+champ texte libre pour ajouter un usage hors liste. Sauvegardé dans
+`use_cases`.
+
+**`product_detail_client.dart`** : les usages cochés s'affichent en
+badges (icône ✓ + libellé) juste après la puce de catégorie, sur la
+fiche produit côté client — même esprit visuel que les infographies
+marketing fournies en référence.

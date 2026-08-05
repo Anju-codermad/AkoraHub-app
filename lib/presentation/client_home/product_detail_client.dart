@@ -266,6 +266,26 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                   visualDensity: VisualDensity.compact,
                 ),
               ],
+              if ((p['use_cases'] as List?)?.isNotEmpty ?? false) ...[
+                SizedBox(height: 1.h),
+                Text('Usages', style: theme.textTheme.labelLarge),
+                SizedBox(height: 0.5.h),
+                Wrap(
+                  spacing: 2.w,
+                  runSpacing: 0.8.h,
+                  children: [
+                    for (final usage in (p['use_cases'] as List))
+                      Chip(
+                        avatar: Icon(Icons.check_circle,
+                            size: 16, color: theme.colorScheme.primary),
+                        label: Text(usage.toString()),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: theme.colorScheme.primaryContainer
+                            .withValues(alpha: 0.35),
+                      ),
+                  ],
+                ),
+              ],
               SizedBox(height: 1.h),
               if ((p['description'] ?? '').toString().isNotEmpty)
                 Text(p['description'], style: theme.textTheme.bodyMedium),
