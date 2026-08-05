@@ -126,6 +126,15 @@ jobs:
         # à la Release GitHub (dépôt privé, inutilisable par un vrai
         # client, voir 05/08). Optionnel : ignoré tant que le secret
         # SUPABASE_SERVICE_ROLE_KEY n'est pas configuré.
+        #
+        # ⚠️ Échoue actuellement (413 "Payload too large") : le plan
+        # Supabase Free plafonne la taille d'upload à 50 Mo, bien en
+        # dessous des ~300 Mo de l'APK — indépendant du `file_size_limit`
+        # du bucket (phase72), qui ne peut pas contourner ce plafond de
+        # plan. Laissé en place (inoffensif, `exit 0`) en attendant une
+        # vraie solution ; le code HTTP réel est propagé à l'étape
+        # suivante via STORAGE_UPLOAD_STATUS pour ne jamais construire un
+        # lien de téléchargement vers un fichier qui n'a pas été déposé.
         if: ${{ env.SUPABASE_SERVICE_ROLE_KEY != '' }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -138,6 +147,7 @@ jobs:
             --data-binary @build/app/outputs/flutter-apk/app-release.apk) || true
           echo "Code HTTP : $HTTP_STATUS"
           cat /tmp/upload_response.json 2>/dev/null || echo "(aucune réponse reçue)"
+          echo "STORAGE_UPLOAD_STATUS=$HTTP_STATUS" >> "$GITHUB_ENV"
           if [ "$HTTP_STATUS" != "200" ]; then
             echo "Upload vers Supabase Storage échoué (non bloquant) — le lien de mise à jour restera sur GitHub Releases pour ce build."
           fi
@@ -162,11 +172,15 @@ jobs:
         # Dashboard). D'où l'en-tête Authorization avec la clé anon
         # ci-dessous, en plus du secret applicatif.
         #
-        # downloadUrl pointe désormais vers le lien Supabase Storage
-        # stable (voir étape précédente) plutôt que vers la Release
-        # GitHub — inutilisable par un vrai client car le dépôt est privé
-        # (05/08). Repli automatique sur l'ancien lien GitHub tant que le
-        # secret SUPABASE_SERVICE_ROLE_KEY n'est pas encore configuré.
+        # downloadUrl pointe vers le lien Supabase Storage stable
+        # UNIQUEMENT si l'upload de l'étape précédente a réellement
+        # réussi (STORAGE_UPLOAD_STATUS == 200) — pas juste si le secret
+        # est configuré : un secret présent mais un upload en échec
+        # (ex. 413, voir étape précédente) construisait un lien vers un
+        # fichier jamais déposé, cassant la popup de mise à jour au lieu
+        # de la réparer (bug repéré et corrigé le 05/08). Repli sur
+        # l'ancien lien GitHub (toujours inutilisable par un vrai client
+        # tant que le dépôt est privé, mais au moins pas un lien mort).
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -175,7 +189,7 @@ jobs:
           VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
           VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
           BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+          if [ "$STORAGE_UPLOAD_STATUS" = "200" ]; then
             DOWNLOAD_URL="$SUPABASE_URL/storage/v1/object/public/app-releases/akorahub-latest.apk"
           else
             DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}"

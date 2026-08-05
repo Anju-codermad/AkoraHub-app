@@ -6502,6 +6502,41 @@ Supabase reste identique et sert toujours la dernière build.
 Tant que ce secret n'est pas ajouté, tout continue de fonctionner comme
 avant (repli sur le lien GitHub) — rien n'est cassé en attendant.
 
+### Échec réel de l'upload : plan Supabase Free plafonné à 50 Mo (05/08)
+
+Une fois le secret ajouté (voir ci-dessus) et le premier vrai build
+lancé (run 308), l'upload échoue avec **`413 Payload too large` /
+`EntityTooLarge`** : le **plan Supabase Free plafonne la taille
+d'upload à 50 Mo**, très en dessous des ~300 Mo de l'APK. Ce plafond
+est indépendant du `file_size_limit` du bucket (phase72, 500 Mo) —
+c'est une limite de plan, pas de bucket, et rien côté SQL/config du
+bucket ne peut la contourner.
+
+**Bug additionnel repéré et corrigé dans la foulée** : l'étape
+"Notifier Supabase" décidait du `downloadUrl` en vérifiant seulement
+si le secret `SUPABASE_SERVICE_ROLE_KEY` était configuré — pas si
+l'upload avait réellement réussi. Résultat : avec le secret présent
+mais l'upload en échec (413), elle construisait quand même un lien
+Supabase Storage vers un fichier **jamais déposé**, remplaçant l'ancien
+lien GitHub (au moins valide en intention) par un lien totalement mort.
+**Corrigé** : le code HTTP réel de l'upload est propagé via
+`STORAGE_UPLOAD_STATUS` (variable d'environnement inter-étapes,
+`$GITHUB_ENV`) ; le lien Supabase Storage n'est utilisé que si ce code
+vaut exactement `200`, sinon repli sur le lien GitHub comme avant.
+
+**Conséquence** : tant que ce plafond de plan n'est pas levé
+(upgrade payant Supabase Pro) ou que l'APK n'est pas hébergé ailleurs,
+le lien de mise à jour stable via Supabase Storage ne peut **jamais**
+fonctionner pour ce fichier — le mécanisme retombe systématiquement sur
+le lien GitHub (toujours inutilisable par un vrai client, dépôt privé).
+**Le problème initial (lien de mise à jour utilisable par un vrai
+client) reste donc entier** : à rouvrir avec l'utilisatrice — pistes
+possibles : héberger l'APK sur le site Netlify déjà utilisé (via un
+déploiement CLI automatisé plutôt que le Storage Supabase), continuer
+le partage manuel Google Drive pour Facebook (fonctionne déjà, sans
+lien stable), ou upgrade payant Supabase Pro (lève le plafond, coût
+récurrent).
+
 ## Politique de confidentialité hébergée publiquement (checklist Play Store) (05/08)
 
 Reprise de la checklist publication Play Store (voir section dédiée
