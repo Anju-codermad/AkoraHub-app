@@ -6322,9 +6322,36 @@ App ID invalide, échec réseau vers `super-endpoint`, etc.) apparaît
 directement dans l'app, sans avoir besoin des logs Supabase à chaque
 nouvel essai.
 
-**Cause de cet échec précis pas encore identifiée** — à vérifier en
-priorité : logs de la fonction `super-endpoint` (Supabase Dashboard ->
-Edge Functions -> super-endpoint -> Logs) au moment de l'appel raté ;
-si la fonction n'a pas été appelée du tout, le souci est côté
-`engine.initialize`/`joinChannel` (SDK Agora natif) plutôt que le
-token.
+**Cause identifiée** : logs de `super-endpoint` — `worker boot error:
+Uncaught SyntaxError`. Même symptôme que le piège déjà rencontré avec
+`update-latest-version` (04/08) : du code résiduel du template
+Supabase resté mélangé au contenu collé dans l'éditeur en ligne, la
+fonction ne démarre même pas. Corrigé en redemandant à l'utilisateur de
+tout sélectionner (Ctrl+A) et supprimer avant de recoller le contenu
+exact de `supabase/functions/super-endpoint/index.ts`, puis Deploy —
+**à confirmer par un nouveau test d'appel après redéploiement**.
+
+## Webhook de notification de version : toujours en échec malgré des secrets corrects (05/08)
+
+Après avoir corrigé `FIREBASE_APP_DISTRIBUTION_GROUPS` (run 299,
+build-apk.yml) — la distribution Firebase fonctionne enfin
+("distributed to testers/groups successfully"). Mais l'étape "Notifier
+Supabase" échoue encore, alors que :
+- le header `x-webhook-secret` n'est plus vide dans les logs (masqué
+  `***`, preuve que le secret GitHub `UPDATE_VERSION_WEBHOOK_SECRET`
+  est bien renseigné, contrairement à avant) ;
+- le digest SHA256 affiché côté Supabase pour ce secret correspond
+  exactement à `sha256sum` de la valeur donnée à l'utilisateur.
+
+Donc les deux secrets sont vraisemblablement corrects des deux côtés,
+mais `curl -sf` avale complètement la réponse HTTP en cas d'échec — on
+ne sait pas si Supabase répond 401 (vrai mismatch malgré tout, ex.
+espace/retour à la ligne collé par erreur), 500 (bug dans la fonction),
+ou si la requête n'atteint même pas Supabase.
+
+**`.github/workflows/build-apk.yml`** : l'étape n'utilise plus
+`curl -sf ... || echo "..."` (qui masque tout) mais capture le code
+HTTP (`-w "%{http_code}"`) et affiche la réponse complète du corps —
+prochain build : le vrai diagnostic sera visible directement dans les
+logs GitHub Actions, plus besoin de deviner. Toujours non bloquant
+(`exit 0` systématique en fin d'étape).

@@ -122,17 +122,30 @@ jobs:
         # update-latest-version) pour que l'app elle-même propose une
         # mise à jour au démarrage — voir core/updates/update_checker.dart.
         # Volontairement pas de `if:` sur un secret (voir plus haut) :
-        # curl échoue simplement si UPDATE_VERSION_WEBHOOK_SECRET est
-        # absent, capté par le `||` sans casser le build.
+        # ne casse jamais le build (dernière ligne : exit 0 systématique).
+        # Affiche le code HTTP + la réponse complète (au lieu d'avaler
+        # l'erreur avec `curl -f`) — un premier essai avec ce comportement
+        # masquait la vraie cause d'un échec persistant malgré un secret
+        # correctement configuré des deux côtés (04-05/08).
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          UPDATE_VERSION_WEBHOOK_SECRET: ${{ secrets.UPDATE_VERSION_WEBHOOK_SECRET }}
         run: |
           VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
           VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
           BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
-          curl -sf -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/update-latest-version" \
+          HTTP_STATUS=$(curl -s -o /tmp/notify_response.json -w "%{http_code}" \
+            -X POST "$SUPABASE_URL/functions/v1/update-latest-version" \
             -H "Content-Type: application/json" \
-            -H "x-webhook-secret: ${{ secrets.UPDATE_VERSION_WEBHOOK_SECRET }}" \
-            -d "{\"versionName\":\"$VERSION_NAME\",\"buildNumber\":$BUILD_NUMBER,\"downloadUrl\":\"https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}\"}" \
-          || echo "Notification de version échouée (non bloquant — secret UPDATE_VERSION_WEBHOOK_SECRET probablement absent)."
+            -H "x-webhook-secret: $UPDATE_VERSION_WEBHOOK_SECRET" \
+            -d "{\"versionName\":\"$VERSION_NAME\",\"buildNumber\":$BUILD_NUMBER,\"downloadUrl\":\"https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}\"}") || true
+          echo "Code HTTP : $HTTP_STATUS"
+          echo "Réponse :"
+          cat /tmp/notify_response.json 2>/dev/null || echo "(aucune réponse reçue)"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Notification de version échouée (non bloquant)."
+          fi
+          exit 0
 
       - name: Publier l'App Bundle et l'APK comme Release GitHub
         # Contourne totalement le quota de stockage Actions (500 Mo,
