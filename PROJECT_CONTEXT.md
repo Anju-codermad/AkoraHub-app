@@ -6761,3 +6761,14 @@ remonté via `Transform.translate` d'exactement `_avatarOverlap` (47,
 positionnement de l'avatar dans `_buildCoverAndAvatar`, pour que
 celui-ci reste toujours centré pile sur la jonction bandeau/carte,
 quel que soit l'appareil.
+
+### Icônes panier/commandes/messagerie/notifications en carré arrondi (05/08)
+
+Sur demande, avec une image de référence : les 4 icônes de la barre du
+haut de l'accueil (`catalog_tab.dart`) avaient déjà un fond gris clair
+et un badge de compteur, mais en cercle parfait (`CircleBorder`). Passé
+à `RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))`
+pour le look "carré arrondi" (squircle) demandé — changement purement
+cosmétique, sans toucher aux deux autres boutons circulaires du même
+fichier (superposition sur carte produit, bouton flottant) qui n'étaient
+pas concernés par la demande.

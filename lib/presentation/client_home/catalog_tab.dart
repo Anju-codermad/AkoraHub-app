@@ -532,7 +532,9 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           Material(
                             color: theme.colorScheme.surfaceContainerHighest
                                 .withValues(alpha: 0.5),
-                            shape: const CircleBorder(),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             child: Badge(
                               label: Text('$cartCount'),
                               isLabelVisible: cartCount > 0,
@@ -547,7 +549,9 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           Material(
                             color: theme.colorScheme.surfaceContainerHighest
                                 .withValues(alpha: 0.5),
-                            shape: const CircleBorder(),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             child: IconButton(
                               icon: const Icon(Icons.receipt_long_outlined),
                               tooltip: 'Commandes',
@@ -565,7 +569,9 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           Material(
                             color: theme.colorScheme.surfaceContainerHighest
                                 .withValues(alpha: 0.5),
-                            shape: const CircleBorder(),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             child: Badge(
                               label: Text('$_unreadMessagesCount'),
                               isLabelVisible: _unreadMessagesCount > 0,
@@ -586,7 +592,9 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           Material(
                             color: theme.colorScheme.surfaceContainerHighest
                                 .withValues(alpha: 0.5),
-                            shape: const CircleBorder(),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             child: Badge(
                               label: Text('$_unreadMessagesCount'),
                               isLabelVisible: _unreadMessagesCount > 0,
