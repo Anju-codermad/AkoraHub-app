@@ -30,7 +30,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     {
       "title": "Bienvenue sur AkoraHub",
       "description":
-          "L'application d'Akora Fanadiovana : produits d'hygiène, peinture ARCA et formations professionnelles, réunis au même endroit.",
+          "L'application d'Akora Fanadiovana : produits d'hygiène, peinture et formations professionnelles, réunis au même endroit.",
       "semanticLabel": "Icône représentant AkoraHub",
       "iconName": "business",
     },
