@@ -6529,13 +6529,47 @@ vaut exactement `200`, sinon repli sur le lien GitHub comme avant.
 le lien de mise à jour stable via Supabase Storage ne peut **jamais**
 fonctionner pour ce fichier — le mécanisme retombe systématiquement sur
 le lien GitHub (toujours inutilisable par un vrai client, dépôt privé).
-**Le problème initial (lien de mise à jour utilisable par un vrai
-client) reste donc entier** : à rouvrir avec l'utilisatrice — pistes
-possibles : héberger l'APK sur le site Netlify déjà utilisé (via un
-déploiement CLI automatisé plutôt que le Storage Supabase), continuer
-le partage manuel Google Drive pour Facebook (fonctionne déjà, sans
-lien stable), ou upgrade payant Supabase Pro (lève le plafond, coût
-récurrent).
+
+### Pivot vers Netlify : l'upload Supabase Storage abandonné (05/08)
+
+Trois options présentées à l'utilisatrice (Netlify automatisé / rester
+en Google Drive manuel / upgrade payant Supabase Pro) — **Netlify
+recommandé et retenu** : gratuit, infrastructure déjà en place et
+fonctionnelle (2 pages déjà hébergées dessus), aucun coût récurrent
+contrairement à l'upgrade Supabase.
+
+**`.github/workflows/build-apk.yml`** : l'étape "Uploader l'APK sur
+Supabase Storage" est **remplacée** par "Déployer l'APK + les pages
+publiques sur Netlify" — copie l'APK compilé et les pages
+`docs/formation-access/*.html` dans un dossier temporaire, puis
+`npx netlify-cli deploy --prod` vers le site `akorahub-formation`
+existant (secrets `NETLIFY_AUTH_TOKEN` + `NETLIFY_SITE_ID`, optionnels
+— ignoré tant qu'ils ne sont pas configurés, comme les autres étapes
+optionnelles du workflow). L'APK est déposé sous un nom fixe
+(`akorahub-latest.apk`), donnant un lien stable :
+`https://akorahub-formation.netlify.app/akorahub-latest.apk`. Le
+`downloadUrl` envoyé à `update-latest-version` n'utilise ce lien que si
+le déploiement a réellement réussi (`NETLIFY_DEPLOY_OK`), sinon repli
+sur le lien GitHub — même principe de propagation de statut réel que
+le correctif Supabase Storage juste au-dessus, pour ne plus jamais
+répéter ce bug.
+
+**Bénéfice secondaire** : `index.html` et `privacy-policy.html` se
+déploient désormais automatiquement à chaque build (contenu du dépôt),
+le glisser-déposer manuel sur Netlify décrit plus haut n'est donc
+requis que si le format d'une page change en dehors d'un build APK.
+
+Le bucket `app-releases` (phase72) et sa policy de lecture restent en
+place, inutilisés — abandon sans nettoyage, même logique que pour le
+bucket `formation-web` délaissé au profit de Netlify le 01/08.
+
+**À faire une seule fois, côté utilisateur** :
+1. Créer un jeton d'accès personnel Netlify (User settings -> Applications
+   -> New access token).
+2. Récupérer l'ID du site `akorahub-formation` (Site configuration ->
+   General -> Site details -> Site ID — un UUID, pas le nom du site).
+3. Ajouter les deux comme secrets GitHub : `NETLIFY_AUTH_TOKEN` et
+   `NETLIFY_SITE_ID`.
 
 ## Politique de confidentialité hébergée publiquement (checklist Play Store) (05/08)
 

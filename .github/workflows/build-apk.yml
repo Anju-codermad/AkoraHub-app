@@ -22,7 +22,8 @@ jobs:
     env:
       GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
       FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
 
     steps:
       - name: Récupérer le code
@@ -118,40 +119,37 @@ jobs:
           file: build/app/outputs/flutter-apk/app-release.apk
           releaseNotes: ${{ github.event.head_commit.message }}
 
-      - name: Uploader l'APK sur Supabase Storage (lien de mise à jour stable)
-        # Dépose l'APK dans le bucket public "app-releases" (voir SQL
-        # phase72), toujours sous le même nom de fichier (réécrit à
-        # chaque build via x-upsert) : donne un lien de téléchargement
-        # STABLE, qui ne change jamais d'un build à l'autre — contrairement
-        # à la Release GitHub (dépôt privé, inutilisable par un vrai
-        # client, voir 05/08). Optionnel : ignoré tant que le secret
-        # SUPABASE_SERVICE_ROLE_KEY n'est pas configuré.
+      - name: Déployer l'APK + les pages publiques sur Netlify
+        # Remplace l'upload Supabase Storage (abandonné le 05/08 — plan
+        # Free plafonné à 50 Mo, très en dessous des ~300 Mo de l'APK,
+        # échec systématique 413 "Payload too large"). Réutilise le site
+        # Netlify déjà en place pour les pages publiques
+        # (docs/formation-access/) : dépose l'APK à côté, toujours sous
+        # le même nom (akorahub-latest.apk, jamais versionné par build) —
+        # donne un lien qui ne change jamais d'un build à l'autre.
         #
-        # ⚠️ Échoue actuellement (413 "Payload too large") : le plan
-        # Supabase Free plafonne la taille d'upload à 50 Mo, bien en
-        # dessous des ~300 Mo de l'APK — indépendant du `file_size_limit`
-        # du bucket (phase72), qui ne peut pas contourner ce plafond de
-        # plan. Laissé en place (inoffensif, `exit 0`) en attendant une
-        # vraie solution ; le code HTTP réel est propagé à l'étape
-        # suivante via STORAGE_UPLOAD_STATUS pour ne jamais construire un
-        # lien de téléchargement vers un fichier qui n'a pas été déposé.
-        if: ${{ env.SUPABASE_SERVICE_ROLE_KEY != '' }}
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        # Bénéfice secondaire : index.html et privacy-policy.html se
+        # déploient désormais automatiquement à chaque build (même
+        # contenu que le dépôt) — plus besoin de glisser-déposer
+        # manuellement sur Netlify à chaque modification de ces pages.
+        #
+        # Optionnel : ignoré tant que les secrets NETLIFY_AUTH_TOKEN et
+        # NETLIFY_SITE_ID ne sont pas configurés (jeton d'accès personnel
+        # Netlify + ID du site "akorahub-formation", pas son nom).
+        if: ${{ env.NETLIFY_AUTH_TOKEN != '' && env.NETLIFY_SITE_ID != '' }}
         run: |
-          HTTP_STATUS=$(curl -s -o /tmp/upload_response.json -w "%{http_code}" \
-            -X POST "$SUPABASE_URL/storage/v1/object/app-releases/akorahub-latest.apk" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/vnd.android.package-archive" \
-            -H "x-upsert: true" \
-            --data-binary @build/app/outputs/flutter-apk/app-release.apk) || true
-          echo "Code HTTP : $HTTP_STATUS"
-          cat /tmp/upload_response.json 2>/dev/null || echo "(aucune réponse reçue)"
-          echo "STORAGE_UPLOAD_STATUS=$HTTP_STATUS" >> "$GITHUB_ENV"
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "Upload vers Supabase Storage échoué (non bloquant) — le lien de mise à jour restera sur GitHub Releases pour ce build."
+          rm -rf /tmp/netlify-deploy
+          mkdir -p /tmp/netlify-deploy
+          cp docs/formation-access/*.html /tmp/netlify-deploy/
+          cp build/app/outputs/flutter-apk/app-release.apk /tmp/netlify-deploy/akorahub-latest.apk
+          if npx --yes netlify-cli@17 deploy --prod \
+              --dir=/tmp/netlify-deploy \
+              --site="$NETLIFY_SITE_ID" \
+              --auth="$NETLIFY_AUTH_TOKEN"; then
+            echo "NETLIFY_DEPLOY_OK=1" >> "$GITHUB_ENV"
+          else
+            echo "Déploiement Netlify échoué (non bloquant) — le lien de mise à jour restera sur GitHub Releases pour ce build."
           fi
-          exit 0
 
       - name: Notifier Supabase de la nouvelle version disponible
         # Alimente `app_latest_version` (via l'Edge Function
@@ -172,15 +170,14 @@ jobs:
         # Dashboard). D'où l'en-tête Authorization avec la clé anon
         # ci-dessous, en plus du secret applicatif.
         #
-        # downloadUrl pointe vers le lien Supabase Storage stable
-        # UNIQUEMENT si l'upload de l'étape précédente a réellement
-        # réussi (STORAGE_UPLOAD_STATUS == 200) — pas juste si le secret
-        # est configuré : un secret présent mais un upload en échec
-        # (ex. 413, voir étape précédente) construisait un lien vers un
-        # fichier jamais déposé, cassant la popup de mise à jour au lieu
-        # de la réparer (bug repéré et corrigé le 05/08). Repli sur
-        # l'ancien lien GitHub (toujours inutilisable par un vrai client
-        # tant que le dépôt est privé, mais au moins pas un lien mort).
+        # downloadUrl pointe vers le lien Netlify stable UNIQUEMENT si le
+        # déploiement de l'étape précédente a réellement réussi
+        # (NETLIFY_DEPLOY_OK == 1) — pas juste si les secrets sont
+        # configurés, pour ne jamais construire un lien vers un fichier
+        # qui n'a pas été déposé (bug repéré sur la tentative Supabase
+        # Storage précédente, corrigé le 05/08). Repli sur l'ancien lien
+        # GitHub (toujours inutilisable par un vrai client tant que le
+        # dépôt est privé, mais au moins pas un lien mort).
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -189,8 +186,8 @@ jobs:
           VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
           VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
           BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
-          if [ "$STORAGE_UPLOAD_STATUS" = "200" ]; then
-            DOWNLOAD_URL="$SUPABASE_URL/storage/v1/object/public/app-releases/akorahub-latest.apk"
+          if [ "$NETLIFY_DEPLOY_OK" = "1" ]; then
+            DOWNLOAD_URL="https://akorahub-formation.netlify.app/akorahub-latest.apk"
           else
             DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}"
           fi
