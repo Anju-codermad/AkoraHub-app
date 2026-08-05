@@ -6535,3 +6535,48 @@ elle-même.
 (glisser à nouveau `docs/formation-access/` sur le site Netlify
 existant, onglet Deploys) — sinon `privacy-policy.html` n'existe pas
 encore en ligne malgré le lien déjà actif dans l'app.
+
+**Confirmé en ligne le 05/08** (première mise à jour) :
+`https://akorahub-formation.netlify.app/privacy-policy.html` s'affiche
+correctement (testé par l'utilisatrice).
+
+## Politique de confidentialité complétée : sous-traitants manquants (05/08)
+
+En croisant la politique de confidentialité avec le guide "Sécurité des
+données" (voir ci-dessous), un vrai trou a été repéré : **Agora**
+(appels audio/vidéo), **Firebase** (notifications push) et les
+**opérateurs mobile money** (Mvola, Orange Money, Airtel Money)
+n'étaient mentionnés nulle part dans `docs/privacy-policy.html` — seul
+Supabase l'était. Or le guide Sécurité des données réclamait justement
+que la politique confirme ces sous-traitants.
+
+**Corrigé** : nouvelle sous-section « 4.1 Prestataires techniques
+(sous-traitants) » avec un tableau des 4 prestataires et leur usage
+précis (dont la clarification que le flux audio/vidéo Agora n'est
+**jamais reçu ni stocké** par les serveurs AkoraHub, uniquement
+relayé en direct entre les deux appareils). Date de mise à jour
+affichée passée au 5 août 2026. Fichier synchronisé dans
+`docs/formation-access/privacy-policy.html` (même redéploiement
+Netlify manuel requis pour que la version en ligne reflète ce
+correctif — **redéploiement supplémentaire nécessaire** après celui
+déjà fait pour la mise en ligne initiale).
+
+## Guides Play Store remis à jour (v2.0) (05/08)
+
+Deux guides de soumission avaient été préparés le 01/08 (build #228)
+puis mis de côté. Remis à jour avant réutilisation, pour refléter tout
+ce qui a été ajouté depuis (appels audio/vidéo, messagerie privée avec
+pièces jointes, groupes Formation, tableaux de bord CRM admin) :
+
+- **Guide "Sécurité des données"** (v2.0, build #304) : nouvelle
+  catégorie *Audio* documentant les appels (non collectés — relayés en
+  direct via Agora), pièces jointes de messagerie ajoutées à la ligne
+  Photos, note sur les tableaux de bord CRM (finalité "Analytics" à
+  considérer en plus de "Fonctionnalité de l'application").
+- **Guide "Fiche produit Play Store"** (v2.0) : description complète
+  enrichie (appels audio/vidéo, groupes Formation), lien de politique
+  de confidentialité renseigné avec la vraie URL Netlify.
+
+Publiés comme Artifacts pour consultation par l'utilisatrice ; fichiers
+sources conservés dans le répertoire scratchpad de la session (pas des
+fichiers livrables de l'app, pas commités au dépôt).
