@@ -850,7 +850,8 @@ class _EditProfileSheet extends StatefulWidget {
 }
 
 class _EditProfileSheetState extends State<_EditProfileSheet> {
-  late final TextEditingController _nameController;
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
   late final TextEditingController _companyController;
   late final TextEditingController _phoneController;
   late final TextEditingController _locationController;
@@ -871,8 +872,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.profile['full_name'] ?? '');
+    _firstNameController =
+        TextEditingController(text: widget.profile['first_name'] ?? '');
+    _lastNameController =
+        TextEditingController(text: widget.profile['last_name'] ?? '');
     _companyController =
         TextEditingController(text: widget.profile['company_name'] ?? '');
     _phoneController =
@@ -887,7 +890,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _companyController.dispose();
     _phoneController.dispose();
     _locationController.dispose();
@@ -966,7 +970,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     setState(() => _isSaving = true);
     try {
       await SupabaseConfig.client.from('profiles').update({
-        'full_name': _nameController.text.trim(),
+        'first_name': _firstNameController.text.trim(),
+        'last_name': _lastNameController.text.trim(),
         'company_name': _companyController.text.trim(),
         'phone': _phoneController.text.trim(),
         'location': _locationController.text.trim(),
@@ -1005,12 +1010,28 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
             Text('Modifier mon profil',
                 style: Theme.of(context).textTheme.titleMedium),
             SizedBox(height: 2.h),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nom complet',
-                border: OutlineInputBorder(),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _firstNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Prénom',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 3.w),
+                Expanded(
+                  child: TextField(
+                    controller: _lastNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nom',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
             ),
             SizedBox(height: 1.5.h),
             TextField(

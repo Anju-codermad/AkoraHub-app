@@ -192,6 +192,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       // impossible de le faire tout de suite si la confirmation par email
       // est activée (pas encore de session -> RLS refuse l'écriture).
       final pendingProfileUpdate = {
+        'first_name': _firstNameController.text.trim(),
+        'last_name': _lastNameController.text.trim(),
         'client_type': _clientType,
         'company_name': _companyNameController.text.trim().isEmpty
             ? null

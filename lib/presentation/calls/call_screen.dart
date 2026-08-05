@@ -1,4 +1,5 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -34,6 +35,10 @@ class CallScreen extends StatefulWidget {
 
 class _CallScreenState extends State<CallScreen> {
   RtcEngine? _engine;
+  // Tonalité de sonnerie côté appelant ("Appel en cours...") — jusque-là
+  // absente, l'appel semblait "silencieux" alors qu'il fonctionnait
+  // (05/08). Même asset que la sonnerie d'appel entrant, en boucle.
+  final _ringbackPlayer = AudioPlayer();
   bool get _isVideo => widget.callType == 'video';
 
   bool _joined = false;
@@ -81,8 +86,10 @@ class _CallScreenState extends State<CallScreen> {
         RtcEngineEventHandler(
           onJoinChannelSuccess: (connection, elapsed) {
             if (mounted) setState(() => _joined = true);
+            _startRingback();
           },
           onUserJoined: (connection, remoteUid, elapsed) {
+            _stopRingback();
             if (mounted) {
               setState(() {
                 _remoteJoined = true;
@@ -123,7 +130,23 @@ class _CallScreenState extends State<CallScreen> {
     }
   }
 
+  Future<void> _startRingback() async {
+    try {
+      await _ringbackPlayer.setReleaseMode(ReleaseMode.loop);
+      await _ringbackPlayer.play(AssetSource('notif_radar.wav'));
+    } catch (_) {
+      // Pas de sonnerie si l'asset est indisponible — pas bloquant.
+    }
+  }
+
+  Future<void> _stopRingback() async {
+    try {
+      await _ringbackPlayer.stop();
+    } catch (_) {}
+  }
+
   Future<void> _endCall() async {
+    await _stopRingback();
     if (widget.invitationId != null) {
       try {
         await CallRepo.updateStatus(widget.invitationId!, 'ended');
@@ -136,6 +159,7 @@ class _CallScreenState extends State<CallScreen> {
 
   @override
   void dispose() {
+    _ringbackPlayer.dispose();
     _engine?.leaveChannel();
     _engine?.release();
     super.dispose();

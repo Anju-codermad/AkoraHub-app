@@ -6395,3 +6395,47 @@ catalogue" déjà présent en bas de l'Accueil), où vit la vraie logique
 de recherche/pagination. Volontairement pas de duplication de cette
 logique sur deux écrans — pattern courant sur les apps e-commerce
 (barre "raccourci" sur l'accueil, recherche réelle sur un écran dédié).
+
+## Sonnerie côté appelant manquante (05/08)
+
+Une fois le bug `RtcRole`/`Role` corrigé, l'appel fonctionne (confirmé
+par l'utilisateur) mais reste totalement silencieux pendant "Appel en
+cours..." côté appelant — seul l'écran d'appel **entrant**
+(`incoming_call_screen.dart`) jouait une sonnerie (`notif_radar.wav` en
+boucle via `audioplayers`).
+
+**`call_screen.dart`** : ajout d'un `AudioPlayer` de "ringback" — démarre
+en boucle dès `onJoinChannelSuccess` (le canal local est rejoint, en
+attente du distant), s'arrête dès `onUserJoined` (le distant a rejoint)
+ou à la fin de l'appel (`_endCall`)/`dispose`. Même asset que la
+sonnerie d'appel entrant, pour la cohérence.
+
+## Nom et prénom séparés dans le profil client (05/08)
+
+Le formulaire "Modifier mon profil" (`profile_tab.dart`) n'avait qu'un
+champ unique "Nom complet" — repéré par l'utilisateur sur le profil
+client existant. Le formulaire d'**inscription**, lui, demandait déjà
+Nom et Prénom séparément (`registration_screen.dart`) mais ne stockait
+que leur concaténation dans `profiles.full_name` (pas de colonnes
+dédiées) : les deux écrans étaient incohérents entre eux.
+
+**SQL phase71** (`supabase/phase71_patch_profile_first_last_name.sql`) :
+ajoute `profiles.first_name` / `profiles.last_name`, backfill au mieux
+des lignes existantes (1er mot = prénom, reste = nom — non garanti
+fiable vu l'absence de convention dans les données déjà en base) et un
+trigger qui recalcule `full_name` automatiquement dès que l'un des deux
+champs change, pour ne pas casser les ~28 écrans qui lisent encore
+`full_name` (fiche produit, avis, PDF, admin...). Un update qui ne
+touche que `full_name` directement (aucun autre écran modifié) continue
+de fonctionner sans y toucher, le trigger ne se déclenche que sur
+`first_name`/`last_name`.
+
+**`profile_tab.dart`** (`_EditProfileSheet`) : le champ "Nom complet"
+devient deux champs "Prénom" / "Nom" côte à côte, sauvegardés dans les
+nouvelles colonnes. **`registration_screen.dart`** : les champs déjà
+existants sont maintenant aussi écrits dans `first_name`/`last_name`
+(en plus de `full_name` via les métadonnées d'inscription, géré par
+`handle_new_user()`).
+
+**À exécuter une seule fois sur Supabase** (SQL Editor) avant que les
+nouveaux champs du profil ne fonctionnent : `phase71_patch_profile_first_last_name.sql`.
