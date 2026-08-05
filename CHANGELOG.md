@@ -593,3 +593,6 @@
 
 ## 2026-08-05 06:18 UTC — Claude
 - feat: remettre une barre de recherche (raccourci) sur l'Accueil (`bec2813`)
+
+## 2026-08-05 06:26 UTC — Claude
+- merge: intégrer le changelog automatique (`0f2ce62`)
