@@ -463,7 +463,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     final greetingName =
         (_clientName == null || _clientName!.trim().isEmpty)
             ? greetingPrefix
-            : '$greetingPrefix, ${_clientName!.split(' ').first}';
+            : '$greetingPrefix, ${_clientName!.trim()}';
 
     return RefreshIndicator(
       onRefresh: _loadData,

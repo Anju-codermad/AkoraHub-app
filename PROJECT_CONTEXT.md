@@ -6580,3 +6580,27 @@ pièces jointes, groupes Formation, tableaux de bord CRM admin) :
 Publiés comme Artifacts pour consultation par l'utilisatrice ; fichiers
 sources conservés dans le répertoire scratchpad de la session (pas des
 fichiers livrables de l'app, pas commités au dépôt).
+
+## Nom complet sur l'Accueil + fermeture de la bulle de chat par glissement (05/08)
+
+Deux retours utilisatrice sur l'Accueil :
+
+**1. "Bonjour, A." au lieu du nom complet** — `catalog_tab.dart`
+tronquait volontairement le nom (`.split(' ').first`, ne gardant que le
+premier mot) ; changé pour afficher `_clientName` en entier.
+
+**2. Fermer la bulle de chat flottante en la glissant sur un ❌** —
+capture d'une bulle similaire (Messenger) à l'appui. La bulle
+(`floating_chat_bubble.dart`) était déjà draggable mais sans zone de
+suppression. Ajout :
+- pendant le glissement (`onPanStart`), un ❌ apparaît en bas, centré
+  horizontalement ;
+- si la bulle est relâchée à moins de 50px du centre du ❌
+  (`onPanEnd`), la bulle se masque et une confirmation courte
+  s'affiche ; le ❌ grossit légèrement et passe en rouge quand la bulle
+  est au-dessus, pour un retour visuel avant le lâcher (`AnimatedScale`
+  sur la bulle, `AnimatedContainer` sur le ❌) ;
+- réutilise le masquage personnel déjà existant
+  (`ChatBubbleSettingsRepo.setHiddenByClient`, phase68) plutôt qu'un
+  nouvel état — réactivable depuis Paramètres, comme le
+  "masquer/afficher" déjà proposé là-bas.
