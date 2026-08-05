@@ -167,6 +167,14 @@ workflows:
           app_id: $FIREBASE_APP_ID
           groups:
             - testeurs
+          # Sans ça, Codemagic publie par défaut l'AAB (présent lui aussi
+          # dans `artifacts:` ci-dessus) plutôt que l'APK — or distribuer
+          # un AAB via Firebase App Distribution exige que le projet
+          # Firebase soit lié à un compte Google Play (erreur "This
+          # project is not linked to a Google Play account", constatée le
+          # 05/08 : on n'a pas encore ce compte). L'APK, lui, se distribue
+          # sans cette condition.
+          artifact_type: apk
       email:
         recipients:
           - akorafanadiovana@gmail.com
