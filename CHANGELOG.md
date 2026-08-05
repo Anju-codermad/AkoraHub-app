@@ -578,3 +578,6 @@
 
 ## 2026-08-04 14:34 UTC — Claude
 - feat: onglet Catalogue dédié dans la barre du bas, Commandes déplacé en en-tête (`7719a45`)
+
+## 2026-08-05 04:35 UTC — Claude
+- fix: texte d'onboarding neutre (AkoraHub n'est pas un SaaS multi-commerces) (`36a7aa0`)
