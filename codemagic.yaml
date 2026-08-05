@@ -17,6 +17,12 @@ workflows:
         #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD  (optionnel — signature release)
         #   MAPS_API_KEY  (optionnel — suivi de livraison Google Maps,
         #     lu directement par android/app/build.gradle via System.getenv)
+        #   NETLIFY_AUTH_TOKEN, NETLIFY_SITE_ID  (optionnel — lien de mise
+        #     à jour stable, voir .github/workflows/build-apk.yml pour le
+        #     même mécanisme côté GitHub Actions)
+        #   UPDATE_VERSION_WEBHOOK_SECRET  (optionnel — doit correspondre
+        #     au secret configuré côté Supabase, Edge Function
+        #     update-latest-version)
         - akorahub_secrets
       vars:
         PACKAGE_NAME: "com.akora_fanadiovana.app"
@@ -76,6 +82,63 @@ workflows:
 
       - name: Compiler l'App Bundle (release) — format Google Play
         script: flutter build appbundle --release
+
+      - name: Déployer l'APK + les pages publiques sur Netlify
+        # Même mécanisme que .github/workflows/build-apk.yml côté GitHub
+        # Actions : dépose l'APK universel (celui compilé sans
+        # --split-per-abi n'existe pas ici, donc on redéploie l'APK
+        # ARM64 — largement suffisant, la quasi-totalité des téléphones
+        # Android récents sont en ARM64) sous un nom fixe
+        # (akorahub-latest.apk) à côté des pages publiques déjà
+        # hébergées (docs/formation-access/) — donne un lien stable qui
+        # ne change jamais d'un build à l'autre. Optionnel : ignoré si
+        # les secrets ne sont pas configurés.
+        script: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "NETLIFY_AUTH_TOKEN/NETLIFY_SITE_ID non configurés — étape ignorée."
+            exit 0
+          fi
+          rm -rf /tmp/netlify-deploy
+          mkdir -p /tmp/netlify-deploy
+          cp docs/formation-access/*.html /tmp/netlify-deploy/
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk /tmp/netlify-deploy/akorahub-latest.apk
+          if npx --yes netlify-cli@17 deploy --prod \
+              --dir=/tmp/netlify-deploy \
+              --site="$NETLIFY_SITE_ID" \
+              --auth="$NETLIFY_AUTH_TOKEN"; then
+            echo "export NETLIFY_DEPLOY_OK=1" >> "$CM_ENV"
+          else
+            echo "Déploiement Netlify échoué (non bloquant)."
+          fi
+
+      - name: Notifier Supabase de la nouvelle version disponible
+        # Alimente `app_latest_version` pour que l'app propose une mise à
+        # jour au démarrage — voir core/updates/update_checker.dart.
+        # downloadUrl n'utilise le lien Netlify que si le déploiement
+        # ci-dessus a réellement réussi, sinon repli sur les Releases
+        # GitHub (voir même logique côté GitHub Actions, phase du 05/08).
+        script: |
+          if [ -z "$UPDATE_VERSION_WEBHOOK_SECRET" ]; then
+            echo "UPDATE_VERSION_WEBHOOK_SECRET non configuré — étape ignorée."
+            exit 0
+          fi
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
+          if [ "$NETLIFY_DEPLOY_OK" = "1" ]; then
+            DOWNLOAD_URL="https://akorahub-formation.netlify.app/akorahub-latest.apk"
+          else
+            DOWNLOAD_URL="https://github.com/Anju-codermad/AkoraHub-app/releases"
+          fi
+          HTTP_STATUS=$(curl -s -o /tmp/notify_response.json -w "%{http_code}" \
+            -X POST "$SUPABASE_URL/functions/v1/update-latest-version" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "x-webhook-secret: $UPDATE_VERSION_WEBHOOK_SECRET" \
+            -d "{\"versionName\":\"$VERSION_NAME\",\"buildNumber\":$BUILD_NUMBER,\"downloadUrl\":\"$DOWNLOAD_URL\"}") || true
+          echo "Code HTTP : $HTTP_STATUS"
+          cat /tmp/notify_response.json 2>/dev/null || echo "(aucune réponse reçue)"
+          exit 0
 
     artifacts:
       - build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
