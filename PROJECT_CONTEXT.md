@@ -6439,3 +6439,25 @@ existants sont maintenant aussi écrits dans `first_name`/`last_name`
 
 **À exécuter une seule fois sur Supabase** (SQL Editor) avant que les
 nouveaux champs du profil ne fonctionnent : `phase71_patch_profile_first_last_name.sql`.
+
+## Vraie cause du webhook `update-latest-version` qui échouait toujours trouvée (05/08)
+
+Le diagnostic HTTP mis en place au run 301 a immédiatement révélé la
+vraie cause, invisible jusque-là (avalée par `curl -sf`) : **`Code HTTP :
+401`**, réponse **`{"code":"UNAUTHORIZED_NO_AUTH_HEADER","message":"Missing
+authorization header"}`**.
+
+Ce n'était **pas** le `x-webhook-secret` (jamais atteint, malgré des
+heures passées à vérifier les deux secrets un par un) : c'est la
+**passerelle Supabase elle-même** qui exige par défaut un en-tête
+`Authorization: Bearer <JWT valide>` sur toute Edge Function déployée
+depuis le Dashboard (vérification JWT activée par défaut, indépendante
+du code de la fonction). La requête `curl` de la CI n'envoyait que
+`x-webhook-secret`, jamais `Authorization` — elle était donc rejetée
+avant même d'atteindre le code de `update-latest-version`.
+
+**Corrigé** (`.github/workflows/build-apk.yml`) : ajout de l'en-tête
+`Authorization: Bearer $SUPABASE_ANON_KEY` (secret déjà présent, utilisé
+par ailleurs pour `env.json`) en plus de `x-webhook-secret`. Les deux
+sont nécessaires : `Authorization` pour passer la passerelle Supabase,
+`x-webhook-secret` pour l'autorisation applicative propre à la fonction.

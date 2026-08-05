@@ -127,8 +127,17 @@ jobs:
         # l'erreur avec `curl -f`) — un premier essai avec ce comportement
         # masquait la vraie cause d'un échec persistant malgré un secret
         # correctement configuré des deux côtés (04-05/08).
+        #
+        # Vraie cause trouvée grâce au code HTTP/réponse ci-dessus (run
+        # 301, 05/08) : 401 "UNAUTHORIZED_NO_AUTH_HEADER" — ce n'était
+        # PAS le `x-webhook-secret` (jamais atteint), mais la
+        # vérification JWT de la passerelle Supabase elle-même (activée
+        # par défaut pour toute Edge Function déployée depuis le
+        # Dashboard). D'où l'en-tête Authorization avec la clé anon
+        # ci-dessous, en plus du secret applicatif.
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           UPDATE_VERSION_WEBHOOK_SECRET: ${{ secrets.UPDATE_VERSION_WEBHOOK_SECRET }}
         run: |
           VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
@@ -137,6 +146,7 @@ jobs:
           HTTP_STATUS=$(curl -s -o /tmp/notify_response.json -w "%{http_code}" \
             -X POST "$SUPABASE_URL/functions/v1/update-latest-version" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "x-webhook-secret: $UPDATE_VERSION_WEBHOOK_SECRET" \
             -d "{\"versionName\":\"$VERSION_NAME\",\"buildNumber\":$BUILD_NUMBER,\"downloadUrl\":\"https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}\"}") || true
           echo "Code HTTP : $HTTP_STATUS"
