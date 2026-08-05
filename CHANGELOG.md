@@ -587,3 +587,6 @@
 
 ## 2026-08-05 05:50 UTC — Claude
 - feat: indicateur "en train d'écrire" dans les deux messageries (`f321d6e`)
+
+## 2026-08-05 06:00 UTC — Claude
+- fix: afficher le code HTTP et la réponse réelle du webhook Supabase (`42827ce`)
