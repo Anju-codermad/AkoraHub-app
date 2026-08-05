@@ -596,3 +596,6 @@
 
 ## 2026-08-05 06:26 UTC — Claude
 - merge: intégrer le changelog automatique (`0f2ce62`)
+
+## 2026-08-05 06:27 UTC — Claude
+- merge: intégrer le changelog automatique (`0d8d8dc`)
