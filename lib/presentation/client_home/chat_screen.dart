@@ -10,6 +10,8 @@ import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
+import '../../core/chat/typing_dots.dart';
+import '../../core/chat/typing_presence.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../calls/call_screen.dart';
 
@@ -47,6 +49,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   int _lastMessageCount = 0;
   bool _showJumpToLatest = false;
 
+  /// Indicateur "en train d'écrire" (05/08) — topic dérivé de l'id de
+  /// conversation (stable, partagé avec le futur écran Admin une fois
+  /// branché sur ce même schéma). Créé une fois `_conversationId` connu,
+  /// voir `_init()`.
+  TypingPresence? _typing;
+  bool _remoteIsTyping = false;
+
   @override
   void initState() {
     super.initState();
@@ -64,10 +73,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         setState(() => _showJumpToLatest = false);
       }
     });
+    _textController.addListener(() {
+      if (_textController.text.trim().isNotEmpty) _typing?.notifyTyping();
+    });
   }
 
   @override
   void dispose() {
+    _typing?.dispose();
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -147,6 +160,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             .order('created_at');
         _isLoading = false;
       });
+      _typing = TypingPresence(
+        topic: 'conversation:$conversationId',
+        selfId: userId,
+        onRemoteTypingChanged: (isTyping) {
+          if (mounted) setState(() => _remoteIsTyping = isTyping);
+        },
+      );
 
       // Marque les messages du staff comme lus à l'ouverture — sans quoi le
       // badge de notification de l'Accueil (voir catalog_tab.dart,
@@ -551,6 +571,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ],
                       ),
                     ),
+                    if (_remoteIsTyping)
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.h),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: TypingDots(color: theme.colorScheme.onSurface),
+                          ),
+                        ),
+                      ),
                     SafeArea(
                       top: false,
                       child: Padding(

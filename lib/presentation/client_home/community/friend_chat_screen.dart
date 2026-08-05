@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../../core/chat/typing_dots.dart';
+import '../../../core/chat/typing_presence.dart';
 import '../../../core/community/friends_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
 
@@ -11,7 +13,9 @@ import '../../../core/supabase/supabase_config.dart';
 /// différence de la messagerie client/staff — ChatComposer n'est pas
 /// réutilisé ici pour ne pas coupler les deux systèmes de messagerie).
 /// Mise à jour en direct via Supabase Realtime, même principe que
-/// chat_screen.dart.
+/// chat_screen.dart. Indicateur "en train d'écrire" (05/08) via
+/// `TypingPresence` — topic dérivé de la paire d'ids triée, identique
+/// des deux côtés de la conversation.
 class FriendChatScreen extends StatefulWidget {
   final String otherUserId;
   final String otherUserName;
@@ -32,16 +36,36 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   bool _isSending = false;
   final _timeFormat = DateFormat('HH:mm');
 
+  TypingPresence? _typing;
+  bool _remoteIsTyping = false;
+
   String? get _myId => SupabaseConfig.client.auth.currentUser?.id;
 
   @override
   void initState() {
     super.initState();
     FriendsRepo.markRead(widget.otherUserId);
+    final myId = _myId;
+    if (myId != null) {
+      // Paire d'ids triée : même topic quel que soit le côté qui ouvre
+      // la conversation en premier.
+      final ids = [myId, widget.otherUserId]..sort();
+      _typing = TypingPresence(
+        topic: 'friend:${ids.join('_')}',
+        selfId: myId,
+        onRemoteTypingChanged: (isTyping) {
+          if (mounted) setState(() => _remoteIsTyping = isTyping);
+        },
+      );
+    }
+    _controller.addListener(() {
+      if (_controller.text.trim().isNotEmpty) _typing?.notifyTyping();
+    });
   }
 
   @override
   void dispose() {
+    _typing?.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -144,6 +168,22 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
               },
             ),
           ),
+          if (_remoteIsTyping)
+            Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.h),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TypingDots(color: theme.colorScheme.onSurface),
+                ),
+              ),
+            ),
           Padding(
             padding: EdgeInsets.all(3.w),
             child: Row(

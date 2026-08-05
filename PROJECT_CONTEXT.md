@@ -6265,3 +6265,44 @@ qu'une seule annonce active à la fois (voir `phase26_patch_flash_infos.sql`).
 Une nouvelle annonce publiée par l'Admin (nouvel id) réapparaît
 normalement pour tout le monde, y compris ceux qui avaient lu la
 précédente.
+
+## Indicateur "en train d'écrire" (05/08)
+
+Demande explicite de l'utilisateur, pour les deux messageries de
+l'app : la privée entre amis (`friend_chat_screen.dart`) et
+client/staff (`chat_screen.dart`).
+
+**`lib/core/chat/typing_presence.dart`** (nouveau) : classe
+`TypingPresence`, partagée entre les deux écrans. Basée sur le
+**Broadcast** de Supabase Realtime — canal éphémère (pas une table SQL,
+rien n'est stocké) : `notifyTyping()` diffuse un événement `typing`
+throttlé (max 1 toutes les 300 ms tant qu'on tape en continu, pas un
+debounce classique — sinon l'indicateur mettrait du retard à
+apparaître chez le destinataire). Pas de message explicite "j'ai
+arrêté d'écrire" (peu fiable si l'app passe en arrière-plan) : le
+destinataire considère simplement que l'autre a arrêté si aucun nouvel
+événement n'arrive pendant 3s (`_remoteExpiry`). Le topic du canal doit
+être identique des deux côtés d'une conversation :
+- `friend_chat_screen.dart` : paire d'ids (le mien + celui de l'ami)
+  **triée** — `typing:friend:{id1}_{id2}` — pour aboutir au même canal
+  quel que soit celui qui ouvre la conversation en premier.
+- `chat_screen.dart` : id de la conversation (déjà stable) —
+  `typing:conversation:{conversationId}`.
+
+**`lib/core/chat/typing_dots.dart`** (nouveau) : widget `TypingDots`,
+3 points qui pulsent en boucle (`AnimationController` répété, déphasage
+d'un tiers de cycle par point) — réutilisé tel quel dans les deux
+écrans, affiché dans une bulle alignée à gauche juste au-dessus du
+champ de saisie quand `_remoteIsTyping == true`.
+
+**Limite connue, assumée** : côté `chat_screen.dart`, seul le client
+diffuse (`_textController` a un listener qui appelle `notifyTyping()`).
+L'écran Admin correspondant (`lib/presentation/messaging_center/`) est
+encore 100% mock (voir en-tête de `chat_screen.dart`) — tant qu'il
+n'est pas branché sur ce même schéma de conversations, personne
+n'enverra jamais l'événement "staff en train d'écrire", donc le client
+ne verra jamais la bulle apparaître de son côté. Le code est prêt et
+fonctionnera automatiquement dès que l'Admin sera branché, sans rien
+changer côté client. Pour `friend_chat_screen.dart` en revanche, les
+deux côtés sont déjà de vraies apps client — l'indicateur fonctionne
+intégralement dans les deux sens dès maintenant.
