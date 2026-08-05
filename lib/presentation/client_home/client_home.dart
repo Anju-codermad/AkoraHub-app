@@ -215,48 +215,79 @@ class _ClientBottomNav extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final items = _items(locale);
     final theme = Theme.of(context);
+    // Barre "flottante" à coins arrondis + ombre (05/08) — remplace la
+    // fine ligne de séparation, dans le même esprit visuel que la carte
+    // de profil et les icônes carrées arrondies de l'accueil.
     return SafeArea(
       top: false,
       child: Container(
         height: 64,
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
-              width: 0.6,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -6),
             ),
-          ),
+          ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: items.map((item) {
-            final selected = currentIndex == item.pageIndex;
-            final color = selected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant;
-            return Expanded(
-              child: InkWell(
-                onTap: () => onSelect(item.pageIndex),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(selected ? item.selectedIcon : item.icon,
-                        color: color),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.label,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: color,
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w400,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: items.map((item) {
+              final selected = currentIndex == item.pageIndex;
+              final color = selected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant;
+              return Expanded(
+                child: InkWell(
+                  onTap: () => onSelect(item.pageIndex),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Pastille carrée arrondie derrière l'icône active —
+                      // même rayon (14) que les icônes du haut de l'accueil,
+                      // avec un léger zoom pour marquer la sélection.
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? theme.colorScheme.primary
+                                  .withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: AnimatedScale(
+                          scale: selected ? 1.15 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          child: Icon(selected ? item.selectedIcon : item.icon,
+                              color: color),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: (theme.textTheme.labelSmall ?? const TextStyle())
+                            .copyWith(
+                          color: color,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w400,
+                        ),
+                        child: Text(item.label),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
       ),
     );

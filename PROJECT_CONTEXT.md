@@ -6772,3 +6772,18 @@ pour le look "carré arrondi" (squircle) demandé — changement purement
 cosmétique, sans toucher aux deux autres boutons circulaires du même
 fichier (superposition sur carte produit, bouton flottant) qui n'étaient
 pas concernés par la demande.
+
+### Barre de navigation du bas : indicateur arrondi + effet flottant (05/08)
+
+Suite logique du changement précédent, sur demande explicite : la barre
+du bas (`_ClientBottomNav` dans `client_home.dart`) n'avait qu'un
+changement de couleur pour marquer l'onglet actif (pas de fond). Ajouté
+une pastille carrée arrondie (rayon 14, même style que les icônes du
+haut) derrière l'icône de l'onglet sélectionné, avec un léger zoom
+(`AnimatedScale`, x1.15) et une transition de couleur/graisse du texte
+(`AnimatedDefaultTextStyle`), le tout animé sur 200ms. La barre elle-
+même passe d'une fine ligne de séparation à des coins arrondis en haut
++ une ombre légère (mêmes valeurs que la carte de profil), pour un effet
+"flottant" cohérent avec le reste du nouveau style visuel. Un
+`ClipRRect` évite que l'effet d'encre des onglets aux extrémités
+déborde des coins arrondis.
