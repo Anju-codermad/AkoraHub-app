@@ -1,8 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/services/referral_repo.dart';
@@ -21,6 +23,13 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
+  // Hébergée sur Netlify (même site que la page d'achat Formation) :
+  // Supabase Storage force le Content-Type des .html de ses buckets
+  // publics à text/plain (anti-phishing), inutilisable pour une vraie
+  // page web — voir PROJECT_CONTEXT.md, section Formation (01/08).
+  static const _privacyPolicyUrl =
+      'https://akorahub-formation.netlify.app/privacy-policy.html';
+
   final _step1FormKey = GlobalKey<FormState>();
   final _step2FormKey = GlobalKey<FormState>();
   final _pageController = PageController();
@@ -42,6 +51,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   String _clientType = 'particulier';
   bool _isLoading = false;
 
+  late final TapGestureRecognizer _privacyPolicyRecognizer =
+      TapGestureRecognizer()
+        ..onTap = () => launchUrl(
+              Uri.parse(_privacyPolicyUrl),
+              mode: LaunchMode.externalApplication,
+            );
+
   final List<Map<String, String>> _clientTypes = const [
     {'value': 'particulier', 'label': 'Particulier'},
     {'value': 'hotel', 'label': 'Hôtel'},
@@ -60,6 +76,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _referralCodeController.dispose();
+    _privacyPolicyRecognizer.dispose();
     super.dispose();
   }
 
@@ -567,10 +584,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(top: 1.5.h),
-                    child: Text(
-                      'J\'accepte les conditions d\'utilisation et la '
-                      'politique de confidentialité d\'AkoraHub',
-                      style: theme.textTheme.bodySmall,
+                    child: Text.rich(
+                      TextSpan(
+                        style: theme.textTheme.bodySmall,
+                        children: [
+                          const TextSpan(
+                              text: 'J\'accepte les conditions '
+                                  'd\'utilisation et la '),
+                          TextSpan(
+                            text: 'politique de confidentialité',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: _privacyPolicyRecognizer,
+                          ),
+                          const TextSpan(text: ' d\'AkoraHub'),
+                        ],
+                      ),
                     ),
                   ),
                 ),

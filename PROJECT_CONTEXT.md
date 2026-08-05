@@ -3913,9 +3913,8 @@ ne pas repartir de zéro à chaque fois qu'on en reparle.
 - [ ] Créer le **compte développeur Google Play** (paiement unique
   ~25$, compte Google) — à faire par l'utilisatrice, pas possible pour
   Claude de le faire à sa place.
-- [ ] **Héberger** `docs/privacy-policy.html` sur une URL publique (ex :
-  GitHub Pages) — Play Console exige un lien, pas juste un fichier dans
-  le dépôt.
+- [x] **Héberger** `docs/privacy-policy.html` sur une URL publique — fait
+  le 05/08, voir section dédiée plus bas.
 - [ ] **Fiche de la boutique** : icône haute résolution (512×512), image
   de couverture (1024×500), captures d'écran réelles de l'app,
   description courte/longue en français.
@@ -6502,3 +6501,37 @@ Supabase reste identique et sert toujours la dernière build.
 
 Tant que ce secret n'est pas ajouté, tout continue de fonctionner comme
 avant (repli sur le lien GitHub) — rien n'est cassé en attendant.
+
+## Politique de confidentialité hébergée publiquement (checklist Play Store) (05/08)
+
+Reprise de la checklist publication Play Store (voir section dédiée
+plus haut, 01/08) : premier item coché, "héberger `privacy-policy.html`
+sur une URL publique" — requis par la Play Console (Data Safety /
+fiche boutique), qui exige un vrai lien, pas un fichier dans un dépôt
+privé.
+
+**Pourquoi pas Supabase Storage** (déjà tenté et documenté pour
+`formation-web`, 01/08) : les buckets publics Supabase forcent le
+Content-Type des fichiers `.html` à `text/plain` (protection
+anti-phishing côté serveur) — la page s'afficherait comme du texte brut
+avec des balises visibles, inutilisable.
+
+**Solution retenue — réutilisation du site Netlify existant** (déjà en
+place pour `docs/formation-access/index.html`, voir section Formation
+01/08) : `docs/privacy-policy.html` copié dans
+`docs/formation-access/privacy-policy.html`, pour être servi sur
+`https://akorahub-formation.netlify.app/privacy-policy.html` au
+prochain redéploiement (glisser-déposer manuel du dossier sur
+Netlify, comme pour toute mise à jour de ce site — voir tutoriel donné
+séparément).
+
+**`registration_screen.dart`** : le texte "politique de
+confidentialité" dans la case à cocher CGU (étape 2 de l'inscription)
+est désormais cliquable et ouvre cette URL dans le navigateur — attendu
+par la review Play Store en plus du lien fourni dans la fiche boutique
+elle-même.
+
+⚠️ **Redéploiement Netlify manuel requis** pour que le lien fonctionne
+(glisser à nouveau `docs/formation-access/` sur le site Netlify
+existant, onglet Deploys) — sinon `privacy-policy.html` n'existe pas
+encore en ligne malgré le lien déjà actif dans l'app.
