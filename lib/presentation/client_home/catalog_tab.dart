@@ -607,6 +607,45 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             ),
           ),
 
+          // --- Raccourci recherche (04/08) : pas une vraie recherche
+          // locale (la logique de recherche/pagination vit désormais
+          // uniquement dans l'onglet Catalogue, voir
+          // product_catalog_tab.dart, pour ne pas la dupliquer) — un tap
+          // ouvre directement le Catalogue, comme sur beaucoup d'apps
+          // e-commerce (barre de recherche "raccourci" sur l'accueil). ---
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.h),
+              child: Material(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: widget.onOpenCatalog,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 4.w, vertical: 1.6.h),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search,
+                            size: 20,
+                            color: theme.colorScheme.onSurfaceVariant),
+                        SizedBox(width: 3.w),
+                        Text(
+                          ref.tr('search_hint'),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // --- Flash info (annonce courte de l'Admin, si présente) ---
           if (_flashInfo != null && _flashInfo!.trim().isNotEmpty)
             SliverToBoxAdapter(

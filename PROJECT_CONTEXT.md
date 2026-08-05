@@ -6378,3 +6378,20 @@ chance d'aboutir tel quel).
 Supabase** (remplacer tout le contenu de l'éditeur en ligne comme pour
 les fois précédentes) — ce correctif ne fait pas partie du code Flutter,
 aucun nouveau build APK n'est nécessaire pour qu'il prenne effet.
+
+## Barre de recherche remise sur l'Accueil, en raccourci (05/08)
+
+Suite à la restructuration Catalogue (04/08) qui avait déplacé toute la
+recherche/filtres vers l'onglet Catalogue, l'utilisateur a remarqué
+l'absence de barre de recherche sur l'Accueil et a demandé qu'elle
+revienne.
+
+**`catalog_tab.dart`** : ajout d'un bloc visuellement identique à une
+barre de recherche (icône loupe + texte d'invite `search_hint`), placé
+juste sous l'en-tête. Ce n'est **pas une vraie recherche locale** — un
+tap bascule directement vers l'onglet Catalogue via
+`widget.onOpenCatalog` (même callback que le bouton "Voir tout le
+catalogue" déjà présent en bas de l'Accueil), où vit la vraie logique
+de recherche/pagination. Volontairement pas de duplication de cette
+logique sur deux écrans — pattern courant sur les apps e-commerce
+(barre "raccourci" sur l'accueil, recherche réelle sur un écran dédié).
