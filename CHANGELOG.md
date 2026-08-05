@@ -605,3 +605,6 @@
 
 ## 2026-08-05 07:41 UTC — Claude
 - merge: intégrer le changelog automatique (`e714df7`)
+
+## 2026-08-05 08:53 UTC — Claude
+- merge: intégrer le changelog automatique (`ac323a7`)
