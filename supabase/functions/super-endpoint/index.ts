@@ -24,7 +24,11 @@
 // `call_invitations` valide (voir phase37) et à une session Supabase
 // authentifiée pour appeler cette fonction.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { RtcTokenBuilder, Role } from "https://esm.sh/agora-token@2.0.5";
+// L'export s'appelle `RtcRole`, pas `Role` (confirmé par les logs
+// Supabase, 05/08 : "does not provide an export named 'Role'" — le nom
+// `Role` n'a jamais existé dans ce package, empêchant la fonction de
+// démarrer depuis son tout premier déploiement).
+import { RtcRole, RtcTokenBuilder } from "https://esm.sh/agora-token@2.0.5";
 
 Deno.serve(async (req) => {
   try {
@@ -69,7 +73,7 @@ Deno.serve(async (req) => {
       appCertificate,
       channelName,
       0,
-      Role.PUBLISHER,
+      RtcRole.PUBLISHER,
       expireSeconds,
       expireSeconds,
     );

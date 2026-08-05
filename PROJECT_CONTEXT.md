@@ -6355,3 +6355,26 @@ HTTP (`-w "%{http_code}"`) et affiche la réponse complète du corps —
 prochain build : le vrai diagnostic sera visible directement dans les
 logs GitHub Actions, plus besoin de deviner. Toujours non bloquant
 (`exit 0` systématique en fin d'étape).
+
+## Vraie cause de l'échec `super-endpoint` (appels Agora) trouvée : mauvais nom d'export (05/08)
+
+Le redéploiement du 05/08 (copier-coller propre, plus de code résiduel)
+n'a pas suffi — logs Supabase toujours "worker boot error". Message
+complet obtenu cette fois (l'utilisateur a cliqué sur la ligne
+d'erreur) : *"The requested module 'https://esm.sh/agora-token@2.0.5'
+does not provide an export named 'Role'"*, à la ligne de l'import.
+
+**Cause racine, confirmée en consultant le code source réel du package
+sur GitHub** (`AgoraIO/Tools`, `DynamicKey/AgoraDynamicKey/nodejs/index.js`) :
+l'export s'appelle **`RtcRole`**, pas `Role`. Le fichier
+`supabase/functions/super-endpoint/index.ts` contenait cette erreur
+**depuis sa toute première écriture (31/07)** — la fonction n'a donc
+**jamais fonctionné une seule fois**, y compris avant ce chantier de
+diagnostic (le "reste à tester" du 31/07 n'avait en réalité aucune
+chance d'aboutir tel quel).
+
+**Corrigé** : `import { RtcRole, RtcTokenBuilder } from "...";` et
+`RtcRole.PUBLISHER` au lieu de `Role.PUBLISHER`. **À redéployer sur
+Supabase** (remplacer tout le contenu de l'éditeur en ligne comme pour
+les fois précédentes) — ce correctif ne fait pas partie du code Flutter,
+aucun nouveau build APK n'est nécessaire pour qu'il prenne effet.
