@@ -584,3 +584,6 @@
 
 ## 2026-08-05 04:38 UTC — Claude
 - fix: le bandeau flash info disparaît une fois lu par le client (`ec5989c`)
+
+## 2026-08-05 05:50 UTC — Claude
+- feat: indicateur "en train d'écrire" dans les deux messageries (`f321d6e`)
