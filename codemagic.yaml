@@ -23,6 +23,9 @@ workflows:
         #   UPDATE_VERSION_WEBHOOK_SECRET  (optionnel — doit correspondre
         #     au secret configuré côté Supabase, Edge Function
         #     update-latest-version)
+        #   FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT  (optionnel — même
+        #     contenu JSON que le secret GitHub du même nom, rôle IAM
+        #     "Firebase App Distribution Admin" sur le projet akorahub-7ee66)
         - akorahub_secrets
       vars:
         PACKAGE_NAME: "com.akora_fanadiovana.app"
@@ -67,6 +70,15 @@ workflows:
             echo "Clé de production restaurée."
           else
             echo "Pas de clé de production — build signé avec la clé debug."
+          fi
+
+      - name: Extraire l'ID d'app Firebase (pour App Distribution)
+        script: |
+          if [ -f android/app/google-services.json ]; then
+            APP_ID=$(python3 -c "import json; print(json.load(open('android/app/google-services.json'))['client'][0]['client_info']['mobilesdk_app_id'])")
+            echo "export FIREBASE_APP_ID=$APP_ID" >> "$CM_ENV"
+          else
+            echo "Pas de google-services.json — App Distribution désactivée sur ce build."
           fi
 
       - name: Récupérer les dépendances Flutter
@@ -146,6 +158,15 @@ workflows:
       - build/app/outputs/**/mapping.txt
 
     publishing:
+      # Optionnel — ignoré par Codemagic si FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT
+      # ou FIREBASE_APP_ID sont vides. Même compte de service et même
+      # groupe de testeurs ("testeurs") que côté GitHub Actions.
+      firebase:
+        firebase_service_account: $FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT
+        android:
+          app_id: $FIREBASE_APP_ID
+          groups:
+            - testeurs
       email:
         recipients:
           - akorafanadiovana@gmail.com
