@@ -590,3 +590,6 @@
 
 ## 2026-08-05 06:00 UTC — Claude
 - fix: afficher le code HTTP et la réponse réelle du webhook Supabase (`42827ce`)
+
+## 2026-08-05 06:18 UTC — Claude
+- feat: remettre une barre de recherche (raccourci) sur l'Accueil (`bec2813`)
