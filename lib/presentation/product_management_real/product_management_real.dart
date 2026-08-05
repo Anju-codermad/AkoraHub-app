@@ -14,11 +14,13 @@ import 'batch_list_screen.dart';
 
 /// Usages suggérés à la publication d'un produit (Savonnerie, Industriel,
 /// Nettoyage...) — reproduit les badges déjà utilisés sur les visuels
-/// marketing des produits (ex. "Soude Caustique"). Liste de départ,
-/// complétable à tout moment depuis le formulaire (voir
-/// `_showProductDialog`) : rester un `text[]` libre sur `products.use_cases`
-/// plutôt qu'une table à part, un simple tag descriptif n'a pas besoin
-/// d'être une entité normalisée.
+/// marketing des produits (ex. "Soude Caustique"). Liste de DÉPART
+/// uniquement : la liste réellement proposée dans le formulaire
+/// (`_knownUsages`, voir `_loadData`) l'enrichit avec tout usage déjà tapé
+/// manuellement sur n'importe quel produit, pour qu'un usage ajouté une
+/// fois devienne réutilisable partout. Reste un `text[]` libre sur
+/// `products.use_cases` plutôt qu'une table à part, un simple tag
+/// descriptif n'a pas besoin d'être une entité normalisée.
 const List<String> kProductUsageSuggestions = [
   'Savonnerie',
   'Industriel',
@@ -53,6 +55,11 @@ class _ProductManagementRealState
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _businessUnits = [];
   List<Map<String, dynamic>> _nameSuggestions = [];
+  // Usages suggérés à la publication d'un produit : la liste de départ
+  // (`kProductUsageSuggestions`) enrichie de tout usage déjà tapé
+  // manuellement sur n'importe quel produit — un usage ajouté une fois
+  // devient donc réutilisable partout, sans table de référence à part.
+  List<String> _knownUsages = List<String>.from(kProductUsageSuggestions);
   bool _isLoading = true;
   String? _error;
   final _currency = NumberFormat.currency(
@@ -129,6 +136,26 @@ class _ProductManagementRealState
       Future<void> refreshCategoriesCache() =>
           ref.read(categoriesCacheProvider.notifier).refresh();
 
+      // Tous les usages déjà utilisés, tous produits confondus — juste la
+      // colonne `use_cases` (léger), pas de pagination nécessaire pour ça.
+      Future<List<String>> loadKnownUsages() async {
+        try {
+          final rows = await SupabaseConfig.client
+              .from('products')
+              .select('use_cases');
+          final known = <String>{...kProductUsageSuggestions};
+          for (final row in rows) {
+            final usages = row['use_cases'] as List?;
+            if (usages != null) known.addAll(usages.map((u) => u.toString()));
+          }
+          return known.toList();
+        } catch (_) {
+          // Colonne pas encore créée (migration phase73 non exécutée) :
+          // repli sur la liste de suggestions de départ, rien de bloquant.
+          return List<String>.from(kProductUsageSuggestions);
+        }
+      }
+
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client
             .from('products')
@@ -138,15 +165,18 @@ class _ProductManagementRealState
         SupabaseConfig.client.from('business_units').select(),
         loadNameSuggestions(),
         refreshCategoriesCache(),
+        loadKnownUsages(),
       ]);
       final products = results[0];
       final units = results[1];
       final nameSuggestions = results[2];
+      final knownUsages = results[4];
       final productsList = List<Map<String, dynamic>>.from(products);
       setState(() {
         _products = productsList;
         _businessUnits = List<Map<String, dynamic>>.from(units);
         _nameSuggestions = List<Map<String, dynamic>>.from(nameSuggestions);
+        _knownUsages = List<String>.from(knownUsages);
         _isLoading = false;
         _hasMore = productsList.length == _pageSize;
       });
@@ -518,10 +548,13 @@ class _ProductManagementRealState
                 const Text('Usages (affichés sur la fiche produit)'),
                 const SizedBox(height: 4),
                 Builder(builder: (context) {
-                  // Suggestions + tags déjà choisis mais absents de la liste
-                  // de départ (ajoutés manuellement sur un produit précédent).
+                  // _knownUsages contient déjà la liste de départ + tout
+                  // usage ajouté manuellement sur n'importe quel produit
+                  // (voir _loadData) ; on ajoute ceux de ce produit-ci au
+                  // cas où le formulaire est ouvert avant le prochain
+                  // rechargement de la liste.
                   final allOptions = <String>{
-                    ...kProductUsageSuggestions,
+                    ..._knownUsages,
                     ...selectedUsages,
                   }.toList();
                   return Wrap(

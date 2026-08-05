@@ -6630,3 +6630,20 @@ champ texte libre pour ajouter un usage hors liste. Sauvegardé dans
 badges (icône ✓ + libellé) juste après la puce de catégorie, sur la
 fiche produit côté client — même esprit visuel que les infographies
 marketing fournies en référence.
+
+### Les usages ajoutés hors liste deviennent réutilisables partout (05/08)
+
+Suite : l'utilisatrice voulait que le champ "Autre usage" ne soit pas
+qu'un ajout ponctuel pour un seul produit, mais vienne enrichir la
+liste de suggestions pour **tous** les futurs produits.
+
+**`product_management_real.dart`** : `_loadData()` charge désormais
+aussi tous les `use_cases` déjà utilisés sur l'ensemble des produits
+(juste cette colonne, sans pagination) et les fusionne avec les 15
+suggestions de départ dans `_knownUsages` — c'est cette liste (pas la
+constante statique `kProductUsageSuggestions`) qui alimente les puces
+du formulaire. Un usage tapé une fois sur un produit apparaît donc
+comme suggestion cochable sur tous les produits suivants, dès le
+prochain chargement de la liste (rechargée après chaque sauvegarde).
+Pas de nouvelle table : simple agrégation de la colonne `text[]`
+existante.
