@@ -6306,3 +6306,25 @@ fonctionnera automatiquement dès que l'Admin sera branché, sans rien
 changer côté client. Pour `friend_chat_screen.dart` en revanche, les
 deux côtés sont déjà de vraies apps client — l'indicateur fonctionne
 intégralement dans les deux sens dès maintenant.
+
+## Premier test réel d'appel Agora : échec, message d'erreur trop générique (05/08)
+
+Le "reste à tester" noté le 31/07 (appel réel de bout en bout, jamais
+fait) vient d'être tenté par l'utilisateur — échec avec seulement
+"Impossible de démarrer l'appel." affiché, sans indication de la cause
+réelle (le `catch` de `call_screen.dart` avalait l'exception, ne
+gardait le détail que dans `debugPrint`, invisible en dehors d'un
+`flutter logs` branché).
+
+**`lib/presentation/calls/call_screen.dart`** : le message affiché
+inclut maintenant `$e` — la vraie exception (token Agora indisponible,
+App ID invalide, échec réseau vers `super-endpoint`, etc.) apparaît
+directement dans l'app, sans avoir besoin des logs Supabase à chaque
+nouvel essai.
+
+**Cause de cet échec précis pas encore identifiée** — à vérifier en
+priorité : logs de la fonction `super-endpoint` (Supabase Dashboard ->
+Edge Functions -> super-endpoint -> Logs) au moment de l'appel raté ;
+si la fonction n'a pas été appelée du tout, le souci est côté
+`engine.initialize`/`joinChannel` (SDK Agora natif) plutôt que le
+token.

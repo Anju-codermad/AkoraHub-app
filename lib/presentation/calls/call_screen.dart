@@ -113,7 +113,13 @@ class _CallScreenState extends State<CallScreen> {
       if (mounted) setState(() => _engine = engine);
     } catch (e) {
       debugPrint('CallScreen._setup error: $e');
-      if (mounted) setState(() => _error = 'Impossible de démarrer l\'appel.');
+      // Le message générique précédent ("Impossible de démarrer l'appel.")
+      // masquait la cause réelle (token indisponible, App ID Agora
+      // invalide, etc.) — affichée ici pour un diagnostic direct sans
+      // avoir besoin des logs Supabase à chaque échec.
+      if (mounted) {
+        setState(() => _error = 'Impossible de démarrer l\'appel : $e');
+      }
     }
   }
 
