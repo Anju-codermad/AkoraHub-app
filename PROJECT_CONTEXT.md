@@ -6237,3 +6237,31 @@ fournisse des photos réelles de sa boutique/ses produits/son équipe
 (pistes proposées : boutique, étagère de produits, échange client,
 suivi de commande, formation — voir la proposition d'illustrations
 générée ce même jour, non retenue, dans le chat).
+
+## Flash info : disparaît une fois lue par le client (04/08)
+
+Constat de l'utilisateur (capture de l'Accueil) : le bandeau flash info
+("Tongasoa daholo ô!") restait affiché indéfiniment tant que l'Admin ne
+le désactivait pas manuellement, sans mémoire côté client. Demande :
+une fois qu'un client a consulté l'annonce (tap sur le bandeau, qui
+ouvre `FlashInfosScreen`), elle ne doit plus réapparaître sur son
+Accueil.
+
+**`catalog_tab.dart`** : `loadFlashInfo()` récupère maintenant `id` en
+plus de `message` (au lieu du seul texte) — l'id sert de repère stable
+pour la mémorisation, indépendant du contenu (deux annonces différentes
+pourraient techniquement avoir le même texte). Au chargement,
+comparaison avec l'id mémorisé localement
+(`SharedPreferences`, clé `dismissed_flash_info_id`, chargé en
+parallèle des autres données via `loadDismissedFlashInfoId()`) : si ça
+correspond, le bandeau reste caché. Au tap sur le bandeau
+(`_dismissFlashInfo()`) : masquage immédiat (`setState`) + écriture de
+l'id en local, avant la navigation vers `FlashInfosScreen`.
+
+Pas de nouvelle colonne SQL nécessaire (`flash_infos` a déjà `id`) : la
+mémorisation "lu/pas lu" est volontairement locale à l'appareil (pas de
+table de lecture par utilisateur) — suffisant ici puisqu'il n'y a
+qu'une seule annonce active à la fois (voir `phase26_patch_flash_infos.sql`).
+Une nouvelle annonce publiée par l'Admin (nouvel id) réapparaît
+normalement pour tout le monde, y compris ceux qui avaient lu la
+précédente.

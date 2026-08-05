@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/chat/unread_support_messages.dart';
@@ -47,6 +48,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   List<_ActivityItem> _activityFeed = [];
   List<Map<String, dynamic>> _reorderSuggestions = [];
   String? _flashInfo;
+
+  /// Id de l'annonce flash affichée — distinct de `_flashInfo` (son
+  /// texte) pour pouvoir mémoriser localement laquelle a déjà été lue
+  /// (voir `_dismissedFlashInfoPrefsKey`) sans dépendre du contenu, qui
+  /// pourrait coïncider entre deux annonces différentes.
+  String? _flashInfoId;
+  static const _dismissedFlashInfoPrefsKey = 'dismissed_flash_info_id';
+
   List<Map<String, dynamic>> _recentFormationCourses = [];
 
   /// Devis en attente de réponse ou paiement en échec — la chose la plus
@@ -140,16 +149,27 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         }
       }
 
-      Future<String?> loadFlashInfo() async {
+      Future<Map<String, dynamic>?> loadFlashInfo() async {
         try {
-          final row = await SupabaseConfig.client
+          return await SupabaseConfig.client
               .from('flash_infos')
-              .select('message')
+              .select('id, message')
               .eq('active', true)
               .order('created_at', ascending: false)
               .limit(1)
               .maybeSingle();
-          return row?['message'] as String?;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      // Annonce déjà lue par ce client sur cet appareil (voir
+      // _dismissedFlashInfoPrefsKey) — ne doit pas réapparaître tant que
+      // l'Admin n'en publie pas une nouvelle (id différent).
+      Future<String?> loadDismissedFlashInfoId() async {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          return prefs.getString(_dismissedFlashInfoPrefsKey);
         } catch (_) {
           return null;
         }
@@ -302,14 +322,21 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         loadFlashInfo(),
         loadRecentFormationCourses(),
         loadPendingAction(),
+        loadDismissedFlashInfoId(),
       ]);
       final loadedSlides = parallel[0] as List<_PromoSlide>;
       final unreadMessages = parallel[1] as int;
       final activityFeed = parallel[2] as List<_ActivityItem>;
       final reorderSuggestions = parallel[3] as List<Map<String, dynamic>>;
-      final flashInfo = parallel[4] as String?;
+      final flashInfoRow = parallel[4] as Map<String, dynamic>?;
       final recentFormationCourses = parallel[5] as List<Map<String, dynamic>>;
       final pendingAction = parallel[6] as Map<String, dynamic>?;
+      final dismissedFlashInfoId = parallel[7] as String?;
+      final flashInfoId = flashInfoRow?['id'] as String?;
+      // Déjà lue sur cet appareil (même id) : on ne la réaffiche pas.
+      final flashInfo = (flashInfoId != null && flashInfoId == dismissedFlashInfoId)
+          ? null
+          : flashInfoRow?['message'] as String?;
 
       setState(() {
         _clientName = profile?['full_name'] as String?;
@@ -319,6 +346,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _unreadMessagesCount = unreadMessages;
         _activityFeed = activityFeed;
         _reorderSuggestions = reorderSuggestions;
+        _flashInfoId = flashInfoId;
         _flashInfo = flashInfo;
         _recentFormationCourses = recentFormationCourses;
         _pendingAction = pendingAction;
@@ -329,6 +357,22 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _isLoading = false;
         _error = 'Impossible de charger les données.';
       });
+    }
+  }
+
+  /// Masque le bandeau flash info dès que le client le consulte (tap) —
+  /// mémorisé localement par id, ne réapparaît que si l'Admin publie une
+  /// nouvelle annonce (voir `_dismissedFlashInfoPrefsKey`).
+  Future<void> _dismissFlashInfo() async {
+    final id = _flashInfoId;
+    if (mounted) setState(() => _flashInfo = null);
+    if (id == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_dismissedFlashInfoPrefsKey, id);
+    } catch (_) {
+      // Pas grave : au pire l'annonce réapparaîtra à la prochaine
+      // ouverture de l'app si le stockage local a échoué.
     }
   }
 
@@ -570,11 +614,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 0),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(10),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const FlashInfosScreen()),
-                  ),
+                  onTap: () {
+                    _dismissFlashInfo();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const FlashInfosScreen()),
+                    );
+                  },
                   child: Container(
                     padding:
                         EdgeInsets.symmetric(horizontal: 3.w, vertical: 1.2.h),
