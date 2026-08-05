@@ -6461,3 +6461,44 @@ avant même d'atteindre le code de `update-latest-version`.
 par ailleurs pour `env.json`) en plus de `x-webhook-secret`. Les deux
 sont nécessaires : `Authorization` pour passer la passerelle Supabase,
 `x-webhook-secret` pour l'autorisation applicative propre à la fonction.
+
+## Lien de mise à jour stable (bucket Supabase Storage public) (05/08)
+
+La popup "Mise à jour disponible" (phase70) invite à cliquer sur un
+lien de téléchargement — mais ce lien pointait jusqu'ici vers la page
+Release GitHub, **inutilisable par un vrai client puisque le dépôt est
+privé** (même piège identifié en discutant du partage de l'APK sur
+Facebook). Un client qui verrait cette popup et cliquerait "Mettre à
+jour" tombait sur une erreur 404.
+
+**SQL phase72** (`supabase/phase72_patch_app_releases_bucket.sql`) :
+nouveau bucket Storage public `app-releases` (limite de taille 500 Mo,
+type MIME restreint à l'APK). Écriture réservée à la CI via la clé
+`service_role` (contourne RLS) : aucune policy d'upload ouverte aux
+clients, seulement une policy de lecture publique.
+
+**`.github/workflows/build-apk.yml`** : nouvelle étape "Uploader l'APK
+sur Supabase Storage" qui dépose l'APK **toujours sous le même nom de
+fichier** (`akorahub-latest.apk`, réécrit à chaque build via
+`x-upsert: true`) — contrairement au tag `build-XXX` unique par build
+utilisé pour les Releases GitHub, ce nom fixe donne un **lien qui ne
+change jamais d'un build à l'autre**. L'étape "Notifier Supabase" utilise
+désormais ce lien (`$SUPABASE_URL/storage/v1/object/public/app-releases/akorahub-latest.apk`)
+comme `downloadUrl`, avec repli automatique sur l'ancien lien GitHub
+tant que le nouveau secret n'est pas configuré. Les deux étapes sont
+optionnelles (`if: env.SUPABASE_SERVICE_ROLE_KEY != ''`), donc le build
+ne casse jamais si le secret n'est pas encore en place.
+
+**Bénéfice secondaire notable** : ce même lien stable peut aussi servir
+directement pour un post Facebook — plus besoin de re-télécharger et
+re-partager un lien Google Drive à chaque nouvelle version, le lien
+Supabase reste identique et sert toujours la dernière build.
+
+**À faire une seule fois, côté utilisateur** :
+1. Exécuter `phase72_patch_app_releases_bucket.sql` sur Supabase (SQL Editor).
+2. Ajouter le secret GitHub `SUPABASE_SERVICE_ROLE_KEY` (valeur trouvée
+   dans Supabase Dashboard -> Settings -> API -> "service_role" secret) —
+   Settings -> Secrets and variables -> Actions sur le dépôt GitHub.
+
+Tant que ce secret n'est pas ajouté, tout continue de fonctionner comme
+avant (repli sur le lien GitHub) — rien n'est cassé en attendant.

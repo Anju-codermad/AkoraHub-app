@@ -22,6 +22,7 @@ jobs:
     env:
       GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
       FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
       - name: Récupérer le code
@@ -117,6 +118,31 @@ jobs:
           file: build/app/outputs/flutter-apk/app-release.apk
           releaseNotes: ${{ github.event.head_commit.message }}
 
+      - name: Uploader l'APK sur Supabase Storage (lien de mise à jour stable)
+        # Dépose l'APK dans le bucket public "app-releases" (voir SQL
+        # phase72), toujours sous le même nom de fichier (réécrit à
+        # chaque build via x-upsert) : donne un lien de téléchargement
+        # STABLE, qui ne change jamais d'un build à l'autre — contrairement
+        # à la Release GitHub (dépôt privé, inutilisable par un vrai
+        # client, voir 05/08). Optionnel : ignoré tant que le secret
+        # SUPABASE_SERVICE_ROLE_KEY n'est pas configuré.
+        if: ${{ env.SUPABASE_SERVICE_ROLE_KEY != '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          HTTP_STATUS=$(curl -s -o /tmp/upload_response.json -w "%{http_code}" \
+            -X POST "$SUPABASE_URL/storage/v1/object/app-releases/akorahub-latest.apk" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "x-upsert: true" \
+            --data-binary @build/app/outputs/flutter-apk/app-release.apk) || true
+          echo "Code HTTP : $HTTP_STATUS"
+          cat /tmp/upload_response.json 2>/dev/null || echo "(aucune réponse reçue)"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Upload vers Supabase Storage échoué (non bloquant) — le lien de mise à jour restera sur GitHub Releases pour ce build."
+          fi
+          exit 0
+
       - name: Notifier Supabase de la nouvelle version disponible
         # Alimente `app_latest_version` (via l'Edge Function
         # update-latest-version) pour que l'app elle-même propose une
@@ -135,6 +161,12 @@ jobs:
         # par défaut pour toute Edge Function déployée depuis le
         # Dashboard). D'où l'en-tête Authorization avec la clé anon
         # ci-dessous, en plus du secret applicatif.
+        #
+        # downloadUrl pointe désormais vers le lien Supabase Storage
+        # stable (voir étape précédente) plutôt que vers la Release
+        # GitHub — inutilisable par un vrai client car le dépôt est privé
+        # (05/08). Repli automatique sur l'ancien lien GitHub tant que le
+        # secret SUPABASE_SERVICE_ROLE_KEY n'est pas encore configuré.
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -143,12 +175,17 @@ jobs:
           VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
           VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
           BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            DOWNLOAD_URL="$SUPABASE_URL/storage/v1/object/public/app-releases/akorahub-latest.apk"
+          else
+            DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}"
+          fi
           HTTP_STATUS=$(curl -s -o /tmp/notify_response.json -w "%{http_code}" \
             -X POST "$SUPABASE_URL/functions/v1/update-latest-version" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "x-webhook-secret: $UPDATE_VERSION_WEBHOOK_SECRET" \
-            -d "{\"versionName\":\"$VERSION_NAME\",\"buildNumber\":$BUILD_NUMBER,\"downloadUrl\":\"https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}\"}") || true
+            -d "{\"versionName\":\"$VERSION_NAME\",\"buildNumber\":$BUILD_NUMBER,\"downloadUrl\":\"$DOWNLOAD_URL\"}") || true
           echo "Code HTTP : $HTTP_STATUS"
           echo "Réponse :"
           cat /tmp/notify_response.json 2>/dev/null || echo "(aucune réponse reçue)"
