@@ -29,6 +29,15 @@ workflows:
         - akorahub_secrets
       vars:
         PACKAGE_NAME: "com.akora_fanadiovana.app"
+        # ID de l'app Android côté Firebase (Firebase Console -> Paramètres
+        # du projet -> Vos applications -> Android -> "ID de l'application").
+        # Pas un secret — nécessaire ici en valeur statique (et non générée
+        # en cours de build via $CM_ENV) car Codemagic valide/résout la
+        # section `publishing` AVANT l'exécution des scripts, donc une
+        # variable créée dynamiquement par un script n'y est pas visible
+        # (erreur "FIREBASE_APP_ID ... is not accessible", constatée le
+        # 05/08 lors du premier essai avec extraction dynamique).
+        FIREBASE_APP_ID: "1:970298717063:android:56651a4ba48ae521e59922"
 
     triggering:
       events:
@@ -70,15 +79,6 @@ workflows:
             echo "Clé de production restaurée."
           else
             echo "Pas de clé de production — build signé avec la clé debug."
-          fi
-
-      - name: Extraire l'ID d'app Firebase (pour App Distribution)
-        script: |
-          if [ -f android/app/google-services.json ]; then
-            APP_ID=$(python3 -c "import json; print(json.load(open('android/app/google-services.json'))['client'][0]['client_info']['mobilesdk_app_id'])")
-            echo "export FIREBASE_APP_ID=$APP_ID" >> "$CM_ENV"
-          else
-            echo "Pas de google-services.json — App Distribution désactivée sur ce build."
           fi
 
       - name: Récupérer les dépendances Flutter
