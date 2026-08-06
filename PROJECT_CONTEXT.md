@@ -7023,3 +7023,19 @@ et le profil consulté (intersection des deux listes d'amis acceptés).
   `AIRTEL_MONEY` côté code (juste jamais activable depuis l'Admin). Le
   blocage retiré : Airtel Money est maintenant sélectionnable comme les
   deux autres opérateurs sous "FiveOne Pay".
+
+### Filtrer le catalogue par usage (06/08)
+
+Suite de la liste "praticable" : nouvelle rangée de puces "Usages"
+(Marbre, Carrelage, Désinfection...) dans `product_catalog_tab.dart`,
+juste sous les catégories — sur la colonne `use_cases` déjà en place
+(phase73). Filtre côté serveur (`.contains('use_cases', [usage])` sur
+la requête paginée) + repris côté client dans `_filteredProducts` pour
+cohérence avec les autres filtres (pilier/catégorie/recherche).
+
+`_usages` (liste des usages disponibles) est scopée au pilier
+sélectionné mais PAS à la catégorie — un usage comme "Nettoyage" reste
+utile pour comparer plusieurs catégories d'un même pilier plutôt que de
+disparaître dès qu'une catégorie précise est choisie. Réinitialisé à
+"Tous les usages" en même temps que la catégorie quand le pilier change
+(même logique de repli que l'existant).

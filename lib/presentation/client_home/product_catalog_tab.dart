@@ -41,6 +41,10 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   String? _error;
   String? _selectedUnitId;
   String _selectedCategory = 'toutes';
+  // Filtre par usage (06/08, demande "praticable") — sur la colonne
+  // `use_cases` (text[]) déjà utilisée pour les badges usages côté fiche
+  // produit et le formulaire admin (phase73/kProductUsageSuggestionsByCategory).
+  String _selectedUsage = 'toutes';
   String _searchQuery = '';
 
   // Catégories que CE client achète le plus souvent, dans l'ordre
@@ -201,6 +205,9 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     }
     if (_selectedCategory != 'toutes') {
       query = query.eq('category', _selectedCategory);
+    }
+    if (_selectedUsage != 'toutes') {
+      query = query.contains('use_cases', [_selectedUsage]);
     }
     if (_searchQuery.trim().isNotEmpty) {
       query = query.ilike('name', '%${_searchQuery.trim()}%');
@@ -468,6 +475,24 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     return cats;
   }
 
+  /// Usages disponibles pour filtrer (06/08) — dérivés du catalogue
+  /// complet comme `_categories`, scopés au pilier sélectionné mais PAS
+  /// à la catégorie (un usage reste utile pour comparer plusieurs
+  /// catégories d'un même pilier, ex. "Nettoyage" peut concerner
+  /// Carrelage & Sols ET Cuisine & Vaisselle).
+  List<String> get _usages {
+    final relevant = _selectedUnitId == null
+        ? _allProductsForReference
+        : _allProductsForReference
+            .where((p) => p['business_unit_id'] == _selectedUnitId);
+    final usages = <String>{
+      for (final p in relevant)
+        ...List<String>.from(p['use_cases'] ?? const []),
+    }.toList();
+    usages.sort();
+    return usages;
+  }
+
   /// Recharge le statut d'abonnement pour le (pilier, catégorie)
   /// actuellement sélectionnés.
   Future<void> _refreshSubscriptionStatus() async {
@@ -519,12 +544,15 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
           _selectedUnitId == null || p['business_unit_id'] == _selectedUnitId;
       final matchesCategory = _selectedCategory == 'toutes' ||
           p['category'] == _selectedCategory;
+      final matchesUsage = _selectedUsage == 'toutes' ||
+          List<String>.from(p['use_cases'] ?? const [])
+              .contains(_selectedUsage);
       final matchesSearch = _searchQuery.isEmpty ||
           (p['name'] ?? '')
               .toString()
               .toLowerCase()
               .contains(_searchQuery.toLowerCase());
-      return matchesUnit && matchesCategory && matchesSearch;
+      return matchesUnit && matchesCategory && matchesUsage && matchesSearch;
     }).toList();
   }
 
@@ -678,6 +706,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
                           setState(() {
                             _selectedUnitId = null;
                             _selectedCategory = 'toutes';
+                            _selectedUsage = 'toutes';
                           });
                           _reloadProductsPage();
                           _refreshSubscriptionStatus();
@@ -707,6 +736,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
                           setState(() {
                             _selectedUnitId = selected ? null : unit['id'];
                             _selectedCategory = 'toutes';
+                            _selectedUsage = 'toutes';
                           });
                           _reloadProductsPage();
                           _refreshSubscriptionStatus();
@@ -796,6 +826,42 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
                               setState(() => _selectedCategory = c);
                               _reloadProductsPage();
                               _refreshSubscriptionStatus();
+                            },
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ),
+
+          if (_usages.isNotEmpty)
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 5.h,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        avatar: const Icon(Icons.checklist_rtl, size: 18),
+                        label: const Text('Tous les usages'),
+                        selected: _selectedUsage == 'toutes',
+                        onSelected: (_) {
+                          setState(() => _selectedUsage = 'toutes');
+                          _reloadProductsPage();
+                        },
+                      ),
+                    ),
+                    ..._usages.map((u) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(u),
+                            selected: _selectedUsage == u,
+                            onSelected: (_) {
+                              setState(() => _selectedUsage = u);
+                              _reloadProductsPage();
                             },
                           ),
                         )),
