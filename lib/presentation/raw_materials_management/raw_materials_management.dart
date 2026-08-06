@@ -26,6 +26,10 @@ class RawMaterialsManagement extends StatefulWidget {
 class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
   List<Map<String, dynamic>> _materials = [];
   List<Map<String, dynamic>> _businessUnits = [];
+  // IDs des matières premières ayant déjà une fiche Académie complète
+  // (06/08) — juste pour le badge "Académie : complète/à faire" sur
+  // chaque ligne, voir raw_material_editor_screen.dart.
+  Set<String> _academieCompleteIds = {};
   bool _isLoading = true;
   String? _error;
   String? _selectedUnitId;
@@ -59,9 +63,22 @@ class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
             .order('name'),
         SupabaseConfig.client.from('business_units').select(),
       ]);
+      // Séparé du Future.wait ci-dessus, avec son propre repli tolérant :
+      // si la migration phase81 n'est pas encore exécutée, le reste de la
+      // liste doit tout de même s'afficher (juste pas de badge Académie).
+      Set<String> academieCompleteIds = {};
+      try {
+        final academieRows = await SupabaseConfig.client
+            .from('matieres_premieres_academie')
+            .select('matiere_premiere_id');
+        academieCompleteIds = List<Map<String, dynamic>>.from(academieRows)
+            .map((r) => r['matiere_premiere_id'] as String)
+            .toSet();
+      } catch (_) {}
       setState(() {
         _materials = List<Map<String, dynamic>>.from(results[0]);
         _businessUnits = List<Map<String, dynamic>>.from(results[1]);
+        _academieCompleteIds = academieCompleteIds;
         _isLoading = false;
       });
     } catch (e) {
@@ -181,6 +198,8 @@ class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
                                   final stockStatus =
                                       m['stock_status'] as String? ??
                                           'en_stock';
+                                  final hasAcademie =
+                                      _academieCompleteIds.contains(m['id']);
                                   return Card(
                                     child: ListTile(
                                       leading: CircleAvatar(
@@ -217,20 +236,43 @@ class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
                                                 .format(m['current_price']),
                                         ].where((e) => e != null).join(' · '),
                                       ),
-                                      trailing: Chip(
-                                        label: Text(
-                                            rawMaterialStatusLabel(
-                                                stockStatus),
-                                            style:
-                                                const TextStyle(fontSize: 11)),
-                                        backgroundColor:
-                                            rawMaterialStatusColor(
-                                                    stockStatus)
-                                                .withValues(alpha: 0.15),
-                                        labelStyle: TextStyle(
-                                            color: rawMaterialStatusColor(
-                                                stockStatus)),
-                                        visualDensity: VisualDensity.compact,
+                                      trailing: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Chip(
+                                            label: Text(
+                                                rawMaterialStatusLabel(
+                                                    stockStatus),
+                                                style: const TextStyle(
+                                                    fontSize: 11)),
+                                            backgroundColor:
+                                                rawMaterialStatusColor(
+                                                        stockStatus)
+                                                    .withValues(alpha: 0.15),
+                                            labelStyle: TextStyle(
+                                                color: rawMaterialStatusColor(
+                                                    stockStatus)),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Tooltip(
+                                            message: hasAcademie
+                                                ? 'Fiche Académie complète'
+                                                : 'Fiche Académie à faire',
+                                            child: Icon(
+                                              hasAcademie
+                                                  ? Icons.check_circle
+                                                  : Icons.error_outline,
+                                              size: 16,
+                                              color: hasAcademie
+                                                  ? Colors.green
+                                                  : Colors.orange,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                       onTap: () async {
                                         final changed =

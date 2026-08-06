@@ -26,6 +26,13 @@ const List<String> _academieNiveauxDanger = [
   'Corrosif'
 ];
 
+const List<String> _academieGrades = [
+  'Standard',
+  'Alimentaire',
+  'Cosmétique',
+  'Technique',
+];
+
 /// Domaines d'application suggérés pour les usages détaillés Académie
 /// (06/08) — liste de DÉPART uniquement : `_knownAcademieDomains` (voir
 /// `_loadData`) l'enrichit avec tout domaine déjà tapé sur n'importe
@@ -136,7 +143,7 @@ class _RawMaterialEditorScreenState
   String? _academieId;
   final _academieNomChimiqueCtrl = TextEditingController();
   final _academieSynonymesCtrl = TextEditingController();
-  final _academieGradeCtrl = TextEditingController();
+  String? _academieGrade;
   final _academieAspectCtrl = TextEditingController();
   final _academiePhCtrl = TextEditingController();
   final _academieSolubiliteCtrl = TextEditingController();
@@ -150,6 +157,41 @@ class _RawMaterialEditorScreenState
   String _academieStatutVerification = 'a_valider';
   List<Map<String, dynamic>> _academieUsages = [];
   List<String> _knownAcademieDomains = List<String>.from(kAcademieUsageDomains);
+  // Fiches Académie existantes (autres matières) dont on peut copier les
+  // réglages sécurité (grade, danger, EPI, premiers secours,
+  // incompatibilités, stockage) — souvent répétitifs entre matières
+  // similaires (ex : plusieurs bases fortes). Jamais nom_chimique/
+  // aspect/pH/solubilité/usages, toujours propres à chaque substance.
+  List<Map<String, dynamic>> _academieSafetyTemplates = [];
+  // "Nom commun" se pré-remplit avec "Nom" à la création (juste un point
+  // de départ modifiable) — s'arrête dès que l'utilisatrice tape
+  // elle-même dans le champ Nom commun.
+  bool _academieSynonymesAutoFill = true;
+  bool _isSyncingAcademieSynonymes = false;
+
+  /// A-t-on commencé à remplir la section Académie ? Si oui, les 5
+  /// champs clés (nom chimique, nom commun, aspect, pH, solubilité)
+  /// deviennent obligatoires (voir `_save`) — si la section est
+  /// entièrement vide, on la laisse pour plus tard sans bloquer
+  /// l'enregistrement du reste de la fiche.
+  bool get _academieHasContent =>
+      _academieId != null ||
+      _academieNomChimiqueCtrl.text.trim().isNotEmpty ||
+      _academieSynonymesCtrl.text.trim().isNotEmpty ||
+      _academieGrade != null ||
+      _academieAspectCtrl.text.trim().isNotEmpty ||
+      _academiePhCtrl.text.trim().isNotEmpty ||
+      _academieSolubiliteCtrl.text.trim().isNotEmpty ||
+      _academieParticulariteCtrl.text.trim().isNotEmpty ||
+      _academieDifferenceCtrl.text.trim().isNotEmpty ||
+      _academieNiveauDanger != null ||
+      _academieEpiRequis.isNotEmpty ||
+      _academiePremiersSecoursCtrl.text.trim().isNotEmpty ||
+      _academieIncompatibilitesCtrl.text.trim().isNotEmpty ||
+      _academieStockageCtrl.text.trim().isNotEmpty ||
+      _academieStatutVerification != 'a_valider' ||
+      _academieUsages.any((u) =>
+          (u['domaine_application'] as String? ?? '').trim().isNotEmpty);
 
   num? _originalPrice;
   bool _isLoading = true;
@@ -170,6 +212,16 @@ class _RawMaterialEditorScreenState
     _selectedCategoryName = m?['category_name'];
     _stockStatus = m?['stock_status'] ?? 'en_stock';
     _originalPrice = m?['current_price'] as num?;
+    _nameCtrl.addListener(() {
+      if (!_isEditing && _academieSynonymesAutoFill) {
+        _isSyncingAcademieSynonymes = true;
+        _academieSynonymesCtrl.text = _nameCtrl.text;
+        _isSyncingAcademieSynonymes = false;
+      }
+    });
+    _academieSynonymesCtrl.addListener(() {
+      if (!_isSyncingAcademieSynonymes) _academieSynonymesAutoFill = false;
+    });
     _loadData();
   }
 
@@ -181,7 +233,6 @@ class _RawMaterialEditorScreenState
     _priceCtrl.dispose();
     _academieNomChimiqueCtrl.dispose();
     _academieSynonymesCtrl.dispose();
-    _academieGradeCtrl.dispose();
     _academieAspectCtrl.dispose();
     _academiePhCtrl.dispose();
     _academieSolubiliteCtrl.dispose();
@@ -259,6 +310,14 @@ class _RawMaterialEditorScreenState
       }
       _knownAcademieDomains = knownDomains.toList();
 
+      final safetyRows = await SupabaseConfig.client
+          .from('matieres_premieres_academie')
+          .select(
+              'matiere_premiere_id, grade, niveau_danger, epi_requis, premiers_secours, incompatibilites, stockage, raw_materials(name)');
+      _academieSafetyTemplates = List<Map<String, dynamic>>.from(safetyRows)
+          .where((r) => r['matiere_premiere_id'] != widget.material?['id'])
+          .toList();
+
       if (_isEditing) {
         final sheet = await SupabaseConfig.client
             .from('matieres_premieres_academie')
@@ -269,7 +328,7 @@ class _RawMaterialEditorScreenState
           _academieId = sheet['id'] as String;
           _academieNomChimiqueCtrl.text = sheet['nom_chimique'] as String? ?? '';
           _academieSynonymesCtrl.text = sheet['synonymes'] as String? ?? '';
-          _academieGradeCtrl.text = sheet['grade'] as String? ?? '';
+          _academieGrade = sheet['grade'] as String?;
           _academieAspectCtrl.text = sheet['aspect'] as String? ?? '';
           _academiePhCtrl.text = sheet['ph_solution'] as String? ?? '';
           _academieSolubiliteCtrl.text = sheet['solubilite'] as String? ?? '';
@@ -313,6 +372,97 @@ class _RawMaterialEditorScreenState
         'a_verifier_labo': false,
       });
     });
+  }
+
+  /// Copie les réglages sécurité (grade, danger, EPI, premiers secours,
+  /// incompatibilités, stockage) d'une autre fiche Académie déjà
+  /// documentée — utile pour des matières similaires (ex : plusieurs
+  /// bases fortes partagent souvent les mêmes EPI). Ne touche jamais
+  /// nom chimique/aspect/pH/solubilité/usages, propres à chaque
+  /// substance.
+  Future<void> _pickAcademieSafetyTemplate() async {
+    if (_academieSafetyTemplates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content:
+              Text('Aucune autre fiche Académie à copier pour l\'instant.')));
+      return;
+    }
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) {
+        String search = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtered = _academieSafetyTemplates.where((t) {
+              final name = (t['raw_materials'] is Map
+                      ? t['raw_materials']['name'] as String?
+                      : null) ??
+                  '';
+              return search.isEmpty ||
+                  name.toLowerCase().contains(search.toLowerCase());
+            }).toList();
+            return AlertDialog(
+              title: const Text('Dupliquer les réglages sécurité depuis…'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 320,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search),
+                          hintText: 'Rechercher une matière première…'),
+                      onChanged: (v) => setDialogState(() => search = v),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('Aucun résultat.'))
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, i) {
+                                final t = filtered[i];
+                                final name = t['raw_materials'] is Map
+                                    ? t['raw_materials']['name'] as String?
+                                    : null;
+                                return ListTile(
+                                  title: Text(name ?? 'Matière première'),
+                                  onTap: () => Navigator.pop(context, t),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (selected == null) return;
+    setState(() {
+      _academieGrade = selected['grade'] as String?;
+      _academieNiveauDanger = selected['niveau_danger'] as String?;
+      _academieEpiRequis
+        ..clear()
+        ..addAll(List<String>.from(selected['epi_requis'] as List? ?? []));
+      _academiePremiersSecoursCtrl.text =
+          selected['premiers_secours'] as String? ?? '';
+      _academieIncompatibilitesCtrl.text =
+          selected['incompatibilites'] as String? ?? '';
+      _academieStockageCtrl.text = selected['stockage'] as String? ?? '';
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            'Réglages sécurité copiés — vérifie qu\'ils s\'appliquent bien à cette matière avant d\'enregistrer.')));
   }
 
   Future<String?> _addNewCategory(String businessUnitId) async {
@@ -466,14 +616,15 @@ class _RawMaterialEditorScreenState
           content: Text('Le nom et le pilier sont obligatoires.')));
       return;
     }
-    if (_academieNomChimiqueCtrl.text.trim().isEmpty ||
-        _academieSynonymesCtrl.text.trim().isEmpty ||
-        _academieAspectCtrl.text.trim().isEmpty ||
-        _academiePhCtrl.text.trim().isEmpty ||
-        _academieSolubiliteCtrl.text.trim().isEmpty) {
+    if (_academieHasContent &&
+        (_academieNomChimiqueCtrl.text.trim().isEmpty ||
+            _academieSynonymesCtrl.text.trim().isEmpty ||
+            _academieAspectCtrl.text.trim().isEmpty ||
+            _academiePhCtrl.text.trim().isEmpty ||
+            _academieSolubiliteCtrl.text.trim().isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text(
-              'Dans la section Académie : nom chimique, nom commun, aspect, pH en solution et solubilité sont obligatoires.')));
+              'Dans la section Académie : nom chimique, nom commun, aspect, pH en solution et solubilité sont obligatoires dès que cette section est commencée.')));
       return;
     }
     if (_isSaving) return;
@@ -627,87 +778,93 @@ class _RawMaterialEditorScreenState
 
       // Fiche Académie (06/08) — même mécanique que usages/conditionnement :
       // upsert de la fiche puis réécriture complète des usages détaillés.
-      final academieSaved = await SupabaseConfig.client
-          .from('matieres_premieres_academie')
-          .upsert(
-            {
-              'matiere_premiere_id': materialId,
-              'nom_chimique': _academieNomChimiqueCtrl.text.trim(),
-              'synonymes': _academieSynonymesCtrl.text.trim(),
-              'grade': _academieGradeCtrl.text.trim().isEmpty
-                  ? null
-                  : _academieGradeCtrl.text.trim(),
-              'aspect': _academieAspectCtrl.text.trim(),
-              'ph_solution': _academiePhCtrl.text.trim(),
-              'solubilite': _academieSolubiliteCtrl.text.trim(),
-              'particularite': _academieParticulariteCtrl.text.trim().isEmpty
-                  ? null
-                  : _academieParticulariteCtrl.text.trim(),
-              'difference_produit_similaire':
-                  _academieDifferenceCtrl.text.trim().isEmpty
-                      ? null
-                      : _academieDifferenceCtrl.text.trim(),
-              'niveau_danger': _academieNiveauDanger,
-              'epi_requis': _academieEpiRequis.toList(),
-              'premiers_secours':
-                  _academiePremiersSecoursCtrl.text.trim().isEmpty
-                      ? null
-                      : _academiePremiersSecoursCtrl.text.trim(),
-              'incompatibilites':
-                  _academieIncompatibilitesCtrl.text.trim().isEmpty
-                      ? null
-                      : _academieIncompatibilitesCtrl.text.trim(),
-              'stockage': _academieStockageCtrl.text.trim().isEmpty
-                  ? null
-                  : _academieStockageCtrl.text.trim(),
-              'statut_verification': _academieStatutVerification,
-              'updated_at': DateTime.now().toIso8601String(),
-            },
-            onConflict: 'matiere_premiere_id',
-          )
-          .select()
-          .single();
-      final academieId = academieSaved['id'] as String;
+      // Section entièrement vide -> on la laisse pour plus tard, pas
+      // d'écriture (évite aussi de violer le "not null" de phase82 avec
+      // des chaînes vides).
+      if (_academieHasContent) {
+        final academieSaved = await SupabaseConfig.client
+            .from('matieres_premieres_academie')
+            .upsert(
+              {
+                'matiere_premiere_id': materialId,
+                'nom_chimique': _academieNomChimiqueCtrl.text.trim(),
+                'synonymes': _academieSynonymesCtrl.text.trim(),
+                'grade': _academieGrade,
+                'aspect': _academieAspectCtrl.text.trim(),
+                'ph_solution': _academiePhCtrl.text.trim(),
+                'solubilite': _academieSolubiliteCtrl.text.trim(),
+                'particularite': _academieParticulariteCtrl.text.trim().isEmpty
+                    ? null
+                    : _academieParticulariteCtrl.text.trim(),
+                'difference_produit_similaire':
+                    _academieDifferenceCtrl.text.trim().isEmpty
+                        ? null
+                        : _academieDifferenceCtrl.text.trim(),
+                'niveau_danger': _academieNiveauDanger,
+                'epi_requis': _academieEpiRequis.toList(),
+                'premiers_secours':
+                    _academiePremiersSecoursCtrl.text.trim().isEmpty
+                        ? null
+                        : _academiePremiersSecoursCtrl.text.trim(),
+                'incompatibilites':
+                    _academieIncompatibilitesCtrl.text.trim().isEmpty
+                        ? null
+                        : _academieIncompatibilitesCtrl.text.trim(),
+                'stockage': _academieStockageCtrl.text.trim().isEmpty
+                    ? null
+                    : _academieStockageCtrl.text.trim(),
+                'statut_verification': _academieStatutVerification,
+                'updated_at': DateTime.now().toIso8601String(),
+              },
+              onConflict: 'matiere_premiere_id',
+            )
+            .select()
+            .single();
+        final academieId = academieSaved['id'] as String;
+        _academieId = academieId;
 
-      await SupabaseConfig.client
-          .from('matieres_premieres_usages')
-          .delete()
-          .eq('academie_id', academieId);
-      final validAcademieUsages = _academieUsages
-          .where((u) =>
-              (u['domaine_application'] as String? ?? '').trim().isNotEmpty)
-          .toList();
-      if (validAcademieUsages.isNotEmpty) {
-        await SupabaseConfig.client.from('matieres_premieres_usages').insert([
-          for (var i = 0; i < validAcademieUsages.length; i++)
-            {
-              'academie_id': academieId,
-              'domaine_application': (validAcademieUsages[i]
-                      ['domaine_application'] as String)
-                  .trim(),
-              'technique_methode':
-                  (validAcademieUsages[i]['technique_methode'] as String? ??
-                              '')
-                          .trim()
-                          .isEmpty
-                      ? null
-                      : (validAcademieUsages[i]['technique_methode']
-                              as String)
-                          .trim(),
-              'dosage_concentration': (validAcademieUsages[i]
-                              ['dosage_concentration'] as String? ??
-                          '')
-                      .trim()
-                      .isEmpty
-                  ? null
-                  : (validAcademieUsages[i]['dosage_concentration']
-                          as String)
-                      .trim(),
-              'a_verifier_labo':
-                  validAcademieUsages[i]['a_verifier_labo'] == true,
-              'ordre': i,
-            },
-        ]);
+        await SupabaseConfig.client
+            .from('matieres_premieres_usages')
+            .delete()
+            .eq('academie_id', academieId);
+        final validAcademieUsages = _academieUsages
+            .where((u) =>
+                (u['domaine_application'] as String? ?? '').trim().isNotEmpty)
+            .toList();
+        if (validAcademieUsages.isNotEmpty) {
+          await SupabaseConfig.client
+              .from('matieres_premieres_usages')
+              .insert([
+            for (var i = 0; i < validAcademieUsages.length; i++)
+              {
+                'academie_id': academieId,
+                'domaine_application': (validAcademieUsages[i]
+                        ['domaine_application'] as String)
+                    .trim(),
+                'technique_methode':
+                    (validAcademieUsages[i]['technique_methode'] as String? ??
+                                '')
+                            .trim()
+                            .isEmpty
+                        ? null
+                        : (validAcademieUsages[i]['technique_methode']
+                                as String)
+                            .trim(),
+                'dosage_concentration': (validAcademieUsages[i]
+                                ['dosage_concentration'] as String? ??
+                            '')
+                        .trim()
+                        .isEmpty
+                    ? null
+                    : (validAcademieUsages[i]['dosage_concentration']
+                            as String)
+                        .trim(),
+                'a_verifier_labo':
+                    validAcademieUsages[i]['a_verifier_labo'] == true,
+                'ordre': i,
+              },
+          ]);
+        }
       }
 
       if (!mounted) return;
@@ -1014,6 +1171,11 @@ class _RawMaterialEditorScreenState
             title: 'Utilise dans la fabrication de',
             onAdd: _addUsageRow,
           ),
+          Text(
+            'Visible gratuitement dès l\'achat de la fiche produit — lien vers un produit du catalogue.',
+            style: theme.textTheme.bodySmall,
+          ),
+          SizedBox(height: 1.h),
           for (var i = 0; i < _usages.length; i++)
             _UsageRow(
               key: ValueKey('usage-$i-${_usages[i]['id'] ?? ''}'),
@@ -1067,6 +1229,17 @@ class _RawMaterialEditorScreenState
           SizedBox(height: 4.h),
           const Divider(),
           SizedBox(height: 2.h),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           Row(
             children: [
               const Icon(Icons.science_outlined),
@@ -1080,14 +1253,33 @@ class _RawMaterialEditorScreenState
             'Débloquée séparément par le client (achat Académie distinct) — voir supabase/phase81_patch_academie_matieres_premieres.sql.',
             style: theme.textTheme.bodySmall,
           ),
+          if (!_academieHasContent) ...[
+            SizedBox(height: 0.5.h),
+            Text(
+              'Section encore vide — tu peux enregistrer le reste de la fiche sans la remplir. Dès que tu commences, les 5 champs marqués * deviennent obligatoires.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(fontStyle: FontStyle.italic),
+            ),
+          ],
           SizedBox(height: 0.5.h),
           Text('* Champs obligatoires', style: theme.textTheme.bodySmall),
           SizedBox(height: 1.h),
           _academieField(_academieNomChimiqueCtrl, 'Nom chimique',
               required: true),
           _academieField(_academieSynonymesCtrl, 'Nom commun', required: true),
-          _academieField(_academieGradeCtrl,
-              'Grade (Standard / Alimentaire / Cosmétique / Technique)'),
+          DropdownButtonFormField<String>(
+            initialValue: _academieGrade,
+            decoration: const InputDecoration(
+                labelText: 'Grade', border: OutlineInputBorder()),
+            items: <String>{
+              ..._academieGrades,
+              if (_academieGrade != null) _academieGrade!,
+            }
+                .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                .toList(),
+            onChanged: (v) => setState(() => _academieGrade = v),
+          ),
+          SizedBox(height: 1.5.h),
           _academieField(_academieAspectCtrl, 'Aspect', required: true),
           _academieField(_academiePhCtrl, 'pH en solution', required: true),
           _academieField(_academieSolubiliteCtrl, 'Solubilité',
@@ -1098,7 +1290,18 @@ class _RawMaterialEditorScreenState
               'Différence avec un produit similaire',
               maxLines: 2),
           SizedBox(height: 1.h),
-          Text('Sécurité', style: theme.textTheme.titleMedium),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Sécurité', style: theme.textTheme.titleMedium),
+              ),
+              TextButton.icon(
+                onPressed: _pickAcademieSafetyTemplate,
+                icon: const Icon(Icons.copy_all_outlined, size: 18),
+                label: const Text('Dupliquer depuis…'),
+              ),
+            ],
+          ),
           SizedBox(height: 1.h),
           DropdownButtonFormField<String>(
             initialValue: _academieNiveauDanger,
@@ -1150,6 +1353,11 @@ class _RawMaterialEditorScreenState
             title: 'Usages détaillés (Académie)',
             onAdd: _addAcademieUsageRow,
           ),
+          Text(
+            'Visible seulement après achat Académie — domaine précis + dosage/technique, indépendant du catalogue.',
+            style: theme.textTheme.bodySmall,
+          ),
+          SizedBox(height: 1.h),
           for (var i = 0; i < _academieUsages.length; i++)
             Card(
               margin: const EdgeInsets.only(bottom: 10),
@@ -1227,6 +1435,9 @@ class _RawMaterialEditorScreenState
                 ),
               ),
             ),
+              ],
+            ),
+          ),
           SizedBox(height: 4.h),
           FilledButton(
             onPressed: _isSaving ? null : _save,

@@ -7269,3 +7269,48 @@ du bouton "Enregistrer" de la fiche matière première elle-même (plus
 besoin d'ouvrir un second écran pour buter sur cette validation).
 AppBar renommée "Fiche Académie" (édition) / "Nouvelle fiche Académie"
 (création) ; l'icône éprouvette et son bouton de navigation ont disparu.
+
+### Revue et améliorations de la fiche Académie fusionnée (06/08)
+
+Sur demande de revue complète après les premiers essais réels (captures
+d'écran "Soude caustique") — 6 changements :
+
+1. **Légendes gratuit/payant** : une phrase sous "Utilise dans la
+   fabrication de" ("Visible gratuitement...") et sous "Usages détaillés
+   (Académie)" ("Visible seulement après achat Académie...") pour lever
+   l'ambiguïté entre les deux sections qui se ressemblent maintenant
+   qu'elles sont sur le même écran.
+2. **"Grade" devient une vraie liste déroulante** (Standard / Alimentaire
+   / Cosmétique / Technique) au lieu d'un champ texte libre — évite les
+   fautes de frappe qui casseraient un futur filtre. Tolère une valeur
+   existante hors liste (ajoutée dynamiquement aux choix).
+3. **Obligation conditionnelle** : les 5 champs clés (nom chimique, nom
+   commun, aspect, pH, solubilité) ne sont obligatoires QUE si la
+   section Académie a déjà été commencée (`_academieHasContent`, un
+   getter qui vérifie tous les champs/EPI/usages) — une matière sans
+   fiche Académie encore prête peut continuer à recevoir des
+   modifications rapides (prix, stock...) sans être bloquée. Si la
+   section est vide, `_save()` n'écrit même pas de ligne dans
+   `matieres_premieres_academie` (évite aussi de violer le `not null`
+   de phase82 avec des chaînes vides).
+4. **Section Académie encadrée visuellement** (fond teinté + bordure,
+   `Container`/`BoxDecoration`) pour que la frontière gratuit/payant
+   soit évidente d'un coup d'œil, pas juste un titre au milieu du reste.
+5. **"Nom commun" pré-rempli automatiquement avec "Nom"** à la création
+   d'une nouvelle fiche (ex : taper "Soude caustique" dans Nom le
+   propose aussi comme point de départ dans Nom commun) — s'arrête dès
+   que l'utilisatrice tape elle-même dans Nom commun
+   (`_academieSynonymesAutoFill`, écouteurs sur les deux contrôleurs).
+6. **Bouton "Dupliquer depuis…"** (icône copie, à côté de "Sécurité") :
+   ouvre une recherche parmi les fiches Académie déjà documentées et
+   copie SEULEMENT les réglages sécurité (grade, niveau de danger, EPI,
+   premiers secours, incompatibilités, stockage) d'une matière
+   similaire — jamais nom chimique/aspect/pH/solubilité/usages,
+   toujours propres à chaque substance. Accélère la saisie pour des
+   matières qui partagent souvent les mêmes EPI (ex : plusieurs bases
+   fortes).
+
+**Badge "Académie" sur la liste** (`raw_materials_management.dart`) :
+chaque ligne affiche maintenant un petit ✅ (complète) ou ⚠️ (à faire)
+sous le chip de statut de stock — repère visuel pour suivre l'avancement
+en documentant les fiches une par une, sans avoir à ouvrir chacune.
