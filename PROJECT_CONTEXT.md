@@ -7314,3 +7314,25 @@ d'écran "Soude caustique") — 6 changements :
 chaque ligne affiche maintenant un petit ✅ (complète) ou ⚠️ (à faire)
 sous le chip de statut de stock — repère visuel pour suivre l'avancement
 en documentant les fiches une par une, sans avoir à ouvrir chacune.
+
+### Fusion du champ "Nom" avec "Nom commun" (06/08)
+
+Doublon repéré sur les premiers essais réels : le champ "Nom" tout en
+haut de la fiche (identifiant de base, utilisé partout — titre de la
+carte dans la liste admin, titre affiché au client, recherche/suggestions
+INS) et "Nom commun" dans la section Académie (qui se pré-remplissait
+déjà automatiquement à partir de "Nom") faisaient doublon visuel. Sur
+demande explicite : suppression du champ "Nom" séparé en haut de
+l'écran — un SEUL champ "Nom commun *" (avec toute la logique
+d'auto-complétion/suggestion INS + catégorie déjà en place) déplacé
+DANS la section Académie, juste après "Nom chimique" (ordre demandé :
+Photo, nom chimique, nom commun...). Ce même champ alimente à la fois
+`raw_materials.name` (fiche de base, toujours obligatoire) ET
+`matieres_premieres_academie.synonymes` — plus de re-saisie en double.
+
+Migration silencieuse à l'ouverture d'une fiche existante : si la
+fiche Académie avait déjà un `synonymes` plus riche que le `name` de
+base (ex : "Soude caustique, soude en perles, soude écailles, lessive
+de soude" vs juste "Soude caustique"), c'est cette valeur plus complète
+qui est reprise dans le champ fusionné, pour ne rien perdre de ce qui
+avait déjà été tapé.

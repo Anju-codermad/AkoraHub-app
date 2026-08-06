@@ -142,7 +142,6 @@ class _RawMaterialEditorScreenState
   // supabase/phase81_patch_academie_matieres_premieres.sql.
   String? _academieId;
   final _academieNomChimiqueCtrl = TextEditingController();
-  final _academieSynonymesCtrl = TextEditingController();
   String? _academieGrade;
   final _academieAspectCtrl = TextEditingController();
   final _academiePhCtrl = TextEditingController();
@@ -163,21 +162,16 @@ class _RawMaterialEditorScreenState
   // similaires (ex : plusieurs bases fortes). Jamais nom_chimique/
   // aspect/pH/solubilité/usages, toujours propres à chaque substance.
   List<Map<String, dynamic>> _academieSafetyTemplates = [];
-  // "Nom commun" se pré-remplit avec "Nom" à la création (juste un point
-  // de départ modifiable) — s'arrête dès que l'utilisatrice tape
-  // elle-même dans le champ Nom commun.
-  bool _academieSynonymesAutoFill = true;
-  bool _isSyncingAcademieSynonymes = false;
 
-  /// A-t-on commencé à remplir la section Académie ? Si oui, les 5
-  /// champs clés (nom chimique, nom commun, aspect, pH, solubilité)
+  /// A-t-on commencé à remplir la section Académie ? Si oui, les champs
+  /// clés (nom chimique, aspect, pH, solubilité — "Nom commun" est
+  /// toujours rempli via le champ "Nom" partagé avec la fiche de base)
   /// deviennent obligatoires (voir `_save`) — si la section est
   /// entièrement vide, on la laisse pour plus tard sans bloquer
   /// l'enregistrement du reste de la fiche.
   bool get _academieHasContent =>
       _academieId != null ||
       _academieNomChimiqueCtrl.text.trim().isNotEmpty ||
-      _academieSynonymesCtrl.text.trim().isNotEmpty ||
       _academieGrade != null ||
       _academieAspectCtrl.text.trim().isNotEmpty ||
       _academiePhCtrl.text.trim().isNotEmpty ||
@@ -212,16 +206,6 @@ class _RawMaterialEditorScreenState
     _selectedCategoryName = m?['category_name'];
     _stockStatus = m?['stock_status'] ?? 'en_stock';
     _originalPrice = m?['current_price'] as num?;
-    _nameCtrl.addListener(() {
-      if (!_isEditing && _academieSynonymesAutoFill) {
-        _isSyncingAcademieSynonymes = true;
-        _academieSynonymesCtrl.text = _nameCtrl.text;
-        _isSyncingAcademieSynonymes = false;
-      }
-    });
-    _academieSynonymesCtrl.addListener(() {
-      if (!_isSyncingAcademieSynonymes) _academieSynonymesAutoFill = false;
-    });
     _loadData();
   }
 
@@ -232,7 +216,6 @@ class _RawMaterialEditorScreenState
     _safetyCtrl.dispose();
     _priceCtrl.dispose();
     _academieNomChimiqueCtrl.dispose();
-    _academieSynonymesCtrl.dispose();
     _academieAspectCtrl.dispose();
     _academiePhCtrl.dispose();
     _academieSolubiliteCtrl.dispose();
@@ -327,7 +310,15 @@ class _RawMaterialEditorScreenState
         if (sheet != null) {
           _academieId = sheet['id'] as String;
           _academieNomChimiqueCtrl.text = sheet['nom_chimique'] as String? ?? '';
-          _academieSynonymesCtrl.text = sheet['synonymes'] as String? ?? '';
+          // "Nom commun" partage désormais le même champ que "Nom" (fiche
+          // de base) — si une valeur plus riche existait déjà côté
+          // Académie (synonymes multiples), on la reprend pour ne rien
+          // perdre plutôt que de la remplacer par le nom de base, plus
+          // court.
+          final existingSynonymes = sheet['synonymes'] as String?;
+          if (existingSynonymes != null && existingSynonymes.isNotEmpty) {
+            _nameCtrl.text = existingSynonymes;
+          }
           _academieGrade = sheet['grade'] as String?;
           _academieAspectCtrl.text = sheet['aspect'] as String? ?? '';
           _academiePhCtrl.text = sheet['ph_solution'] as String? ?? '';
@@ -618,13 +609,12 @@ class _RawMaterialEditorScreenState
     }
     if (_academieHasContent &&
         (_academieNomChimiqueCtrl.text.trim().isEmpty ||
-            _academieSynonymesCtrl.text.trim().isEmpty ||
             _academieAspectCtrl.text.trim().isEmpty ||
             _academiePhCtrl.text.trim().isEmpty ||
             _academieSolubiliteCtrl.text.trim().isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text(
-              'Dans la section Académie : nom chimique, nom commun, aspect, pH en solution et solubilité sont obligatoires dès que cette section est commencée.')));
+              'Dans la section Académie : nom chimique, aspect, pH en solution et solubilité sont obligatoires dès que cette section est commencée.')));
       return;
     }
     if (_isSaving) return;
@@ -788,7 +778,7 @@ class _RawMaterialEditorScreenState
               {
                 'matiere_premiere_id': materialId,
                 'nom_chimique': _academieNomChimiqueCtrl.text.trim(),
-                'synonymes': _academieSynonymesCtrl.text.trim(),
+                'synonymes': _nameCtrl.text.trim(),
                 'grade': _academieGrade,
                 'aspect': _academieAspectCtrl.text.trim(),
                 'ph_solution': _academiePhCtrl.text.trim(),
@@ -1035,51 +1025,6 @@ class _RawMaterialEditorScreenState
             ],
           ),
           SizedBox(height: 2.h),
-          Autocomplete<String>(
-            optionsBuilder: (textEditingValue) {
-              if (textEditingValue.text.trim().isEmpty) {
-                return const Iterable<String>.empty();
-              }
-              final query = textEditingValue.text.toLowerCase();
-              return suggestionsForUnit
-                  .map((s) => s['name'] as String)
-                  .where((n) => n.toLowerCase().contains(query));
-            },
-            onSelected: (selection) {
-              _nameCtrl.text = selection;
-              final match = suggestionsForUnit.firstWhere(
-                (s) => s['name'] == selection,
-                orElse: () => <String, dynamic>{},
-              );
-              setState(() {
-                final matchedCategory = match['category_name'] as String?;
-                if (matchedCategory != null &&
-                    (_selectedCategoryName == null ||
-                        _selectedCategoryName!.isEmpty)) {
-                  _selectedCategoryName = matchedCategory;
-                }
-                _suggestionNote = match['note'] as String?;
-              });
-            },
-            fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
-              controller.text = _nameCtrl.text;
-              controller.selection =
-                  TextSelection.collapsed(offset: controller.text.length);
-              return TextFormField(
-                controller: controller,
-                focusNode: focusNode,
-                decoration: const InputDecoration(labelText: 'Nom'),
-                onChanged: (v) => _nameCtrl.text = v,
-              );
-            },
-          ),
-          if (_suggestionNote != null) ...[
-            SizedBox(height: 0.5.h),
-            Text('Repère (INS) : $_suggestionNote',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontStyle: FontStyle.italic)),
-          ],
-          SizedBox(height: 2.h),
           Text('Pilier d\'entreprise', style: theme.textTheme.labelLarge),
           SizedBox(height: 0.5.h),
           Wrap(
@@ -1256,7 +1201,7 @@ class _RawMaterialEditorScreenState
           if (!_academieHasContent) ...[
             SizedBox(height: 0.5.h),
             Text(
-              'Section encore vide — tu peux enregistrer le reste de la fiche sans la remplir. Dès que tu commences, les 5 champs marqués * deviennent obligatoires.',
+              'Section encore vide — tu peux enregistrer le reste de la fiche sans la remplir. Dès que tu commences, les champs marqués * deviennent obligatoires.',
               style: theme.textTheme.bodySmall
                   ?.copyWith(fontStyle: FontStyle.italic),
             ),
@@ -1266,7 +1211,54 @@ class _RawMaterialEditorScreenState
           SizedBox(height: 1.h),
           _academieField(_academieNomChimiqueCtrl, 'Nom chimique',
               required: true),
-          _academieField(_academieSynonymesCtrl, 'Nom commun', required: true),
+          Autocomplete<String>(
+            optionsBuilder: (textEditingValue) {
+              if (textEditingValue.text.trim().isEmpty) {
+                return const Iterable<String>.empty();
+              }
+              final query = textEditingValue.text.toLowerCase();
+              return suggestionsForUnit
+                  .map((s) => s['name'] as String)
+                  .where((n) => n.toLowerCase().contains(query));
+            },
+            onSelected: (selection) {
+              _nameCtrl.text = selection;
+              final match = suggestionsForUnit.firstWhere(
+                (s) => s['name'] == selection,
+                orElse: () => <String, dynamic>{},
+              );
+              setState(() {
+                final matchedCategory = match['category_name'] as String?;
+                if (matchedCategory != null &&
+                    (_selectedCategoryName == null ||
+                        _selectedCategoryName!.isEmpty)) {
+                  _selectedCategoryName = matchedCategory;
+                }
+                _suggestionNote = match['note'] as String?;
+              });
+            },
+            fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+              controller.text = _nameCtrl.text;
+              controller.selection =
+                  TextSelection.collapsed(offset: controller.text.length);
+              return TextFormField(
+                controller: controller,
+                focusNode: focusNode,
+                decoration: const InputDecoration(
+                    labelText: 'Nom commun *',
+                    helperText: 'Sert aussi de titre à la fiche produit.',
+                    border: OutlineInputBorder()),
+                onChanged: (v) => _nameCtrl.text = v,
+              );
+            },
+          ),
+          if (_suggestionNote != null) ...[
+            SizedBox(height: 0.5.h),
+            Text('Repère (INS) : $_suggestionNote',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(fontStyle: FontStyle.italic)),
+          ],
+          SizedBox(height: 1.5.h),
           DropdownButtonFormField<String>(
             initialValue: _academieGrade,
             decoration: const InputDecoration(
