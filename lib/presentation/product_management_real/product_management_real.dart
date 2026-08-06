@@ -39,6 +39,117 @@ const List<String> kProductUsageSuggestions = [
   'Alimentaire',
 ];
 
+/// Usages suggérés PAR CATÉGORIE (05/08) — la liste générique ci-dessus
+/// vise les matières premières industrielles, mais ne colle pas à un
+/// produit fini comme "Gel Sol Universel" (catégorie "Carrelage & Sols").
+/// Couvre les 10 catégories du pilier "Akora Fanadiovana" (celui avec les
+/// vrais produits déjà vendus — voir supabase/phase6_patch_categories.sql
+/// et phase42_patch_produits_categories.sql pour la liste exacte des noms
+/// de catégorie, qui doivent matcher exactement les clés ci-dessous).
+/// Les catégories des piliers pas encore activés (Matières Premières,
+/// Anti-Nuisibles, Peinture, Akora Soins) ne sont pas couvertes : elles
+/// retombent sur `kProductUsageSuggestions` (voir usage dans
+/// `_showProductDialog`).
+const Map<String, List<String>> kProductUsageSuggestionsByCategory = {
+  'Carrelage & Sols': [
+    'Marbre',
+    'Granit',
+    'Carrelage',
+    'Grès cérame',
+    'Parquet',
+    'Terre cuite',
+    'PVC',
+    'Béton',
+  ],
+  'Cuisine & Vaisselle': [
+    'Vaisselle',
+    'Plan de travail',
+    'Four',
+    'Plaque de cuisson',
+    'Réfrigérateur',
+    'Évier',
+    'Graisses & Huiles',
+    'Ustensiles de cuisine',
+  ],
+  'Désinfectants & Hygiène': [
+    'Surfaces',
+    'Sanitaires',
+    'Mains',
+    'Sols',
+    'Textiles',
+    'Air ambiant',
+    'Poubelles',
+    'Objets & Jouets',
+  ],
+  'Entretien Véhicules': [
+    'Carrosserie',
+    'Jantes',
+    'Vitres auto',
+    'Intérieur & Sièges',
+    'Moteur',
+    'Moto',
+    'Chromes & Plastiques',
+    'Pare-brise',
+  ],
+  'Lessive & Textile': [
+    'Linge blanc',
+    'Linge couleur',
+    'Linge délicat',
+    'Tapis & Moquettes',
+    'Rideaux',
+    'Vêtements de travail',
+    'Tissus d\'ameublement',
+    'Lavage à la main',
+  ],
+  'Sanitaire & Salle de Bain': [
+    'WC',
+    'Douche & Baignoire',
+    'Robinetterie',
+    'Carrelage salle de bain',
+    'Joints',
+    'Miroirs',
+    'Lavabo',
+    'Anti-calcaire',
+  ],
+  'Soins du Corps & Cosmétiques': [
+    'Peau',
+    'Cheveux',
+    'Mains',
+    'Visage',
+    'Corps',
+    'Hydratation',
+    'Hygiène intime',
+    'Rasage',
+  ],
+  'Vitres & Surfaces': [
+    'Vitres',
+    'Miroirs',
+    'Écrans',
+    'Vitrines',
+    'Plexiglas',
+    'Meubles laqués',
+    'Inox',
+    'Surfaces vernies',
+  ],
+  'Cire & Bougie': [
+    'Bois',
+    'Meubles',
+    'Parquet ciré',
+    'Cuir',
+    'Décoration',
+    'Ambiance & Senteur',
+    'Chandelier',
+    'Extérieur bois',
+  ],
+  'Produits spécialisés': [
+    'Usage professionnel',
+    'Usage industriel',
+    'Grande surface',
+    'Collectivités',
+    'Sur mesure',
+  ],
+};
+
 /// Gestion réelle des produits : tarification Gros/Détail par seuil de
 /// quantité, stock, et lots de production (n° lot, fabrication, DLC).
 /// Remplace progressivement l'ancien écran basé sur des données fictives.
@@ -548,12 +659,19 @@ class _ProductManagementRealState
                 const Text('Usages (affichés sur la fiche produit)'),
                 const SizedBox(height: 4),
                 Builder(builder: (context) {
-                  // _knownUsages contient déjà la liste de départ + tout
-                  // usage ajouté manuellement sur n'importe quel produit
-                  // (voir _loadData) ; on ajoute ceux de ce produit-ci au
-                  // cas où le formulaire est ouvert avant le prochain
-                  // rechargement de la liste.
+                  // Priorité aux usages propres à la catégorie choisie
+                  // (kProductUsageSuggestionsByCategory, 05/08) — beaucoup
+                  // plus pertinents qu'une liste générique unique (un
+                  // "Gel Sol" n'a rien à voir avec "Savonnerie" ou
+                  // "Métallurgie"). _knownUsages (liste générique + tout
+                  // usage ajouté manuellement sur n'importe quel produit,
+                  // voir _loadData) sert de repli si la catégorie n'est pas
+                  // couverte, et reste toujours mélangé pour ne jamais
+                  // perdre un usage personnalisé déjà utilisé ailleurs. On
+                  // ajoute aussi ceux de ce produit-ci au cas où le
+                  // formulaire est ouvert avant le prochain rechargement.
                   final allOptions = <String>{
+                    ...?kProductUsageSuggestionsByCategory[selectedCategoryName],
                     ..._knownUsages,
                     ...selectedUsages,
                   }.toList();

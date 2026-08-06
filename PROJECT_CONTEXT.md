@@ -6787,3 +6787,29 @@ même passe d'une fine ligne de séparation à des coins arrondis en haut
 "flottant" cohérent avec le reste du nouveau style visuel. Un
 `ClipRRect` évite que l'effet d'encre des onglets aux extrémités
 déborde des coins arrondis.
+
+### Usages suggérés par catégorie plutôt qu'une seule liste générique (05/08)
+
+Suite au constat que la liste unique de 15 suggestions (pensée pour les
+matières premières industrielles : Savonnerie, Métallurgie, Agriculture...)
+ne collait pas à un produit fini comme "Gel Sol Universel" (catégorie
+"Carrelage & Sols") : ajout de `kProductUsageSuggestionsByCategory`
+dans `product_management_real.dart`, un mapping catégorie → usages
+pertinents, couvrant les 10 catégories du pilier "Akora Fanadiovana"
+(celui avec les vrais produits déjà vendus — Carrelage & Sols, Cuisine
+& Vaisselle, Désinfectants & Hygiène, Entretien Véhicules, Lessive &
+Textile, Sanitaire & Salle de Bain, Soins du Corps & Cosmétiques,
+Vitres & Surfaces, Cire & Bougie, Produits spécialisés). Les clés
+doivent matcher exactement les noms stockés dans `categories`/
+`products.category` (voir phase6_patch_categories.sql et
+phase42_patch_produits_categories.sql).
+
+Dans le formulaire produit, les chips "Usages" affichent désormais en
+priorité la liste de la catégorie sélectionnée, puis `_knownUsages`
+(liste générique + tout usage déjà tapé sur n'importe quel produit) en
+repli — jamais l'un OU l'autre : les deux sont toujours mélangés
+(`Set` qui déduplique), pour ne perdre ni la pertinence par catégorie
+ni la réutilisation globale des usages personnalisés. Les 4 piliers pas
+encore activés (Matières Premières, Anti-Nuisibles, Peinture, Akora
+Soins) ne sont pas couverts pour l'instant — ils retombent sur la
+liste générique, à étendre plus tard si besoin.
