@@ -14,8 +14,7 @@ import '../quotes_management/quotes_management.dart';
 import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
 import '../security_audit_log/security_audit_log_screen.dart';
-import '../raw_materials_management/raw_materials_management.dart';
-import '../formation_purchases_management/formation_purchases_hub.dart';
+import '../raw_materials_management/formation_hub.dart';
 import '../formation_courses_management/formation_courses_management.dart';
 import '../formation_groups_management/formation_groups_management.dart';
 import '../client_home/settings/settings_screen.dart';
@@ -124,21 +123,11 @@ class MoreMenuScreen extends StatelessWidget {
           ),
           _MenuTile(
             icon: Icons.science_outlined,
-            label: 'Matières premières (Formation)',
-            subtitle: 'Fiches ingrédients + achats à l\'unité',
+            label: 'Formation',
+            subtitle: 'Fiches ingrédients (+ Académie) et validation des achats',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const RawMaterialsManagement()),
-            ),
-          ),
-          _MenuTile(
-            icon: Icons.workspace_premium_outlined,
-            label: 'Achats Formation',
-            subtitle: 'Valider/refuser les demandes (fiches et cours)',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const FormationPurchasesHub()),
+              MaterialPageRoute(builder: (_) => const FormationHub()),
             ),
           ),
           _MenuTile(

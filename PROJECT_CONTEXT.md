@@ -7131,3 +7131,18 @@ fiche), sélection multiple, paliers dégressifs propres, mêmes moyens de
 paiement. Cette page est redéployée automatiquement sur Netlify à
 chaque build CI (déjà en place depuis le 05/08), aucune étape manuelle
 supplémentaire.
+
+### Fusion "Matières premières (Formation)" + "Achats Formation" dans le menu Plus (06/08)
+
+Sur retour explicite : ces deux entrées séparées du menu Plus admin
+créaient de la confusion. Fusionnées en un seul point d'entrée
+**"Formation"**, avec deux onglets — **"Fiches"** (gestion du contenu,
+`RawMaterialsManagement`, inchangé sinon retrait de son AppBar propre)
+et **"Achats"** (la file de validation, `FormationPurchasesHub`, qui
+garde ses 3 sous-onglets Matières premières/Cours/Académie mais perd
+son titre — `toolbarHeight: 0` — puisqu'il n'est plus jamais poussé
+seul). Nouveau `formation_hub.dart` (`FormationHub`) : un
+`DefaultTabController` de 2 onglets qui les embarque tous les deux,
+chacun gardant son propre état/Scaffold (FAB "+" toujours visible
+uniquement sur l'onglet Fiches, comme avant). `more_menu_screen.dart`
+ne pointe plus que vers ce hub unique.

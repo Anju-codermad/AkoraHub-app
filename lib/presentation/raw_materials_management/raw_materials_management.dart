@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
-import '../formation_purchases_management/formation_purchases_hub.dart';
 import 'raw_material_editor_screen.dart';
 import 'raw_material_style.dart';
 
@@ -12,6 +11,10 @@ import 'raw_material_style.dart';
 /// (`products`) : ces fiches ne sont jamais commandables, seulement
 /// consultables par le staff et par les clients avec un abonnement
 /// Formation actif.
+///
+/// Depuis le 06/08 : sans Scaffold propre d'AppBar (juste body + FAB) —
+/// utilisé comme onglet "Fiches" de FormationHub (fusion avec "Achats
+/// Formation"), voir formation_hub.dart.
 class RawMaterialsManagement extends StatefulWidget {
   const RawMaterialsManagement({super.key});
 
@@ -90,21 +93,6 @@ class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
     final filtered = _filtered;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Matières premières (Formation)'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.workspace_premium_outlined),
-            tooltip: 'Achats Formation',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const FormationPurchasesHub(),
-              ),
-            ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.push<bool>(
