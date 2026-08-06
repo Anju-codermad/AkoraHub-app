@@ -331,8 +331,12 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                 : 'Plus de détails disponibles'),
             subtitle: _academiePending
                 ? null
-                : const Text(
-                    'Nom chimique, EPI, dosages précis, incompatibilités...'),
+                : Text([
+                    'Nom chimique, EPI, dosages précis, incompatibilités...',
+                    if (_academieStartingPrice != null)
+                      'À partir de ${_currency.format(_academieStartingPrice)}',
+                  ].join('\n')),
+            isThreeLine: !_academiePending && _academieStartingPrice != null,
             trailing: _academiePending
                 ? null
                 : FilledButton(
