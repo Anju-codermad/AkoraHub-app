@@ -7383,3 +7383,19 @@ LUI-MÊME des sous-onglets ["Matières premières", "Cours", "Académie"]
 Matières" / "Demandes Cours" / "Demandes Académie", pour bien marquer
 que ce niveau concerne des DEMANDES d'achat à valider, pas les mêmes
 fiches de contenu que les onglets du haut.
+
+### Fiche matière première (client) : fusion des 2 onglets en un seul scroll (06/08)
+
+Même retour appliqué côté client : `raw_material_detail_client.dart`
+avait un `TabBar` ["Fiche produit", "Académie"] qu'il fallait
+sélectionner pour voir l'un ou l'autre. Sur demande ("mettez-le en un
+seul onglet mais pas séparant") : plus de `TabBar`/`TabBarView` — un
+seul `ListView` affiche la fiche produit, puis un séparateur
+(`Divider`) avec un en-tête "Académie" (icône cadenas si pas débloqué),
+puis la section Académie (verrouillée/en attente/complète selon
+l'accès). `_buildProductTab`/`_buildAcademieTab` deviennent
+`_buildProductSection`/`_buildAcademieSection`, qui renvoient des
+`List<Widget>` insérées avec `...` dans le `ListView` unique au lieu de
+retourner chacune leur propre `ListView`. Le verrouillage/CTA d'achat
+Académie reste identique, juste affiché en scrollant plutôt qu'en
+changeant d'onglet.

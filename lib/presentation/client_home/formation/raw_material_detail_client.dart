@@ -158,48 +158,44 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
       usagesByDomain.putIfAbsent(u['domain'] as String, () => []).add(u);
     }
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(m['name'] ?? ''),
-          bottom: TabBar(
-            tabs: [
-              const Tab(text: 'Fiche produit'),
-              Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!_academieAccess) ...[
-                      const Icon(Icons.lock_outline, size: 16),
-                      const SizedBox(width: 6),
-                    ],
-                    const Text('Académie'),
-                  ],
-                ),
-              ),
+    return Scaffold(
+      appBar: AppBar(title: Text(m['name'] ?? '')),
+      body: ListView(
+        padding: EdgeInsets.all(4.w),
+        children: [
+          ..._buildProductSection(theme, m, status, usagesByDomain),
+          SizedBox(height: 3.h),
+          const Divider(),
+          SizedBox(height: 2.h),
+          Row(
+            children: [
+              Icon(Icons.science_outlined,
+                  color: _academieAccess
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline),
+              const SizedBox(width: 8),
+              Text('Académie', style: theme.textTheme.titleMedium),
+              if (!_academieAccess) ...[
+                const SizedBox(width: 6),
+                Icon(Icons.lock_outline,
+                    size: 16, color: theme.colorScheme.outline),
+              ],
             ],
           ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildProductTab(theme, m, status, usagesByDomain),
-            _buildAcademieTab(theme),
-          ],
-        ),
+          SizedBox(height: 1.h),
+          ..._buildAcademieSection(theme),
+        ],
       ),
     );
   }
 
-  Widget _buildProductTab(
+  List<Widget> _buildProductSection(
     ThemeData theme,
     Map<String, dynamic> m,
     String status,
     Map<String, List<Map<String, dynamic>>> usagesByDomain,
   ) {
-    return ListView(
-        padding: EdgeInsets.all(4.w),
-        children: [
+    return [
           _buildGallery(theme),
           SizedBox(height: 2.h),
           Row(
@@ -330,21 +326,22 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                 )),
           ],
           SizedBox(height: 4.h),
-        ],
-    );
+    ];
   }
 
-  /// Onglet "Académie" (06/08) — fiche technique payante, DISTINCTE de
+  /// Section "Académie" (06/08) — fiche technique payante, DISTINCTE de
   /// l'achat de la fiche produit ci-dessus (voir
   /// supabase/phase81_patch_academie_matieres_premieres.sql). Verrouillée
   /// tant que l'achat Académie spécifique n'est pas validé (aucun teaser).
-  Widget _buildAcademieTab(ThemeData theme) {
+  /// Affichée dans le MÊME scroll que la fiche produit (plus d'onglet
+  /// séparé) — juste une section de plus après un séparateur.
+  List<Widget> _buildAcademieSection(ThemeData theme) {
     if (!_academieAccess) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(6.w),
+      return [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 2.h),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Icon(Icons.lock_outline, size: 48, color: theme.colorScheme.outline),
               SizedBox(height: 2.h),
@@ -363,21 +360,21 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
             ],
           ),
         ),
-      );
+      ];
     }
 
     final sheet = _academieSheet;
     if (sheet == null) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(6.w),
+      return [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 2.h),
           child: Text(
             'Fiche Académie en cours de préparation par notre équipe pour ce produit.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium,
           ),
         ),
-      );
+      ];
     }
 
     final epi = List<String>.from(sheet['epi_requis'] as List? ?? []);
@@ -398,9 +395,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
       );
     }
 
-    return ListView(
-      padding: EdgeInsets.all(4.w),
-      children: [
+    return [
         if ((sheet['statut_verification'] as String?) == 'a_valider')
           Container(
             margin: EdgeInsets.only(bottom: 2.h),
@@ -483,8 +478,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
               )),
         ],
         SizedBox(height: 4.h),
-      ],
-    );
+    ];
   }
 
   Widget _buildGallery(ThemeData theme) {
