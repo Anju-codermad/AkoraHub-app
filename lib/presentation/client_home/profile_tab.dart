@@ -358,32 +358,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               padding: EdgeInsets.all(4.w),
               child: Text(_error!, style: const TextStyle(color: Colors.red)),
             ),
-          _buildCoverAndAvatar(theme, coverUrl, avatarUrl),
-          // Carte blanche à coins arrondis qui chevauche le bas du bandeau
-          // (style "carte de profil", 05/08) — décalée vers le haut de
-          // _avatarOverlap pour que l'avatar (positionné dans
-          // _buildCoverAndAvatar) reste à cheval exactement sur la
-          // jonction entre le bandeau coloré et la carte.
-          Transform.translate(
-            offset: const Offset(0, -_avatarOverlap),
-            child: Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(28)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, -6),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: Column(
-                  children: [
-                    SizedBox(height: _avatarOverlap + 1.5.h),
+          _buildProfileHeader(
+            theme: theme,
+            coverUrl: coverUrl,
+            avatarUrl: avatarUrl,
+            content: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.w),
+              child: Column(
+                children: [
+                  SizedBox(height: _avatarOverlap + 1.5.h),
                 Text(
                   displayName,
                   style: theme.textTheme.titleLarge
@@ -581,7 +564,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   ],
                 ),
               ),
-            ),
           ),
         ],
       ),
@@ -589,111 +571,139 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  Widget _buildCoverAndAvatar(
-      ThemeData theme, String? coverUrl, String? avatarUrl) {
-    // Bandeau plus compact que l'ancien (18h -> 15h) : la carte blanche
-    // ajoutée dans build() chevauche sa base sur _avatarOverlap, donnant
-    // l'effet "carte de profil" où l'avatar est à cheval sur la jonction.
+  /// Bandeau + carte blanche + avatar dans UN SEUL Stack (05/08). Avant,
+  /// c'était deux éléments séparés de la ListView (cover+avatar, puis la
+  /// carte) : comme une ListView peint ses enfants dans l'ordre, la carte
+  /// (venant après) était peinte PAR-DESSUS la moitié basse de l'avatar
+  /// au lieu de l'inverse — l'avatar semblait "coupé" derrière la carte
+  /// ("le photo de profil doit être au premier plan", signalé avec
+  /// capture). Ici l'avatar est le DERNIER enfant du Stack, donc peint en
+  /// dernier (au-dessus de tout), quel que soit le chevauchement visuel.
+  /// La carte reste le seul enfant NON positionné du Stack (poussée vers
+  /// le bas via un simple padding plutôt que `Positioned`) : c'est ce qui
+  /// donne sa hauteur réelle au Stack dans la ListView (des enfants tous
+  /// `Positioned` ne comptent pas dans la taille du Stack).
+  Widget _buildProfileHeader({
+    required ThemeData theme,
+    required String? coverUrl,
+    required String? avatarUrl,
+    required Widget content,
+  }) {
     final coverHeight = 15.h;
-    return SizedBox(
-      height: coverHeight + _avatarOverlap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: coverHeight,
-            child: GestureDetector(
-              onTap: _isUploadingCover ? null : _pickAndUploadCover,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      image: coverUrl != null
-                          ? DecorationImage(
-                              image: NetworkImage(coverUrl),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: coverUrl == null
-                        ? Icon(Icons.image_outlined,
-                            size: 40,
-                            color: theme.colorScheme.onPrimaryContainer
-                                .withValues(alpha: 0.4))
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: coverHeight,
+          child: GestureDetector(
+            onTap: _isUploadingCover ? null : _pickAndUploadCover,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    image: coverUrl != null
+                        ? DecorationImage(
+                            image: NetworkImage(coverUrl),
+                            fit: BoxFit.cover,
+                          )
                         : null,
                   ),
-                  if (_isUploadingCover)
-                    Container(
-                      color: Colors.black38,
-                      child: const Center(
-                          child:
-                              CircularProgressIndicator(color: Colors.white)),
+                  child: coverUrl == null
+                      ? Icon(Icons.image_outlined,
+                          size: 40,
+                          color: theme.colorScheme.onPrimaryContainer
+                              .withValues(alpha: 0.4))
+                      : null,
+                ),
+                if (_isUploadingCover)
+                  Container(
+                    color: Colors.black38,
+                    child: const Center(
+                        child:
+                            CircularProgressIndicator(color: Colors.white)),
+                  ),
+                Positioned(
+                  right: 12,
+                  bottom: 12,
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.black54,
+                    child: const Icon(Icons.camera_alt,
+                        size: 16, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: coverHeight),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, -6),
+                ),
+              ],
+            ),
+            child: content,
+          ),
+        ),
+        Positioned(
+          top: coverHeight - _avatarOverlap,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: GestureDetector(
+              onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.scaffoldBackgroundColor,
                     ),
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
                     child: CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.black54,
-                      child: const Icon(Icons.camera_alt,
-                          size: 16, color: Colors.white),
+                      radius: 44,
+                      backgroundImage:
+                          avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                      child: avatarUrl == null
+                          ? const Icon(Icons.person, size: 44)
+                          : null,
                     ),
                   ),
+                  if (_isUploadingAvatar)
+                    const Positioned.fill(
+                      child: Padding(
+                        padding: EdgeInsets.all(6),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else
+                    CircleAvatar(
+                      radius: 13,
+                      backgroundColor: theme.colorScheme.primary,
+                      child: const Icon(Icons.camera_alt,
+                          size: 13, color: Colors.white),
+                    ),
                 ],
               ),
             ),
           ),
-          Positioned(
-            top: coverHeight - _avatarOverlap,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: theme.scaffoldBackgroundColor,
-                      ),
-                      child: CircleAvatar(
-                        radius: 44,
-                        backgroundImage:
-                            avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                        child: avatarUrl == null
-                            ? const Icon(Icons.person, size: 44)
-                            : null,
-                      ),
-                    ),
-                    if (_isUploadingAvatar)
-                      const Positioned.fill(
-                        child: Padding(
-                          padding: EdgeInsets.all(6),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    else
-                      CircleAvatar(
-                        radius: 13,
-                        backgroundColor: theme.colorScheme.primary,
-                        child: const Icon(Icons.camera_alt,
-                            size: 13, color: Colors.white),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

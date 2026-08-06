@@ -6813,3 +6813,22 @@ ni la réutilisation globale des usages personnalisés. Les 4 piliers pas
 encore activés (Matières Premières, Anti-Nuisibles, Peinture, Akora
 Soins) ne sont pas couverts pour l'instant — ils retombent sur la
 liste générique, à étendre plus tard si besoin.
+
+### Correctif : l'avatar de profil était peint DERRIÈRE la carte blanche (05/08)
+
+Signalé par capture d'écran ("le photo de profil doit être en premier
+plan") : la carte de profil ajoutée plus tôt aujourd'hui utilisait deux
+éléments SÉPARÉS de la ListView (le bandeau+avatar dans un `Stack`,
+puis la carte blanche juste après, translatée pour chevaucher vers le
+haut) — or une ListView peint ses enfants dans l'ordre, donc la carte
+(peinte en second) recouvrait la moitié basse de l'avatar au lieu de
+l'inverse.
+
+**Correction dans `profile_tab.dart`** : fusion de `_buildCoverAndAvatar`
+et de la carte dans une seule méthode `_buildProfileHeader`, avec un
+seul `Stack` où l'avatar est désormais le DERNIER enfant (donc peint en
+dernier, par-dessus tout). La carte (contenu variable : nom, stats,
+bio, boutons...) reste le seul enfant NON positionné du `Stack` — c'est
+lui qui donne sa hauteur réelle au bloc dans la ListView (repoussé vers
+le bas via un simple `Padding`, plutôt qu'un `Transform.translate` sur
+un élément séparé comme avant).
