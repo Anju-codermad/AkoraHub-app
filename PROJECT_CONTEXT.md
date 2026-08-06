@@ -7399,3 +7399,20 @@ l'accès). `_buildProductTab`/`_buildAcademieTab` deviennent
 retourner chacune leur propre `ListView`. Le verrouillage/CTA d'achat
 Académie reste identique, juste affiché en scrollant plutôt qu'en
 changeant d'onglet.
+
+### Suppression complète de la frontière visuelle entre les 2 sections (06/08)
+
+Retour immédiat : même avec les onglets retirés, le `Divider` + l'en-tête
+"Académie" (icône + titre) donnaient encore l'impression de deux
+sections. Sur demande explicite ("plus besoin de deux sections... mettez
+le en un") : suppression du `Divider` et de l'en-tête — la fiche produit
+et le contenu Académie s'enchaînent maintenant directement, sans aucune
+rupture visuelle.
+
+Si pas encore débloqué : plus de grand bloc centré avec icône 48px —
+remplacé par un simple `Card`/`ListTile` compact ("Plus de détails
+disponibles" + bouton "Débloquer"), qui se lit comme une carte de plus
+dans la fiche plutôt qu'une section à part entière. Si débloqué : les
+champs Académie (nom chimique, EPI, dosages...) s'ajoutent directement à
+la suite, avec le même style que le reste de la fiche — aucune étiquette
+"Académie" ne les distingue plus visuellement.

@@ -164,25 +164,6 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         padding: EdgeInsets.all(4.w),
         children: [
           ..._buildProductSection(theme, m, status, usagesByDomain),
-          SizedBox(height: 3.h),
-          const Divider(),
-          SizedBox(height: 2.h),
-          Row(
-            children: [
-              Icon(Icons.science_outlined,
-                  color: _academieAccess
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.outline),
-              const SizedBox(width: 8),
-              Text('Académie', style: theme.textTheme.titleMedium),
-              if (!_academieAccess) ...[
-                const SizedBox(width: 6),
-                Icon(Icons.lock_outline,
-                    size: 16, color: theme.colorScheme.outline),
-              ],
-            ],
-          ),
-          SizedBox(height: 1.h),
           ..._buildAcademieSection(theme),
         ],
       ),
@@ -334,30 +315,30 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
   /// supabase/phase81_patch_academie_matieres_premieres.sql). Verrouillée
   /// tant que l'achat Académie spécifique n'est pas validé (aucun teaser).
   /// Affichée dans le MÊME scroll que la fiche produit (plus d'onglet
-  /// séparé) — juste une section de plus après un séparateur.
+  /// séparé) — pas de titre "Académie" ni de séparateur : soit les champs
+  /// s'ajoutent directement à la suite des autres (achat validé), soit un
+  /// simple encart discret invite à débloquer plus de détails.
   List<Widget> _buildAcademieSection(ThemeData theme) {
     if (!_academieAccess) {
       return [
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: 2.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(Icons.lock_outline, size: 48, color: theme.colorScheme.outline),
-              SizedBox(height: 2.h),
-              Text(
-                _academiePending
-                    ? 'Votre demande d\'accès Académie est en attente de vérification par notre équipe.'
-                    : 'Fiche technique réservée à l\'accès payant "Académie Matières Premières" — nom chimique, EPI, dosages précis, incompatibilités et plus.',
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 2.h),
-              if (!_academiePending)
-                FilledButton(
-                  onPressed: () => openFormationPurchaseWeb(context),
-                  child: const Text('Débloquer l\'accès Académie'),
-                ),
-            ],
+        SizedBox(height: 1.h),
+        Card(
+          margin: EdgeInsets.zero,
+          child: ListTile(
+            leading: Icon(Icons.lock_outline, color: theme.colorScheme.outline),
+            title: Text(_academiePending
+                ? 'Demande d\'accès en attente de vérification'
+                : 'Plus de détails disponibles'),
+            subtitle: _academiePending
+                ? null
+                : const Text(
+                    'Nom chimique, EPI, dosages précis, incompatibilités...'),
+            trailing: _academiePending
+                ? null
+                : FilledButton(
+                    onPressed: () => openFormationPurchaseWeb(context),
+                    child: const Text('Débloquer'),
+                  ),
           ),
         ),
       ];
@@ -366,13 +347,11 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
     final sheet = _academieSheet;
     if (sheet == null) {
       return [
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: 2.h),
-          child: Text(
-            'Fiche Académie en cours de préparation par notre équipe pour ce produit.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium,
-          ),
+        SizedBox(height: 1.h),
+        Text(
+          'Fiche technique en cours de préparation par notre équipe pour ce produit.',
+          style: theme.textTheme.bodySmall
+              ?.copyWith(fontStyle: FontStyle.italic),
         ),
       ];
     }
