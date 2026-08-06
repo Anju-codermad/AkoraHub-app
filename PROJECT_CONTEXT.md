@@ -7209,3 +7209,24 @@ Volontairement large puisqu'une même matière première (ex : soude
 caustique) sert souvent à plusieurs domaines très différents. Reste une
 liste de DÉPART : `_knownDomains` continue de l'enrichir avec tout
 domaine tapé manuellement.
+
+### Réorganisation autour des 18 grandes catégories de l'utilisatrice (06/08)
+
+Nouvelle classification fournie (18 catégories, sans numérotation) :
+Hygiène & Entretien (Détergence), Savonnerie, Cosmétique & Soins du
+Corps, Peinture & Revêtements, Traitement de l'Eau, Industrie Textile,
+Industrie du Papier & Carton, Agroalimentaire, Agriculture & Élevage,
+Aquaculture / Pêche, Bâtiment & Construction, Industrie Métallurgique,
+Industrie Chimique / Process, Pharmaceutique (usage encadré), Sécurité
+& Désinfection, Automobile & Mécanique, Usage Domestique / DIY, Autres
+Industries Spécialisées.
+
+`kAcademieUsageDomains` réorganisé en 2 blocs : ces 18 catégories
+d'abord, puis les usages plus spécifiques de la liste précédente qui ne
+faisaient PAS doublon (Dentifrice, Parfumerie, Piscine, Galvanoplastie,
+Mines & carrières...). Les entrées équivalentes de l'ancienne liste ont
+été fusionnées dans la catégorie correspondante plutôt que dupliquées —
+ex : "Savonnerie (Saponification)" -> "Savonnerie", "Nettoyage"/
+"Nettoyage industriel"/"Détergents" -> "Hygiène & Entretien
+(Détergence)", "Désinfection" -> "Sécurité & Désinfection",
+"Agriculture (engrais, phytosanitaire)" -> "Agriculture & Élevage".
