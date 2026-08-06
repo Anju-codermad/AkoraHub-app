@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -65,6 +67,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
 
   final PageController _bannerController = PageController();
   int _bannerIndex = 0;
+  Timer? _bannerAutoplayTimer;
 
   // Repli par défaut : utilisé tant que l'Admin n'a créé aucune bannière
   // dans home_banners (voir supabase/phase6_patch_home_banners.sql et
@@ -93,12 +96,34 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   void initState() {
     super.initState();
     _loadData();
+    _scheduleBannerAutoplay();
   }
 
   @override
   void dispose() {
+    _bannerAutoplayTimer?.cancel();
     _bannerController.dispose();
     super.dispose();
+  }
+
+  /// Défilement automatique de la bannière (05/08) — avant, il fallait
+  /// swiper manuellement, aucune bannière ne changeait toute seule. Se
+  /// reprogramme après CHAQUE changement de page (qu'il vienne de ce
+  /// timer ou d'un swipe manuel, voir `onPageChanged`) : un swipe manuel
+  /// "réinitialise" donc naturellement le délai avant le prochain
+  /// défilement automatique, sans logique de pause/reprise séparée.
+  void _scheduleBannerAutoplay() {
+    _bannerAutoplayTimer?.cancel();
+    if (_promoSlides.length <= 1) return;
+    _bannerAutoplayTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted || !_bannerController.hasClients) return;
+      final next = (_bannerIndex + 1) % _promoSlides.length;
+      _bannerController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   Future<void> _loadData() async {
@@ -352,6 +377,10 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _pendingAction = pendingAction;
         _isLoading = false;
       });
+      // Les vraies bannières (chargées ci-dessus) peuvent différer en
+      // nombre des 3 slides de repli affichées le temps du chargement —
+      // on reprogramme le défilement auto sur la bonne longueur.
+      _scheduleBannerAutoplay();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -771,7 +800,10 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               child: PageView.builder(
                 controller: _bannerController,
                 itemCount: _promoSlides.length,
-                onPageChanged: (i) => setState(() => _bannerIndex = i),
+                onPageChanged: (i) {
+                  setState(() => _bannerIndex = i);
+                  _scheduleBannerAutoplay();
+                },
                 itemBuilder: (context, index) {
                   final slide = _promoSlides[index];
                   final hasImage =

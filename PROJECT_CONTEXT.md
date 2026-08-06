@@ -6832,3 +6832,20 @@ bio, boutons...) reste le seul enfant NON positionné du `Stack` — c'est
 lui qui donne sa hauteur réelle au bloc dans la ListView (repoussé vers
 le bas via un simple `Padding`, plutôt qu'un `Transform.translate` sur
 un élément séparé comme avant).
+
+### Défilement automatique de la bannière d'accueil (05/08)
+
+Question posée : pourquoi la bannière (carrousel promo en haut de
+l'accueil) n'animait pas toute seule ? Réponse : le `PageView` existant
+n'avait qu'un swipe manuel, aucun timer d'avancement automatique.
+
+**`catalog_tab.dart`** : ajout de `_bannerAutoplayTimer` (`Timer?`) et
+`_scheduleBannerAutoplay()`, qui programme un `animateToPage` vers la
+slide suivante (boucle) 5 secondes après le dernier changement de page —
+qu'il vienne du timer lui-même ou d'un swipe manuel (`onPageChanged`
+reprogramme systématiquement), donc un swipe manuel repousse
+naturellement le prochain défilement auto sans logique de pause/reprise
+séparée. Reprogrammé aussi après le chargement des vraies bannières
+(`home_banners`), qui peuvent différer en nombre des 3 slides de repli
+affichées pendant le chargement. Pas de défilement auto si une seule
+slide.
