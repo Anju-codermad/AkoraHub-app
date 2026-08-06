@@ -8,12 +8,92 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
-import 'academie_editor_screen.dart';
 import 'raw_material_style.dart';
 
+const List<String> _academieEpiSuggestions = [
+  'gants',
+  'lunettes',
+  'masque',
+  'ventilation',
+  'tablier',
+  'bottes',
+];
+
+const List<String> _academieNiveauxDanger = [
+  'Aucun',
+  'Modéré',
+  'Élevé',
+  'Corrosif'
+];
+
+/// Domaines d'application suggérés pour les usages détaillés Académie
+/// (06/08) — liste de DÉPART uniquement : `_knownAcademieDomains` (voir
+/// `_loadData`) l'enrichit avec tout domaine déjà tapé sur n'importe
+/// quelle fiche Académie, même principe que `kProductUsageSuggestions`
+/// (product_management_real.dart) — un domaine ajouté une fois devient
+/// réutilisable partout.
+///
+/// Les 18 grandes catégories ci-dessous sont la classification fournie
+/// par l'utilisatrice (06/08). Les usages plus spécifiques qui ne font
+/// pas doublon (ex : "Dentifrice", "Piscine", "Galvanoplastie") sont
+/// conservés en complément, pour un choix plus précis quand utile.
+const List<String> kAcademieUsageDomains = [
+  // 18 grandes catégories
+  'Hygiène & Entretien (Détergence)',
+  'Savonnerie',
+  'Cosmétique & Soins du Corps',
+  'Peinture & Revêtements',
+  'Traitement de l\'Eau',
+  'Industrie Textile',
+  'Industrie du Papier & Carton',
+  'Agroalimentaire',
+  'Agriculture & Élevage',
+  'Aquaculture / Pêche',
+  'Bâtiment & Construction',
+  'Industrie Métallurgique',
+  'Industrie Chimique / Process',
+  'Pharmaceutique (usage encadré)',
+  'Sécurité & Désinfection',
+  'Automobile & Mécanique',
+  'Usage Domestique / DIY',
+  'Autres Industries Spécialisées',
+  // Usages plus spécifiques (complémentaires, pas de doublon ci-dessus)
+  'Ajustement pH',
+  'Dégraissage',
+  'Débouchage canalisation',
+  'Parfumerie',
+  'Dentifrice / Hygiène bucco-dentaire',
+  'Shampoing / Soins capillaires',
+  'Savon liquide / Gel douche',
+  'Lessive',
+  'Blanchisserie',
+  'Anti-tartre',
+  'Décapage',
+  'Polissage',
+  'Conservation alimentaire',
+  'Cuir & tannerie',
+  'Vernis & laques',
+  'Traitement du bois',
+  'Adhésifs & colles',
+  'Traitement des eaux usées',
+  'Piscine',
+  'Galvanoplastie',
+  'Plasturgie',
+  'Caoutchouc',
+  'Mines & carrières',
+  'Imprimerie',
+  'Verre & céramique',
+];
+
 /// Fiche complète d'une matière première (Formation) — description,
-/// dosages d'usage par domaine, conditionnement, historique de prix et
-/// galerie photo. Voir supabase/phase40_schema.sql pour le schéma complet.
+/// dosages d'usage par domaine, conditionnement, historique de prix,
+/// galerie photo, ET (06/08, fusionné dans le même écran) la fiche
+/// technique "Académie" (nom chimique, sécurité, usages détaillés avec
+/// dosage) — accès payant DISTINCT côté client (voir
+/// supabase/phase81_patch_academie_matieres_premieres.sql), mais
+/// rédigée en une seule fois par le staff plutôt que dans un second
+/// écran séparé. Voir supabase/phase40_schema.sql pour le schéma de
+/// base.
 class RawMaterialEditorScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? material;
 
@@ -51,6 +131,26 @@ class _RawMaterialEditorScreenState
   final List<XFile> _newPhotos = [];
   final Set<String> _removedExistingPhotoIds = {};
 
+  // Fiche Académie (06/08) — voir
+  // supabase/phase81_patch_academie_matieres_premieres.sql.
+  String? _academieId;
+  final _academieNomChimiqueCtrl = TextEditingController();
+  final _academieSynonymesCtrl = TextEditingController();
+  final _academieGradeCtrl = TextEditingController();
+  final _academieAspectCtrl = TextEditingController();
+  final _academiePhCtrl = TextEditingController();
+  final _academieSolubiliteCtrl = TextEditingController();
+  final _academieParticulariteCtrl = TextEditingController();
+  final _academieDifferenceCtrl = TextEditingController();
+  final _academiePremiersSecoursCtrl = TextEditingController();
+  final _academieIncompatibilitesCtrl = TextEditingController();
+  final _academieStockageCtrl = TextEditingController();
+  String? _academieNiveauDanger;
+  final Set<String> _academieEpiRequis = {};
+  String _academieStatutVerification = 'a_valider';
+  List<Map<String, dynamic>> _academieUsages = [];
+  List<String> _knownAcademieDomains = List<String>.from(kAcademieUsageDomains);
+
   num? _originalPrice;
   bool _isLoading = true;
   bool _isSaving = false;
@@ -79,6 +179,17 @@ class _RawMaterialEditorScreenState
     _descCtrl.dispose();
     _safetyCtrl.dispose();
     _priceCtrl.dispose();
+    _academieNomChimiqueCtrl.dispose();
+    _academieSynonymesCtrl.dispose();
+    _academieGradeCtrl.dispose();
+    _academieAspectCtrl.dispose();
+    _academiePhCtrl.dispose();
+    _academieSolubiliteCtrl.dispose();
+    _academieParticulariteCtrl.dispose();
+    _academieDifferenceCtrl.dispose();
+    _academiePremiersSecoursCtrl.dispose();
+    _academieIncompatibilitesCtrl.dispose();
+    _academieStockageCtrl.dispose();
     super.dispose();
   }
 
@@ -133,7 +244,75 @@ class _RawMaterialEditorScreenState
       // Repli tolérant : la fiche reste éditable même si une des tables
       // enfant (phase40 pas encore exécutée) ne répond pas.
     }
+
+    // Fiche Académie (06/08) — fusionnée dans le même écran d'édition.
+    try {
+      // Domaines déjà tapés sur N'IMPORTE QUELLE fiche Académie —
+      // enrichit les suggestions de départ (kAcademieUsageDomains).
+      final domainRows = await SupabaseConfig.client
+          .from('matieres_premieres_usages')
+          .select('domaine_application');
+      final knownDomains = <String>{...kAcademieUsageDomains};
+      for (final row in domainRows) {
+        final domain = row['domaine_application'] as String?;
+        if (domain != null && domain.trim().isNotEmpty) knownDomains.add(domain);
+      }
+      _knownAcademieDomains = knownDomains.toList();
+
+      if (_isEditing) {
+        final sheet = await SupabaseConfig.client
+            .from('matieres_premieres_academie')
+            .select()
+            .eq('matiere_premiere_id', widget.material!['id'])
+            .maybeSingle();
+        if (sheet != null) {
+          _academieId = sheet['id'] as String;
+          _academieNomChimiqueCtrl.text = sheet['nom_chimique'] as String? ?? '';
+          _academieSynonymesCtrl.text = sheet['synonymes'] as String? ?? '';
+          _academieGradeCtrl.text = sheet['grade'] as String? ?? '';
+          _academieAspectCtrl.text = sheet['aspect'] as String? ?? '';
+          _academiePhCtrl.text = sheet['ph_solution'] as String? ?? '';
+          _academieSolubiliteCtrl.text = sheet['solubilite'] as String? ?? '';
+          _academieParticulariteCtrl.text =
+              sheet['particularite'] as String? ?? '';
+          _academieDifferenceCtrl.text =
+              sheet['difference_produit_similaire'] as String? ?? '';
+          _academiePremiersSecoursCtrl.text =
+              sheet['premiers_secours'] as String? ?? '';
+          _academieIncompatibilitesCtrl.text =
+              sheet['incompatibilites'] as String? ?? '';
+          _academieStockageCtrl.text = sheet['stockage'] as String? ?? '';
+          _academieNiveauDanger = sheet['niveau_danger'] as String?;
+          _academieStatutVerification =
+              sheet['statut_verification'] as String? ?? 'a_valider';
+          _academieEpiRequis
+            ..clear()
+            ..addAll(List<String>.from(sheet['epi_requis'] as List? ?? []));
+
+          final usages = await SupabaseConfig.client
+              .from('matieres_premieres_usages')
+              .select()
+              .eq('academie_id', _academieId as Object)
+              .order('ordre');
+          _academieUsages = List<Map<String, dynamic>>.from(usages);
+        }
+      }
+    } catch (_) {
+      // Migration phase81 pas encore exécutée, ou pas de fiche Académie
+      // pour l'instant — section vide, rien de bloquant.
+    }
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  void _addAcademieUsageRow() {
+    setState(() {
+      _academieUsages.add({
+        'domaine_application': '',
+        'technique_methode': '',
+        'dosage_concentration': '',
+        'a_verifier_labo': false,
+      });
+    });
   }
 
   Future<String?> _addNewCategory(String businessUnitId) async {
@@ -287,6 +466,16 @@ class _RawMaterialEditorScreenState
           content: Text('Le nom et le pilier sont obligatoires.')));
       return;
     }
+    if (_academieNomChimiqueCtrl.text.trim().isEmpty ||
+        _academieSynonymesCtrl.text.trim().isEmpty ||
+        _academieAspectCtrl.text.trim().isEmpty ||
+        _academiePhCtrl.text.trim().isEmpty ||
+        _academieSolubiliteCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Dans la section Académie : nom chimique, nom commun, aspect, pH en solution et solubilité sont obligatoires.')));
+      return;
+    }
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
@@ -436,6 +625,91 @@ class _RawMaterialEditorScreenState
         ]);
       }
 
+      // Fiche Académie (06/08) — même mécanique que usages/conditionnement :
+      // upsert de la fiche puis réécriture complète des usages détaillés.
+      final academieSaved = await SupabaseConfig.client
+          .from('matieres_premieres_academie')
+          .upsert(
+            {
+              'matiere_premiere_id': materialId,
+              'nom_chimique': _academieNomChimiqueCtrl.text.trim(),
+              'synonymes': _academieSynonymesCtrl.text.trim(),
+              'grade': _academieGradeCtrl.text.trim().isEmpty
+                  ? null
+                  : _academieGradeCtrl.text.trim(),
+              'aspect': _academieAspectCtrl.text.trim(),
+              'ph_solution': _academiePhCtrl.text.trim(),
+              'solubilite': _academieSolubiliteCtrl.text.trim(),
+              'particularite': _academieParticulariteCtrl.text.trim().isEmpty
+                  ? null
+                  : _academieParticulariteCtrl.text.trim(),
+              'difference_produit_similaire':
+                  _academieDifferenceCtrl.text.trim().isEmpty
+                      ? null
+                      : _academieDifferenceCtrl.text.trim(),
+              'niveau_danger': _academieNiveauDanger,
+              'epi_requis': _academieEpiRequis.toList(),
+              'premiers_secours':
+                  _academiePremiersSecoursCtrl.text.trim().isEmpty
+                      ? null
+                      : _academiePremiersSecoursCtrl.text.trim(),
+              'incompatibilites':
+                  _academieIncompatibilitesCtrl.text.trim().isEmpty
+                      ? null
+                      : _academieIncompatibilitesCtrl.text.trim(),
+              'stockage': _academieStockageCtrl.text.trim().isEmpty
+                  ? null
+                  : _academieStockageCtrl.text.trim(),
+              'statut_verification': _academieStatutVerification,
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            onConflict: 'matiere_premiere_id',
+          )
+          .select()
+          .single();
+      final academieId = academieSaved['id'] as String;
+
+      await SupabaseConfig.client
+          .from('matieres_premieres_usages')
+          .delete()
+          .eq('academie_id', academieId);
+      final validAcademieUsages = _academieUsages
+          .where((u) =>
+              (u['domaine_application'] as String? ?? '').trim().isNotEmpty)
+          .toList();
+      if (validAcademieUsages.isNotEmpty) {
+        await SupabaseConfig.client.from('matieres_premieres_usages').insert([
+          for (var i = 0; i < validAcademieUsages.length; i++)
+            {
+              'academie_id': academieId,
+              'domaine_application': (validAcademieUsages[i]
+                      ['domaine_application'] as String)
+                  .trim(),
+              'technique_methode':
+                  (validAcademieUsages[i]['technique_methode'] as String? ??
+                              '')
+                          .trim()
+                          .isEmpty
+                      ? null
+                      : (validAcademieUsages[i]['technique_methode']
+                              as String)
+                          .trim(),
+              'dosage_concentration': (validAcademieUsages[i]
+                              ['dosage_concentration'] as String? ??
+                          '')
+                      .trim()
+                      .isEmpty
+                  ? null
+                  : (validAcademieUsages[i]['dosage_concentration']
+                          as String)
+                      .trim(),
+              'a_verifier_labo':
+                  validAcademieUsages[i]['a_verifier_labo'] == true,
+              'ordre': i,
+            },
+        ]);
+      }
+
       if (!mounted) return;
       Navigator.pop(context, true);
       if (photosFailed) {
@@ -495,7 +769,7 @@ class _RawMaterialEditorScreenState
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Matière première')),
+        appBar: AppBar(title: const Text('Fiche Académie')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -526,24 +800,24 @@ class _RawMaterialEditorScreenState
         .toList();
     final totalPhotoCount = keptPhotos.length + _newPhotos.length;
 
+    Widget _academieField(TextEditingController ctrl, String label,
+        {int maxLines = 1, bool required = false}) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TextFormField(
+          controller: ctrl,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+              labelText: required ? '$label *' : label,
+              border: const OutlineInputBorder()),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Modifier la fiche' : 'Nouvelle matière première'),
+        title: Text(_isEditing ? 'Fiche Académie' : 'Nouvelle fiche Académie'),
         actions: [
-          if (_isEditing)
-            IconButton(
-              icon: const Icon(Icons.science_outlined),
-              tooltip: 'Fiche Académie',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AcademieEditorScreen(
-                    rawMaterialId: widget.material!['id'] as String,
-                    rawMaterialName: widget.material!['name'] as String? ?? '',
-                  ),
-                ),
-              ),
-            ),
           if (_isEditing)
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -790,6 +1064,169 @@ class _RawMaterialEditorScreenState
                     if (entry['note'] != null) entry['note'],
                   ].join(' · ')),
                 )),
+          SizedBox(height: 4.h),
+          const Divider(),
+          SizedBox(height: 2.h),
+          Row(
+            children: [
+              const Icon(Icons.science_outlined),
+              const SizedBox(width: 8),
+              Text('Fiche Académie (accès payant)',
+                  style: theme.textTheme.titleMedium),
+            ],
+          ),
+          SizedBox(height: 0.5.h),
+          Text(
+            'Débloquée séparément par le client (achat Académie distinct) — voir supabase/phase81_patch_academie_matieres_premieres.sql.',
+            style: theme.textTheme.bodySmall,
+          ),
+          SizedBox(height: 0.5.h),
+          Text('* Champs obligatoires', style: theme.textTheme.bodySmall),
+          SizedBox(height: 1.h),
+          _academieField(_academieNomChimiqueCtrl, 'Nom chimique',
+              required: true),
+          _academieField(_academieSynonymesCtrl, 'Nom commun', required: true),
+          _academieField(_academieGradeCtrl,
+              'Grade (Standard / Alimentaire / Cosmétique / Technique)'),
+          _academieField(_academieAspectCtrl, 'Aspect', required: true),
+          _academieField(_academiePhCtrl, 'pH en solution', required: true),
+          _academieField(_academieSolubiliteCtrl, 'Solubilité',
+              required: true),
+          _academieField(_academieParticulariteCtrl,
+              'Particularité (ex : hygroscopique, exothermique)'),
+          _academieField(_academieDifferenceCtrl,
+              'Différence avec un produit similaire',
+              maxLines: 2),
+          SizedBox(height: 1.h),
+          Text('Sécurité', style: theme.textTheme.titleMedium),
+          SizedBox(height: 1.h),
+          DropdownButtonFormField<String>(
+            initialValue: _academieNiveauDanger,
+            decoration: const InputDecoration(
+                labelText: 'Niveau de danger', border: OutlineInputBorder()),
+            items: _academieNiveauxDanger
+                .map((n) => DropdownMenuItem(value: n, child: Text(n)))
+                .toList(),
+            onChanged: (v) => setState(() => _academieNiveauDanger = v),
+          ),
+          SizedBox(height: 1.5.h),
+          Text('EPI requis', style: theme.textTheme.labelLarge),
+          SizedBox(height: 0.5.h),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _academieEpiSuggestions
+                .map((e) => FilterChip(
+                      label: Text(e),
+                      selected: _academieEpiRequis.contains(e),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _academieEpiRequis.add(e);
+                        } else {
+                          _academieEpiRequis.remove(e);
+                        }
+                      }),
+                    ))
+                .toList(),
+          ),
+          SizedBox(height: 1.5.h),
+          _academieField(_academiePremiersSecoursCtrl, 'Premiers secours',
+              maxLines: 3),
+          _academieField(
+              _academieIncompatibilitesCtrl, 'Incompatibilités',
+              maxLines: 2),
+          _academieField(_academieStockageCtrl, 'Stockage', maxLines: 2),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Vérifié (labo)'),
+            subtitle: const Text(
+                'Désactivé = badge "⚠️ À vérifier en labo" affiché au client'),
+            value: _academieStatutVerification == 'verifie',
+            onChanged: (v) => setState(() =>
+                _academieStatutVerification = v ? 'verifie' : 'a_valider'),
+          ),
+          SizedBox(height: 2.h),
+          _SectionHeader(
+            title: 'Usages détaillés (Académie)',
+            onAdd: _addAcademieUsageRow,
+          ),
+          for (var i = 0; i < _academieUsages.length; i++)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Autocomplete<String>(
+                            optionsBuilder: (textEditingValue) {
+                              final query =
+                                  textEditingValue.text.toLowerCase();
+                              if (query.isEmpty) return _knownAcademieDomains;
+                              return _knownAcademieDomains.where(
+                                  (d) => d.toLowerCase().contains(query));
+                            },
+                            onSelected: (selection) => setState(() =>
+                                _academieUsages[i]['domaine_application'] =
+                                    selection),
+                            fieldViewBuilder:
+                                (context, controller, focusNode, onSubmitted) {
+                              controller.text = _academieUsages[i]
+                                      ['domaine_application'] as String? ??
+                                  '';
+                              controller.selection = TextSelection.collapsed(
+                                  offset: controller.text.length);
+                              return TextFormField(
+                                controller: controller,
+                                focusNode: focusNode,
+                                decoration: const InputDecoration(
+                                    labelText: 'Domaine d\'application',
+                                    isDense: true),
+                                onChanged: (v) => _academieUsages[i]
+                                    ['domaine_application'] = v,
+                              );
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () =>
+                              setState(() => _academieUsages.removeAt(i)),
+                        ),
+                      ],
+                    ),
+                    TextFormField(
+                      initialValue:
+                          _academieUsages[i]['technique_methode'] as String?,
+                      decoration: const InputDecoration(
+                          labelText: 'Technique / méthode', isDense: true),
+                      onChanged: (v) =>
+                          _academieUsages[i]['technique_methode'] = v,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      initialValue: _academieUsages[i]['dosage_concentration']
+                          as String?,
+                      decoration: const InputDecoration(
+                          labelText: 'Dosage / concentration (ex : 1-5%)',
+                          isDense: true),
+                      onChanged: (v) =>
+                          _academieUsages[i]['dosage_concentration'] = v,
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text('À vérifier en labo'),
+                      value: _academieUsages[i]['a_verifier_labo'] == true,
+                      onChanged: (v) => setState(
+                          () => _academieUsages[i]['a_verifier_labo'] = v),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           SizedBox(height: 4.h),
           FilledButton(
             onPressed: _isSaving ? null : _save,

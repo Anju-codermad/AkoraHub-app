@@ -7230,3 +7230,42 @@ ex : "Savonnerie (Saponification)" -> "Savonnerie", "Nettoyage"/
 "Nettoyage industriel"/"Détergents" -> "Hygiène & Entretien
 (Détergence)", "Désinfection" -> "Sécurité & Désinfection",
 "Agriculture (engrais, phytosanitaire)" -> "Agriculture & Élevage".
+
+### Fusion de l'écran d'édition Académie dans la fiche matière première (06/08)
+
+Sur retour explicite ("tout le fonction qu'on avait ajouté doit
+s'appliquer dans fiche de matières pas dans fiche Academia") : le
+formulaire "Fiche Académie" séparé (`academie_editor_screen.dart`,
+ouvert via l'icône éprouvette) est supprimé — tous ses champs sont
+désormais intégrés directement dans `raw_material_editor_screen.dart`,
+en une seule section ("Fiche Académie (accès payant)") ajoutée après
+"Historique de prix", juste avant le bouton "Enregistrer". Un seul
+écran, un seul bouton Enregistrer, pour tout saisir en une fois — ce
+qui correspond à la façon dont l'utilisatrice rédige déjà ses fiches
+(elle prépare le contenu de base ET Académie ensemble avant de les
+saisir).
+
+**Ce qui NE change PAS** (clarifié avec l'utilisatrice — "le produit du
+catalogue ne fait pas partie des produits dans l'accès Formation") :
+- Côté client, la séparation payante reste intacte : la fiche de base
+  (`raw_materials`, achat `formation_purchases`) et l'onglet Académie
+  (`matieres_premieres_academie`, achat SÉPARÉ `academie_purchases`,
+  nouvelle source de revenus) restent deux accès distincts sur
+  `raw_material_detail_client.dart` — seule la SAISIE côté admin est
+  fusionnée, pas la lecture côté client.
+- Le champ "Utilise dans la fabrication de" (table `raw_material_usages`,
+  4 catégories génériques, lié à un produit du catalogue de vente) est
+  une fonctionnalité totalement différente de "Usages détaillés
+  (Académie)" (table `matieres_premieres_usages`, 45+ domaines,
+  dosage/technique) — aucun lien entre les deux, pas de fusion.
+
+**Détails techniques** : `_save()` fait maintenant, après
+usages/conditionnement : upsert de `matieres_premieres_academie` (avec
+le même `materialId` que la fiche de base — créé juste avant si c'est
+une nouvelle matière première) puis réécriture complète de
+`matieres_premieres_usages`. Les 5 champs obligatoires (nom chimique,
+nom commun, aspect, pH, solubilité) sont maintenant vérifiés dès l'ouverture
+du bouton "Enregistrer" de la fiche matière première elle-même (plus
+besoin d'ouvrir un second écran pour buter sur cette validation).
+AppBar renommée "Fiche Académie" (édition) / "Nouvelle fiche Académie"
+(création) ; l'icône éprouvette et son bouton de navigation ont disparu.
