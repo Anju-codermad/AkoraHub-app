@@ -7482,3 +7482,12 @@ de journée — ce point a été explicitement revu par l'utilisatrice.
   `renderAcademieList`, `submitAcademiePurchase`, etc.) — plus qu'un
   seul achat "Matières premières", avec une note précisant qu'il inclut
   aussi la fiche technique Académie.
+
+### Suppression définitive de l'ancien achat Académie (06/08)
+
+Suite immédiate : sur demande explicite ("je veux qu'on le supprime !"),
+`phase84_patch_suppression_academie_purchases.sql` supprime pour de bon
+`academie_purchases`, `academie_pricing_tiers` et la fonction
+`has_purchased_academie_access` — plus aucune trace de l'ancien système
+d'achat séparé. À exécuter uniquement APRÈS phase83 (sinon la fiche
+Académie ne s'affiche plus).
