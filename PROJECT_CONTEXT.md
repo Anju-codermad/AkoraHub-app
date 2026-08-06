@@ -7371,3 +7371,15 @@ toujours visibles gratuitement côté client dès l'achat de la fiche
 produit — les déplacer dans le même flux que les champs Académie est
 une réorganisation de l'écran de SAISIE admin uniquement, ça ne les
 rend pas payantes côté client.
+
+### Sous-onglets "Achats" renommés pour éviter le doublon avec les onglets du haut (06/08)
+
+Repéré sur capture d'écran : le hub "Formation" a des onglets
+["Matières", "Cours", "Achats"] en haut, et l'onglet "Achats" contenait
+LUI-MÊME des sous-onglets ["Matières premières", "Cours", "Académie"]
+— quasi les mêmes noms répétés à deux niveaux, source de confusion
+("pourquoi je revois Matières/Cours en cliquant sur Achats ?").
+`formation_purchases_hub.dart` : sous-onglets renommés en "Demandes
+Matières" / "Demandes Cours" / "Demandes Académie", pour bien marquer
+que ce niveau concerne des DEMANDES d'achat à valider, pas les mêmes
+fiches de contenu que les onglets du haut.

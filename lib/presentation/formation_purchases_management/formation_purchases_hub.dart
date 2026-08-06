@@ -29,9 +29,9 @@ class FormationPurchasesHub extends StatelessWidget {
           automaticallyImplyLeading: false,
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'Matières premières'),
-              Tab(text: 'Cours'),
-              Tab(text: 'Académie'),
+              Tab(text: 'Demandes Matières'),
+              Tab(text: 'Demandes Cours'),
+              Tab(text: 'Demandes Académie'),
             ],
           ),
         ),
