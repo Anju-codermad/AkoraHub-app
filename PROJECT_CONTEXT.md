@@ -7336,3 +7336,38 @@ base (ex : "Soude caustique, soude en perles, soude écailles, lessive
 de soude" vs juste "Soude caustique"), c'est cette valeur plus complète
 qui est reprise dans le champ fusionné, pour ne rien perdre de ce qui
 avait déjà été tapé.
+
+### Simplification radicale de l'écran, puis réorganisation complète (06/08)
+
+Sur demande explicite (après confirmation des conséquences) : retrait
+de Photos, Description, Danger/précaution (texte libre), Statut de
+stock, Prix actuel, "Utilise dans la fabrication de", Conditionnement
+et Historique de prix de l'écran d'édition — seuls Pilier et Catégorie
+chimique restaient modifiables en plus de la section Académie. Ces
+colonnes restent en base (rien supprimé côté données), juste plus
+d'écran pour les modifier à ce stade.
+
+**Revirement immédiat** : nouvelle liste complète fournie pour
+réorganiser l'écran autour d'UN SEUL flux continu (plus de cadre
+teinté "accès payant" séparé — cette distinction visuelle n'aurait plus
+eu de sens avec des champs gratuits mélangés dedans). Photos (ramenées,
+plafond réduit de 10 à 5) et Description reviennent, positionnées
+maintenant DANS le nouvel ordre demandé plutôt que tout en haut :
+
+Pilier d'entreprise (gardé en haut, indispensable — nécessaire pour
+créer toute nouvelle fiche et pour les filtres/listes, pas dans la
+liste fournie mais impossible à retirer sans casser la création de
+fiches) → Photos (5 max) → Nom chimique * → Nom commun → Grade → Aspect
+* → pH en solution * → Solubilité * → Catégorie chimique → Description
+→ Particularité → Différence avec un produit similaire → Sécurité
+(bouton Dupliquer) → Niveau de danger / précaution (dropdown renommé,
+pas de nouveau champ texte) → EPI requis → Premiers secours →
+Incompatibilités → Stockage → Vérifié (labo) → Usages détaillés (avec
+sa légende "Visible seulement après achat Académie").
+
+**Point technique signalé** : Photos/Catégorie chimique/Description
+restent des colonnes de la fiche de BASE (`raw_materials`), donc
+toujours visibles gratuitement côté client dès l'achat de la fiche
+produit — les déplacer dans le même flux que les champs Académie est
+une réorganisation de l'écran de SAISIE admin uniquement, ça ne les
+rend pas payantes côté client.

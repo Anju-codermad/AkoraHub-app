@@ -3,12 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
-import 'raw_material_style.dart';
 
 const List<String> _academieEpiSuggestions = [
   'gants',
@@ -113,27 +111,16 @@ class RawMaterialEditorScreen extends ConsumerStatefulWidget {
 
 class _RawMaterialEditorScreenState
     extends ConsumerState<RawMaterialEditorScreen> {
-  final _currency = NumberFormat.currency(
-      locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
-  final _dateFormat = DateFormat('d MMM yyyy', 'fr_FR');
-
   late final TextEditingController _nameCtrl;
   late final TextEditingController _descCtrl;
-  late final TextEditingController _safetyCtrl;
-  late final TextEditingController _priceCtrl;
 
   List<Map<String, dynamic>> _businessUnits = [];
   List<Map<String, dynamic>> _nameSuggestions = [];
-  List<Map<String, dynamic>> _products = [];
   String? _selectedUnitId;
   String? _selectedCategoryName;
-  String _stockStatus = 'en_stock';
   String? _suggestionNote;
 
-  List<Map<String, dynamic>> _usages = [];
-  List<Map<String, dynamic>> _packaging = [];
-  List<Map<String, dynamic>> _priceHistory = [];
-
+  // Photos (06/08 : déplacées dans la fiche Académie, plafond réduit à 5).
   List<Map<String, dynamic>> _existingPhotos = [];
   final List<XFile> _newPhotos = [];
   final Set<String> _removedExistingPhotoIds = {};
@@ -187,7 +174,6 @@ class _RawMaterialEditorScreenState
       _academieUsages.any((u) =>
           (u['domaine_application'] as String? ?? '').trim().isNotEmpty);
 
-  num? _originalPrice;
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -199,13 +185,8 @@ class _RawMaterialEditorScreenState
     final m = widget.material;
     _nameCtrl = TextEditingController(text: m?['name'] ?? '');
     _descCtrl = TextEditingController(text: m?['description'] ?? '');
-    _safetyCtrl = TextEditingController(text: m?['safety_note'] ?? '');
-    _priceCtrl =
-        TextEditingController(text: (m?['current_price'] ?? '').toString());
     _selectedUnitId = m?['business_unit_id'];
     _selectedCategoryName = m?['category_name'];
-    _stockStatus = m?['stock_status'] ?? 'en_stock';
-    _originalPrice = m?['current_price'] as num?;
     _loadData();
   }
 
@@ -213,8 +194,6 @@ class _RawMaterialEditorScreenState
   void dispose() {
     _nameCtrl.dispose();
     _descCtrl.dispose();
-    _safetyCtrl.dispose();
-    _priceCtrl.dispose();
     _academieNomChimiqueCtrl.dispose();
     _academieAspectCtrl.dispose();
     _academiePhCtrl.dispose();
@@ -235,44 +214,21 @@ class _RawMaterialEditorScreenState
             .from('raw_material_name_suggestions')
             .select()
             .order('name'),
-        SupabaseConfig.client.from('products').select('id, name').order('name'),
       ]);
       await ref.read(categoriesCacheProvider.notifier).refresh();
 
       _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
       _nameSuggestions = List<Map<String, dynamic>>.from(results[1] as List);
-      _products = List<Map<String, dynamic>>.from(results[2] as List);
       _selectedUnitId ??=
           _businessUnits.isNotEmpty ? _businessUnits.first['id'] : null;
 
       if (_isEditing) {
-        final id = widget.material!['id'];
-        final childResults = await Future.wait<dynamic>([
-          SupabaseConfig.client
-              .from('raw_material_images')
-              .select()
-              .eq('raw_material_id', id)
-              .order('position'),
-          SupabaseConfig.client
-              .from('raw_material_usages')
-              .select('*, products(name)')
-              .eq('raw_material_id', id)
-              .order('sort_order'),
-          SupabaseConfig.client
-              .from('raw_material_packaging')
-              .select()
-              .eq('raw_material_id', id)
-              .order('sort_order'),
-          SupabaseConfig.client
-              .from('raw_material_price_history')
-              .select()
-              .eq('raw_material_id', id)
-              .order('recorded_at', ascending: false),
-        ]);
-        _existingPhotos = List<Map<String, dynamic>>.from(childResults[0]);
-        _usages = List<Map<String, dynamic>>.from(childResults[1]);
-        _packaging = List<Map<String, dynamic>>.from(childResults[2]);
-        _priceHistory = List<Map<String, dynamic>>.from(childResults[3]);
+        final photos = await SupabaseConfig.client
+            .from('raw_material_images')
+            .select()
+            .eq('raw_material_id', widget.material!['id'])
+            .order('position');
+        _existingPhotos = List<Map<String, dynamic>>.from(photos);
       }
     } catch (_) {
       // Repli tolérant : la fiche reste éditable même si une des tables
@@ -497,110 +453,6 @@ class _RawMaterialEditorScreenState
     }
   }
 
-  void _addUsageRow() {
-    setState(() {
-      _usages.add({
-        'domain': rawMaterialUsageDomains.first,
-        'product_id': null,
-        'usage_label': '',
-        'dosage': '',
-      });
-    });
-  }
-
-  void _addPackagingRow() {
-    setState(() {
-      _packaging.add({'label': '', 'price': null});
-    });
-  }
-
-  Future<void> _addPriceHistoryEntry() async {
-    if (!_isEditing) return;
-    final priceCtrl = TextEditingController();
-    final noteCtrl = TextEditingController();
-    DateTime date = DateTime.now();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Ajouter un ancien prix'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: priceCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Prix (Ar)'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: noteCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Note (optionnel)'),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: Text(_dateFormat.format(date))),
-                  TextButton(
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: date,
-                        firstDate: DateTime(2015),
-                        lastDate: DateTime.now(),
-                      );
-                      if (picked != null) {
-                        setDialogState(() => date = picked);
-                      }
-                    },
-                    child: const Text('Changer la date'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Ajouter'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirmed != true) return;
-    final price = double.tryParse(priceCtrl.text);
-    if (price == null) return;
-    try {
-      final inserted = await SupabaseConfig.client
-          .from('raw_material_price_history')
-          .insert({
-            'raw_material_id': widget.material!['id'],
-            'price': price,
-            'recorded_at': date.toIso8601String().split('T').first,
-            'note': noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
-          })
-          .select()
-          .single();
-      if (!mounted) return;
-      setState(() {
-        _priceHistory = [inserted, ..._priceHistory]
-          ..sort((a, b) =>
-              (b['recorded_at'] as String).compareTo(a['recorded_at'] as String));
-      });
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'Impossible d\'ajouter cette entrée (migration phase40 pas encore exécutée ?).')));
-    }
-  }
-
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty || _selectedUnitId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -620,18 +472,17 @@ class _RawMaterialEditorScreenState
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
-    final newPrice = double.tryParse(_priceCtrl.text);
+    // Depuis le 06/08 (sur demande) : cet écran ne gère plus, côté fiche
+    // de base, que Pilier + Catégorie chimique + Description + Photos —
+    // danger (texte libre), stock, prix, usages catalogue, conditionnement
+    // et historique de prix ne sont plus modifiables ici (les colonnes
+    // restent en base, juste plus touchées par cet écran).
     final payload = {
       'name': _nameCtrl.text.trim(),
-      'description': _descCtrl.text.trim().isEmpty
-          ? null
-          : _descCtrl.text.trim(),
-      'safety_note':
-          _safetyCtrl.text.trim().isEmpty ? null : _safetyCtrl.text.trim(),
       'category_name': _selectedCategoryName ?? '',
       'business_unit_id': _selectedUnitId,
-      'stock_status': _stockStatus,
-      'current_price': newPrice,
+      'description':
+          _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
     };
 
     try {
@@ -651,22 +502,9 @@ class _RawMaterialEditorScreenState
         materialId = inserted['id'] as String;
       }
 
-      // Historique de prix automatique : si le prix a changé depuis
-      // l'ouverture de la fiche, on garde une trace datée du jour — en
-      // plus des entrées manuelles ajoutées via "Ajouter un ancien prix".
-      if (newPrice != null && newPrice != _originalPrice) {
-        try {
-          await SupabaseConfig.client.from('raw_material_price_history').insert({
-            'raw_material_id': materialId,
-            'price': newPrice,
-            'recorded_at': DateTime.now().toIso8601String().split('T').first,
-          });
-        } catch (_) {}
-      }
-
       // Photos : même mécanique que product_images (phase8) — réécriture
-      // complète de la galerie, bucket dédié `raw-materials`.
-      var photosFailed = false;
+      // complète de la galerie, bucket dédié `raw-materials`. Plafond
+      // réduit à 5 (06/08, déplacées dans la fiche Académie).
       if (_newPhotos.isNotEmpty || _removedExistingPhotoIds.isNotEmpty) {
         try {
           final uploadedUrls = <String>[];
@@ -713,57 +551,7 @@ class _RawMaterialEditorScreenState
           await SupabaseConfig.client.from('raw_materials').update({
             'image_url': finalUrls.isNotEmpty ? finalUrls.first : null,
           }).eq('id', materialId);
-        } catch (_) {
-          photosFailed = true;
-        }
-      }
-
-      // Usages et conditionnement : réécriture complète (petit nombre de
-      // lignes par fiche), plus simple qu'un diff ligne à ligne.
-      await SupabaseConfig.client
-          .from('raw_material_usages')
-          .delete()
-          .eq('raw_material_id', materialId);
-      final validUsages = _usages
-          .where((u) =>
-              u['product_id'] != null ||
-              (u['usage_label'] as String? ?? '').trim().isNotEmpty)
-          .toList();
-      if (validUsages.isNotEmpty) {
-        await SupabaseConfig.client.from('raw_material_usages').insert([
-          for (var i = 0; i < validUsages.length; i++)
-            {
-              'raw_material_id': materialId,
-              'domain': validUsages[i]['domain'],
-              'product_id': validUsages[i]['product_id'],
-              'usage_label': validUsages[i]['product_id'] != null
-                  ? null
-                  : (validUsages[i]['usage_label'] as String).trim(),
-              'dosage': (validUsages[i]['dosage'] as String? ?? '').trim().isEmpty
-                  ? null
-                  : (validUsages[i]['dosage'] as String).trim(),
-              'sort_order': i,
-            },
-        ]);
-      }
-
-      await SupabaseConfig.client
-          .from('raw_material_packaging')
-          .delete()
-          .eq('raw_material_id', materialId);
-      final validPackaging = _packaging
-          .where((p) => (p['label'] as String? ?? '').trim().isNotEmpty)
-          .toList();
-      if (validPackaging.isNotEmpty) {
-        await SupabaseConfig.client.from('raw_material_packaging').insert([
-          for (var i = 0; i < validPackaging.length; i++)
-            {
-              'raw_material_id': materialId,
-              'label': (validPackaging[i]['label'] as String).trim(),
-              'price': validPackaging[i]['price'],
-              'sort_order': i,
-            },
-        ]);
+        } catch (_) {}
       }
 
       // Fiche Académie (06/08) — même mécanique que usages/conditionnement :
@@ -859,11 +647,6 @@ class _RawMaterialEditorScreenState
 
       if (!mounted) return;
       Navigator.pop(context, true);
-      if (photosFailed) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Fiche enregistrée, mais les photos n\'ont pas pu être sauvegardées.')));
-      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
@@ -942,11 +725,6 @@ class _RawMaterialEditorScreenState
             .where((s) => s['business_unit_slug'] == selectedSlug)
             .toList();
 
-    final keptPhotos = _existingPhotos
-        .where((p) => !_removedExistingPhotoIds.contains(p['id']))
-        .toList();
-    final totalPhotoCount = keptPhotos.length + _newPhotos.length;
-
     Widget _academieField(TextEditingController ctrl, String label,
         {int maxLines = 1, bool required = false}) {
       return Padding(
@@ -976,14 +754,35 @@ class _RawMaterialEditorScreenState
       body: ListView(
         padding: EdgeInsets.all(4.w),
         children: [
-          Text('Photos (jusqu\'à 10, optionnel)',
+          Text('Pilier d\'entreprise', style: theme.textTheme.labelLarge),
+          SizedBox(height: 0.5.h),
+          Wrap(
+            spacing: 8,
+            children: _businessUnits.map((u) {
+              return ChoiceChip(
+                label: Text(u['name'] ?? ''),
+                selected: _selectedUnitId == u['id'],
+                onSelected: (_) => setState(() {
+                  _selectedUnitId = u['id'];
+                  _selectedCategoryName = null;
+                }),
+              );
+            }).toList(),
+          ),
+          SizedBox(height: 3.h),
+          const Divider(),
+          SizedBox(height: 2.h),
+          Text('* Champs obligatoires', style: theme.textTheme.bodySmall),
+          SizedBox(height: 1.h),
+          Text('Photos (jusqu\'à 5, optionnel)',
               style: theme.textTheme.labelLarge),
           SizedBox(height: 1.h),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final photo in keptPhotos)
+              for (final photo in _existingPhotos
+                  .where((p) => !_removedExistingPhotoIds.contains(p['id'])))
                 _PhotoThumb(
                   image: NetworkImage(photo['image_url'] as String),
                   onRemove: () => setState(
@@ -994,11 +793,21 @@ class _RawMaterialEditorScreenState
                   image: FileImage(File(_newPhotos[i].path)),
                   onRemove: () => setState(() => _newPhotos.removeAt(i)),
                 ),
-              if (totalPhotoCount < 10)
+              if ((_existingPhotos
+                              .where((p) => !_removedExistingPhotoIds
+                                  .contains(p['id']))
+                              .length +
+                          _newPhotos.length) <
+                      5)
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () async {
-                    final remaining = 10 - totalPhotoCount;
+                    final current = _existingPhotos
+                            .where((p) =>
+                                !_removedExistingPhotoIds.contains(p['id']))
+                            .length +
+                        _newPhotos.length;
+                    final remaining = 5 - current;
                     try {
                       final picked =
                           await ImagePicker().pickMultiImage(limit: remaining);
@@ -1025,190 +834,6 @@ class _RawMaterialEditorScreenState
             ],
           ),
           SizedBox(height: 2.h),
-          Text('Pilier d\'entreprise', style: theme.textTheme.labelLarge),
-          SizedBox(height: 0.5.h),
-          Wrap(
-            spacing: 8,
-            children: _businessUnits.map((u) {
-              return ChoiceChip(
-                label: Text(u['name'] ?? ''),
-                selected: _selectedUnitId == u['id'],
-                onSelected: (_) => setState(() {
-                  _selectedUnitId = u['id'];
-                  _selectedCategoryName = null;
-                }),
-              );
-            }).toList(),
-          ),
-          SizedBox(height: 2.h),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _selectedCategoryName,
-                  decoration:
-                      const InputDecoration(labelText: 'Catégorie chimique'),
-                  items: categoryItems
-                      .map((name) =>
-                          DropdownMenuItem(value: name, child: Text(name)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _selectedCategoryName = v),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                tooltip: 'Ajouter une catégorie',
-                onPressed: _selectedUnitId == null
-                    ? null
-                    : () async {
-                        final name = await _addNewCategory(_selectedUnitId!);
-                        if (name != null) {
-                          setState(() => _selectedCategoryName = name);
-                        }
-                      },
-              ),
-            ],
-          ),
-          SizedBox(height: 2.h),
-          TextField(
-            controller: _descCtrl,
-            maxLines: 5,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              helperText:
-                  'Rédigée à partir de votre recherche — pas un copier-coller de fiche technique tierce.',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
-            ),
-          ),
-          SizedBox(height: 2.h),
-          TextField(
-            controller: _safetyCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Danger / précaution (optionnel)',
-              prefixIcon: Icon(Icons.warning_amber_outlined),
-            ),
-          ),
-          SizedBox(height: 2.h),
-          Text('Statut de stock', style: theme.textTheme.labelLarge),
-          SizedBox(height: 0.5.h),
-          Wrap(
-            spacing: 8,
-            children: rawMaterialStockStatuses.map((status) {
-              final color = rawMaterialStatusColor(status);
-              return ChoiceChip(
-                label: Text(rawMaterialStatusLabel(status)),
-                selected: _stockStatus == status,
-                selectedColor: color.withValues(alpha: 0.25),
-                onSelected: (_) => setState(() => _stockStatus = status),
-              );
-            }).toList(),
-          ),
-          SizedBox(height: 2.h),
-          TextField(
-            controller: _priceCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Prix actuel (Ar)'),
-          ),
-          SizedBox(height: 3.h),
-          _SectionHeader(
-            title: 'Utilise dans la fabrication de',
-            onAdd: _addUsageRow,
-          ),
-          Text(
-            'Visible gratuitement dès l\'achat de la fiche produit — lien vers un produit du catalogue.',
-            style: theme.textTheme.bodySmall,
-          ),
-          SizedBox(height: 1.h),
-          for (var i = 0; i < _usages.length; i++)
-            _UsageRow(
-              key: ValueKey('usage-$i-${_usages[i]['id'] ?? ''}'),
-              data: _usages[i],
-              products: _products,
-              onChanged: (v) => setState(() => _usages[i] = v),
-              onRemove: () => setState(() => _usages.removeAt(i)),
-            ),
-          SizedBox(height: 3.h),
-          _SectionHeader(
-            title: 'Conditionnement',
-            onAdd: _addPackagingRow,
-          ),
-          for (var i = 0; i < _packaging.length; i++)
-            _PackagingRow(
-              key: ValueKey('pack-$i-${_packaging[i]['id'] ?? ''}'),
-              data: _packaging[i],
-              onChanged: (v) => setState(() => _packaging[i] = v),
-              onRemove: () => setState(() => _packaging.removeAt(i)),
-            ),
-          SizedBox(height: 3.h),
-          _SectionHeader(
-            title: 'Historique de prix',
-            onAdd: _isEditing ? _addPriceHistoryEntry : null,
-          ),
-          if (!_isEditing)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Enregistrez d\'abord la fiche pour ajouter un historique.',
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
-          if (_priceHistory.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text('Aucun historique pour le moment.',
-                  style: theme.textTheme.bodySmall),
-            )
-          else
-            ..._priceHistory.map((entry) => ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.timeline_outlined),
-                  title: Text(_currency.format(entry['price'])),
-                  subtitle: Text([
-                    _dateFormat.format(DateTime.parse(entry['recorded_at'])),
-                    if (entry['note'] != null) entry['note'],
-                  ].join(' · ')),
-                )),
-          SizedBox(height: 4.h),
-          const Divider(),
-          SizedBox(height: 2.h),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-          Row(
-            children: [
-              const Icon(Icons.science_outlined),
-              const SizedBox(width: 8),
-              Text('Fiche Académie (accès payant)',
-                  style: theme.textTheme.titleMedium),
-            ],
-          ),
-          SizedBox(height: 0.5.h),
-          Text(
-            'Débloquée séparément par le client (achat Académie distinct) — voir supabase/phase81_patch_academie_matieres_premieres.sql.',
-            style: theme.textTheme.bodySmall,
-          ),
-          if (!_academieHasContent) ...[
-            SizedBox(height: 0.5.h),
-            Text(
-              'Section encore vide — tu peux enregistrer le reste de la fiche sans la remplir. Dès que tu commences, les champs marqués * deviennent obligatoires.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(fontStyle: FontStyle.italic),
-            ),
-          ],
-          SizedBox(height: 0.5.h),
-          Text('* Champs obligatoires', style: theme.textTheme.bodySmall),
-          SizedBox(height: 1.h),
           _academieField(_academieNomChimiqueCtrl, 'Nom chimique',
               required: true),
           Autocomplete<String>(
@@ -1276,6 +901,49 @@ class _RawMaterialEditorScreenState
           _academieField(_academiePhCtrl, 'pH en solution', required: true),
           _academieField(_academieSolubiliteCtrl, 'Solubilité',
               required: true),
+          SizedBox(height: 1.5.h),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: _selectedCategoryName,
+                  decoration:
+                      const InputDecoration(labelText: 'Catégorie chimique'),
+                  items: categoryItems
+                      .map((name) =>
+                          DropdownMenuItem(value: name, child: Text(name)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedCategoryName = v),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: 'Ajouter une catégorie',
+                onPressed: _selectedUnitId == null
+                    ? null
+                    : () async {
+                        final name = await _addNewCategory(_selectedUnitId!);
+                        if (name != null) {
+                          setState(() => _selectedCategoryName = name);
+                        }
+                      },
+              ),
+            ],
+          ),
+          SizedBox(height: 1.5.h),
+          TextField(
+            controller: _descCtrl,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              helperText:
+                  'Rédigée à partir de votre recherche — pas un copier-coller de fiche technique tierce.',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          SizedBox(height: 1.5.h),
           _academieField(_academieParticulariteCtrl,
               'Particularité (ex : hygroscopique, exothermique)'),
           _academieField(_academieDifferenceCtrl,
@@ -1298,7 +966,8 @@ class _RawMaterialEditorScreenState
           DropdownButtonFormField<String>(
             initialValue: _academieNiveauDanger,
             decoration: const InputDecoration(
-                labelText: 'Niveau de danger', border: OutlineInputBorder()),
+                labelText: 'Niveau de danger / précaution',
+                border: OutlineInputBorder()),
             items: _academieNiveauxDanger
                 .map((n) => DropdownMenuItem(value: n, child: Text(n)))
                 .toList(),
@@ -1427,9 +1096,6 @@ class _RawMaterialEditorScreenState
                 ),
               ),
             ),
-              ],
-            ),
-          ),
           SizedBox(height: 4.h),
           FilledButton(
             onPressed: _isSaving ? null : _save,
@@ -1463,177 +1129,6 @@ class _SectionHeader extends StatelessWidget {
           IconButton(
               icon: const Icon(Icons.add_circle_outline), onPressed: onAdd),
       ],
-    );
-  }
-}
-
-class _UsageRow extends StatelessWidget {
-  final Map<String, dynamic> data;
-  final List<Map<String, dynamic>> products;
-  final ValueChanged<Map<String, dynamic>> onChanged;
-  final VoidCallback onRemove;
-
-  const _UsageRow(
-      {super.key,
-      required this.data,
-      required this.products,
-      required this.onChanged,
-      required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    final domain = data['domain'] as String? ?? rawMaterialUsageDomains.first;
-    final productId = data['product_id'] as String?;
-    // `products(name)` vient de la jointure au chargement d'une fiche
-    // existante ; pour une ligne fraîchement ajoutée, le nom est déjà
-    // connu localement (choisi via l'Autocomplete ci-dessous).
-    final productName = data['_product_name'] as String? ??
-        (data['products'] is Map ? data['products']['name'] as String? : null);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(iconForUsageDomain(domain),
-                    color: colorForUsageDomain(domain), size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: domain,
-                    isDense: true,
-                    decoration: const InputDecoration(labelText: 'Domaine'),
-                    items: rawMaterialUsageDomains
-                        .map((d) =>
-                            DropdownMenuItem(value: d, child: Text(d)))
-                        .toList(),
-                    onChanged: (v) =>
-                        onChanged({...data, 'domain': v ?? domain}),
-                  ),
-                ),
-                IconButton(
-                    icon: const Icon(Icons.close), onPressed: onRemove),
-              ],
-            ),
-            if (productId != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4, bottom: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.inventory_2_outlined, size: 16),
-                    const SizedBox(width: 6),
-                    Expanded(
-                        child: Text(productName ?? 'Produit sélectionné')),
-                    TextButton(
-                      onPressed: () => onChanged({
-                        ...data,
-                        'product_id': null,
-                        '_product_name': null,
-                      }),
-                      child: const Text('Changer'),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Autocomplete<Map<String, dynamic>>(
-                displayStringForOption: (p) => p['name'] as String,
-                optionsBuilder: (textEditingValue) {
-                  if (textEditingValue.text.trim().isEmpty) {
-                    return const Iterable<Map<String, dynamic>>.empty();
-                  }
-                  final query = textEditingValue.text.toLowerCase();
-                  return products.where(
-                      (p) => (p['name'] as String).toLowerCase().contains(query));
-                },
-                onSelected: (selection) => onChanged({
-                  ...data,
-                  'product_id': selection['id'],
-                  '_product_name': selection['name'],
-                  'usage_label': null,
-                }),
-                fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
-                  return TextFormField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    decoration: const InputDecoration(
-                      labelText: 'Produit du catalogue (recommandé)',
-                      helperText: 'Recherchez un produit existant à lier',
-                    ),
-                  );
-                },
-              ),
-            Row(
-              children: [
-                if (productId == null)
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      initialValue: data['usage_label'] as String? ?? '',
-                      decoration: const InputDecoration(
-                          labelText:
-                              'Ou texte libre (formule pas encore un produit)'),
-                      onChanged: (v) => onChanged({...data, 'usage_label': v}),
-                    ),
-                  ),
-                if (productId == null) const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: data['dosage'] as String? ?? '',
-                    decoration:
-                        const InputDecoration(labelText: 'Dosage (ex: 10-15%)'),
-                    onChanged: (v) => onChanged({...data, 'dosage': v}),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PackagingRow extends StatelessWidget {
-  final Map<String, dynamic> data;
-  final ValueChanged<Map<String, dynamic>> onChanged;
-  final VoidCallback onRemove;
-
-  const _PackagingRow(
-      {super.key,
-      required this.data,
-      required this.onChanged,
-      required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextFormField(
-              initialValue: data['label'] as String? ?? '',
-              decoration: const InputDecoration(
-                  labelText: 'Format (ex: 250g, 1kg, Sur demande)'),
-              onChanged: (v) => onChanged({...data, 'label': v}),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextFormField(
-              initialValue: (data['price'] ?? '').toString(),
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Prix (optionnel)'),
-              onChanged: (v) =>
-                  onChanged({...data, 'price': double.tryParse(v)}),
-            ),
-          ),
-          IconButton(icon: const Icon(Icons.close), onPressed: onRemove),
-        ],
-      ),
     );
   }
 }
