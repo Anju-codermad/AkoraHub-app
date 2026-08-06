@@ -25,6 +25,12 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
   bool _sharePhonePublicly = false;
   String? _myPhone;
 
+  // Profil verrouillé (06/08, voir supabase/phase76_patch_profile_lock.sql)
+  // — un visiteur qui n'est pas déjà ami ne voit alors que le nom et
+  // l'avatar (comme un compte privé), le reste (secteur, publications,
+  // numéro) reste masqué tant qu'il n'est pas accepté comme ami.
+  bool _profileLocked = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,13 +50,14 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
     try {
       final row = await SupabaseConfig.client
           .from('profiles')
-          .select('phone, share_phone_publicly')
+          .select('phone, share_phone_publicly, profile_locked')
           .eq('id', userId)
           .single();
       if (!mounted) return;
       setState(() {
         _myPhone = row['phone'] as String?;
         _sharePhonePublicly = row['share_phone_publicly'] as bool? ?? false;
+        _profileLocked = row['profile_locked'] as bool? ?? false;
         _isLoadingPrivacy = false;
       });
     } catch (_) {
@@ -72,6 +79,23 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
       setState(() => _sharePhonePublicly = !value);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Impossible de mettre à jour ce réglage.')));
+    }
+  }
+
+  Future<void> _setProfileLocked(bool value) async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+    setState(() => _profileLocked = value);
+    try {
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'profile_locked': value}).eq('id', userId);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _profileLocked = !value);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Impossible de mettre à jour ce réglage (migration phase76 exécutée ?).')));
     }
   }
 
@@ -253,6 +277,17 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                 MaterialPageRoute(
                     builder: (_) => const TwoFactorSetupScreen()),
               ),
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Card(
+            child: SwitchListTile(
+              secondary: const Icon(Icons.lock_person_outlined),
+              title: const Text('Profil verrouillé'),
+              subtitle: const Text(
+                  'Seuls vos amis voient votre secteur, vos coordonnées et vos publications — les autres ne voient que votre nom et votre photo'),
+              value: _profileLocked,
+              onChanged: _isLoadingPrivacy ? null : _setProfileLocked,
             ),
           ),
           SizedBox(height: 2.h),

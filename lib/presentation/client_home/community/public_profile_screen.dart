@@ -304,6 +304,16 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Profil verrouillé (06/08, voir supabase/phase76_patch_profile_lock.sql)
+    // — un visiteur qui n'est ni le propriétaire ni un ami accepté ne voit
+    // que le nom et l'avatar (comme un compte privé) ; le reste (secteur,
+    // WhatsApp, publications) reste masqué tant que la demande d'ami
+    // n'est pas acceptée.
+    final isLocked = _profile?['profile_locked'] == true;
+    final isFriend = _friendship?['status'] == 'acceptee';
+    final isSelf = widget.userId == _myId;
+    final showFullProfile = !isLocked || isFriend || isSelf;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(PublicProfilesRepo.displayName(_profile)),
@@ -365,7 +375,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                           ],
                         ),
                       ),
-                      if (_sectorLabels[_profile?['client_type']] != null)
+                      if (showFullProfile &&
+                          _sectorLabels[_profile?['client_type']] != null)
                         Center(
                           child: Padding(
                             padding: EdgeInsets.only(top: 0.5.h),
@@ -377,7 +388,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         ),
                       SizedBox(height: 1.5.h),
                       _buildFriendSection(theme),
-                      if (!_isBlocked &&
+                      if (showFullProfile &&
+                          !_isBlocked &&
                           buildWhatsAppLink(
                                   _profile?['phone'] as String?) !=
                               null) ...[
@@ -404,21 +416,42 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                           ),
                         ),
                       ],
-                      SizedBox(height: 3.h),
-                      Text('Publications', style: theme.textTheme.titleMedium),
-                      SizedBox(height: 1.h),
-                      if (_posts.isEmpty)
-                        Padding(
-                          padding: EdgeInsets.symmetric(vertical: 4.h),
-                          child: Center(
-                            child: Text(
-                              'Aucune publication publique.',
-                              style: theme.textTheme.bodyMedium,
-                            ),
+                      if (!showFullProfile) ...[
+                        SizedBox(height: 3.h),
+                        Center(
+                          child: Column(
+                            children: [
+                              Icon(Icons.lock_outline,
+                                  size: 36,
+                                  color: theme.colorScheme.outline),
+                              SizedBox(height: 1.h),
+                              Text('Ce profil est privé',
+                                  style: theme.textTheme.titleMedium),
+                              SizedBox(height: 0.5.h),
+                              Text(
+                                'Ajoutez ${PublicProfilesRepo.displayName(_profile)} en ami pour voir son secteur, ses coordonnées et ses publications.',
+                                style: theme.textTheme.bodySmall,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
-                        )
-                      else
-                        ..._posts.map((post) => Card(
+                        ),
+                      ] else ...[
+                        SizedBox(height: 3.h),
+                        Text('Publications', style: theme.textTheme.titleMedium),
+                        SizedBox(height: 1.h),
+                        if (_posts.isEmpty)
+                          Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4.h),
+                            child: Center(
+                              child: Text(
+                                'Aucune publication publique.',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                          )
+                        else
+                          ..._posts.map((post) => Card(
                               margin: EdgeInsets.only(bottom: 1.5.h),
                               child: Padding(
                                 padding: EdgeInsets.all(3.w),
@@ -449,6 +482,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                                 ),
                               ),
                             )),
+                      ],
                     ],
                   ),
                 ),

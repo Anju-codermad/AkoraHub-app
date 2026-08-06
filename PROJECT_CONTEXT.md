@@ -6917,3 +6917,28 @@ Tout dans **`supabase/phase75_patch_personalization_algorithms.sql`**.
 
 Les 3 fonctions excluent les commandes annulées (`status <> 'annulee'`),
 même convention que `has_ordered_product` (phase55, avis vérifiés).
+
+### Profil verrouillé (privé) (06/08)
+
+Suite à la question soulevée en cours de session : par défaut, tout
+client peut voir le profil public de n'importe quel autre. Choix acté
+avec l'utilisatrice pour ce que voit un visiteur NON ami d'un profil
+verrouillé : **juste nom + avatar + bouton "Ajouter en ami"** (comme un
+compte Instagram privé) — société, secteur, numéro et publications
+restent masqués tant que la demande d'ami n'est pas acceptée. Réutilise
+le système d'amis déjà en place plutôt que d'inventer un nouveau
+mécanisme d'accès.
+
+**`supabase/phase76_patch_profile_lock.sql`** : `profiles.profile_locked
+boolean default false` + vue `public_profiles` redéfinie pour l'exposer.
+
+**`public_profile_screen.dart`** : `showFullProfile = !isLocked ||
+isFriend (status == 'acceptee') || isSelf` — masque le secteur, le
+bouton WhatsApp et la liste des publications si faux, remplacés par un
+message "Ce profil est privé" + invitation à ajouter en ami (le bouton
+"Ajouter en ami" reste toujours visible via `_buildFriendSection`,
+c'est le seul moyen de débloquer l'accès).
+
+**`security_settings_screen.dart`** : nouveau `SwitchListTile` "Profil
+verrouillé", même emplacement/pattern que "Numéro visible dans la
+Communauté" juste en dessous.
