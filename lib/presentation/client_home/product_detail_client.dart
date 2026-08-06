@@ -10,6 +10,7 @@ import '../../core/supabase/supabase_config.dart';
 import 'catalog_tab.dart' show ProductCard;
 import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
+import 'usual_cart_provider.dart';
 
 class ProductDetailClient extends ConsumerStatefulWidget {
   final Map<String, dynamic> product;
@@ -142,6 +143,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     final total = unitPrice * _quantity;
 
     final isFavorite = ref.watch(favoritesProvider).contains(p['id']);
+    final isInUsualCart = ref.watch(usualCartProvider).contains(p['id']);
     // Même convention que ProductCard (catalog_tab.dart) pour la rupture
     // de stock (06/08, "M'alerter quand disponible").
     final stockQty = (p['stock_quantity'] as num?)?.toDouble();
@@ -170,6 +172,16 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                 : 'Ajouter aux favoris',
             onPressed: () =>
                 ref.read(favoritesProvider.notifier).toggle(p['id']),
+          ),
+          IconButton(
+            icon: Icon(isInUsualCart
+                ? Icons.shopping_bag
+                : Icons.shopping_bag_outlined),
+            tooltip: isInUsualCart
+                ? 'Retirer du panier habituel'
+                : 'Ajouter au panier habituel',
+            onPressed: () =>
+                ref.read(usualCartProvider.notifier).toggle(p['id']),
           ),
         ],
       ),

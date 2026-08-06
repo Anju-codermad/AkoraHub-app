@@ -13,6 +13,7 @@ import 'my_reviews_screen.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
 import 'referral_screen.dart';
 import 'settings/settings_screen.dart';
+import 'usual_cart_screen.dart';
 
 /// Menu latéral du Profil (04/08) — regroupe toutes les fonctions
 /// auparavant éparpillées entre la barre de raccourcis et les cartes
@@ -138,6 +139,11 @@ class _ProfileMenuDrawerState extends State<ProfileMenuDrawer> {
               leading: const Icon(Icons.favorite_border),
               title: const Text('Mes favoris'),
               onTap: () => _open(const FavoritesScreen()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.shopping_bag_outlined),
+              title: const Text('Mon panier habituel'),
+              onTap: () => _open(const UsualCartScreen()),
             ),
             const Divider(height: 1),
             _sectionLabel(theme, 'Communauté & Formation'),

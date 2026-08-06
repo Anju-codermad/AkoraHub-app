@@ -7039,3 +7039,33 @@ utile pour comparer plusieurs catégories d'un même pilier plutôt que de
 disparaître dès qu'une catégorie précise est choisie. Réinitialisé à
 "Tous les usages" en même temps que la catégorie quand le pilier change
 (même logique de repli que l'existant).
+
+### "Mon panier habituel" (06/08)
+
+Dernier point de la liste "praticable" : une liste de produits +
+quantités que le client compose une fois et recharge en un clic, sans
+repasser par tout le catalogue. Distincte des **favoris** (juste une
+étoile, aucune quantité) et des **commandes récurrentes** (entièrement
+automatiques, sur un intervalle) — ici rien n'est automatique, c'est un
+raccourci manuel que le client alimente lui-même.
+
+**`supabase/phase80_patch_usual_cart.sql`** : nouvelle table
+`usual_cart_items` (customer_id, product_id, quantity par défaut 1,
+paire unique) + RLS (chacun ne voit/modifie que ses propres lignes).
+
+**`usual_cart_provider.dart`** (nouveau) : `UsualCartNotifier`/
+`usualCartProvider`, clone structurel de `FavoritesNotifier` — ne gère
+que la présence/absence d'un produit (mise à jour optimiste, annulée si
+l'appel Supabase échoue) ; la quantité vit uniquement côté table, lue
+directement par l'écran dédié.
+
+**`usual_cart_screen.dart`** (nouveau) : liste avec, par produit, un
+stepper de quantité `[-] qty [+]` et un bouton supprimer, plus un
+bouton "Tout ajouter" qui reprend la quantité sauvegardée de chaque
+produit (pas toujours 1) pour remplir le panier en un clic.
+
+**Câblage** : icône panier (`Icons.shopping_bag_outlined` /
+`Icons.shopping_bag` si déjà ajouté) sur la fiche produit
+(`product_detail_client.dart`), à côté de l'étoile favoris ; entrée
+"Mon panier habituel" ajoutée dans le menu Profil, section "Mes
+achats", juste après "Mes favoris" (`profile_menu_drawer.dart`).
