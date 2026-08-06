@@ -35,6 +35,11 @@ Color _statusColor(String status) {
 /// supabase/phase43_patch_formation_courses.sql. Pour l'instant juste la
 /// structure (catégorie, titre, statut, nombre de modules), pas encore
 /// le contenu réel des cours.
+///
+/// Depuis le 06/08 : sans Scaffold propre d'AppBar (juste body + FAB) —
+/// utilisé comme onglet "Cours" de FormationHub (fusion avec "Matières
+/// premières" et "Achats Formation"), voir
+/// raw_materials_management/formation_hub.dart.
 class FormationCoursesManagement extends StatefulWidget {
   const FormationCoursesManagement({super.key});
 
@@ -266,7 +271,6 @@ class _FormationCoursesManagementState
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AkoraFormation — Cours & Modules')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCourseDialog(),
         icon: const Icon(Icons.add),

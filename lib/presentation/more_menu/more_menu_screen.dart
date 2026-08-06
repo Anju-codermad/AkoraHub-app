@@ -15,7 +15,6 @@ import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
 import '../security_audit_log/security_audit_log_screen.dart';
 import '../raw_materials_management/formation_hub.dart';
-import '../formation_courses_management/formation_courses_management.dart';
 import '../formation_groups_management/formation_groups_management.dart';
 import '../client_home/settings/settings_screen.dart';
 import '../post_reports_management/post_reports_management.dart';
@@ -124,7 +123,8 @@ class MoreMenuScreen extends StatelessWidget {
           _MenuTile(
             icon: Icons.science_outlined,
             label: 'Formation',
-            subtitle: 'Fiches ingrédients (+ Académie) et validation des achats',
+            subtitle:
+                'Matières (+ Académie), cours & modules, validation des achats',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const FormationHub()),
@@ -138,16 +138,6 @@ class MoreMenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const PostReportsManagement()),
-            ),
-          ),
-          _MenuTile(
-            icon: Icons.school_outlined,
-            label: 'AkoraFormation — Cours & Modules',
-            subtitle: 'Liste des formations par catégorie et leur statut',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const FormationCoursesManagement()),
             ),
           ),
           _MenuTile(

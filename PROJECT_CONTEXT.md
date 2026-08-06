@@ -7146,3 +7146,15 @@ seul). Nouveau `formation_hub.dart` (`FormationHub`) : un
 chacun gardant son propre état/Scaffold (FAB "+" toujours visible
 uniquement sur l'onglet Fiches, comme avant). `more_menu_screen.dart`
 ne pointe plus que vers ce hub unique.
+
+### Ajout de "AkoraFormation — Cours & Modules" au même hub (06/08)
+
+Suite logique : `FormationHub` passe de 2 à **3 onglets** —
+**"Matières"** (renommé, ex-"Fiches"), **"Cours"**
+(`FormationCoursesManagement`, même traitement que Matières — AppBar
+propre retirée, FAB "+ Formation" conservé) et **"Achats"** (inchangé).
+Le menu Plus admin perd donc une entrée supplémentaire
+("AkoraFormation — Cours & Modules"). "Groupes Formation" (modération
+des fils communautaires par catégorie) reste volontairement une entrée
+séparée — ce n'est pas de la gestion de catalogue/contenu, mélanger les
+deux aurait rendu le hub confus.
