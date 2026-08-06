@@ -6978,3 +6978,28 @@ unsubscribe).
 désactivé (texte "Rupture de stock") et nouveau `_StockAlertButton`
 au-dessus (toggle, se change en "Vous serez alerté (toucher pour
 annuler)" une fois abonné).
+
+### Carte de profil appliquée au profil des autres clients + amis en commun (06/08)
+
+Suite logique, avec une image de référence (planche de cartes de
+profil) : le style bandeau + avatar chevauchant + carte blanche arrondie
+(déjà sur "Mon profil", 05/08) s'applique maintenant à
+`public_profile_screen.dart` (le profil qu'on ouvre en tapant sur un
+autre client dans la Communauté), qui était resté en simple liste plate.
+
+**`supabase/phase79_patch_public_profile_card_style.sql`** : la vue
+`public_profiles` expose désormais `cover_photo_url` (première photo de
+`cover_urls`, avec repli sur l'ancienne `cover_url`) — jusqu'ici
+seulement visible par le propriétaire du profil. Ajoute aussi
+`mutual_friends(uid, other_uid)` : amis communs entre le client connecté
+et le profil consulté (intersection des deux listes d'amis acceptés).
+
+**`public_profile_screen.dart`** :
+- `_buildCardHeader` : même Stack (bandeau → carte → avatar en dernier
+  enfant/premier plan) que `_buildProfileHeader` dans profile_tab.dart,
+  mais en lecture seule (pas d'upload, une seule photo de couverture).
+- `_buildMutualFriendsRow` : jusqu'à 3 avatars superposés + "X amis en
+  commun" (repli silencieux si vide ou migration pas encore exécutée),
+  sous le nom, au-dessus du secteur.
+- Le profil verrouillé (phase76) reste inchangé dans son comportement,
+  juste replacé dans la nouvelle mise en page.
