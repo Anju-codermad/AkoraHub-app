@@ -7003,3 +7003,23 @@ et le profil consulté (intersection des deux listes d'amis acceptés).
   sous le nom, au-dessus du secteur.
 - Le profil verrouillé (phase76) reste inchangé dans son comportement,
   juste replacé dans la nouvelle mise en page.
+
+### Rotation du secret webhook terminée + Airtel Money activé chez FiveOne Pay (06/08)
+
+- **Rotation `WEBHOOK_SECRET`** : les 3 étapes (secret Edge Function
+  mis à jour, script `phase78` exécuté, Edge Function
+  `send-push-notification` redéployée avec le nouveau code du cas
+  `product_back_in_stock`) ont été confirmées faites par
+  l'utilisatrice. Toutes les notifications push (messages, devis,
+  commandes, produits, rupture de stock...) sont de nouveau
+  fonctionnelles avec le secret à jour.
+
+- **Airtel Money chez FiveOne Pay** : marqué "Bientôt disponible"
+  (interrupteur désactivé) dans `payment_methods_management.dart`
+  depuis l'intégration initiale, faute de support à l'époque.
+  L'utilisatrice a confirmé que ses 3 comptes Mobile Money (Mvola,
+  Orange Money, Airtel Money) sont désormais validés côté FiveOne Pay —
+  et la Edge Function `create-fiveonepay-payment-link` supportait déjà
+  `AIRTEL_MONEY` côté code (juste jamais activable depuis l'Admin). Le
+  blocage retiré : Airtel Money est maintenant sélectionnable comme les
+  deux autres opérateurs sous "FiveOne Pay".

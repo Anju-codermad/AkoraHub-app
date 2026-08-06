@@ -234,8 +234,7 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
                 SizedBox(height: 0.5.h),
                 Text(
                   'Second fournisseur de paiement en ligne Mobile Money — '
-                  'MVola et Orange Money disponibles, Airtel Money arrive '
-                  'bientôt chez FiveOne Pay.',
+                  'MVola, Orange Money et Airtel Money disponibles.',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
@@ -253,8 +252,6 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
                       _providerTile(
                         PaymentMethod.airtelMoney,
                         'fiveonepay',
-                        disabled: true,
-                        subtitleOverride: 'Bientôt disponible chez FiveOne Pay',
                       ),
                     ],
                   ),
