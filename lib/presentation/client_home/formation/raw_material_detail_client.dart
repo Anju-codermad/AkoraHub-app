@@ -31,15 +31,12 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
   bool _isLoading = true;
   bool _accessDenied = false;
   int _photoIndex = 0;
-  // "Académie Matières Premières" (06/08) — accès payant DISTINCT de la
-  // fiche produit ci-dessus (voir
-  // supabase/phase81_patch_academie_matieres_premieres.sql).
-  bool _academieAccess = false;
-  bool _academiePending = false;
+  // "Académie Matières Premières" (06/08, fusionnée avec l'achat de base
+  // le 06/08 — phase83) — fiche technique avancée automatiquement
+  // débloquée pour quiconque a accès à cette fiche produit (voir
+  // supabase/phase83_patch_fusion_academie_matieres.sql). null tant que
+  // le staff n'a pas encore rempli cette fiche pour ce produit.
   Map<String, dynamic>? _academieSheet;
-  // Prix de départ affiché sur l'encart de déverrouillage (06/08), au lieu
-  // d'un bouton "Débloquer" sans indication de prix.
-  num? _academieStartingPrice;
   final _currency = NumberFormat.currency(
       locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
   final _dateFormat = DateFormat('d MMM yyyy', 'fr_FR');
@@ -87,30 +84,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         });
         return;
       }
-      final academieResults = await Future.wait<dynamic>([
-        AcademieRepo.fetchMyPurchasedIds(),
-        AcademieRepo.fetchMyPendingIds(),
-      ]);
-      final academieOwned = academieResults[0] as Set<String>;
-      final academiePending = academieResults[1] as Set<String>;
-      final academieAccess = academieOwned.contains(widget.materialId);
-      final academieSheet = academieAccess
-          ? await AcademieRepo.fetchSheet(widget.materialId)
-          : null;
-      num? academieStartingPrice;
-      if (!academieAccess) {
-        try {
-          final tiers = await SupabaseConfig.client
-              .from('academie_pricing_tiers')
-              .select('price');
-          final prices = List<Map<String, dynamic>>.from(tiers)
-              .map((t) => t['price'] as num)
-              .toList();
-          if (prices.isNotEmpty) {
-            academieStartingPrice = prices.reduce((a, b) => a < b ? a : b);
-          }
-        } catch (_) {}
-      }
+      final academieSheet = await AcademieRepo.fetchSheet(widget.materialId);
       setState(() {
         _material = material;
         _photos = List<Map<String, dynamic>>.from(results[1] as List)
@@ -119,10 +93,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         _usages = List<Map<String, dynamic>>.from(results[2] as List);
         _packaging = List<Map<String, dynamic>>.from(results[3] as List);
         _priceHistory = List<Map<String, dynamic>>.from(results[4] as List);
-        _academieAccess = academieAccess;
-        _academiePending = academiePending.contains(widget.materialId);
         _academieSheet = academieSheet;
-        _academieStartingPrice = academieStartingPrice;
         _isLoading = false;
       });
     } catch (_) {
@@ -310,44 +281,12 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
     ];
   }
 
-  /// Section "Académie" (06/08) — fiche technique payante, DISTINCTE de
-  /// l'achat de la fiche produit ci-dessus (voir
-  /// supabase/phase81_patch_academie_matieres_premieres.sql). Verrouillée
-  /// tant que l'achat Académie spécifique n'est pas validé (aucun teaser).
-  /// Affichée dans le MÊME scroll que la fiche produit (plus d'onglet
-  /// séparé) — pas de titre "Académie" ni de séparateur : soit les champs
-  /// s'ajoutent directement à la suite des autres (achat validé), soit un
-  /// simple encart discret invite à débloquer plus de détails.
+  /// Section "Académie" (06/08, fusionnée avec l'achat de base le 06/08
+  /// — phase83) — fiche technique avancée, automatiquement débloquée
+  /// pour quiconque a accès à cette fiche produit (plus d'achat séparé).
+  /// Affichée dans le MÊME scroll que la fiche produit, à la suite,
+  /// sans titre "Académie" ni séparateur.
   List<Widget> _buildAcademieSection(ThemeData theme) {
-    if (!_academieAccess) {
-      return [
-        SizedBox(height: 1.h),
-        Card(
-          margin: EdgeInsets.zero,
-          child: ListTile(
-            leading: Icon(Icons.lock_outline, color: theme.colorScheme.outline),
-            title: Text(_academiePending
-                ? 'Demande d\'accès en attente de vérification'
-                : 'Plus de détails disponibles'),
-            subtitle: _academiePending
-                ? null
-                : Text([
-                    'Nom chimique, EPI, dosages précis, incompatibilités...',
-                    if (_academieStartingPrice != null)
-                      'À partir de ${_currency.format(_academieStartingPrice)}',
-                  ].join('\n')),
-            isThreeLine: !_academiePending && _academieStartingPrice != null,
-            trailing: _academiePending
-                ? null
-                : FilledButton(
-                    onPressed: () => openFormationPurchaseWeb(context),
-                    child: const Text('Débloquer'),
-                  ),
-          ),
-        ),
-      ];
-    }
-
     final sheet = _academieSheet;
     if (sheet == null) {
       return [

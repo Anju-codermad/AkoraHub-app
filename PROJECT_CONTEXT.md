@@ -7441,3 +7441,44 @@ la suite, avec le même style que le reste de la fiche — aucune étiquette
   reçoit à la place un encart rouge visible (icône + titre "Niveau de
   danger / précaution") dans la section Académie, seul affichage de
   danger restant.
+
+### Fusion de l'achat Académie avec l'achat Matières premières (06/08)
+
+Retour après capture d'écran des 2 onglets admin "Demandes Matières" /
+"Demandes Académie" (dans Formation > Achats) : ils avaient la même
+structure (paliers de prix + liste de demandes en attente/validées/
+refusées) et jouaient "le même rôle" du point de vue de l'utilisatrice.
+Décision explicite, après clarification (rester séparés vs fusionner
+réellement les 2 revenus) : **fusionner réellement** — un seul achat
+(`formation_purchases`, inchangé) donne désormais accès à la fois à la
+fiche produit ET à la fiche technique Académie. Ce n'est plus une
+"nouvelle source de revenus" séparée comme décidé initialement en début
+de journée — ce point a été explicitement revu par l'utilisatrice.
+
+- **SQL `phase83_patch_fusion_academie_matieres.sql`** : les policies
+  de lecture de `matieres_premieres_academie` et
+  `matieres_premieres_usages` utilisent maintenant
+  `has_purchased_raw_material` (Phase 45) au lieu de
+  `has_purchased_academie_access` (Phase 81). Les tables
+  `academie_purchases` / `academie_pricing_tiers` et la fonction
+  `has_purchased_academie_access` ne sont **pas supprimées** (pas de
+  perte de données, script non destructif) mais ne sont plus utilisées
+  par l'app.
+- **Admin** : `formation_purchases_hub.dart` repasse à 2 sous-onglets
+  ("Demandes Matières" / "Demandes Cours") ; `academie_purchases_management.dart`
+  supprimé (plus de demandes Académie à valider séparément).
+- **Client** : `academie_repo.dart` simplifié — `fetchMyPurchasedIds`/
+  `fetchMyPendingIds` supprimés (l'accès à l'Académie n'est plus une
+  question d'achat séparé), il ne reste que `fetchSheet()`.
+  `raw_material_detail_client.dart` : la fiche Académie s'affiche
+  directement à la suite de la fiche produit dès que la page est
+  atteinte (l'accès à `raw_materials` lui-même, filtré par RLS, prouve
+  déjà l'achat) — plus de carte "Débloquer"/prix/statut en attente ; si
+  le staff n'a pas encore rempli la fiche technique, un simple message
+  "en cours de préparation" s'affiche.
+- **Page web externe** (`docs/formation-access/index.html`) : le 3e
+  onglet "Académie" (recherche + sélection + paiement séparé) est
+  entièrement retiré (HTML + JS : `loadAcademieData`,
+  `renderAcademieList`, `submitAcademiePurchase`, etc.) — plus qu'un
+  seul achat "Matières premières", avec une note précisant qu'il inclut
+  aussi la fiche technique Académie.

@@ -163,13 +163,13 @@
     <div class="tabs">
       <button class="tab-btn selected" id="tab-materials">Matières premières</button>
       <button class="tab-btn" id="tab-courses">Cours AkoraFormation</button>
-      <button class="tab-btn" id="tab-academie">Académie</button>
     </div>
 
     <div id="materials-section">
       <div id="pending-banner" class="pending-banner hidden"></div>
 
       <div class="card">
+        <p class="hint" style="margin:0 0 0.8rem;">L'accès débloque la fiche produit ET la fiche technique complète (nom chimique, EPI, dosages, incompatibilités…) de chaque matière première.</p>
         <div class="search-box">
           <input type="text" id="search" placeholder="Rechercher une matière première…" />
         </div>
@@ -235,44 +235,6 @@
       </div>
     </div>
 
-    <div id="academie-section" class="hidden">
-      <div id="academie-pending-banner" class="pending-banner hidden"></div>
-
-      <div class="card">
-        <p class="hint" style="margin:0 0 0.8rem;">Débloquez la fiche technique complète (nom chimique, EPI, dosages, incompatibilités…) d'une matière première déjà achetée — accès distinct de l'achat de la fiche produit.</p>
-        <div class="search-box">
-          <input type="text" id="academie-search" placeholder="Rechercher une matière première…" />
-        </div>
-        <div id="academie-material-list" class="material-list"></div>
-      </div>
-
-      <div id="academie-purchase-card" class="card hidden">
-        <div class="summary-row">
-          <span id="academie-selected-count"></span>
-          <span id="academie-unit-price"></span>
-        </div>
-        <div class="total-row">
-          <span>Total</span>
-          <span id="academie-total-price"></span>
-        </div>
-
-        <label>Mode de paiement</label>
-        <div id="academie-method-chips" class="method-chips"></div>
-        <div id="academie-method-instructions" class="instructions hidden"></div>
-
-        <label for="academie-reference">Référence de paiement (optionnel)</label>
-        <input type="text" id="academie-reference" placeholder="Ex : numéro de transaction" />
-
-        <div class="file-row">
-          <input type="file" id="academie-proof-file" accept="image/*" />
-          <span>Preuve de paiement (optionnel)</span>
-        </div>
-
-        <div id="academie-submit-error" class="error hidden"></div>
-        <div id="academie-submit-success" class="success-banner hidden"></div>
-        <button class="primary" id="academie-submit-btn">Envoyer la demande</button>
-      </div>
-    </div>
   </div>
 
   <footer>AkoraHub — Akora Fanadiovana</footer>
@@ -711,204 +673,11 @@ async function submitCoursePurchase() {
   }
 }
 
-// ------------------------------------------------------------
-// Académie Matières Premières — accès payant DISTINCT de l'achat de la
-// fiche produit (formation_purchases) : débloque, pour une matière
-// première DÉJÀ ACHETÉE, le second onglet "Académie" dans l'app (nom
-// chimique, EPI, dosages, incompatibilités... voir
-// supabase/phase81_patch_academie_matieres_premieres.sql). Même principe
-// de paliers dégressifs que les matières premières, mais sur sa propre
-// table de paliers (academie_pricing_tiers) — revenu indépendant.
-// ------------------------------------------------------------
-let academieOwnedIds = new Set();
-let academiePendingIds = new Set();
-let academieTiers = [];
-let academieSelectedIds = new Set();
-let academieSelectedMethodId = null;
-let isAcademieSubmitting = false;
-
-async function loadAcademieData() {
-  const uid = session.user.id;
-  const [ownedRes, pendingRes, tiersRes] = await Promise.all([
-    api(`/academie_purchases?select=raw_material_id&customer_id=eq.${uid}&status=eq.validee`),
-    api(`/academie_purchases?select=raw_material_id&customer_id=eq.${uid}&status=eq.en_attente`),
-    api(`/academie_pricing_tiers?select=*&order=min_quantity`),
-  ]);
-  academieOwnedIds = new Set((ownedRes || []).map(r => r.raw_material_id));
-  academiePendingIds = new Set((pendingRes || []).map(r => r.raw_material_id));
-  academieTiers = tiersRes || [];
-  if (!academieSelectedMethodId || !enabledMethodIds.has(academieSelectedMethodId)) {
-    academieSelectedMethodId = [...enabledMethodIds][0] || null;
-  }
-  academieSelectedIds = new Set([...academieSelectedIds].filter(id => !academieOwnedIds.has(id) && !academiePendingIds.has(id)));
-}
-
-function academieUnitPrice() {
-  if (academieTiers.length === 0) return 0;
-  const cumulative = academieOwnedIds.size + academieSelectedIds.size;
-  let price = academieTiers[0].price;
-  for (const t of academieTiers) {
-    if (cumulative >= t.min_quantity) price = t.price;
-  }
-  return price;
-}
-
-function renderAcademiePendingBanner() {
-  const banner = el('academie-pending-banner');
-  if (academiePendingIds.size > 0) {
-    banner.textContent = `${academiePendingIds.size} accès Académie en attente de vérification par notre équipe.`;
-    banner.classList.remove('hidden');
-  } else {
-    banner.classList.add('hidden');
-  }
-}
-
-function renderAcademieList() {
-  const search = el('academie-search').value.trim().toLowerCase();
-  const list = el('academie-material-list');
-  const available = materials.filter(m => {
-    if (!ownedIds.has(m.id)) return false;
-    if (academieOwnedIds.has(m.id) || academiePendingIds.has(m.id)) return false;
-    if (search && !m.name?.toLowerCase().includes(search)) return false;
-    return true;
-  });
-  list.innerHTML = '';
-  if (available.length === 0) {
-    const msg = ownedIds.size === 0
-      ? 'Achetez d\'abord l\'accès à une fiche produit (onglet Matières premières) pour pouvoir débloquer son Académie.'
-      : 'Vous avez déjà l\'accès Académie sur tous vos produits débloqués.';
-    list.innerHTML = `<div class="empty-state">${msg}</div>`;
-    return;
-  }
-  for (const m of available) {
-    const row = document.createElement('label');
-    row.className = 'material-row';
-    row.innerHTML = `
-      <input type="checkbox" data-id="${m.id}" ${academieSelectedIds.has(m.id) ? 'checked' : ''} />
-      <span>
-        <div class="material-name">${m.name || ''}</div>
-        <div class="material-cat">${m.category_name || ''}</div>
-      </span>`;
-    row.querySelector('input').addEventListener('change', (e) => {
-      if (e.target.checked) academieSelectedIds.add(m.id); else academieSelectedIds.delete(m.id);
-      renderAcademiePurchaseCard();
-    });
-    list.appendChild(row);
-  }
-}
-
-function renderAcademieMethodChips() {
-  const wrap = el('academie-method-chips');
-  wrap.innerHTML = '';
-  for (const m of PAYMENT_METHODS) {
-    if (!enabledMethodIds.has(m.id)) continue;
-    const chip = document.createElement('div');
-    chip.className = 'chip' + (academieSelectedMethodId === m.id ? ' selected' : '');
-    chip.innerHTML = (m.logo ? `<img src="${m.logo}" alt="" />` : '') + `<span>${m.label}</span>`;
-    chip.addEventListener('click', () => {
-      academieSelectedMethodId = m.id;
-      renderAcademiePurchaseCard();
-    });
-    wrap.appendChild(chip);
-  }
-  const instructionsBox = el('academie-method-instructions');
-  const current = PAYMENT_METHODS.find(m => m.id === academieSelectedMethodId);
-  if (current) {
-    instructionsBox.textContent = current.instructions;
-    instructionsBox.classList.remove('hidden');
-  } else {
-    instructionsBox.classList.add('hidden');
-  }
-}
-
-function renderAcademiePurchaseCard() {
-  const card = el('academie-purchase-card');
-  if (academieSelectedIds.size === 0) {
-    card.classList.add('hidden');
-    return;
-  }
-  card.classList.remove('hidden');
-  const price = academieUnitPrice();
-  const total = price * academieSelectedIds.size;
-  el('academie-selected-count').textContent = `${academieSelectedIds.size} produit(s) sélectionné(s)`;
-  el('academie-unit-price').textContent = `${formatAr(price)} / produit`;
-  el('academie-total-price').textContent = formatAr(total);
-  renderAcademieMethodChips();
-  el('academie-submit-btn').disabled = !academieSelectedMethodId || isAcademieSubmitting;
-}
-
-async function submitAcademiePurchase() {
-  if (academieSelectedIds.size === 0 || !academieSelectedMethodId || isAcademieSubmitting) return;
-  isAcademieSubmitting = true;
-  el('academie-submit-btn').disabled = true;
-  el('academie-submit-error').classList.add('hidden');
-  el('academie-submit-success').classList.add('hidden');
-  try {
-    const uid = session.user.id;
-    let proofPath = null;
-    const fileInput = el('academie-proof-file');
-    const file = fileInput.files[0];
-    if (file) {
-      try {
-        proofPath = `${uid}/academie_${Date.now()}.jpg`;
-        const res = await fetch(`${SUPABASE_URL}/storage/v1/object/payment-proofs/${proofPath}`, {
-          method: 'POST',
-          headers: {
-            apikey: ANON_KEY,
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': file.type || 'image/jpeg',
-          },
-          body: file,
-        });
-        if (!res.ok) proofPath = null;
-      } catch (_) { proofPath = null; }
-    }
-
-    const price = academieUnitPrice();
-    const batchId = `ACAD-${Date.now()}`;
-    const reference = el('academie-reference').value.trim();
-    const rows = [...academieSelectedIds].map(id => ({
-      customer_id: uid,
-      raw_material_id: id,
-      batch_id: batchId,
-      amount: price,
-      status: 'en_attente',
-      payment_method: academieSelectedMethodId,
-      payment_reference: reference || null,
-      payment_proof_path: proofPath,
-    }));
-
-    await api(`/academie_purchases?on_conflict=customer_id,raw_material_id`, {
-      method: 'POST',
-      body: rows,
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    });
-
-    el('academie-submit-success').textContent = 'Demande envoyée — l\'accès Académie sera débloqué après vérification du paiement.';
-    el('academie-submit-success').classList.remove('hidden');
-    academieSelectedIds.clear();
-    fileInput.value = '';
-    el('academie-reference').value = '';
-    await loadAcademieData();
-    renderAcademiePendingBanner();
-    renderAcademieList();
-    renderAcademiePurchaseCard();
-  } catch (e) {
-    el('academie-submit-error').textContent = 'Erreur : ' + (e && e.message ? e.message : String(e));
-    el('academie-submit-error').classList.remove('hidden');
-  } finally {
-    isAcademieSubmitting = false;
-    el('academie-submit-btn').disabled = false;
-  }
-}
-
 function switchTab(tab) {
   el('tab-materials').classList.toggle('selected', tab === 'materials');
   el('tab-courses').classList.toggle('selected', tab === 'courses');
-  el('tab-academie').classList.toggle('selected', tab === 'academie');
   el('materials-section').classList.toggle('hidden', tab !== 'materials');
   el('courses-section').classList.toggle('hidden', tab !== 'courses');
-  el('academie-section').classList.toggle('hidden', tab !== 'academie');
 }
 
 async function boot() {
@@ -917,7 +686,6 @@ async function boot() {
   try {
     await loadData();
     await loadCourseData();
-    await loadAcademieData();
   } catch (e) {
     logout();
     return;
@@ -931,9 +699,6 @@ async function boot() {
   renderCoursePendingBanner();
   renderCourseList();
   renderCoursePurchaseCard();
-  renderAcademiePendingBanner();
-  renderAcademieList();
-  renderAcademiePurchaseCard();
 }
 
 el('login-btn').addEventListener('click', async () => {
@@ -959,10 +724,7 @@ el('search').addEventListener('input', renderMaterialList);
 el('submit-btn').addEventListener('click', submitPurchase);
 el('tab-materials').addEventListener('click', () => switchTab('materials'));
 el('tab-courses').addEventListener('click', () => switchTab('courses'));
-el('tab-academie').addEventListener('click', () => switchTab('academie'));
 el('course-submit-btn').addEventListener('click', submitCoursePurchase);
-el('academie-search').addEventListener('input', renderAcademieList);
-el('academie-submit-btn').addEventListener('click', submitAcademiePurchase);
 
 boot();
 </script>

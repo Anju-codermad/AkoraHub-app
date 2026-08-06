@@ -1,58 +1,24 @@
 import '../supabase/supabase_config.dart';
 
-/// Accès "Académie Matières Premières" (voir
-/// supabase/phase81_patch_academie_matieres_premieres.sql) — achat payant
-/// DISTINCT de l'achat de la fiche produit (`FormationRepo`), produit par
-/// produit, à vie, tarif dégressif propre. Débloque le second onglet
-/// "Académie" (fiche technique complète) sur la fiche d'une matière
-/// première déjà achetée. L'achat lui-même se fait sur la page web
-/// externe (docs/formation-access/index.html, onglet "Académie"), pas
-/// dans l'app — conformité Google Play, même principe que Formation et
-/// Cours.
+/// Fiche technique "Académie Matières Premières" (voir
+/// supabase/phase81_patch_academie_matieres_premieres.sql) — contenu
+/// avancé (nom chimique, grade, pH, EPI, premiers secours,
+/// incompatibilités, dosages précis par domaine d'application...) sur
+/// la fiche d'une matière première déjà achetée.
+///
+/// Depuis le 06/08 (phase83) : plus d'achat séparé — avoir acheté la
+/// fiche produit (`FormationRepo`/`formation_purchases`) donne
+/// automatiquement accès à cette fiche technique aussi (la RLS de
+/// `matieres_premieres_academie`/`matieres_premieres_usages` utilise
+/// désormais `has_purchased_raw_material`, voir
+/// phase83_patch_fusion_academie_matieres.sql).
 class AcademieRepo {
   AcademieRepo._();
 
-  /// IDs des matières premières dont l'Académie est déjà débloquée
-  /// (achat validé) par le client connecté.
-  static Future<Set<String>> fetchMyPurchasedIds() async {
-    final userId = SupabaseConfig.client.auth.currentUser?.id;
-    if (userId == null || !SupabaseConfig.isConfigured) return {};
-    try {
-      final rows = await SupabaseConfig.client
-          .from('academie_purchases')
-          .select('raw_material_id')
-          .eq('customer_id', userId)
-          .eq('status', 'validee');
-      return List<Map<String, dynamic>>.from(rows)
-          .map((r) => r['raw_material_id'] as String)
-          .toSet();
-    } catch (_) {
-      return {};
-    }
-  }
-
-  /// IDs déjà demandés mais pas encore validés par le staff.
-  static Future<Set<String>> fetchMyPendingIds() async {
-    final userId = SupabaseConfig.client.auth.currentUser?.id;
-    if (userId == null || !SupabaseConfig.isConfigured) return {};
-    try {
-      final rows = await SupabaseConfig.client
-          .from('academie_purchases')
-          .select('raw_material_id')
-          .eq('customer_id', userId)
-          .eq('status', 'en_attente');
-      return List<Map<String, dynamic>>.from(rows)
-          .map((r) => r['raw_material_id'] as String)
-          .toSet();
-    } catch (_) {
-      return {};
-    }
-  }
-
-  /// Fiche technique Académie d'une matière première (null si pas encore
-  /// créée par le staff) + ses usages détaillés, triés. La RLS bloque déjà
-  /// la lecture sans achat validé — un retour vide côté client (plutôt
-  /// qu'une exception) suffit pour afficher le CTA d'achat.
+  /// Fiche technique Académie d'une matière première (null si pas
+  /// encore créée par le staff, ou si l'utilisateur n'a pas acheté la
+  /// fiche produit — la RLS bloque déjà la lecture, un retour vide côté
+  /// client suffit pour afficher un message d'attente).
   static Future<Map<String, dynamic>?> fetchSheet(String rawMaterialId) async {
     try {
       final sheet = await SupabaseConfig.client
