@@ -375,7 +375,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
                                             ),
                                         ],
                                       ),
-                                      title: Text(m['name'] ?? ''),
+                                      title: Text(rawMaterialShortName(m['name'])),
                                       subtitle: Text([
                                         m['category_name'],
                                         if (unitName.isNotEmpty) unitName,

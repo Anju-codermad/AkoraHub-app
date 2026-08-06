@@ -4,6 +4,17 @@ import 'package:flutter/material.dart';
 /// matières premières ("Formation") — centralisé ici pour que les deux
 /// côtés restent visuellement cohérents.
 
+/// "Nom" (06/08) peut contenir plusieurs synonymes séparés par des
+/// virgules (ex : "Soude caustique, soude en perles, soude écailles,
+/// lessive de soude") depuis la fusion avec "Nom commun" — trop long
+/// comme titre de carte/écran. Affiche juste le premier, la liste
+/// complète reste consultable dans le champ "Synonymes" de la fiche
+/// Académie.
+String rawMaterialShortName(String? fullName) {
+  if (fullName == null || fullName.trim().isEmpty) return '';
+  return fullName.split(',').first.trim();
+}
+
 Color rawMaterialStatusColor(String status) {
   switch (status) {
     case 'stock_faible':

@@ -37,6 +37,9 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
   bool _academieAccess = false;
   bool _academiePending = false;
   Map<String, dynamic>? _academieSheet;
+  // Prix de départ affiché sur l'encart de déverrouillage (06/08), au lieu
+  // d'un bouton "Débloquer" sans indication de prix.
+  num? _academieStartingPrice;
   final _currency = NumberFormat.currency(
       locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
   final _dateFormat = DateFormat('d MMM yyyy', 'fr_FR');
@@ -94,6 +97,20 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
       final academieSheet = academieAccess
           ? await AcademieRepo.fetchSheet(widget.materialId)
           : null;
+      num? academieStartingPrice;
+      if (!academieAccess) {
+        try {
+          final tiers = await SupabaseConfig.client
+              .from('academie_pricing_tiers')
+              .select('price');
+          final prices = List<Map<String, dynamic>>.from(tiers)
+              .map((t) => t['price'] as num)
+              .toList();
+          if (prices.isNotEmpty) {
+            academieStartingPrice = prices.reduce((a, b) => a < b ? a : b);
+          }
+        } catch (_) {}
+      }
       setState(() {
         _material = material;
         _photos = List<Map<String, dynamic>>.from(results[1] as List)
@@ -105,6 +122,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         _academieAccess = academieAccess;
         _academiePending = academiePending.contains(widget.materialId);
         _academieSheet = academieSheet;
+        _academieStartingPrice = academieStartingPrice;
         _isLoading = false;
       });
     } catch (_) {
@@ -159,7 +177,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(m['name'] ?? '')),
+      appBar: AppBar(title: Text(rawMaterialShortName(m['name']))),
       body: ListView(
         padding: EdgeInsets.all(4.w),
         children: [
@@ -182,7 +200,8 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
           Row(
             children: [
               Expanded(
-                child: Text(m['name'] ?? '', style: theme.textTheme.headlineSmall),
+                child: Text(rawMaterialShortName(m['name']),
+                    style: theme.textTheme.headlineSmall),
               ),
               Chip(
                 label: Text(rawMaterialStatusLabel(status)),
@@ -200,25 +219,6 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
               Text(m['category_name'] ?? '', style: theme.textTheme.bodyMedium),
             ],
           ),
-          if ((m['safety_note'] as String?)?.isNotEmpty == true) ...[
-            SizedBox(height: 1.5.h),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_outlined,
-                      color: Colors.orange, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(m['safety_note'] as String)),
-                ],
-              ),
-            ),
-          ],
           if ((m['current_price'] as num?) != null) ...[
             SizedBox(height: 1.5.h),
             Text('Prix actuel : ${_currency.format(m['current_price'])}',
@@ -401,7 +401,35 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         field('Particularité', sheet['particularite'] as String?),
         field('Différence avec un produit similaire',
             sheet['difference_produit_similaire'] as String?),
-        field('Niveau de danger', sheet['niveau_danger'] as String?),
+        if ((sheet['niveau_danger'] as String?)?.isNotEmpty == true) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_outlined,
+                    color: Colors.red, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Niveau de danger / précaution',
+                          style: theme.textTheme.labelLarge
+                              ?.copyWith(color: Colors.red)),
+                      Text(sheet['niveau_danger'] as String),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (epi.isNotEmpty) ...[
           Text('EPI requis',
               style: theme.textTheme.labelLarge

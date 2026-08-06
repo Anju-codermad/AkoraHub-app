@@ -7416,3 +7416,28 @@ dans la fiche plutôt qu'une section à part entière. Si débloqué : les
 champs Académie (nom chimique, EPI, dosages...) s'ajoutent directement à
 la suite, avec le même style que le reste de la fiche — aucune étiquette
 "Académie" ne les distingue plus visuellement.
+
+### 3 finitions suite à la fusion des sections (06/08)
+
+- **Titre court** : le champ "Nom" peut désormais contenir plusieurs
+  synonymes séparés par des virgules (fusionné avec "Nom commun" dans
+  la fiche Académie). Nouvelle fonction partagée
+  `rawMaterialShortName()` (`raw_material_style.dart`) qui n'affiche que
+  le premier segment avant la virgule, appliquée à l'AppBar et au titre
+  de la fiche (`raw_material_detail_client.dart`), à la liste admin
+  (`raw_materials_management.dart`) et au catalogue client
+  (`formation_catalog_screen.dart`) — la liste complète des synonymes
+  reste consultable dans le champ "Nom commun" de la fiche.
+- **Prix de départ sur l'encart de déverrouillage** : au lieu d'un
+  bouton "Débloquer" nu, `_load()` récupère désormais
+  `academie_pricing_tiers` et calcule le prix minimum ; affiché sur la
+  carte de verrouillage. *(Non affiché pour l'instant si aucun palier
+  n'existe — repli silencieux.)*
+- **Fusion des 2 affichages "danger"** : `safety_note` (ancien champ
+  base, retiré du formulaire admin depuis la simplification de la fiche
+  de base) et `niveau_danger` (Académie) faisaient doublon dans la
+  fiche fusionnée. Le bloc orange "Danger / précaution" basé sur
+  `safety_note` est supprimé de la section produit ; `niveau_danger`
+  reçoit à la place un encart rouge visible (icône + titre "Niveau de
+  danger / précaution") dans la section Académie, seul affichage de
+  danger restant.

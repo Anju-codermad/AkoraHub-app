@@ -227,7 +227,7 @@ class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
                                                     stockStatus),
                                               ),
                                       ),
-                                      title: Text(m['name'] ?? ''),
+                                      title: Text(rawMaterialShortName(m['name'])),
                                       subtitle: Text(
                                         [
                                           m['category_name'],
