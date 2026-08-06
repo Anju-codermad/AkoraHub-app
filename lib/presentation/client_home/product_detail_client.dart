@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/notifications/product_stock_alert_repo.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'catalog_tab.dart' show ProductCard;
@@ -141,6 +142,10 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     final total = unitPrice * _quantity;
 
     final isFavorite = ref.watch(favoritesProvider).contains(p['id']);
+    // Même convention que ProductCard (catalog_tab.dart) pour la rupture
+    // de stock (06/08, "M'alerter quand disponible").
+    final stockQty = (p['stock_quantity'] as num?)?.toDouble();
+    final outOfStock = stockQty != null && stockQty <= 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -399,11 +404,17 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                 ],
               ),
               SizedBox(height: 3.h),
+              if (outOfStock) ...[
+                _StockAlertButton(productId: p['id']),
+                SizedBox(height: 1.5.h),
+              ],
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {
+                      onPressed: outOfStock
+                          ? null
+                          : () {
                         final formatName = variant?['formats']?['name'];
                         final parfumName = variant?['parfums']?['name'];
                         final label = [
@@ -428,7 +439,8 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                           ),
                         );
                       },
-                      child: const Text('Ajouter au panier'),
+                      child: Text(
+                          outOfStock ? 'Rupture de stock' : 'Ajouter au panier'),
                     ),
                   ),
                 ],
@@ -440,6 +452,104 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// "M'alerter quand disponible" (06/08) — bascule un abonnement (voir
+/// `ProductStockAlertRepo` + supabase/phase77_patch_product_stock_alerts.sql)
+/// pour recevoir une notification push dès que ce produit repasse en
+/// stock. Un client déjà abonné voit un bouton désactivé "Vous serez
+/// alerté" pour éviter un double abonnement (contrainte unique côté SQL
+/// de toute façon, mais ça évite l'aller-retour réseau inutile).
+class _StockAlertButton extends StatefulWidget {
+  final String productId;
+
+  const _StockAlertButton({required this.productId});
+
+  @override
+  State<_StockAlertButton> createState() => _StockAlertButtonState();
+}
+
+class _StockAlertButtonState extends State<_StockAlertButton> {
+  bool _isSubscribed = false;
+  bool _isLoading = true;
+  bool _isToggling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final subscribed = await ProductStockAlertRepo.isSubscribed(widget.productId);
+    if (!mounted) return;
+    setState(() {
+      _isSubscribed = subscribed;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _toggle() async {
+    setState(() => _isToggling = true);
+    try {
+      if (_isSubscribed) {
+        await ProductStockAlertRepo.unsubscribe(widget.productId);
+      } else {
+        await ProductStockAlertRepo.subscribe(widget.productId);
+      }
+      if (!mounted) return;
+      setState(() {
+        _isSubscribed = !_isSubscribed;
+        _isToggling = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_isSubscribed
+            ? 'Vous serez alerté dès que ce produit sera de nouveau en stock.'
+            : 'Alerte annulée.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isToggling = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Impossible de mettre à jour cette alerte (migration phase77 exécutée ?).')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const SizedBox(
+        height: 40,
+        child: Center(
+            child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+    final icon = Icon(_isSubscribed
+        ? Icons.notifications_active
+        : Icons.notifications_none);
+    final label = Text(_isSubscribed
+        ? 'Vous serez alerté (toucher pour annuler)'
+        : 'M\'alerter quand disponible');
+    return SizedBox(
+      width: double.infinity,
+      child: _isSubscribed
+          ? OutlinedButton.icon(
+              onPressed: _isToggling ? null : _toggle,
+              icon: icon,
+              label: label,
+            )
+          : FilledButton.icon(
+              onPressed: _isToggling ? null : _toggle,
+              icon: icon,
+              label: label,
+            ),
     );
   }
 }

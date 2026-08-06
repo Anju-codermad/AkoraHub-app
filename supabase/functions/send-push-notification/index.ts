@@ -339,6 +339,32 @@ Deno.serve(async (req) => {
       );
       title = "Nouveau produit disponible";
       body = `${record.name ?? "Un nouveau produit"} vient d'être ajouté dans "${categoryName}".`;
+    } else if (payload.table === "product_back_in_stock") {
+      // "M'alerter quand disponible" (06/08) — un produit qui repasse en
+      // stock (trigger sur stock_quantity, voir
+      // supabase/phase77_patch_product_stock_alerts.sql). Les alertes
+      // sont consommées ICI (après lecture des destinataires) plutôt que
+      // dans le trigger SQL, pour ne jamais perdre un destinataire à
+      // cause d'un ordre d'exécution incertain entre le trigger et cet
+      // appel asynchrone.
+      category = "produit";
+      const productId = record.id as string | undefined;
+      if (!productId) return new Response("ok");
+      const { data: subs } = await supabase
+        .from("product_stock_alerts")
+        .select("customer_id")
+        .eq("product_id", productId);
+      recipientIds = (subs ?? []).map((s: Record<string, unknown>) =>
+        s.customer_id as string
+      );
+      title = "De nouveau disponible";
+      body = `${record.name ?? "Un produit"} est de nouveau en stock.`;
+      if (recipientIds.length > 0) {
+        await supabase
+          .from("product_stock_alerts")
+          .delete()
+          .eq("product_id", productId);
+      }
     } else if (payload.table === "post_comments") {
       // Commentaire (ou réponse à un commentaire) sur une publication de
       // la Communauté (ex-Mur, voir supabase/phase46_patch_communaute_replies_reactions.sql)

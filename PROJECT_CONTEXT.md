@@ -6942,3 +6942,39 @@ c'est le seul moyen de débloquer l'accès).
 **`security_settings_screen.dart`** : nouveau `SwitchListTile` "Profil
 verrouillé", même emplacement/pattern que "Numéro visible dans la
 Communauté" juste en dessous.
+
+### "M'alerter quand disponible" sur un produit en rupture (06/08)
+
+Suite de la liste "praticable" — "Recommander en un clic" existait déjà
+(bouton "Recommander" par commande dans `orders_tab.dart`, vérifié avant
+de coder quoi que ce soit d'inutile). Celui-ci était vraiment manquant.
+
+**`supabase/phase77_patch_product_stock_alerts.sql`** : table
+`product_stock_alerts` (customer_id, product_id) + trigger
+`on_product_back_in_stock`, qui se déclenche UNIQUEMENT quand
+`stock_quantity` passe de ≤0 à >0 (`after update of stock_quantity`),
+et appelle `send-push-notification` avec `table: 'product_back_in_stock'`
+— même plomberie que l'abonnement par catégorie (phase36), mais un nom
+de table synthétique différent pour ne pas entrer en collision avec le
+cas `"products"` existant (notification de nouveau produit).
+
+**Edge Function `send-push-notification/index.ts`** : nouveau cas
+`payload.table === "product_back_in_stock"` — lit les abonnés dans
+`product_stock_alerts`, notifie, PUIS supprime ces abonnements (dans
+l'Edge Function, pas dans le trigger SQL, pour éviter une course : le
+trigger déclenche juste l'appel HTTP asynchrone, il ne sait pas quand
+l'Edge Function l'aura traité). Une alerte est donc à usage unique — se
+réabonner si le produit repasse en rupture. **Nécessite un redéploiement
+manuel de l'Edge Function** (Dashboard -> Edge Functions ->
+send-push-notification -> redéployer avec le nouveau code), le SQL seul
+ne suffit pas ici.
+
+**`lib/core/notifications/product_stock_alert_repo.dart`** : même
+pattern que `CategorySubscriptionRepo` (isSubscribed/subscribe/
+unsubscribe).
+
+**`product_detail_client.dart`** : `outOfStock` calculé comme
+`ProductCard` (catalog_tab.dart). Si vrai : bouton "Ajouter au panier"
+désactivé (texte "Rupture de stock") et nouveau `_StockAlertButton`
+au-dessus (toggle, se change en "Vous serez alerté (toucher pour
+annuler)" une fois abonné).
