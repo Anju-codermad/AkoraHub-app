@@ -8,6 +8,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'academie_editor_screen.dart';
 import 'raw_material_style.dart';
 
 /// Fiche complète d'une matière première (Formation) — description,
@@ -529,6 +530,20 @@ class _RawMaterialEditorScreenState
       appBar: AppBar(
         title: Text(_isEditing ? 'Modifier la fiche' : 'Nouvelle matière première'),
         actions: [
+          if (_isEditing)
+            IconButton(
+              icon: const Icon(Icons.science_outlined),
+              tooltip: 'Fiche Académie',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AcademieEditorScreen(
+                    rawMaterialId: widget.material!['id'] as String,
+                    rawMaterialName: widget.material!['name'] as String? ?? '',
+                  ),
+                ),
+              ),
+            ),
           if (_isEditing)
             IconButton(
               icon: const Icon(Icons.delete_outline),

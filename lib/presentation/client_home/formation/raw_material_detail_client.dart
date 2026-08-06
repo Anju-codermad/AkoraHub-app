@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../../core/formation/academie_repo.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/formation_web_link.dart';
 import '../../raw_materials_management/raw_material_style.dart';
@@ -30,6 +31,12 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
   bool _isLoading = true;
   bool _accessDenied = false;
   int _photoIndex = 0;
+  // "Académie Matières Premières" (06/08) — accès payant DISTINCT de la
+  // fiche produit ci-dessus (voir
+  // supabase/phase81_patch_academie_matieres_premieres.sql).
+  bool _academieAccess = false;
+  bool _academiePending = false;
+  Map<String, dynamic>? _academieSheet;
   final _currency = NumberFormat.currency(
       locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
   final _dateFormat = DateFormat('d MMM yyyy', 'fr_FR');
@@ -77,6 +84,16 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         });
         return;
       }
+      final academieResults = await Future.wait<dynamic>([
+        AcademieRepo.fetchMyPurchasedIds(),
+        AcademieRepo.fetchMyPendingIds(),
+      ]);
+      final academieOwned = academieResults[0] as Set<String>;
+      final academiePending = academieResults[1] as Set<String>;
+      final academieAccess = academieOwned.contains(widget.materialId);
+      final academieSheet = academieAccess
+          ? await AcademieRepo.fetchSheet(widget.materialId)
+          : null;
       setState(() {
         _material = material;
         _photos = List<Map<String, dynamic>>.from(results[1] as List)
@@ -85,6 +102,9 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         _usages = List<Map<String, dynamic>>.from(results[2] as List);
         _packaging = List<Map<String, dynamic>>.from(results[3] as List);
         _priceHistory = List<Map<String, dynamic>>.from(results[4] as List);
+        _academieAccess = academieAccess;
+        _academiePending = academiePending.contains(widget.materialId);
+        _academieSheet = academieSheet;
         _isLoading = false;
       });
     } catch (_) {
@@ -138,9 +158,46 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
       usagesByDomain.putIfAbsent(u['domain'] as String, () => []).add(u);
     }
 
-    return Scaffold(
-      appBar: AppBar(title: Text(m['name'] ?? '')),
-      body: ListView(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(m['name'] ?? ''),
+          bottom: TabBar(
+            tabs: [
+              const Tab(text: 'Fiche produit'),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!_academieAccess) ...[
+                      const Icon(Icons.lock_outline, size: 16),
+                      const SizedBox(width: 6),
+                    ],
+                    const Text('Académie'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildProductTab(theme, m, status, usagesByDomain),
+            _buildAcademieTab(theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductTab(
+    ThemeData theme,
+    Map<String, dynamic> m,
+    String status,
+    Map<String, List<Map<String, dynamic>>> usagesByDomain,
+  ) {
+    return ListView(
         padding: EdgeInsets.all(4.w),
         children: [
           _buildGallery(theme),
@@ -274,7 +331,159 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
           ],
           SizedBox(height: 4.h),
         ],
-      ),
+    );
+  }
+
+  /// Onglet "Académie" (06/08) — fiche technique payante, DISTINCTE de
+  /// l'achat de la fiche produit ci-dessus (voir
+  /// supabase/phase81_patch_academie_matieres_premieres.sql). Verrouillée
+  /// tant que l'achat Académie spécifique n'est pas validé (aucun teaser).
+  Widget _buildAcademieTab(ThemeData theme) {
+    if (!_academieAccess) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(6.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_outline, size: 48, color: theme.colorScheme.outline),
+              SizedBox(height: 2.h),
+              Text(
+                _academiePending
+                    ? 'Votre demande d\'accès Académie est en attente de vérification par notre équipe.'
+                    : 'Fiche technique réservée à l\'accès payant "Académie Matières Premières" — nom chimique, EPI, dosages précis, incompatibilités et plus.',
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 2.h),
+              if (!_academiePending)
+                FilledButton(
+                  onPressed: () => openFormationPurchaseWeb(context),
+                  child: const Text('Débloquer l\'accès Académie'),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final sheet = _academieSheet;
+    if (sheet == null) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(6.w),
+          child: Text(
+            'Fiche Académie en cours de préparation par notre équipe pour ce produit.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+
+    final epi = List<String>.from(sheet['epi_requis'] as List? ?? []);
+    final usages = List<Map<String, dynamic>>.from(sheet['usages'] as List? ?? []);
+    Widget field(String label, String? value) {
+      if (value == null || value.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: theme.textTheme.labelLarge
+                    ?.copyWith(color: theme.colorScheme.primary)),
+            Text(value),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.all(4.w),
+      children: [
+        if ((sheet['statut_verification'] as String?) == 'a_valider')
+          Container(
+            margin: EdgeInsets.only(bottom: 2.h),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.warning_amber_outlined, color: Colors.orange, size: 20),
+                SizedBox(width: 8),
+                Expanded(child: Text('⚠️ À vérifier en labo')),
+              ],
+            ),
+          ),
+        field('Nom chimique', sheet['nom_chimique'] as String?),
+        field('Synonymes', sheet['synonymes'] as String?),
+        field('Grade', sheet['grade'] as String?),
+        field('Aspect', sheet['aspect'] as String?),
+        field('pH en solution', sheet['ph_solution'] as String?),
+        field('Solubilité', sheet['solubilite'] as String?),
+        field('Particularité', sheet['particularite'] as String?),
+        field('Différence avec un produit similaire',
+            sheet['difference_produit_similaire'] as String?),
+        field('Niveau de danger', sheet['niveau_danger'] as String?),
+        if (epi.isNotEmpty) ...[
+          Text('EPI requis',
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(color: theme.colorScheme.primary)),
+          SizedBox(height: 0.5.h),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: epi
+                .map((e) => Chip(
+                      avatar: const Icon(Icons.shield_outlined, size: 16),
+                      label: Text(e),
+                    ))
+                .toList(),
+          ),
+          SizedBox(height: 1.5.h),
+        ],
+        field('Premiers secours', sheet['premiers_secours'] as String?),
+        field('Incompatibilités', sheet['incompatibilites'] as String?),
+        field('Stockage', sheet['stockage'] as String?),
+        if (usages.isNotEmpty) ...[
+          SizedBox(height: 1.h),
+          Text('Usages détaillés', style: theme.textTheme.titleMedium),
+          SizedBox(height: 1.h),
+          ...usages.map((u) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(u['domaine_application'] ?? '',
+                                style: theme.textTheme.titleSmall),
+                          ),
+                          if (u['a_verifier_labo'] == true)
+                            const Tooltip(
+                              message: 'À vérifier en labo',
+                              child: Icon(Icons.warning_amber_outlined,
+                                  color: Colors.orange, size: 18),
+                            ),
+                        ],
+                      ),
+                      if ((u['technique_methode'] as String?)?.isNotEmpty == true)
+                        Text(u['technique_methode']),
+                      if ((u['dosage_concentration'] as String?)?.isNotEmpty == true)
+                        Text('Dosage : ${u['dosage_concentration']}',
+                            style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              )),
+        ],
+        SizedBox(height: 4.h),
+      ],
     );
   }
 
