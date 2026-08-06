@@ -7158,3 +7158,22 @@ Le menu Plus admin perd donc une entrée supplémentaire
 des fils communautaires par catégorie) reste volontairement une entrée
 séparée — ce n'est pas de la gestion de catalogue/contenu, mélanger les
 deux aurait rendu le hub confus.
+
+### Champs obligatoires sur la fiche Académie (06/08)
+
+Sur demande explicite (avec un modèle de fiche déjà rédigé en
+référence) : nom chimique, nom commun, aspect, pH en solution et
+solubilité doivent être renseignés sur CHAQUE fiche technique Académie —
+les autres champs (grade, particularité, différence avec un produit
+similaire, sécurité, usages détaillés) restent optionnels.
+
+**`academie_editor_screen.dart`** : le champ "Synonymes" est renommé
+"Nom commun" (correspond au vocabulaire du modèle de fiche). Les 5
+champs obligatoires sont marqués d'un `*` dans leur label et validés via
+un `Form`/`GlobalKey<FormState>` — `_save()` refuse d'enregistrer et
+affiche un message clair tant qu'un des 5 n'est pas rempli.
+
+**`supabase/phase82_patch_academie_champs_obligatoires.sql`** :
+renforce la même règle au niveau de la base (`set not null` sur les 5
+colonnes de `matieres_premieres_academie`) — empêche toute fiche
+incomplète même en cas d'insertion hors app.

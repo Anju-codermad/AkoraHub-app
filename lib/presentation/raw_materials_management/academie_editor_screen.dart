@@ -35,6 +35,7 @@ class AcademieEditorScreen extends StatefulWidget {
 }
 
 class _AcademieEditorScreenState extends State<AcademieEditorScreen> {
+  final _formKey = GlobalKey<FormState>();
   bool _isLoading = true;
   bool _isSaving = false;
   String? _academieId;
@@ -133,6 +134,12 @@ class _AcademieEditorScreenState extends State<AcademieEditorScreen> {
   }
 
   Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Nom chimique, nom commun, aspect, pH en solution et solubilité sont obligatoires.')));
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final saved = await SupabaseConfig.client
@@ -244,13 +251,18 @@ class _AcademieEditorScreenState extends State<AcademieEditorScreen> {
     }
 
     Widget textField(TextEditingController ctrl, String label,
-        {int maxLines = 1}) {
+        {int maxLines = 1, bool required = false}) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: TextField(
+        child: TextFormField(
           controller: ctrl,
           maxLines: maxLines,
-          decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+          decoration: InputDecoration(
+              labelText: required ? '$label *' : label,
+              border: const OutlineInputBorder()),
+          validator: required
+              ? (v) => (v == null || v.trim().isEmpty) ? 'Obligatoire' : null
+              : null,
         ),
       );
     }
@@ -259,17 +271,21 @@ class _AcademieEditorScreenState extends State<AcademieEditorScreen> {
       appBar: AppBar(
         title: Text('Académie — ${widget.rawMaterialName}'),
       ),
-      body: ListView(
+      body: Form(
+        key: _formKey,
+        child: ListView(
         padding: EdgeInsets.all(4.w),
         children: [
           Text('Fiche technique', style: theme.textTheme.titleMedium),
+          SizedBox(height: 0.5.h),
+          Text('* Champs obligatoires', style: theme.textTheme.bodySmall),
           SizedBox(height: 1.h),
-          textField(_nomChimiqueCtrl, 'Nom chimique'),
-          textField(_synonymesCtrl, 'Synonymes'),
+          textField(_nomChimiqueCtrl, 'Nom chimique', required: true),
+          textField(_synonymesCtrl, 'Nom commun', required: true),
           textField(_gradeCtrl, 'Grade (Standard / Alimentaire / Cosmétique / Technique)'),
-          textField(_aspectCtrl, 'Aspect'),
-          textField(_phCtrl, 'pH en solution'),
-          textField(_solubiliteCtrl, 'Solubilité'),
+          textField(_aspectCtrl, 'Aspect', required: true),
+          textField(_phCtrl, 'pH en solution', required: true),
+          textField(_solubiliteCtrl, 'Solubilité', required: true),
           textField(_particulariteCtrl, 'Particularité (ex : hygroscopique, exothermique)'),
           textField(_differenceCtrl, 'Différence avec un produit similaire',
               maxLines: 2),
@@ -396,6 +412,7 @@ class _AcademieEditorScreenState extends State<AcademieEditorScreen> {
           ),
           SizedBox(height: 4.h),
         ],
+        ),
       ),
     );
   }
