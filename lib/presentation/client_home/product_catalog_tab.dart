@@ -43,6 +43,12 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   String _selectedCategory = 'toutes';
   String _searchQuery = '';
 
+  // Catégories que CE client achète le plus souvent, dans l'ordre
+  // (06/08) — utilisé pour réordonner les puces `_categories` ci-dessous
+  // (les plus achetées en premier, plutôt que l'ordre alphabétique fixe).
+  // Voir `client_top_categories` (supabase/phase75).
+  List<String> _topCategoriesOrder = [];
+
   // Abonnement aux notifications pour la catégorie actuellement
   // sélectionnée (uniquement pertinent quand un pilier ET une catégorie
   // précis sont choisis — voir CategorySubscriptionRepo).
@@ -90,6 +96,25 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     _scrollController.addListener(_onScroll);
     _searchFocusNode.addListener(() => setState(() {}));
     _loadRecentSearches();
+    _loadTopCategories();
+  }
+
+  Future<void> _loadTopCategories() async {
+    final uid = SupabaseConfig.client.auth.currentUser?.id;
+    if (uid == null || !SupabaseConfig.isConfigured) return;
+    try {
+      final rows = await SupabaseConfig.client
+          .rpc('client_top_categories', params: {'uid': uid});
+      if (!mounted) return;
+      setState(() {
+        _topCategoriesOrder = List<Map<String, dynamic>>.from(rows)
+            .map((r) => r['category'] as String)
+            .toList();
+      });
+    } catch (_) {
+      // Repli silencieux : migration phase75 pas encore exécutée, ou
+      // aucune commande passée — l'ordre alphabétique reste utilisé.
+    }
   }
 
   @override
@@ -429,7 +454,17 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
         .where((c) => c.isNotEmpty && !inactiveCategoryNames.contains(c))
         .toSet()
         .toList();
-    cats.sort();
+    // Catégories les plus achetées par ce client en premier (06/08),
+    // ordre alphabétique pour le reste (et repli complet si le client n'a
+    // pas encore d'historique, _topCategoriesOrder restant vide).
+    cats.sort((a, b) {
+      final rankA = _topCategoriesOrder.indexOf(a);
+      final rankB = _topCategoriesOrder.indexOf(b);
+      if (rankA == -1 && rankB == -1) return a.compareTo(b);
+      if (rankA == -1) return 1;
+      if (rankB == -1) return -1;
+      return rankA.compareTo(rankB);
+    });
     return cats;
   }
 

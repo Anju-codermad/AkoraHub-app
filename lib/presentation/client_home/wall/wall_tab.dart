@@ -57,6 +57,7 @@ class _WallTabState extends ConsumerState<WallTab> {
   String _sectorFilter = 'tous';
   bool _onlyMine = false;
   bool _isTrending = false;
+  bool _isForYou = false;
   List<Map<String, dynamic>> _businessUnits = [];
   String? _selectedUnitId;
   final _searchController = TextEditingController();
@@ -194,6 +195,7 @@ class _WallTabState extends ConsumerState<WallTab> {
       setState(() {
         _searchQuery = trimmed;
         _isTrending = false;
+        _isForYou = false;
       });
       _loadPosts();
     });
@@ -310,6 +312,44 @@ class _WallTabState extends ConsumerState<WallTab> {
     }
   }
 
+  /// Fil "Pour toi" (06/08) — classe les publications récentes (30 jours)
+  /// par un score qui combine engagement (comme Tendances) ET affinité
+  /// (le client a-t-il déjà commandé dans le pilier du produit taggé par
+  /// le post ?), avec une décroissance par ancienneté pour que les posts
+  /// récents restent visibles même sans encore beaucoup d'engagement —
+  /// voir `personalized_feed_post_ids` (supabase/phase75). Repli sur
+  /// Tendances si non connecté (l'affinité ne veut rien dire sans client).
+  Future<List<Map<String, dynamic>>> _fetchForYouPosts() async {
+    final uid = _myId;
+    if (uid == null) return _fetchTrendingPosts();
+    try {
+      final ranked = await SupabaseConfig.client.rpc(
+        'personalized_feed_post_ids',
+        params: {'uid': uid, 'days_back': 30, 'max_results': 30},
+      );
+      final rankedIds = List<Map<String, dynamic>>.from(ranked)
+          .map((r) => r['post_id'] as String)
+          .toList();
+      if (rankedIds.isEmpty) return [];
+      final posts = await SupabaseConfig.client
+          .from('posts')
+          .select()
+          .inFilter('id', rankedIds);
+      final byId = {
+        for (final p in List<Map<String, dynamic>>.from(posts))
+          p['id'] as String: p,
+      };
+      return [
+        for (final id in rankedIds)
+          if (byId.containsKey(id)) byId[id]!,
+      ];
+    } catch (_) {
+      // Repli silencieux : migration phase75 pas encore exécutée, ou
+      // hors-ligne — Tendances reste un classement raisonnable par défaut.
+      return _fetchTrendingPosts();
+    }
+  }
+
   void _onFilterChanged() {
     _loadPosts();
   }
@@ -329,8 +369,11 @@ class _WallTabState extends ConsumerState<WallTab> {
       _hasMore = true;
     });
     try {
-      final list =
-          _isTrending ? await _fetchTrendingPosts() : await _fetchPostsPage(0);
+      final list = _isForYou
+          ? await _fetchForYouPosts()
+          : (_isTrending
+              ? await _fetchTrendingPosts()
+              : await _fetchPostsPage(0));
       final postIds = list.map((p) => p['id'] as String).toList();
 
       // Ex-boucle "1 requête like + 1 requête commentaire PAR post" (jusqu'à
@@ -491,8 +534,9 @@ class _WallTabState extends ConsumerState<WallTab> {
         _postImages = postImages;
         _verifiedPurchasePostIds = verifiedPurchaseIds;
         _isLoading = false;
-        // Le fil Tendances est une liste fixe (top 30), jamais paginée.
-        _hasMore = !_isTrending && list.length == _pageSize;
+        // Les fils Tendances et Pour toi sont des listes fixes (top 30),
+        // jamais paginées.
+        _hasMore = !_isTrending && !_isForYou && list.length == _pageSize;
       });
     } catch (e) {
       setState(() {
@@ -1101,6 +1145,7 @@ class _WallTabState extends ConsumerState<WallTab> {
       _searchController.text = tag;
       _searchQuery = tag;
       _isTrending = false;
+      _isForYou = false;
     });
     _loadPosts();
   }
@@ -1215,13 +1260,32 @@ class _WallTabState extends ConsumerState<WallTab> {
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
+                                  avatar: const Icon(Icons.auto_awesome,
+                                      size: 16),
+                                  label: const Text('Pour toi'),
+                                  selected: _isForYou,
+                                  onSelected: (v) {
+                                    setState(() {
+                                      _isForYou = v;
+                                      _isTrending = false;
+                                    });
+                                    _onFilterChanged();
+                                  },
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
                                   avatar: const Icon(
                                       Icons.local_fire_department_outlined,
                                       size: 16),
                                   label: const Text('Tendances'),
                                   selected: _isTrending,
                                   onSelected: (v) {
-                                    setState(() => _isTrending = v);
+                                    setState(() {
+                                      _isTrending = v;
+                                      _isForYou = false;
+                                    });
                                     _onFilterChanged();
                                   },
                                 ),
@@ -1237,6 +1301,7 @@ class _WallTabState extends ConsumerState<WallTab> {
                                     setState(() {
                                       _onlyMine = v;
                                       _isTrending = false;
+                                      _isForYou = false;
                                     });
                                     _onFilterChanged();
                                   },
@@ -1251,6 +1316,7 @@ class _WallTabState extends ConsumerState<WallTab> {
                                     setState(() {
                                       _sectorFilter = 'tous';
                                       _isTrending = false;
+                                      _isForYou = false;
                                     });
                                     _onFilterChanged();
                                   },
@@ -1265,6 +1331,7 @@ class _WallTabState extends ConsumerState<WallTab> {
                                         setState(() {
                                           _sectorFilter = e.key;
                                           _isTrending = false;
+                                          _isForYou = false;
                                         });
                                         _onFilterChanged();
                                       },
@@ -1292,6 +1359,7 @@ class _WallTabState extends ConsumerState<WallTab> {
                                       setState(() {
                                         _selectedUnitId = null;
                                         _isTrending = false;
+                                        _isForYou = false;
                                       });
                                       _onFilterChanged();
                                     },
@@ -1308,6 +1376,7 @@ class _WallTabState extends ConsumerState<WallTab> {
                                           setState(() {
                                             _selectedUnitId = u['id'];
                                             _isTrending = false;
+                                            _isForYou = false;
                                           });
                                           _onFilterChanged();
                                         },
@@ -1320,7 +1389,9 @@ class _WallTabState extends ConsumerState<WallTab> {
                       if (_posts.isEmpty)
                         SliverFillRemaining(
                           child: Center(
-                              child: Text(_isTrending
+                              child: Text(_isForYou
+                                  ? 'Rien à te proposer pour l\'instant — reviens plus tard.'
+                                  : _isTrending
                                   ? 'Aucune publication très active dans les 30 derniers jours.'
                                   : _searchQuery.isNotEmpty
                                       ? 'Aucun résultat pour "$_searchQuery".'

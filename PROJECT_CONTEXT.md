@@ -6880,3 +6880,40 @@ existants.
   bannière de l'accueil : le tap sur la couverture ouvre la gestion,
   pas un swipe manuel à ménager). Repli automatique sur `cover_url`
   (singulier) tant que la migration phase74 n'a pas tourné.
+
+### 3 algorithmes de personnalisation (06/08)
+
+Suite à la question sur l'algorithme Facebook : 3 fonctions SQL dans le
+même esprit que `post_engagement_scores` (phase54, déjà en place pour
+le fil Tendances) — classer par un score plutôt qu'un seul critère brut.
+Tout dans **`supabase/phase75_patch_personalization_algorithms.sql`**.
+
+1. **`personalized_feed_post_ids(uid, days_back, max_results)`** — fil
+   "Pour toi" de la Communauté. Score = (engagement + bonus d'affinité
+   si le client a déjà commandé dans le pilier du produit taggé par le
+   post) / (1 + âge_en_jours)^1.2 — décroissance façon Hacker News/
+   Reddit, pour que les posts récents restent visibles même sans encore
+   beaucoup d'engagement. **`wall_tab.dart`** : nouvelle puce "Pour toi"
+   (icône ✨) avant "Tendances", mutuellement exclusive avec elle (et
+   remise à zéro par tous les autres filtres, même logique que
+   `_isTrending`) ; `_fetchForYouPosts()` retombe sur Tendances si le
+   client n'est pas connecté (l'affinité n'a pas de sens sans lui) ou en
+   cas d'erreur (migration pas encore exécutée).
+
+2. **`products_bought_together(pid, max_results)`** — "Vous pourriez
+   aussi aimer" sur la fiche produit : produits achetés dans la même
+   commande que celui-ci, par n'importe quel client (panier-jumelage
+   classique, pas de personnalisation par client ici, contrairement au
+   fil Pour toi). **`product_detail_client.dart`** : nouvelle section
+   `_BoughtTogetherSection`, juste avant les avis clients, réutilise
+   `ProductCard` (déjà utilisé pour "Vous recommandez souvent" sur
+   l'accueil) — masquée si vide.
+
+3. **`client_top_categories(uid)`** — catégories que CE client achète le
+   plus souvent, classées par fréquence. **`product_catalog_tab.dart`** :
+   les puces de catégorie (`_categories`) sont désormais triées selon cet
+   ordre en premier (alphabétique pour le reste / repli complet si le
+   client n'a pas encore de commande), au lieu du tri alphabétique fixe.
+
+Les 3 fonctions excluent les commandes annulées (`status <> 'annulee'`),
+même convention que `has_ordered_product` (phase55, avis vérifiés).

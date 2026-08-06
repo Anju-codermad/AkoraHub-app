@@ -6,6 +6,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'catalog_tab.dart' show ProductCard;
 import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
 
@@ -433,10 +434,152 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                 ],
               ),
               SizedBox(height: 3.h),
+              _BoughtTogetherSection(productId: p['id'], currency: _currency),
               _ReviewsSection(productId: p['id']),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "Vous pourriez aussi aimer" (06/08) — produits achetés dans la même
+/// commande que celui-ci par n'importe quel client, voir
+/// `products_bought_together` (supabase/phase75). Panier-jumelage
+/// classique du e-commerce ; pas de personnalisation par client ici
+/// (contrairement au fil "Pour toi" de la Communauté, wall_tab.dart).
+/// Masquée si vide (produit jamais commandé avec un autre, ou migration
+/// phase75 pas encore exécutée).
+class _BoughtTogetherSection extends ConsumerStatefulWidget {
+  final String productId;
+  final NumberFormat currency;
+
+  const _BoughtTogetherSection(
+      {required this.productId, required this.currency});
+
+  @override
+  ConsumerState<_BoughtTogetherSection> createState() =>
+      _BoughtTogetherSectionState();
+}
+
+class _BoughtTogetherSectionState
+    extends ConsumerState<_BoughtTogetherSection> {
+  List<Map<String, dynamic>> _recommended = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (!SupabaseConfig.isConfigured) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    try {
+      final ranked = await SupabaseConfig.client.rpc(
+        'products_bought_together',
+        params: {'pid': widget.productId, 'max_results': 8},
+      );
+      final rankedIds = List<Map<String, dynamic>>.from(ranked)
+          .map((r) => r['product_id'] as String)
+          .toList();
+      if (rankedIds.isEmpty) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      final products = await SupabaseConfig.client
+          .from('products')
+          .select()
+          .inFilter('id', rankedIds);
+      final byId = {
+        for (final row in List<Map<String, dynamic>>.from(products))
+          row['id'] as String: row,
+      };
+      if (!mounted) return;
+      setState(() {
+        _recommended = [
+          for (final id in rankedIds)
+            if (byId.containsKey(id)) byId[id]!,
+        ];
+        _isLoading = false;
+      });
+    } catch (_) {
+      // Repli silencieux : migration phase75 pas encore exécutée, ou
+      // hors-ligne — la section reste simplement masquée.
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _quickAdd(Map<String, dynamic> product) {
+    ref.read(cartProvider.notifier).addItem(
+          CartItem(
+            productId: product['id'],
+            name: product['name'] ?? '',
+            priceDetail: (product['price_detail'] ?? 0).toDouble(),
+            priceGros: (product['price_gros'] ?? 0).toDouble(),
+            grosThresholdQty: (product['gros_threshold_qty'] ?? 10) as int,
+          ),
+        );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${product['name']} ajouté au panier'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading || _recommended.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: 3.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Vous pourriez aussi aimer',
+              style: theme.textTheme.titleMedium),
+          SizedBox(height: 1.h),
+          SizedBox(
+            height: 26.h,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _recommended.length,
+              itemBuilder: (context, index) {
+                final p = _recommended[index];
+                return Padding(
+                  padding: EdgeInsets.only(right: 3.w),
+                  child: SizedBox(
+                    width: 38.w,
+                    child: ProductCard(
+                      product: p,
+                      currency: widget.currency,
+                      isFavorite:
+                          ref.watch(favoritesProvider).contains(p['id']),
+                      enableHero: false,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProductDetailClient(product: p),
+                          ),
+                        );
+                      },
+                      onQuickAdd: () => _quickAdd(p),
+                      onToggleFavorite: () => ref
+                          .read(favoritesProvider.notifier)
+                          .toggle(p['id']),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
