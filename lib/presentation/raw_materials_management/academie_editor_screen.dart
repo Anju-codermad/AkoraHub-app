@@ -19,8 +19,14 @@ const List<String> _niveauxDanger = ['Aucun', 'Modéré', 'Élevé', 'Corrosif']
 /// l'enrichit avec tout domaine déjà tapé sur n'importe quelle fiche
 /// Académie, même principe que `kProductUsageSuggestions`
 /// (product_management_real.dart) — un domaine ajouté une fois devient
-/// réutilisable partout.
+/// réutilisable partout. Volontairement large et générique (couvre
+/// toutes les catégories chimiques : acides & bases, tensioactifs,
+/// agents de charge, épaississants, conservateurs, chélatants, huiles,
+/// solvants, humectants, oxydants, liants, pigments, parfums/colorants)
+/// puisqu'une même matière première peut servir à plusieurs domaines
+/// très différents.
 const List<String> kAcademieUsageDomains = [
+  // Déjà en place
   'Savonnerie (Saponification)',
   'Traitement de l\'eau',
   'Ajustement pH',
@@ -28,6 +34,49 @@ const List<String> kAcademieUsageDomains = [
   'Nettoyage industriel',
   'Dégraissage',
   'Débouchage canalisation',
+  // Cosmétique & hygiène
+  'Cosmétique',
+  'Parfumerie',
+  'Dentifrice / Hygiène bucco-dentaire',
+  'Shampoing / Soins capillaires',
+  'Savon liquide / Gel douche',
+  // Entretien & détergence
+  'Détergents',
+  'Lessive',
+  'Désinfection',
+  'Blanchisserie',
+  'Anti-tartre',
+  'Décapage',
+  'Polissage',
+  // Agroalimentaire & pharmaceutique
+  'Agroalimentaire',
+  'Conservation alimentaire',
+  'Pharmaceutique',
+  // Textile & cuir
+  'Textile (teinture, apprêt)',
+  'Blanchiment textile',
+  'Cuir & tannerie',
+  // Papier, peinture, construction
+  'Papier & carton',
+  'Peinture & revêtements',
+  'Vernis & laques',
+  'Construction & BTP',
+  'Traitement du bois',
+  'Adhésifs & colles',
+  // Agriculture & environnement
+  'Agriculture (engrais, phytosanitaire)',
+  'Traitement des eaux usées',
+  'Piscine',
+  'Aquaculture / Pisciculture',
+  // Industrie lourde
+  'Métallurgie (traitement de surface)',
+  'Galvanoplastie',
+  'Plasturgie',
+  'Caoutchouc',
+  'Mines & carrières',
+  'Imprimerie',
+  'Verre & céramique',
+  'Automobile (lavage, dégraissage moteur)',
 ];
 
 /// Formulaire d'édition de la fiche technique "Académie" d'une matière

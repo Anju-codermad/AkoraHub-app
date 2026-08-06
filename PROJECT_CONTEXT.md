@@ -7194,3 +7194,18 @@ un `Autocomplete<String>` (même pattern que le champ Nom de
 touche le champ (liste complète si vide, filtrée en tapant), tout en
 restant du texte libre — pas de table de référence séparée, un usage
 non prévu reste saisissable.
+
+### Liste étendue des domaines d'usage Académie (06/08)
+
+Sur demande ("suggérez-moi des listes très longues") : `kAcademieUsageDomains`
+passe de 7 à 45 entrées, regroupées par thème en commentaires (cosmétique
+& hygiène, entretien & détergence, agroalimentaire & pharmaceutique,
+textile & cuir, papier/peinture/construction, agriculture &
+environnement, industrie lourde) — couvre notamment cosmétique,
+dentifrice, parfumerie, désinfection, agroalimentaire, pharmaceutique,
+textile, cuir, papier, peinture, BTP, agriculture, métallurgie,
+plasturgie, caoutchouc, mines, imprimerie, verre/céramique, automobile.
+Volontairement large puisqu'une même matière première (ex : soude
+caustique) sert souvent à plusieurs domaines très différents. Reste une
+liste de DÉPART : `_knownDomains` continue de l'enrichir avec tout
+domaine tapé manuellement.
