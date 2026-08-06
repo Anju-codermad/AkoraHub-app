@@ -7177,3 +7177,20 @@ affiche un message clair tant qu'un des 5 n'est pas rempli.
 renforce la même règle au niveau de la base (`set not null` sur les 5
 colonnes de `matieres_premieres_academie`) — empêche toute fiche
 incomplète même en cas d'insertion hors app.
+
+### Domaines d'application suggérés pour les usages Académie (06/08)
+
+Même principe que `kProductUsageSuggestions` (usages produit, 05/08) :
+une liste de départ (`kAcademieUsageDomains` — Savonnerie
+(Saponification), Traitement de l'eau, Ajustement pH, Nettoyage,
+Nettoyage industriel, Dégraissage, Débouchage canalisation) enrichie
+dynamiquement (`_knownDomains`, `academie_editor_screen.dart`) avec tout
+domaine déjà tapé sur N'IMPORTE QUELLE fiche Académie (toutes matières
+premières confondues) — un domaine ajouté une fois devient réutilisable
+partout, dès le prochain chargement du formulaire. Le champ "Domaine
+d'application" de chaque bloc d'usage passe d'un simple champ texte à
+un `Autocomplete<String>` (même pattern que le champ Nom de
+`raw_material_editor_screen.dart`) : suggestions visibles dès qu'on
+touche le champ (liste complète si vide, filtrée en tapant), tout en
+restant du texte libre — pas de table de référence séparée, un usage
+non prévu reste saisissable.

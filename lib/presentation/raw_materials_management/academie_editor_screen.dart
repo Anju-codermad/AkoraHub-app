@@ -14,6 +14,22 @@ const List<String> _epiSuggestions = [
 
 const List<String> _niveauxDanger = ['Aucun', 'Modéré', 'Élevé', 'Corrosif'];
 
+/// Domaines d'application suggérés pour les usages détaillés (06/08) —
+/// liste de DÉPART uniquement : `_knownDomains` (voir `_loadData`)
+/// l'enrichit avec tout domaine déjà tapé sur n'importe quelle fiche
+/// Académie, même principe que `kProductUsageSuggestions`
+/// (product_management_real.dart) — un domaine ajouté une fois devient
+/// réutilisable partout.
+const List<String> kAcademieUsageDomains = [
+  'Savonnerie (Saponification)',
+  'Traitement de l\'eau',
+  'Ajustement pH',
+  'Nettoyage',
+  'Nettoyage industriel',
+  'Dégraissage',
+  'Débouchage canalisation',
+];
+
 /// Formulaire d'édition de la fiche technique "Académie" d'une matière
 /// première (06/08) — voir
 /// supabase/phase81_patch_academie_matieres_premieres.sql. Accessible
@@ -57,6 +73,7 @@ class _AcademieEditorScreenState extends State<AcademieEditorScreen> {
   String _statutVerification = 'a_valider';
 
   List<Map<String, dynamic>> _usages = [];
+  List<String> _knownDomains = List<String>.from(kAcademieUsageDomains);
 
   @override
   void initState() {
@@ -82,6 +99,23 @@ class _AcademieEditorScreenState extends State<AcademieEditorScreen> {
 
   Future<void> _loadData() async {
     try {
+      // Domaines déjà tapés sur N'IMPORTE QUELLE fiche Académie — enrichit
+      // les suggestions de départ (kAcademieUsageDomains) pour que ce qui
+      // est saisi une fois devienne réutilisable partout.
+      try {
+        final rows = await SupabaseConfig.client
+            .from('matieres_premieres_usages')
+            .select('domaine_application');
+        final known = <String>{...kAcademieUsageDomains};
+        for (final row in rows) {
+          final domain = row['domaine_application'] as String?;
+          if (domain != null && domain.trim().isNotEmpty) known.add(domain);
+        }
+        _knownDomains = known.toList();
+      } catch (_) {
+        // Repli sur la liste de départ, rien de bloquant.
+      }
+
       final sheet = await SupabaseConfig.client
           .from('matieres_premieres_academie')
           .select()
@@ -357,14 +391,35 @@ class _AcademieEditorScreenState extends State<AcademieEditorScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
-                            initialValue:
-                                _usages[i]['domaine_application'] as String?,
-                            decoration: const InputDecoration(
-                                labelText: 'Domaine d\'application',
-                                isDense: true),
-                            onChanged: (v) =>
-                                _usages[i]['domaine_application'] = v,
+                          child: Autocomplete<String>(
+                            optionsBuilder: (textEditingValue) {
+                              final query =
+                                  textEditingValue.text.toLowerCase();
+                              if (query.isEmpty) return _knownDomains;
+                              return _knownDomains.where(
+                                  (d) => d.toLowerCase().contains(query));
+                            },
+                            onSelected: (selection) => setState(
+                                () => _usages[i]['domaine_application'] =
+                                    selection),
+                            fieldViewBuilder:
+                                (context, controller, focusNode, onSubmitted) {
+                              controller.text =
+                                  _usages[i]['domaine_application']
+                                          as String? ??
+                                      '';
+                              controller.selection = TextSelection.collapsed(
+                                  offset: controller.text.length);
+                              return TextFormField(
+                                controller: controller,
+                                focusNode: focusNode,
+                                decoration: const InputDecoration(
+                                    labelText: 'Domaine d\'application',
+                                    isDense: true),
+                                onChanged: (v) =>
+                                    _usages[i]['domaine_application'] = v,
+                              );
+                            },
                           ),
                         ),
                         IconButton(
