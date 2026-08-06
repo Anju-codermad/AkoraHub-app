@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -49,6 +50,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   bool _isUploadingAvatar = false;
   bool _isUploadingCover = false;
 
+  // Photos de couverture multiples (05/08, jusqu'à 5, optionnel) — quelle
+  // photo est actuellement affichée dans le fondu automatique, voir
+  // `_scheduleCoverAutoplay` et `_buildProfileHeader`.
+  int _coverPhotoIndex = 0;
+  Timer? _coverAutoplayTimer;
+
   // Chevauchement entre l'avatar et la carte blanche en dessous (style
   // "carte de profil" façon carte de visite, 05/08) — même valeur utilisée
   // dans _buildCoverAndAvatar (position de l'avatar) et dans build()
@@ -84,6 +91,25 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     _loadAll();
   }
 
+  @override
+  void dispose() {
+    _coverAutoplayTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Fondu automatique entre les photos de couverture (05/08, jusqu'à 5)
+  /// — pas de swipe manuel ici (le tap sur la couverture ouvre plutôt la
+  /// gestion des photos), donc un simple `Timer.periodic` suffit, sans la
+  /// logique de reprogrammation utilisée pour la bannière de l'accueil.
+  void _scheduleCoverAutoplay(int photoCount) {
+    _coverAutoplayTimer?.cancel();
+    if (photoCount <= 1) return;
+    _coverAutoplayTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      setState(() => _coverPhotoIndex = (_coverPhotoIndex + 1) % photoCount);
+    });
+  }
+
   Future<void> _loadAll() async {
     final userId = SupabaseConfig.client.auth.currentUser?.id;
     if (!SupabaseConfig.isConfigured || userId == null) {
@@ -104,6 +130,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         _profile = data;
         _isLoading = false;
       });
+      final coverUrls =
+          (data['cover_urls'] as List?)?.cast<String>() ?? const <String>[];
+      _scheduleCoverAutoplay(coverUrls.length);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -188,7 +217,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     }
   }
 
-  Future<void> _pickAndUploadCover() async {
+  /// Ajoute UNE photo à `profiles.cover_urls` (jusqu'à 5, voir
+  /// `_openCoverPhotosManager`) — remplace l'ancien `_pickAndUploadCover`
+  /// qui écrivait une seule `cover_url` (05/08). Réservé aux clients
+  /// ayant déjà passé une commande : le contrôle se fait en amont, dans
+  /// `_openCoverPhotosManager`, pas ici.
+  Future<void> _uploadCoverPhoto() async {
     final userId = SupabaseConfig.client.auth.currentUser?.id;
     if (userId == null) return;
     final picked = await ImagePicker()
@@ -204,23 +238,169 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           .upload(fileName, File(picked.path));
       final url =
           SupabaseConfig.client.storage.from('avatars').getPublicUrl(fileName);
+      final updated = <String>[
+        ...?(_profile?['cover_urls'] as List?)?.cast<String>(),
+        url,
+      ];
       await SupabaseConfig.client
           .from('profiles')
-          .update({'cover_url': url}).eq('id', userId);
+          .update({'cover_urls': updated}).eq('id', userId);
       if (!mounted) return;
       setState(() {
-        _profile = {...?_profile, 'cover_url': url};
+        _profile = {...?_profile, 'cover_urls': updated};
         _isUploadingCover = false;
       });
+      _scheduleCoverAutoplay(updated.length);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isUploadingCover = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
-                'Impossible de changer la couverture (migration phase20 exécutée ?).')),
+                'Impossible d\'ajouter cette photo (migration phase74 exécutée ?).')),
       );
     }
+  }
+
+  /// Retire une photo de `profiles.cover_urls`.
+  Future<void> _removeCoverPhoto(String url) async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+    final updated = <String>[
+      ...?(_profile?['cover_urls'] as List?)?.cast<String>(),
+    ]..remove(url);
+    try {
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'cover_urls': updated}).eq('id', userId);
+      if (!mounted) return;
+      setState(() {
+        _profile = {...?_profile, 'cover_urls': updated};
+        _coverPhotoIndex = 0;
+      });
+      _scheduleCoverAutoplay(updated.length);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de retirer cette photo.')),
+      );
+    }
+  }
+
+  /// Ouvre la gestion des photos de couverture (ajouter/retirer, jusqu'à
+  /// 5) — réservée aux clients ayant déjà passé au moins une commande
+  /// (`_ordersCount`, déjà chargé pour la stat "Commandes" du profil),
+  /// sur demande explicite du 05/08. Les autres utilisateurs voient
+  /// toujours la ou les photos existantes normalement ; seule l'AJOUT/
+  /// SUPPRESSION est restreinte.
+  Future<void> _openCoverPhotosManager() async {
+    if (_ordersCount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Les photos de couverture multiples sont réservées aux clients ayant déjà passé une commande.'),
+        ),
+      );
+      return;
+    }
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final urls = (_profile?['cover_urls'] as List?)?.cast<String>() ??
+              const <String>[];
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 4.w,
+              right: 4.w,
+              top: 3.h,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 3.h,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Photos de couverture',
+                    style: Theme.of(context).textTheme.titleMedium),
+                SizedBox(height: 0.5.h),
+                Text(
+                  'Jusqu\'à 5 photos (optionnel), affichées en fondu automatique.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                SizedBox(height: 2.h),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final url in urls)
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.network(url,
+                                width: 80, height: 80, fit: BoxFit.cover),
+                          ),
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: GestureDetector(
+                              onTap: () async {
+                                await _removeCoverPhoto(url);
+                                setSheetState(() {});
+                              },
+                              child: const CircleAvatar(
+                                radius: 11,
+                                backgroundColor: Colors.black54,
+                                child: Icon(Icons.close,
+                                    size: 14, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (urls.length < 5)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: _isUploadingCover
+                            ? null
+                            : () async {
+                                await _uploadCoverPhoto();
+                                setSheetState(() {});
+                              },
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outline
+                                  .withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: _isUploadingCover
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                )
+                              : const Icon(Icons.add_a_photo_outlined),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _shareContactCard() {
@@ -312,7 +492,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final companyName = profile['company_name'] as String?;
     final location = profile['location'] as String?;
     final avatarUrl = profile['avatar_url'] as String?;
-    final coverUrl = profile['cover_url'] as String?;
+    // Photos de couverture multiples (05/08, jusqu'à 5) — repli sur
+    // l'ancienne cover_url (singulier) tant que la migration phase74
+    // n'a pas tourné, ou pour un profil créé avant cette fonctionnalité.
+    final legacyCoverUrl = profile['cover_url'] as String?;
+    final storedCoverUrls =
+        (profile['cover_urls'] as List?)?.cast<String>() ?? const <String>[];
+    final coverUrls = storedCoverUrls.isNotEmpty
+        ? storedCoverUrls
+        : (legacyCoverUrl != null && legacyCoverUrl.isNotEmpty
+            ? [legacyCoverUrl]
+            : const <String>[]);
     final bio = (profile['bio'] as String?)?.trim();
     final sector = _sectorLabels[profile['client_type']];
     final displayName = (fullName == null || fullName.trim().isEmpty)
@@ -335,7 +525,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     // téléphone, localisation, société, secteur.
     final completionFields = <bool>[
       avatarUrl != null && avatarUrl.isNotEmpty,
-      coverUrl != null && coverUrl.isNotEmpty,
+      coverUrls.isNotEmpty,
       bio != null && bio.isNotEmpty,
       (profile['phone'] as String?)?.trim().isNotEmpty == true,
       location != null && location.trim().isNotEmpty,
@@ -360,7 +550,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ),
           _buildProfileHeader(
             theme: theme,
-            coverUrl: coverUrl,
+            coverUrls: coverUrls,
             avatarUrl: avatarUrl,
             content: Padding(
               padding: EdgeInsets.symmetric(horizontal: 4.w),
@@ -585,11 +775,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   /// `Positioned` ne comptent pas dans la taille du Stack).
   Widget _buildProfileHeader({
     required ThemeData theme,
-    required String? coverUrl,
+    required List<String> coverUrls,
     required String? avatarUrl,
     required Widget content,
   }) {
     final coverHeight = 15.h;
+    final currentCoverUrl = coverUrls.isEmpty
+        ? null
+        : coverUrls[_coverPhotoIndex % coverUrls.length];
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -599,26 +792,34 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           right: 0,
           height: coverHeight,
           child: GestureDetector(
-            onTap: _isUploadingCover ? null : _pickAndUploadCover,
+            onTap: _isUploadingCover ? null : _openCoverPhotosManager,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    image: coverUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(coverUrl),
-                            fit: BoxFit.cover,
-                          )
+                // Fondu automatique entre les photos (05/08, jusqu'à 5) —
+                // voir `_scheduleCoverAutoplay`. `AnimatedSwitcher` plutôt
+                // qu'un PageView : le tap sur la couverture ouvre déjà la
+                // gestion des photos, pas de swipe manuel à ménager ici.
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 600),
+                  child: Container(
+                    key: ValueKey(currentCoverUrl ?? 'empty'),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      image: currentCoverUrl != null
+                          ? DecorationImage(
+                              image: NetworkImage(currentCoverUrl),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: currentCoverUrl == null
+                        ? Icon(Icons.image_outlined,
+                            size: 40,
+                            color: theme.colorScheme.onPrimaryContainer
+                                .withValues(alpha: 0.4))
                         : null,
                   ),
-                  child: coverUrl == null
-                      ? Icon(Icons.image_outlined,
-                          size: 40,
-                          color: theme.colorScheme.onPrimaryContainer
-                              .withValues(alpha: 0.4))
-                      : null,
                 ),
                 if (_isUploadingCover)
                   Container(

@@ -6849,3 +6849,34 @@ séparée. Reprogrammé aussi après le chargement des vraies bannières
 (`home_banners`), qui peuvent différer en nombre des 3 slides de repli
 affichées pendant le chargement. Pas de défilement auto si une seule
 slide.
+
+### Photos de couverture multiples pour le profil client (05/08)
+
+Sur demande : jusqu'à 5 photos de couverture (optionnel, pas obligatoire
+d'en avoir plusieurs), affichées en fondu automatique toutes les 5
+secondes — réservé aux clients ayant déjà passé au moins une commande.
+
+**`supabase/phase74_patch_profile_cover_photos.sql`** : nouvelle colonne
+`profiles.cover_urls text[]`, avec reprise automatique de l'ancienne
+`cover_url` (singulier, gardée en base mais plus écrite — vérifié
+qu'aucun autre écran ne la lit) comme première photo pour les profils
+existants.
+
+**`profile_tab.dart`** :
+- `_uploadCoverPhoto()`/`_removeCoverPhoto()` remplacent l'ancien
+  `_pickAndUploadCover` (une seule photo) — ajoutent/retirent une URL
+  dans le tableau `cover_urls`.
+- `_openCoverPhotosManager()` : ouvre une feuille de gestion (miniatures
+  + bouton retirer, tuile "+" si moins de 5 photos) au tap sur la
+  couverture — **bloquée avec un message explicite si `_ordersCount ==
+  0`** (compteur déjà chargé pour la stat "Commandes" du profil, même
+  logique que `has_ordered_product` utilisée ailleurs pour les avis
+  vérifiés). Un client sans commande peut toujours VOIR sa couverture
+  existante, seule la gestion (ajout/retrait) est restreinte.
+- `_buildProfileHeader` : `coverUrl` (singulier) devient `coverUrls`
+  (liste) ; l'image affichée change via `AnimatedSwitcher` (fondu 600ms)
+  piloté par `_coverPhotoIndex`, avancé par `_scheduleCoverAutoplay`
+  (`Timer.periodic` 5s, pas de logique de pause/reprise comme la
+  bannière de l'accueil : le tap sur la couverture ouvre la gestion,
+  pas un swipe manuel à ménager). Repli automatique sur `cover_url`
+  (singulier) tant que la migration phase74 n'a pas tourné.
