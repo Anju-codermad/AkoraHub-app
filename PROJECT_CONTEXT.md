@@ -7069,3 +7069,65 @@ produit (pas toujours 1) pour remplir le panier en un clic.
 (`product_detail_client.dart`), à côté de l'étoile favoris ; entrée
 "Mon panier habituel" ajoutée dans le menu Profil, section "Mes
 achats", juste après "Mes favoris" (`profile_menu_drawer.dart`).
+
+### Académie Matières Premières (fiche technique payante, revenu distinct) (06/08)
+
+Sur demande explicite : un second onglet "Académie" sur la fiche d'une
+matière première, réservé à un **achat payant SÉPARÉ** de l'achat de la
+fiche produit (`formation_purchases`) — une nouvelle source de revenus
+à part entière. Avoir acheté la fiche produit ne donne PAS accès à
+l'Académie ; il faut un second achat, produit par produit, avec ses
+propres paliers dégressifs. Tout reste verrouillé sans achat (aucun
+teaser gratuit, même pas nom_chimique/niveau_danger) — décision
+explicite de l'utilisatrice pour maximiser cette source de revenus.
+Modèle générique, applicable à toute catégorie chimique.
+
+**`supabase/phase81_patch_academie_matieres_premieres.sql`** :
+- `academie_purchases` : même flux que `formation_purchases` (paiement
+  manuel référence + preuve, validé par le staff, regroupé par
+  `batch_id`), table et fonction d'accès (`has_purchased_academie_access`)
+  entièrement indépendantes.
+- `academie_pricing_tiers` : paliers dégressifs propres à l'Académie
+  (1 produit : 15 000 Ar, 5 : 12 000 Ar, 10 : 8 000 Ar — modifiables
+  côté Admin), indépendants des paliers Formation.
+- `matieres_premieres_academie` (FK -> `raw_materials`, PAS une
+  nouvelle table "matieres_premieres" comme demandé initialement — la
+  table existante s'appelle `raw_materials`) : nom_chimique, synonymes,
+  grade, aspect, ph_solution, solubilite, particularite,
+  difference_produit_similaire, niveau_danger, epi_requis (tableau),
+  premiers_secours, incompatibilites, stockage, statut_verification.
+- `matieres_premieres_usages` : usages détaillés répétables (domaine
+  d'application, technique/méthode, dosage/concentration, à vérifier en
+  labo), sans limite de blocs.
+- RLS des deux tables de contenu : lecture réservée à qui a un achat
+  Académie validé pour CETTE matière première (ou au staff) ; écriture
+  réservée au staff.
+
+**Client (`raw_material_detail_client.dart`)** : la fiche (déjà
+réservée aux acheteurs de base) devient un `TabBar` à 2 onglets —
+"Fiche produit" (contenu existant, inchangé) et "Académie" (cadenas si
+pas acheté, avec CTA "Débloquer l'accès Académie" vers la même page web
+d'achat externe). Une fois débloqué : tous les champs de
+`matieres_premieres_academie` + la liste des usages détaillés, avec un
+badge "⚠️ À vérifier en labo" si `statut_verification`/`a_verifier_labo`
+l'indique. Nouveau `AcademieRepo` (`fetchMyPurchasedIds`,
+`fetchMyPendingIds`, `fetchSheet`) mirroir de `FormationRepo`.
+
+**Admin** : bouton "Fiche Académie" (icône éprouvette) dans l'AppBar de
+`raw_material_editor_screen.dart`, visible UNIQUEMENT en modification
+d'une fiche existante (jamais à la création, jamais depuis un produit
+fini) — ouvre `academie_editor_screen.dart` (nouveau), formulaire
+complet + "+ Ajouter un usage" sans limite. Validation des demandes
+d'achat : nouvel onglet "Académie" dans `formation_purchases_hub.dart`
+(`academie_purchases_management.dart`, clone de la gestion Formation
+existante) — le hub passe de 2 à 3 onglets.
+
+**Achat** : comme Formation et Cours, l'achat se fait sur la page web
+externe (`docs/formation-access/index.html`, conformité Google Play —
+pas de paiement in-app pour du contenu numérique), qui gagne un
+troisième onglet "Académie" : liste UNIQUEMENT les matières premières
+déjà débloquées côté fiche produit (il faut la base pour situer la
+fiche), sélection multiple, paliers dégressifs propres, mêmes moyens de
+paiement. Cette page est redéployée automatiquement sur Netlify à
+chaque build CI (déjà en place depuis le 05/08), aucune étape manuelle
+supplémentaire.
