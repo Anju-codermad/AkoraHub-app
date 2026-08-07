@@ -676,67 +676,190 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         if (dureeConservation != null)
           _iconTextRow(theme, Icons.timer_outlined,
               'Conservation : $dureeConservation mois'),
-        if (usages.isNotEmpty) ...[
-          SizedBox(height: 1.h),
-          Text('Usages détaillés', style: theme.textTheme.titleMedium),
-          SizedBox(height: 1.h),
-          ...usages.map((u) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(u['domaine_application'] ?? '',
-                                style: theme.textTheme.titleSmall),
-                          ),
-                          if (u['a_verifier_labo'] == true)
-                            const Tooltip(
-                              message: 'À vérifier en labo',
-                              child: Icon(Icons.warning_amber_outlined,
-                                  color: Colors.orange, size: 18),
-                            ),
-                        ],
-                      ),
-                      if ((u['technique_methode'] as String?)?.isNotEmpty == true)
-                        Text(u['technique_methode']),
-                      if (_formatDosage(u) != null)
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(_formatDosage(u)!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w600)),
-                        ),
-                      if ((u['temperature_utilisation'] as String?)
-                              ?.isNotEmpty ==
-                          true)
-                        Text('Température : ${u['temperature_utilisation']}',
-                            style: theme.textTheme.bodySmall),
-                      if ((u['temps_action'] as String?)?.isNotEmpty == true)
-                        Text('Temps d\'action : ${u['temps_action']}',
-                            style: theme.textTheme.bodySmall),
-                      if ((u['source_reference'] as String?)?.isNotEmpty ==
-                          true)
-                        Text('Source : ${u['source_reference']}',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(fontStyle: FontStyle.italic)),
-                    ],
-                  ),
-                ),
-              )),
-        ],
+        SizedBox(height: 1.h),
+        Text('Usages détaillés', style: theme.textTheme.titleMedium),
+        SizedBox(height: 1.h),
+        if (usages.isEmpty)
+          Row(
+            children: [
+              Icon(Icons.info_outline,
+                  size: 16, color: theme.colorScheme.outline),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('Aucun usage documenté pour cette matière.',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontStyle: FontStyle.italic)),
+              ),
+            ],
+          )
+        else
+          ..._buildUsagesGrouped(theme, usages),
         SizedBox(height: 4.h),
     ];
+  }
+
+  /// Usages détaillés groupés par domaine d'application (06/08) — un
+  /// `ExpansionTile` par domaine (replié par défaut, sauf s'il n'y en a
+  /// qu'un seul), pour ne pas noyer la fiche quand beaucoup de domaines
+  /// sont documentés. L'ordre des domaines suit l'ordre d'apparition
+  /// des usages (déjà trié par `ordre` en base), pas un tri alphabétique.
+  List<Widget> _buildUsagesGrouped(
+      ThemeData theme, List<Map<String, dynamic>> usages) {
+    final byDomain = <String, List<Map<String, dynamic>>>{};
+    for (final u in usages) {
+      final domain = (u['domaine_application'] as String?)?.trim();
+      byDomain
+          .putIfAbsent(domain == null || domain.isEmpty ? 'Autres' : domain,
+              () => [])
+          .add(u);
+    }
+    final singleDomain = byDomain.length == 1;
+    return byDomain.entries
+        .map((entry) => Theme(
+              // Retire le Divider par défaut de l'ExpansionTile pour ne
+              // pas ajouter une ligne de séparation visible de plus.
+              data: theme.copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                initiallyExpanded: singleDomain,
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: 4),
+                title: Text('${entry.key} (${entry.value.length})',
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                children:
+                    entry.value.map((u) => _buildUsageCard(theme, u)).toList(),
+              ),
+            ))
+        .toList();
+  }
+
+  Widget _buildUsageCard(ThemeData theme, Map<String, dynamic> u) {
+    final title = (u['technique_methode'] as String?)?.trim();
+    final tempOrTemps =
+        (u['temperature_utilisation'] as String?)?.isNotEmpty == true ||
+            (u['temps_action'] as String?)?.isNotEmpty == true;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                      title == null || title.isEmpty ? 'Sans titre' : title,
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                ),
+                if (u['a_verifier_labo'] == true)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text('⚠️ À vérifier en labo',
+                        style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            _buildDosageBadge(theme, u),
+            if (tempOrTemps) ...[
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 16,
+                runSpacing: 4,
+                children: [
+                  if ((u['temperature_utilisation'] as String?)
+                          ?.isNotEmpty ==
+                      true)
+                    _miniIconText(theme, Icons.thermostat_outlined,
+                        u['temperature_utilisation'] as String),
+                  if ((u['temps_action'] as String?)?.isNotEmpty == true)
+                    _miniIconText(theme, Icons.timer_outlined,
+                        u['temps_action'] as String),
+                ],
+              ),
+            ],
+            if ((u['source_reference'] as String?)?.isNotEmpty == true) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.link, size: 14, color: theme.colorScheme.outline),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(u['source_reference'] as String,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.outline)),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Badge de dosage coloré selon le type (06/08) — la couleur donne un
+  /// repère visuel rapide du type de dosage sans avoir à lire le texte.
+  /// Réutilise `_formatDosage()` pour le texte (gère aussi le repli sur
+  /// `dosage_legacy` pour les usages saisis avant la migration phase85).
+  Widget _buildDosageBadge(ThemeData theme, Map<String, dynamic> u) {
+    final type = u['dosage_type'] as String?;
+    final text = _formatDosage(u);
+    Color bg;
+    Color fg;
+    switch (type) {
+      case 'plage':
+        bg = theme.colorScheme.primaryContainer;
+        fg = theme.colorScheme.onPrimaryContainer;
+        break;
+      case 'valeur_unique':
+        bg = theme.colorScheme.secondaryContainer;
+        fg = theme.colorScheme.onSecondaryContainer;
+        break;
+      case 'dilution':
+        bg = theme.colorScheme.tertiaryContainer;
+        fg = theme.colorScheme.onTertiaryContainer;
+        break;
+      default:
+        bg = theme.colorScheme.surfaceContainerHighest;
+        fg = theme.colorScheme.onSurfaceVariant;
+        break;
+    }
+    final isEmpty = text == null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isEmpty ? theme.colorScheme.surfaceContainerHighest : bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(text ?? 'Dosage non spécifié',
+          style: TextStyle(
+              color: isEmpty ? theme.colorScheme.outline : fg,
+              fontWeight: FontWeight.w600,
+              fontSize: 12)),
+    );
+  }
+
+  Widget _miniIconText(ThemeData theme, IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: theme.colorScheme.outline),
+        const SizedBox(width: 4),
+        Text(text, style: theme.textTheme.bodySmall),
+      ],
+    );
   }
 
   Widget _buildGallery(ThemeData theme) {

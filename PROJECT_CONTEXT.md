@@ -7590,3 +7590,31 @@ effort — si rien n'est détecté, le texte brut reste affiché sans badge.
   sécurité.
 - **Particularité** : passée d'un simple paragraphe à une chip
   `tertiaryContainer`.
+
+### Usages détaillés groupés par domaine avec accordéon (06/08)
+
+Nouvelle proposition DeepSeek (`UsagesCard`) — mêmes corrections que
+les précédentes (Map au lieu de modèles typés, pas de Card/en-tête
+externe supplémentaire, garde juste le libellé "Usages détaillés" déjà
+existant dans le flux). Correction de fond : le prompt supposait un
+badge dilution "$dosageMin:$dosageMax" (numérique), alors que la
+dilution est stockée en texte libre (`dosage_texte`, ex : "1:10") côté
+admin depuis la Phase 85 — utilisé tel quel.
+
+- **Regroupement par domaine** (`_buildUsagesGrouped`) : les usages
+  sont désormais groupés par `domaine_application` dans un
+  `ExpansionTile` par domaine (replié par défaut, sauf un seul domaine
+  — alors ouvert), avec le nombre d'usages dans le titre (ex :
+  "Savonnerie (3)"). Les usages sans domaine tombent sous "Autres".
+  Le `Divider` par défaut de l'`ExpansionTile` est masqué
+  (`dividerColor: Colors.transparent`) pour ne pas ajouter une ligne de
+  séparation visible de plus.
+- **Carte d'usage** (`_buildUsageCard`) : titre = `technique_methode`
+  (repli "Sans titre"), badge "⚠️ À vérifier en labo" si coché, badge
+  de dosage coloré par type (`_buildDosageBadge` — primaryContainer/
+  secondaryContainer/tertiaryContainer/surfaceContainerHighest selon
+  plage/valeur unique/dilution/texte libre, "Dosage non spécifié" en
+  gris si incomplet), ligne icônes température/temps d'action, source
+  en texte discret avec icône lien.
+- Message "Aucun usage documenté pour cette matière." si la liste est
+  vide (auparavant la section disparaissait silencieusement).
