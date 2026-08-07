@@ -7863,3 +7863,29 @@ documenté.
   (dégraissage, dilution, extraction) plutôt que sur la désinfection
   pour l'IPA et l'Éthanol (déjà documentés sous cet angle dans la
   catégorie Désinfectants, sous un autre `matiere_premiere_id`).
+
+### Catégorie "Charges Minérales" (07/08) ✅ TERMINÉE (25/25)
+
+Sixième catégorie entièrement documentée. Ne comptait initialement
+que 9 produits (Bentonite œnologique, Céramique filtrante, Charbon
+actif vrac, Charbon actif œnologique, Diatomite/Kieselguhr, Sel
+alimentaire raffiné, Sel de table, Silice colloïdale, Sulfate de
+sodium), aucun documenté.
+
+- **`phase111`** : ajout de 16 nouvelles charges minérales (stock
+  `'rupture'`, prix `null`) : Talc, Kaolin, Mica, Illite, Rhassoul,
+  Perlite expansée, Vermiculite expansée, Zéolithe naturelle,
+  Dolomie, Gypse, Sulfate de baryum, Phosphate tricalcique, Pierre
+  ponce, Graphite, Oxyde de zinc, Oxyde de magnésium.
+  - **Diligence sécurité/doublon** : 2 produits proposés par DeepSeek
+    ont été volontairement exclus : Terre d'infusoires (quasi-doublon
+    de la "Diatomite/Kieselguhr" déjà au catalogue) et Sable de
+    quartz (silice cristalline respirable, cancérogène avéré IARC
+    groupe 1). Décision de l'utilisatrice suivant la recommandation.
+- **`phase112`** : fiches Académie pour les 16 nouveaux produits.
+- **`phase113`** : fiches Académie pour les 9 produits déjà présents
+  avant la campagne. La Diatomite/Kieselguhr (déjà au catalogue,
+  contrairement au Sable de quartz exclu en phase111) contient
+  potentiellement de la silice cristalline libre — documentée avec
+  H350i et EPI renforcés (masque FFP2) plutôt qu'exclue, car c'est un
+  produit déjà commercialisé par l'utilisatrice, pas un nouvel ajout.
