@@ -315,7 +315,7 @@ class _RawMaterialEditorScreenState
       _academieUsages.add({
         'domaine_application': '',
         'technique_methode': '',
-        'dosage_concentration': '',
+        'dosage_legacy': '',
         'a_verifier_labo': false,
       });
     });
@@ -628,14 +628,13 @@ class _RawMaterialEditorScreenState
                         : (validAcademieUsages[i]['technique_methode']
                                 as String)
                             .trim(),
-                'dosage_concentration': (validAcademieUsages[i]
-                                ['dosage_concentration'] as String? ??
+                'dosage_legacy': (validAcademieUsages[i]['dosage_legacy']
+                                as String? ??
                             '')
                         .trim()
                         .isEmpty
                     ? null
-                    : (validAcademieUsages[i]['dosage_concentration']
-                            as String)
+                    : (validAcademieUsages[i]['dosage_legacy'] as String)
                         .trim(),
                 'a_verifier_labo':
                     validAcademieUsages[i]['a_verifier_labo'] == true,
@@ -1076,13 +1075,13 @@ class _RawMaterialEditorScreenState
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
-                      initialValue: _academieUsages[i]['dosage_concentration']
-                          as String?,
+                      initialValue:
+                          _academieUsages[i]['dosage_legacy'] as String?,
                       decoration: const InputDecoration(
                           labelText: 'Dosage / concentration (ex : 1-5%)',
                           isDense: true),
                       onChanged: (v) =>
-                          _academieUsages[i]['dosage_concentration'] = v,
+                          _academieUsages[i]['dosage_legacy'] = v,
                     ),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,

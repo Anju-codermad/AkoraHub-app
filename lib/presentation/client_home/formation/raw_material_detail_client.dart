@@ -419,8 +419,8 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                       ),
                       if ((u['technique_methode'] as String?)?.isNotEmpty == true)
                         Text(u['technique_methode']),
-                      if ((u['dosage_concentration'] as String?)?.isNotEmpty == true)
-                        Text('Dosage : ${u['dosage_concentration']}',
+                      if ((u['dosage_legacy'] as String?)?.isNotEmpty == true)
+                        Text('Dosage : ${u['dosage_legacy']}',
                             style: theme.textTheme.bodySmall),
                     ],
                   ),
