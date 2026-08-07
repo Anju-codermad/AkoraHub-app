@@ -4,9 +4,9 @@
 -- vérifié par l'utilisatrice
 -- À exécuter une seule fois : Supabase Dashboard -> SQL Editor -> New query
 --
--- Contrairement à phase87 (soude caustique), cette matière n'a pas
--- encore de fiche Académie en base — ce script la CRÉE entièrement
--- (insert, pas update). Pas besoin d'ouvrir la fiche dans l'app avant.
+-- ⚠️ 07/08 : converti en upsert — une fiche Académie existait déjà
+-- pour cette matière (créée par une session précédente), le insert
+-- brut échouait sur la contrainte unique (matiere_premiere_id).
 -- ============================================================
 
 do $$
@@ -44,7 +44,34 @@ begin
     24,
     'a_valider'
   )
+  on conflict (matiere_premiere_id) do update set
+    nom_chimique = excluded.nom_chimique,
+    synonymes = excluded.synonymes,
+    aspect = excluded.aspect,
+    ph_solution = excluded.ph_solution,
+    solubilite = excluded.solubilite,
+    particularite = excluded.particularite,
+    difference_produit_similaire = excluded.difference_produit_similaire,
+    niveau_danger = excluded.niveau_danger,
+    epi_requis = excluded.epi_requis,
+    notes_epi = excluded.notes_epi,
+    premiers_secours = excluded.premiers_secours,
+    incompatibilites = excluded.incompatibilites,
+    consignes_stockage = excluded.consignes_stockage,
+    temperature_stockage_min = excluded.temperature_stockage_min,
+    temperature_stockage_max = excluded.temperature_stockage_max,
+    sensible_humidite = excluded.sensible_humidite,
+    sensible_lumiere = excluded.sensible_lumiere,
+    duree_conservation_mois = excluded.duree_conservation_mois,
+    updated_at = now()
   returning id into v_academie_id;
+
+  -- Repart de zéro pour les usages et les phrases H/P (au cas où une
+  -- fiche précédente en avait déjà, pour ne pas se retrouver avec des
+  -- doublons ou des sélections obsolètes).
+  delete from public.matieres_premieres_usages where academie_id = v_academie_id;
+  delete from public.academie_phrases_h where academie_id = v_academie_id;
+  delete from public.academie_phrases_p where academie_id = v_academie_id;
 
   -- Phrases H suggérées par DeepSeek, vérifiées par l'utilisatrice
   insert into public.academie_phrases_h (academie_id, phrase_h_id)
