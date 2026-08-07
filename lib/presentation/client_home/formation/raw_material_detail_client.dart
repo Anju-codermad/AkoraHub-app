@@ -77,6 +77,36 @@ String _phLabel(double ph) {
   return 'Basique fort';
 }
 
+/// Ligne badge-code + texte pour une phrase H/P — un `Chip` classique
+/// force tout sur une seule ligne et déborde de l'écran dès que le
+/// texte de la phrase est long (ce qui est la norme pour les phrases
+/// H/P) ; ici seul le code est dans un badge de taille fixe, le texte
+/// complet est dans un `Expanded` qui passe à la ligne normalement.
+Widget _phraseRow(
+    ThemeData theme, Map<String, dynamic> p, Color bg, Color fg) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration:
+              BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+          child: Text(p['code'] as String? ?? '',
+              style: TextStyle(
+                  color: fg, fontWeight: FontWeight.w600, fontSize: 12)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(p['texte'] as String? ?? '',
+              style: theme.textTheme.bodySmall),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Ligne icône + texte réutilisée pour les infos sécurité/stockage
 /// courtes (premiers secours, incompatibilités, stockage structuré...).
 Widget _iconTextRow(ThemeData theme, IconData icon, String text,
@@ -489,17 +519,16 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
           _iconTextRow(theme, Icons.local_fire_department_outlined,
               'Point d\'éclair : ${sheet['point_eclair']} °C'),
         if ((sheet['particularite'] as String?)?.isNotEmpty == true) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Chip(
-                label: Text(sheet['particularite'] as String,
-                    style: TextStyle(
-                        color: theme.colorScheme.onTertiaryContainer)),
-                backgroundColor: theme.colorScheme.tertiaryContainer,
-              ),
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Text(sheet['particularite'] as String,
+                style:
+                    TextStyle(color: theme.colorScheme.onTertiaryContainer)),
           ),
         ],
         field('Différence avec un produit similaire',
@@ -566,23 +595,13 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
           SizedBox(height: 1.5.h),
         ],
         if (phrasesH.isNotEmpty || phrasesP.isNotEmpty) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ...phrasesH.map((p) => Chip(
-                    label: Text('${p['code']} ${p['texte'] ?? ''}',
-                        style: TextStyle(color: theme.colorScheme.onError)),
-                    backgroundColor: theme.colorScheme.error,
-                  )),
-              ...phrasesP.map((p) => Chip(
-                    label: Text('${p['code']} ${p['texte'] ?? ''}',
-                        style: TextStyle(
-                            color: theme.colorScheme.onSecondaryContainer)),
-                    backgroundColor: theme.colorScheme.secondaryContainer,
-                  )),
-            ],
-          ),
+          ...phrasesH.map((p) => _phraseRow(theme, p, theme.colorScheme.error,
+              theme.colorScheme.onError)),
+          ...phrasesP.map((p) => _phraseRow(
+              theme,
+              p,
+              theme.colorScheme.secondaryContainer,
+              theme.colorScheme.onSecondaryContainer)),
           SizedBox(height: 1.5.h),
         ],
         if (epi.isNotEmpty) ...[

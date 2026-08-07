@@ -7658,3 +7658,18 @@ vraiment nouveaux ont été ajoutés, plus deux corrections :
   chimique, nom commun, aspect, pH, solubilité, niveau de danger, au
   moins un pictogramme, au moins un EPI) — pour prioriser le travail de
   rédaction entre fiches.
+
+### Fix : débordement des Chips longues (Particularité, phrases H/P) (07/08)
+
+Repéré sur la fiche client de la soude caustique (première fois qu'une
+fiche complète avec du vrai contenu long était affichée) : le texte de
+"Particularité" et des phrases H/P déborde de l'écran au lieu de passer
+à la ligne — un `Chip` ne wrap pas son contenu, il force tout sur une
+ligne et grandit hors de l'écran si le texte est long (ce qui est la
+norme pour une phrase P complète). Corrigé :
+- **Particularité** : `Chip` → `Container` + `Text` classique (wrap
+  normal), toujours teinté `tertiaryContainer`.
+- **Phrases H/P** : `Chip` → nouvelle fonction `_phraseRow()` — seul le
+  code (ex : "H314") reste dans un badge de taille fixe, le texte
+  complet de la phrase est dans un `Expanded` qui wrap normalement à la
+  suite. Remplace le `Wrap` de chips par une simple liste de lignes.
