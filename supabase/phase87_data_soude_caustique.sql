@@ -13,18 +13,18 @@
 -- actuellement ouvert dans l'app (son état local ne connaît pas ces
 -- nouvelles valeurs et écraserait ce script). Quittez l'écran et
 -- rouvrez la fiche pour voir le contenu à jour.
+--
+-- ⚠️ 07/08 : id ciblé directement (au lieu d'une recherche par nom) —
+-- il existe deux matières nommées "Soude caustique..." en base
+-- (probablement un doublon), la recherche par nom tombait sur la
+-- mauvaise et n'avait pas de fiche Académie enregistrée.
 -- ============================================================
 
 do $$
 declare
-  v_material_id uuid;
+  v_material_id uuid := 'fe71d1cb-6af9-4c80-ae72-840f8b358725'::uuid;
   v_academie_id uuid;
 begin
-  select id into v_material_id
-  from public.raw_materials
-  where name ilike 'Soude caustique%'
-  limit 1;
-
   if v_material_id is null then
     raise exception 'Matière "Soude caustique" introuvable — vérifiez le nom exact dans raw_materials.';
   end if;
