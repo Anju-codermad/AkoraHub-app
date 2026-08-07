@@ -7740,6 +7740,40 @@ de 17 chélatants courants demandée à DeepSeek.
   "EDTA / Sequestrant" (nom générique) et à "EDTA disodique (E385)",
   la forme disodique étant la plus courante pour un nom non spécifié.
 
+### Catégorie "Épaississants" (07/08) ✅ TERMINÉE (32/33)
+
+Quatrième catégorie documentée. Comptait déjà 22 produits d'origine
+(contrairement à Chélatants/Désinfectants qui étaient presque vides) —
+même démarche d'élargissement DeepSeek appliquée avant documentation,
+en filtrant strictement les doublons de catégorie.
+
+- **Tri appliqué à la liste DeepSeek** avant `phase102` : écartés
+  volontairement les produits relevant d'autres catégories déjà
+  existantes dans le catalogue (Bentonite/Silice colloïdale/Kaolin/
+  Laponite → "Charges Minérales" ; Cires/Acides gras → "Huiles &
+  Beurres Cosmétiques" ; Carbomères/PVA/PVP/PEG → "Polymères &
+  Résines") ainsi que les sucres/polyols et protéines jugés hors sujet
+  ou trop niches — pour éviter les doublons inter-catégories qui se
+  seraient reproduits à chaque campagne suivante.
+- **`phase102`** : 10 nouveaux produits ajoutés (gommes/celluloses
+  sans chevauchement) ; **`phase104`** : 1 produit bonus ajouté après
+  coup (Alginate de propylène glycol, PGA, E405 — proposé par
+  DeepSeek en plus de la liste demandée, catalogue + fiche en un seul
+  script car contenu déjà disponible).
+- **`phase103`+`phase105`** : fiches Académie des 11 nouveaux
+  produits — phase105 séparée car DeepSeek n'avait pas fourni le
+  contenu de l'Éthylcellulose dans le lot initial (demande de
+  rattrapage ciblée).
+- **`phase106`+`phase107`** : fiches Académie des 22 produits
+  d'origine, en 2 lots (9 + 9, CMC et Pectine appliqués à leurs
+  variantes catalogue respectives via boucle `for`). Le contenu
+  "Pectine HM" a aussi été appliqué à l'entrée générique "Pectine"
+  (nom non spécifié = forme la plus courante).
+- **Volontairement non documenté** : "Stabilisateur glace (combo
+  gommes)" — pas une substance propre mais un mélange des gommes déjà
+  documentées (LBG, guar, carraghénane...), aucune fiche Académie
+  séparée nécessaire.
+
 ### Catégorie "Désinfectants" (07/08) ✅ TERMINÉE (16/16)
 
 Troisième catégorie entièrement documentée, même démarche que
