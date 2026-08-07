@@ -7829,3 +7829,37 @@ de Javel, Peroxyde d'hydrogène alimentaire, TCCA).
     fiche Académie complète. Prochaine étape (si l'utilisatrice
     valide) : étendre la même démarche aux autres catégories chimiques
     du catalogue.
+
+### Catégorie "Solvants" (07/08) ✅ TERMINÉE (23/23)
+
+Cinquième catégorie entièrement documentée. Ne comptait initialement
+que 7 produits (Alcool benzylique, Alcool cétylique, Alcool dénaturé,
+Alcool isopropylique/IPA, Éthanol, Méthanol, Propylène glycol), aucun
+documenté.
+
+- **Vérification DeepSeek préalable** : prompt explicitement construit
+  pour exclure les esters/acétates et les produits déjà présents,
+  afin d'éviter toute duplication inter-catégories dès la génération
+  (affinement du processus par rapport aux campagnes précédentes, où
+  ce filtrage se faisait après coup).
+- **`phase108`** : ajout de 16 nouveaux produits (stock `'rupture'`,
+  prix `null`) : Acétone, White spirit, Butylène glycol, Dipropylène
+  glycol, D-Limonène, Essence de térébenthine, Méthyléthylcétone (MEK),
+  Propylène glycol monométhyl éther (PGME), Xylène, n-Hexane,
+  Isoparaffine, Carbonate de propylène, Éther diéthylique,
+  Éthoxydiglycol (Transcutol), Cyclohexane, DMSO.
+  - **Diligence sécurité** : 3 produits proposés par DeepSeek
+    présentaient un risque santé/réglementaire notable (Xylène —
+    reprotoxique ; n-Hexane — neurotoxique, restreint REACH ; Éther
+    diéthylique — peroxydes explosifs). Signalés explicitement à
+    l'utilisatrice avant ajout ; elle a choisi de les inclure quand
+    même, avec grade strict `'Technique'` et avertissements renforcés
+    dans leur fiche (usage réservé à un personnel formé, ventilation
+    renforcée, substitution recommandée, contrôle périodique des
+    peroxydes pour l'éther).
+- **`phase109`** : fiches Académie pour les 16 nouveaux produits.
+- **`phase110`** : fiches Académie pour les 7 produits déjà présents
+  avant la campagne, avec des usages recentrés sur le rôle de solvant
+  (dégraissage, dilution, extraction) plutôt que sur la désinfection
+  pour l'IPA et l'Éthanol (déjà documentés sous cet angle dans la
+  catégorie Désinfectants, sous un autre `matiere_premiere_id`).
