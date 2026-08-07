@@ -7544,3 +7544,29 @@ template de fiche technique, extension importante du schéma Académie :
   badges sensibilité humidité/lumière, durée de conservation, notes
   EPI — toujours dans le même flux continu, sans nouvelle séparation
   visuelle.
+
+### Affinage visuel de la section sécurité (06/08)
+
+Sur la base d'une proposition DeepSeek (`SafetyCard` avec modèles
+typés `AcademieData`/`DangerPictogram`/`PhraseH`/`PhraseP` — n'existent
+pas dans le code, resté 100% `Map<String, dynamic>`, comme partout
+ailleurs dans l'app — et enveloppé dans une `Card` avec en-tête
+"Sécurité", ce qui aurait recréé la séparation visuelle explicitement
+supprimée plus tôt), reprise du contenu utile SANS Card/en-tête,
+intégré directement dans le flux continu de `_buildAcademieSection` :
+
+- **Pictogrammes SGH** : vignettes 44x44 (`Image.network` si
+  `image_url` renseigné, sinon icône `Icons.warning_amber` rouge —
+  aucune image n'est hébergée pour l'instant, donc toujours l'icône en
+  pratique), avec `Tooltip` code + nom.
+- **Phrases H/P** : chips colorées (H = fond `colorScheme.error`, P =
+  fond `colorScheme.secondaryContainer`), au lieu de simples lignes de
+  texte.
+- **Niveau de danger** : badge dont la couleur varie selon la sévérité
+  (`_dangerLevelColor()` — rouge Corrosif, orange Élevé, ambre Modéré,
+  gris sinon), au lieu d'un encart toujours rouge.
+- **EPI** : icône spécifique par type avec `Tooltip` (`_epiIcon()`,
+  approximations Material faute d'icônes EPI dédiées), au lieu d'une
+  icône bouclier générique. Notes EPI affichées juste en dessous.
+- **Premiers secours/Incompatibilités/stockage structuré** : lignes
+  icône + texte (`_iconTextRow()`) au lieu de simples paragraphes.

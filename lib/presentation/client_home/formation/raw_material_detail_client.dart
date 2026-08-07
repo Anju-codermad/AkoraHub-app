@@ -40,6 +40,62 @@ String? _formatDosage(Map<String, dynamic> u) {
   return (legacy == null || legacy.isEmpty) ? null : legacy;
 }
 
+/// Couleur du badge "Niveau de danger" selon la sévérité (06/08) — les 4
+/// valeurs possibles sont `_academieNiveauxDanger` côté admin
+/// (raw_material_editor_screen.dart).
+Color _dangerLevelColor(String? niveau) {
+  switch (niveau) {
+    case 'Corrosif':
+      return Colors.red;
+    case 'Élevé':
+      return Colors.deepOrange;
+    case 'Modéré':
+      return Colors.amber.shade800;
+    default:
+      return Colors.grey;
+  }
+}
+
+/// Icône Material approximant chaque type d'EPI (aucune icône dédiée
+/// "gants"/"bottes" n'existe dans Material Symbols) — mêmes libellés que
+/// `_academieEpiSuggestions` côté admin.
+IconData _epiIcon(String epi) {
+  switch (epi) {
+    case 'gants':
+      return Icons.back_hand_outlined;
+    case 'lunettes':
+      return Icons.visibility_outlined;
+    case 'masque':
+      return Icons.masks_outlined;
+    case 'ventilation':
+      return Icons.air;
+    case 'tablier':
+      return Icons.checkroom_outlined;
+    case 'bottes':
+      return Icons.hiking_outlined;
+    default:
+      return Icons.shield_outlined;
+  }
+}
+
+/// Ligne icône + texte réutilisée pour les infos sécurité/stockage
+/// courtes (premiers secours, incompatibilités, stockage structuré...).
+Widget _iconTextRow(ThemeData theme, IconData icon, String text,
+    {Color? color}) {
+  final c = color ?? theme.colorScheme.primary;
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: c),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text)),
+      ],
+    ),
+  );
+}
+
 /// Fiche détaillée d'une matière première, réservée à ceux qui l'ont
 /// achetée (la RLS de `raw_materials` — phase45_patch_formation_per_product_pricing.sql
 /// — bloque déjà l'accès serveur ; cet écran affiche un message clair
@@ -345,6 +401,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
     final sensibleHumidite = sheet['sensible_humidite'] as bool? ?? false;
     final sensibleLumiere = sheet['sensible_lumiere'] as bool? ?? false;
     final dureeConservation = sheet['duree_conservation_mois'] as num?;
+    final niveauColor = _dangerLevelColor(sheet['niveau_danger'] as String?);
     Widget field(String label, String? value) {
       if (value == null || value.isEmpty) return const SizedBox.shrink();
       return Padding(
@@ -398,25 +455,30 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.08),
+              color: niveauColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+              border: Border.all(color: niveauColor.withValues(alpha: 0.4)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.warning_amber_outlined,
-                    color: Colors.red, size: 20),
+                Icon(Icons.warning_amber_outlined,
+                    color: niveauColor, size: 20),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Niveau de danger / précaution',
-                          style: theme.textTheme.labelLarge
-                              ?.copyWith(color: Colors.red)),
-                      Text(sheet['niveau_danger'] as String),
-                    ],
+                Text('Niveau de danger / précaution : ',
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(color: niveauColor)),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: niveauColor,
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  child: Text(sheet['niveau_danger'] as String,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12)),
                 ),
               ],
             ),
@@ -424,42 +486,50 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         ],
         if (pictograms.isNotEmpty) ...[
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: pictograms
-                .map((p) => Chip(
-                      avatar: const Icon(Icons.warning_amber_outlined,
-                          size: 16, color: Colors.red),
-                      label: Text('${p['code']} · ${p['nom'] ?? ''}'),
-                      backgroundColor: Colors.red.withValues(alpha: 0.08),
-                    ))
-                .toList(),
+            spacing: 10,
+            runSpacing: 10,
+            children: pictograms.map((p) {
+              final imageUrl = p['image_url'] as String?;
+              return Tooltip(
+                message: '${p['code']} · ${p['nom'] ?? ''}',
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: (imageUrl != null && imageUrl.isNotEmpty)
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stack) =>
+                              const Icon(Icons.warning_amber,
+                                  color: Colors.red, size: 36),
+                        )
+                      : const Icon(Icons.warning_amber,
+                          color: Colors.red, size: 36),
+                ),
+              );
+            }).toList(),
           ),
           SizedBox(height: 1.5.h),
         ],
-        if (phrasesH.isNotEmpty) ...[
-          Text('Phrases de danger (H)',
-              style: theme.textTheme.labelLarge
-                  ?.copyWith(color: theme.colorScheme.primary)),
-          SizedBox(height: 0.5.h),
-          ...phrasesH.map((p) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text('${p['code']} — ${p['texte'] ?? ''}',
-                    style: theme.textTheme.bodySmall),
-              )),
-          SizedBox(height: 1.h),
-        ],
-        if (phrasesP.isNotEmpty) ...[
-          Text('Phrases de précaution (P)',
-              style: theme.textTheme.labelLarge
-                  ?.copyWith(color: theme.colorScheme.primary)),
-          SizedBox(height: 0.5.h),
-          ...phrasesP.map((p) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text('${p['code']} — ${p['texte'] ?? ''}',
-                    style: theme.textTheme.bodySmall),
-              )),
-          SizedBox(height: 1.h),
+        if (phrasesH.isNotEmpty || phrasesP.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ...phrasesH.map((p) => Chip(
+                    label: Text('${p['code']} ${p['texte'] ?? ''}',
+                        style: TextStyle(color: theme.colorScheme.onError)),
+                    backgroundColor: theme.colorScheme.error,
+                  )),
+              ...phrasesP.map((p) => Chip(
+                    label: Text('${p['code']} ${p['texte'] ?? ''}',
+                        style: TextStyle(
+                            color: theme.colorScheme.onSecondaryContainer)),
+                    backgroundColor: theme.colorScheme.secondaryContainer,
+                  )),
+            ],
+          ),
+          SizedBox(height: 1.5.h),
         ],
         if (epi.isNotEmpty) ...[
           Text('EPI requis',
@@ -467,49 +537,53 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                   ?.copyWith(color: theme.colorScheme.primary)),
           SizedBox(height: 0.5.h),
           Wrap(
-            spacing: 8,
+            spacing: 16,
             runSpacing: 8,
             children: epi
-                .map((e) => Chip(
-                      avatar: const Icon(Icons.shield_outlined, size: 16),
-                      label: Text(e),
+                .map((e) => Tooltip(
+                      message: e,
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor:
+                            theme.colorScheme.primary.withValues(alpha: 0.1),
+                        child: Icon(_epiIcon(e),
+                            size: 18, color: theme.colorScheme.primary),
+                      ),
                     ))
                 .toList(),
           ),
+          if ((sheet['notes_epi'] as String?)?.isNotEmpty == true) ...[
+            SizedBox(height: 0.5.h),
+            Text(sheet['notes_epi'] as String,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(fontStyle: FontStyle.italic)),
+          ],
           SizedBox(height: 1.5.h),
         ],
-        field('Notes EPI', sheet['notes_epi'] as String?),
-        field('Premiers secours', sheet['premiers_secours'] as String?),
-        field('Incompatibilités', sheet['incompatibilites'] as String?),
+        if ((sheet['premiers_secours'] as String?)?.isNotEmpty == true)
+          _iconTextRow(theme, Icons.medical_services_outlined,
+              sheet['premiers_secours'] as String),
+        if ((sheet['incompatibilites'] as String?)?.isNotEmpty == true)
+          _iconTextRow(theme, Icons.warning_amber_outlined,
+              sheet['incompatibilites'] as String,
+              color: theme.colorScheme.error),
         field('Stockage', sheet['stockage'] as String?),
-        if (tempMin != null || tempMax != null) ...[
-          field(
-              'Température de stockage',
+        if (tempMin != null || tempMax != null)
+          _iconTextRow(
+              theme,
+              Icons.thermostat_outlined,
               tempMin != null && tempMax != null
-                  ? '$tempMin °C – $tempMax °C'
-                  : '${tempMin ?? tempMax} °C'),
-        ],
-        if (sensibleHumidite || sensibleLumiere) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (sensibleHumidite)
-                const Chip(
-                  avatar: Icon(Icons.water_drop_outlined, size: 16),
-                  label: Text('Sensible à l\'humidité'),
-                ),
-              if (sensibleLumiere)
-                const Chip(
-                  avatar: Icon(Icons.wb_sunny_outlined, size: 16),
-                  label: Text('Sensible à la lumière'),
-                ),
-            ],
-          ),
-          SizedBox(height: 1.h),
-        ],
-        field('Durée de conservation',
-            dureeConservation != null ? '$dureeConservation mois' : null),
+                  ? 'Stockage : $tempMin°C à $tempMax°C'
+                  : 'Stockage : ${tempMin ?? tempMax}°C'),
+        if (sensibleHumidite)
+          _iconTextRow(
+              theme, Icons.water_drop_outlined, 'Sensible à l\'humidité'),
+        if (sensibleLumiere)
+          _iconTextRow(theme, Icons.light_mode_outlined,
+              'Sensible à la lumière'),
+        if (dureeConservation != null)
+          _iconTextRow(theme, Icons.timer_outlined,
+              'Conservation : $dureeConservation mois'),
         if (usages.isNotEmpty) ...[
           SizedBox(height: 1.h),
           Text('Usages détaillés', style: theme.textTheme.titleMedium),
