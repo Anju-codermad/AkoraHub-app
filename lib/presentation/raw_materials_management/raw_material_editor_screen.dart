@@ -8,6 +8,28 @@ import 'package:sizer/sizer.dart';
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 
+/// Nettoie une valeur texte issue d'une Map d'usage Académie : retourne
+/// `null` si absente/vide plutôt qu'une chaîne vide, pour rester
+/// cohérent avec les colonnes nullable de matieres_premieres_usages.
+String? _cleanUsageStr(dynamic v) {
+  final s = (v as String?)?.trim();
+  return (s == null || s.isEmpty) ? null : s;
+}
+
+const List<String> _academieDosageTypes = [
+  'plage',
+  'valeur_unique',
+  'dilution',
+  'texte_libre',
+];
+
+const Map<String, String> _academieDosageTypeLabels = {
+  'plage': 'Plage (min-max)',
+  'valeur_unique': 'Valeur unique',
+  'dilution': 'Dilution (ratio)',
+  'texte_libre': 'Texte libre',
+};
+
 const List<String> _academieEpiSuggestions = [
   'gants',
   'lunettes',
@@ -140,8 +162,29 @@ class _RawMaterialEditorScreenState
   final _academieStockageCtrl = TextEditingController();
   String? _academieNiveauDanger;
   final Set<String> _academieEpiRequis = {};
+  final _academieNotesEpiCtrl = TextEditingController();
   String _academieStatutVerification = 'a_valider';
   List<Map<String, dynamic>> _academieUsages = [];
+
+  // Champs physico-chimiques/stockage (phase85) — tous optionnels.
+  final _academieDensiteCtrl = TextEditingController();
+  final _academiePointEclairCtrl = TextEditingController();
+  final _academieTempStockageMinCtrl = TextEditingController();
+  final _academieTempStockageMaxCtrl = TextEditingController();
+  bool _academieSensibleHumidite = false;
+  bool _academieSensibleLumiere = false;
+  final _academieDureeConservationCtrl = TextEditingController();
+
+  // Pictogrammes SGH et phrases H/P (phase85) — catalogues de référence
+  // partagés entre toutes les fiches (lecture publique), sélection
+  // propre à chaque fiche via les tables de liaison academie_pictograms/
+  // academie_phrases_h/academie_phrases_p.
+  List<Map<String, dynamic>> _allPictograms = [];
+  final Set<String> _academiePictogramIds = {};
+  List<Map<String, dynamic>> _allPhrasesH = [];
+  final Set<String> _academiePhraseHIds = {};
+  List<Map<String, dynamic>> _allPhrasesP = [];
+  final Set<String> _academiePhrasePIds = {};
   List<String> _knownAcademieDomains = List<String>.from(kAcademieUsageDomains);
   // Fiches Académie existantes (autres matières) dont on peut copier les
   // réglages sécurité (grade, danger, EPI, premiers secours,
@@ -171,6 +214,17 @@ class _RawMaterialEditorScreenState
       _academieIncompatibilitesCtrl.text.trim().isNotEmpty ||
       _academieStockageCtrl.text.trim().isNotEmpty ||
       _academieStatutVerification != 'a_valider' ||
+      _academieNotesEpiCtrl.text.trim().isNotEmpty ||
+      _academieDensiteCtrl.text.trim().isNotEmpty ||
+      _academiePointEclairCtrl.text.trim().isNotEmpty ||
+      _academieTempStockageMinCtrl.text.trim().isNotEmpty ||
+      _academieTempStockageMaxCtrl.text.trim().isNotEmpty ||
+      _academieSensibleHumidite ||
+      _academieSensibleLumiere ||
+      _academieDureeConservationCtrl.text.trim().isNotEmpty ||
+      _academiePictogramIds.isNotEmpty ||
+      _academiePhraseHIds.isNotEmpty ||
+      _academiePhrasePIds.isNotEmpty ||
       _academieUsages.any((u) =>
           (u['domaine_application'] as String? ?? '').trim().isNotEmpty);
 
@@ -203,6 +257,12 @@ class _RawMaterialEditorScreenState
     _academiePremiersSecoursCtrl.dispose();
     _academieIncompatibilitesCtrl.dispose();
     _academieStockageCtrl.dispose();
+    _academieNotesEpiCtrl.dispose();
+    _academieDensiteCtrl.dispose();
+    _academiePointEclairCtrl.dispose();
+    _academieTempStockageMinCtrl.dispose();
+    _academieTempStockageMaxCtrl.dispose();
+    _academieDureeConservationCtrl.dispose();
     super.dispose();
   }
 
@@ -219,6 +279,25 @@ class _RawMaterialEditorScreenState
 
       _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
       _nameSuggestions = List<Map<String, dynamic>>.from(results[1] as List);
+
+      // Catalogues pictogrammes SGH + phrases H/P (phase85/86) — lecture
+      // publique, indépendante de la matière première éditée.
+      try {
+        final catalogResults = await Future.wait<dynamic>([
+          SupabaseConfig.client.from('danger_pictograms').select().order('code'),
+          SupabaseConfig.client.from('phrases_h').select().order('code'),
+          SupabaseConfig.client.from('phrases_p').select().order('code'),
+        ]);
+        _allPictograms =
+            List<Map<String, dynamic>>.from(catalogResults[0] as List);
+        _allPhrasesH =
+            List<Map<String, dynamic>>.from(catalogResults[1] as List);
+        _allPhrasesP =
+            List<Map<String, dynamic>>.from(catalogResults[2] as List);
+      } catch (_) {
+        // Migration phase85/86 pas encore exécutée — sections masquées
+        // (voir build, listes vides).
+      }
       _selectedUnitId ??=
           _businessUnits.isNotEmpty ? _businessUnits.first['id'] : null;
 
@@ -294,13 +373,66 @@ class _RawMaterialEditorScreenState
           _academieEpiRequis
             ..clear()
             ..addAll(List<String>.from(sheet['epi_requis'] as List? ?? []));
+          _academieNotesEpiCtrl.text = sheet['notes_epi'] as String? ?? '';
+          _academieDensiteCtrl.text =
+              (sheet['densite'] as num?)?.toString() ?? '';
+          _academiePointEclairCtrl.text =
+              (sheet['point_eclair'] as num?)?.toString() ?? '';
+          _academieTempStockageMinCtrl.text =
+              (sheet['temperature_stockage_min'] as num?)?.toString() ?? '';
+          _academieTempStockageMaxCtrl.text =
+              (sheet['temperature_stockage_max'] as num?)?.toString() ?? '';
+          _academieSensibleHumidite =
+              sheet['sensible_humidite'] as bool? ?? false;
+          _academieSensibleLumiere =
+              sheet['sensible_lumiere'] as bool? ?? false;
+          _academieDureeConservationCtrl.text =
+              (sheet['duree_conservation_mois'] as num?)?.toString() ?? '';
 
           final usages = await SupabaseConfig.client
               .from('matieres_premieres_usages')
               .select()
               .eq('academie_id', _academieId as Object)
               .order('ordre');
-          _academieUsages = List<Map<String, dynamic>>.from(usages);
+          _academieUsages = List<Map<String, dynamic>>.from(usages).map((u) {
+            // dosage_min/dosage_max viennent de Postgres en `num` — les
+            // TextFormField des champs structurés ont besoin de String.
+            return {
+              ...u,
+              'dosage_min_text': (u['dosage_min'] as num?)?.toString() ?? '',
+              'dosage_max_text': (u['dosage_max'] as num?)?.toString() ?? '',
+            };
+          }).toList();
+
+          // Pictogrammes/phrases H/P déjà sélectionnés pour cette fiche.
+          try {
+            final linkResults = await Future.wait<dynamic>([
+              SupabaseConfig.client
+                  .from('academie_pictograms')
+                  .select('pictogram_id')
+                  .eq('academie_id', _academieId as Object),
+              SupabaseConfig.client
+                  .from('academie_phrases_h')
+                  .select('phrase_h_id')
+                  .eq('academie_id', _academieId as Object),
+              SupabaseConfig.client
+                  .from('academie_phrases_p')
+                  .select('phrase_p_id')
+                  .eq('academie_id', _academieId as Object),
+            ]);
+            _academiePictogramIds
+              ..clear()
+              ..addAll(List<Map<String, dynamic>>.from(linkResults[0] as List)
+                  .map((r) => r['pictogram_id'] as String));
+            _academiePhraseHIds
+              ..clear()
+              ..addAll(List<Map<String, dynamic>>.from(linkResults[1] as List)
+                  .map((r) => r['phrase_h_id'] as String));
+            _academiePhrasePIds
+              ..clear()
+              ..addAll(List<Map<String, dynamic>>.from(linkResults[2] as List)
+                  .map((r) => r['phrase_p_id'] as String));
+          } catch (_) {}
         }
       }
     } catch (_) {
@@ -316,6 +448,14 @@ class _RawMaterialEditorScreenState
         'domaine_application': '',
         'technique_methode': '',
         'dosage_legacy': '',
+        'dosage_type': null,
+        'dosage_min_text': '',
+        'dosage_max_text': '',
+        'unite_dosage': '',
+        'dosage_texte': '',
+        'temperature_utilisation': '',
+        'temps_action': '',
+        'source_reference': '',
         'a_verifier_labo': false,
       });
     });
@@ -410,6 +550,118 @@ class _RawMaterialEditorScreenState
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text(
             'Réglages sécurité copiés — vérifie qu\'ils s\'appliquent bien à cette matière avant d\'enregistrer.')));
+  }
+
+  /// Champs de dosage structuré pour l'usage détaillé d'index [i] —
+  /// remplace l'ancien champ texte libre unique (`dosage_legacy`,
+  /// conservé en lecture seule s'il existe déjà, pour ne rien perdre des
+  /// fiches saisies avant phase85).
+  List<Widget> _buildDosageFields(int i) {
+    final usage = _academieUsages[i];
+    final type = usage['dosage_type'] as String?;
+    final legacy = usage['dosage_legacy'] as String?;
+    return [
+      const SizedBox(height: 8),
+      DropdownButtonFormField<String>(
+        initialValue: type,
+        decoration: const InputDecoration(
+            labelText: 'Type de dosage', isDense: true),
+        items: _academieDosageTypes
+            .map((t) => DropdownMenuItem(
+                value: t, child: Text(_academieDosageTypeLabels[t]!)))
+            .toList(),
+        onChanged: (v) => setState(() => usage['dosage_type'] = v),
+      ),
+      if (type == 'plage' || type == 'valeur_unique') ...[
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                initialValue: usage['dosage_min_text'] as String?,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                    labelText: type == 'plage' ? 'Min' : 'Valeur',
+                    isDense: true),
+                onChanged: (v) => usage['dosage_min_text'] = v,
+              ),
+            ),
+            if (type == 'plage') ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  initialValue: usage['dosage_max_text'] as String?,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration:
+                      const InputDecoration(labelText: 'Max', isDense: true),
+                  onChanged: (v) => usage['dosage_max_text'] = v,
+                ),
+              ),
+            ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                initialValue: usage['unite_dosage'] as String?,
+                decoration: const InputDecoration(
+                    labelText: 'Unité (%, g/L…)', isDense: true),
+                onChanged: (v) => usage['unite_dosage'] = v,
+              ),
+            ),
+          ],
+        ),
+      ],
+      if (type == 'dilution' || type == 'texte_libre') ...[
+        const SizedBox(height: 8),
+        TextFormField(
+          initialValue: usage['dosage_texte'] as String?,
+          decoration: InputDecoration(
+              labelText: type == 'dilution'
+                  ? 'Ratio de dilution (ex : 1:10)'
+                  : 'Dosage — texte libre',
+              isDense: true),
+          onChanged: (v) => usage['dosage_texte'] = v,
+        ),
+      ],
+      if (type == null && legacy != null && legacy.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Text('Ancien format (non migré) : $legacy',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(fontStyle: FontStyle.italic)),
+      ],
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              initialValue: usage['temperature_utilisation'] as String?,
+              decoration: const InputDecoration(
+                  labelText: 'Température d\'utilisation', isDense: true),
+              onChanged: (v) => usage['temperature_utilisation'] = v,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextFormField(
+              initialValue: usage['temps_action'] as String?,
+              decoration: const InputDecoration(
+                  labelText: 'Temps d\'action', isDense: true),
+              onChanged: (v) => usage['temps_action'] = v,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      TextFormField(
+        initialValue: usage['source_reference'] as String?,
+        decoration: const InputDecoration(
+            labelText: 'Source / référence (optionnel)', isDense: true),
+        onChanged: (v) => usage['source_reference'] = v,
+      ),
+    ];
   }
 
   Future<String?> _addNewCategory(String businessUnitId) async {
@@ -591,6 +843,26 @@ class _RawMaterialEditorScreenState
                 'stockage': _academieStockageCtrl.text.trim().isEmpty
                     ? null
                     : _academieStockageCtrl.text.trim(),
+                'notes_epi': _academieNotesEpiCtrl.text.trim().isEmpty
+                    ? null
+                    : _academieNotesEpiCtrl.text.trim(),
+                'densite': double.tryParse(
+                    _academieDensiteCtrl.text.trim().replaceAll(',', '.')),
+                'point_eclair': double.tryParse(_academiePointEclairCtrl.text
+                    .trim()
+                    .replaceAll(',', '.')),
+                'temperature_stockage_min': double.tryParse(
+                    _academieTempStockageMinCtrl.text
+                        .trim()
+                        .replaceAll(',', '.')),
+                'temperature_stockage_max': double.tryParse(
+                    _academieTempStockageMaxCtrl.text
+                        .trim()
+                        .replaceAll(',', '.')),
+                'sensible_humidite': _academieSensibleHumidite,
+                'sensible_lumiere': _academieSensibleLumiere,
+                'duree_conservation_mois':
+                    int.tryParse(_academieDureeConservationCtrl.text.trim()),
                 'statut_verification': _academieStatutVerification,
                 'updated_at': DateTime.now().toIso8601String(),
               },
@@ -600,6 +872,41 @@ class _RawMaterialEditorScreenState
             .single();
         final academieId = academieSaved['id'] as String;
         _academieId = academieId;
+
+        // Pictogrammes SGH + phrases H/P sélectionnés — même mécanique
+        // delete-puis-insert que les usages détaillés.
+        await Future.wait([
+          SupabaseConfig.client
+              .from('academie_pictograms')
+              .delete()
+              .eq('academie_id', academieId),
+          SupabaseConfig.client
+              .from('academie_phrases_h')
+              .delete()
+              .eq('academie_id', academieId),
+          SupabaseConfig.client
+              .from('academie_phrases_p')
+              .delete()
+              .eq('academie_id', academieId),
+        ]);
+        if (_academiePictogramIds.isNotEmpty) {
+          await SupabaseConfig.client.from('academie_pictograms').insert([
+            for (final id in _academiePictogramIds)
+              {'academie_id': academieId, 'pictogram_id': id},
+          ]);
+        }
+        if (_academiePhraseHIds.isNotEmpty) {
+          await SupabaseConfig.client.from('academie_phrases_h').insert([
+            for (final id in _academiePhraseHIds)
+              {'academie_id': academieId, 'phrase_h_id': id},
+          ]);
+        }
+        if (_academiePhrasePIds.isNotEmpty) {
+          await SupabaseConfig.client.from('academie_phrases_p').insert([
+            for (final id in _academiePhrasePIds)
+              {'academie_id': academieId, 'phrase_p_id': id},
+          ]);
+        }
 
         await SupabaseConfig.client
             .from('matieres_premieres_usages')
@@ -620,22 +927,25 @@ class _RawMaterialEditorScreenState
                         ['domaine_application'] as String)
                     .trim(),
                 'technique_methode':
-                    (validAcademieUsages[i]['technique_methode'] as String? ??
-                                '')
-                            .trim()
-                            .isEmpty
-                        ? null
-                        : (validAcademieUsages[i]['technique_methode']
-                                as String)
-                            .trim(),
-                'dosage_legacy': (validAcademieUsages[i]['dosage_legacy']
-                                as String? ??
-                            '')
+                    _cleanUsageStr(validAcademieUsages[i]['technique_methode']),
+                'dosage_legacy':
+                    _cleanUsageStr(validAcademieUsages[i]['dosage_legacy']),
+                'dosage_type': validAcademieUsages[i]['dosage_type'],
+                'dosage_min': double.tryParse(
+                    (validAcademieUsages[i]['dosage_min_text'] as String? ?? '')
                         .trim()
-                        .isEmpty
-                    ? null
-                    : (validAcademieUsages[i]['dosage_legacy'] as String)
-                        .trim(),
+                        .replaceAll(',', '.')),
+                'dosage_max': double.tryParse(
+                    (validAcademieUsages[i]['dosage_max_text'] as String? ?? '')
+                        .trim()
+                        .replaceAll(',', '.')),
+                'unite_dosage': _cleanUsageStr(validAcademieUsages[i]['unite_dosage']),
+                'dosage_texte': _cleanUsageStr(validAcademieUsages[i]['dosage_texte']),
+                'temperature_utilisation': _cleanUsageStr(
+                    validAcademieUsages[i]['temperature_utilisation']),
+                'temps_action': _cleanUsageStr(validAcademieUsages[i]['temps_action']),
+                'source_reference':
+                    _cleanUsageStr(validAcademieUsages[i]['source_reference']),
                 'a_verifier_labo':
                     validAcademieUsages[i]['a_verifier_labo'] == true,
                 'ordre': i,
@@ -900,6 +1210,30 @@ class _RawMaterialEditorScreenState
           _academieField(_academiePhCtrl, 'pH en solution', required: true),
           _academieField(_academieSolubiliteCtrl, 'Solubilité',
               required: true),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _academieDensiteCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                      labelText: 'Densité', border: OutlineInputBorder()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _academiePointEclairCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                      labelText: 'Point d\'éclair (°C)',
+                      border: OutlineInputBorder()),
+                ),
+              ),
+            ],
+          ),
           SizedBox(height: 1.5.h),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -993,12 +1327,113 @@ class _RawMaterialEditorScreenState
                 .toList(),
           ),
           SizedBox(height: 1.5.h),
+          _academieField(_academieNotesEpiCtrl,
+              'Notes EPI (précisions, ex : masque type FFP2)',
+              maxLines: 2),
+          if (_allPictograms.isNotEmpty) ...[
+            Text('Pictogrammes de danger (SGH)',
+                style: theme.textTheme.labelLarge),
+            SizedBox(height: 0.5.h),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _allPictograms
+                  .map((p) => FilterChip(
+                        avatar: const Icon(Icons.warning_amber_outlined,
+                            size: 16),
+                        label:
+                            Text('${p['code']} · ${p['nom'] ?? ''}'),
+                        selected: _academiePictogramIds.contains(p['id']),
+                        onSelected: (selected) => setState(() {
+                          if (selected) {
+                            _academiePictogramIds.add(p['id'] as String);
+                          } else {
+                            _academiePictogramIds.remove(p['id']);
+                          }
+                        }),
+                      ))
+                  .toList(),
+            ),
+            SizedBox(height: 1.5.h),
+          ],
+          if (_allPhrasesH.isNotEmpty)
+            _CatalogPickerField(
+              label: 'Phrases H (danger)',
+              allItems: _allPhrasesH,
+              selectedIds: _academiePhraseHIds,
+              onChanged: () => setState(() {}),
+            ),
+          if (_allPhrasesP.isNotEmpty) ...[
+            SizedBox(height: 1.5.h),
+            _CatalogPickerField(
+              label: 'Phrases P (précaution)',
+              allItems: _allPhrasesP,
+              selectedIds: _academiePhrasePIds,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+          SizedBox(height: 1.5.h),
           _academieField(_academiePremiersSecoursCtrl, 'Premiers secours',
               maxLines: 3),
           _academieField(
               _academieIncompatibilitesCtrl, 'Incompatibilités',
               maxLines: 2),
           _academieField(_academieStockageCtrl, 'Stockage', maxLines: 2),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _academieTempStockageMinCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                      labelText: 'Temp. stockage min (°C)',
+                      border: OutlineInputBorder()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _academieTempStockageMaxCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                      labelText: 'Temp. stockage max (°C)',
+                      border: OutlineInputBorder()),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 1.5.h),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                avatar: const Icon(Icons.water_drop_outlined, size: 16),
+                label: const Text('Sensible à l\'humidité'),
+                selected: _academieSensibleHumidite,
+                onSelected: (v) =>
+                    setState(() => _academieSensibleHumidite = v),
+              ),
+              FilterChip(
+                avatar: const Icon(Icons.wb_sunny_outlined, size: 16),
+                label: const Text('Sensible à la lumière'),
+                selected: _academieSensibleLumiere,
+                onSelected: (v) =>
+                    setState(() => _academieSensibleLumiere = v),
+              ),
+            ],
+          ),
+          SizedBox(height: 1.5.h),
+          TextFormField(
+            controller: _academieDureeConservationCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+                labelText: 'Durée de conservation (mois)',
+                border: OutlineInputBorder()),
+          ),
+          SizedBox(height: 1.5.h),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Vérifié (labo)'),
@@ -1073,16 +1508,7 @@ class _RawMaterialEditorScreenState
                       onChanged: (v) =>
                           _academieUsages[i]['technique_methode'] = v,
                     ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      initialValue:
-                          _academieUsages[i]['dosage_legacy'] as String?,
-                      decoration: const InputDecoration(
-                          labelText: 'Dosage / concentration (ex : 1-5%)',
-                          isDense: true),
-                      onChanged: (v) =>
-                          _academieUsages[i]['dosage_legacy'] = v,
-                    ),
+                    ..._buildDosageFields(i),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
@@ -1108,6 +1534,131 @@ class _RawMaterialEditorScreenState
         ],
       ),
     );
+  }
+}
+
+/// Sélecteur multi-choix pour un catalogue de référence (phrases H/P) —
+/// affiche les entrées déjà choisies en chips retirables + un bouton
+/// "Ajouter" qui ouvre une recherche avec cases à cocher (les listes
+/// réglementaires H/P comptent des dizaines d'entrées, trop long pour
+/// un simple Wrap de chips comme les pictogrammes ou l'EPI).
+class _CatalogPickerField extends StatelessWidget {
+  final String label;
+  final List<Map<String, dynamic>> allItems;
+  final Set<String> selectedIds;
+  final VoidCallback onChanged;
+
+  const _CatalogPickerField({
+    required this.label,
+    required this.allItems,
+    required this.selectedIds,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selected =
+        allItems.where((i) => selectedIds.contains(i['id'])).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+                child:
+                    Text(label, style: Theme.of(context).textTheme.labelLarge)),
+            TextButton.icon(
+              onPressed: () => _pick(context),
+              icon: const Icon(Icons.add_circle_outline, size: 18),
+              label: const Text('Ajouter'),
+            ),
+          ],
+        ),
+        if (selected.isEmpty)
+          Text('Aucune sélectionnée',
+              style: Theme.of(context).textTheme.bodySmall)
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: selected
+                .map((i) => Chip(
+                      label: Text(i['code'] ?? ''),
+                      onDeleted: () {
+                        selectedIds.remove(i['id']);
+                        onChanged();
+                      },
+                    ))
+                .toList(),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    String search = '';
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final filtered = allItems.where((i) {
+            final text = '${i['code']} ${i['texte'] ?? ''}'.toLowerCase();
+            return search.isEmpty || text.contains(search.toLowerCase());
+          }).toList();
+          return AlertDialog(
+            title: Text(label),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 380,
+              child: Column(
+                children: [
+                  TextField(
+                    decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search),
+                        hintText: 'Rechercher un code ou un texte…'),
+                    onChanged: (v) => setDialogState(() => search = v),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(child: Text('Aucun résultat.'))
+                        : ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (context, i) {
+                              final item = filtered[i];
+                              final isSelected =
+                                  selectedIds.contains(item['id']);
+                              return CheckboxListTile(
+                                value: isSelected,
+                                title: Text(item['code'] ?? ''),
+                                subtitle: Text(item['texte'] ?? '',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis),
+                                onChanged: (v) => setDialogState(() {
+                                  if (v == true) {
+                                    selectedIds.add(item['id'] as String);
+                                  } else {
+                                    selectedIds.remove(item['id']);
+                                  }
+                                }),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    onChanged();
   }
 }
 

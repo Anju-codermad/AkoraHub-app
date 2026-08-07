@@ -7,6 +7,39 @@ import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/formation_web_link.dart';
 import '../../raw_materials_management/raw_material_style.dart';
 
+/// Formate le dosage structuré d'un usage détaillé (phase85) en un
+/// badge lisible, ex : "1–5 %" (plage), "2 %" (valeur unique),
+/// "Dilution 1:10". Retombe sur l'ancien champ texte libre
+/// `dosage_legacy` pour les usages saisis avant la migration.
+String? _formatDosage(Map<String, dynamic> u) {
+  final type = u['dosage_type'] as String?;
+  final unite = (u['unite_dosage'] as String?)?.trim() ?? '';
+  switch (type) {
+    case 'plage':
+      final min = u['dosage_min'];
+      final max = u['dosage_max'];
+      if (min == null && max == null) break;
+      final range = min != null && max != null
+          ? '$min–$max'
+          : '${min ?? max}';
+      return unite.isEmpty ? range : '$range $unite';
+    case 'valeur_unique':
+      final value = u['dosage_min'];
+      if (value == null) break;
+      return unite.isEmpty ? '$value' : '$value $unite';
+    case 'dilution':
+      final texte = (u['dosage_texte'] as String?)?.trim();
+      if (texte == null || texte.isEmpty) break;
+      return 'Dilution $texte';
+    case 'texte_libre':
+      final texte = (u['dosage_texte'] as String?)?.trim();
+      if (texte == null || texte.isEmpty) break;
+      return texte;
+  }
+  final legacy = (u['dosage_legacy'] as String?)?.trim();
+  return (legacy == null || legacy.isEmpty) ? null : legacy;
+}
+
 /// Fiche détaillée d'une matière première, réservée à ceux qui l'ont
 /// achetée (la RLS de `raw_materials` — phase45_patch_formation_per_product_pricing.sql
 /// — bloque déjà l'accès serveur ; cet écran affiche un message clair
@@ -301,6 +334,17 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
 
     final epi = List<String>.from(sheet['epi_requis'] as List? ?? []);
     final usages = List<Map<String, dynamic>>.from(sheet['usages'] as List? ?? []);
+    final pictograms =
+        List<Map<String, dynamic>>.from(sheet['pictograms'] as List? ?? []);
+    final phrasesH =
+        List<Map<String, dynamic>>.from(sheet['phrases_h'] as List? ?? []);
+    final phrasesP =
+        List<Map<String, dynamic>>.from(sheet['phrases_p'] as List? ?? []);
+    final tempMin = sheet['temperature_stockage_min'] as num?;
+    final tempMax = sheet['temperature_stockage_max'] as num?;
+    final sensibleHumidite = sheet['sensible_humidite'] as bool? ?? false;
+    final sensibleLumiere = sheet['sensible_lumiere'] as bool? ?? false;
+    final dureeConservation = sheet['duree_conservation_mois'] as num?;
     Widget field(String label, String? value) {
       if (value == null || value.isEmpty) return const SizedBox.shrink();
       return Padding(
@@ -341,6 +385,11 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         field('Aspect', sheet['aspect'] as String?),
         field('pH en solution', sheet['ph_solution'] as String?),
         field('Solubilité', sheet['solubilite'] as String?),
+        field('Densité', (sheet['densite'] as num?)?.toString()),
+        field('Point d\'éclair',
+            (sheet['point_eclair'] as num?) != null
+                ? '${sheet['point_eclair']} °C'
+                : null),
         field('Particularité', sheet['particularite'] as String?),
         field('Différence avec un produit similaire',
             sheet['difference_produit_similaire'] as String?),
@@ -373,6 +422,45 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
             ),
           ),
         ],
+        if (pictograms.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: pictograms
+                .map((p) => Chip(
+                      avatar: const Icon(Icons.warning_amber_outlined,
+                          size: 16, color: Colors.red),
+                      label: Text('${p['code']} · ${p['nom'] ?? ''}'),
+                      backgroundColor: Colors.red.withValues(alpha: 0.08),
+                    ))
+                .toList(),
+          ),
+          SizedBox(height: 1.5.h),
+        ],
+        if (phrasesH.isNotEmpty) ...[
+          Text('Phrases de danger (H)',
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(color: theme.colorScheme.primary)),
+          SizedBox(height: 0.5.h),
+          ...phrasesH.map((p) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('${p['code']} — ${p['texte'] ?? ''}',
+                    style: theme.textTheme.bodySmall),
+              )),
+          SizedBox(height: 1.h),
+        ],
+        if (phrasesP.isNotEmpty) ...[
+          Text('Phrases de précaution (P)',
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(color: theme.colorScheme.primary)),
+          SizedBox(height: 0.5.h),
+          ...phrasesP.map((p) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('${p['code']} — ${p['texte'] ?? ''}',
+                    style: theme.textTheme.bodySmall),
+              )),
+          SizedBox(height: 1.h),
+        ],
         if (epi.isNotEmpty) ...[
           Text('EPI requis',
               style: theme.textTheme.labelLarge
@@ -390,9 +478,38 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
           ),
           SizedBox(height: 1.5.h),
         ],
+        field('Notes EPI', sheet['notes_epi'] as String?),
         field('Premiers secours', sheet['premiers_secours'] as String?),
         field('Incompatibilités', sheet['incompatibilites'] as String?),
         field('Stockage', sheet['stockage'] as String?),
+        if (tempMin != null || tempMax != null) ...[
+          field(
+              'Température de stockage',
+              tempMin != null && tempMax != null
+                  ? '$tempMin °C – $tempMax °C'
+                  : '${tempMin ?? tempMax} °C'),
+        ],
+        if (sensibleHumidite || sensibleLumiere) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (sensibleHumidite)
+                const Chip(
+                  avatar: Icon(Icons.water_drop_outlined, size: 16),
+                  label: Text('Sensible à l\'humidité'),
+                ),
+              if (sensibleLumiere)
+                const Chip(
+                  avatar: Icon(Icons.wb_sunny_outlined, size: 16),
+                  label: Text('Sensible à la lumière'),
+                ),
+            ],
+          ),
+          SizedBox(height: 1.h),
+        ],
+        field('Durée de conservation',
+            dureeConservation != null ? '$dureeConservation mois' : null),
         if (usages.isNotEmpty) ...[
           SizedBox(height: 1.h),
           Text('Usages détaillés', style: theme.textTheme.titleMedium),
@@ -419,9 +536,34 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                       ),
                       if ((u['technique_methode'] as String?)?.isNotEmpty == true)
                         Text(u['technique_methode']),
-                      if ((u['dosage_legacy'] as String?)?.isNotEmpty == true)
-                        Text('Dosage : ${u['dosage_legacy']}',
+                      if (_formatDosage(u) != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(_formatDosage(u)!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                      if ((u['temperature_utilisation'] as String?)
+                              ?.isNotEmpty ==
+                          true)
+                        Text('Température : ${u['temperature_utilisation']}',
                             style: theme.textTheme.bodySmall),
+                      if ((u['temps_action'] as String?)?.isNotEmpty == true)
+                        Text('Temps d\'action : ${u['temps_action']}',
+                            style: theme.textTheme.bodySmall),
+                      if ((u['source_reference'] as String?)?.isNotEmpty ==
+                          true)
+                        Text('Source : ${u['source_reference']}',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(fontStyle: FontStyle.italic)),
                     ],
                   ),
                 ),

@@ -7491,3 +7491,56 @@ Suite immédiate : sur demande explicite ("je veux qu'on le supprime !"),
 `has_purchased_academie_access` — plus aucune trace de l'ancien système
 d'achat séparé. À exécuter uniquement APRÈS phase83 (sinon la fiche
 Académie ne s'affiche plus).
+
+### Pictogrammes SGH, phrases H/P, dosages structurés et champs physico-chimiques (06/08)
+
+Suite à une session de travail avec DeepSeek sur l'amélioration du
+template de fiche technique, extension importante du schéma Académie :
+
+- **SQL phase85** (`phase85_patch_academie_pictogrammes_dosages.sql`,
+  déjà exécuté par l'utilisatrice) : tables catalogue
+  `danger_pictograms`/`phrases_h`/`phrases_p` (lecture publique) + tables
+  de liaison `academie_pictograms`/`academie_phrases_h`/
+  `academie_phrases_p` (lecture protégée par achat, via
+  `has_purchased_raw_material`) ; nouvelles colonnes optionnelles sur
+  `matieres_premieres_academie` (densite, point_eclair,
+  temperature_stockage_min/max, sensible_humidite/lumiere,
+  duree_conservation_mois, consignes_stockage *(non exposée côté UI,
+  pour éviter un doublon avec le champ `stockage` déjà existant)*,
+  notes_epi) ; sur `matieres_premieres_usages`, dosage structuré
+  (dosage_type/dosage_min/dosage_max/unite_dosage/dosage_texte/
+  temperature_utilisation/temps_action/source_reference) et
+  renommage de `dosage_concentration` en `dosage_legacy`.
+- **Hotfix critique** : la migration phase85 ayant été exécutée avant
+  la mise à jour du code Flutter, la sauvegarde des usages détaillés
+  était cassée (écriture sur une colonne inexistante, effaçant les
+  usages existants sans les remplacer à cause de l'ordre
+  delete-puis-insert). Corrigé en urgence avant tout le reste du
+  travail de cette section.
+- **SQL phase86** (`phase86_seed_pictogrammes_phrases.sql`) : jeu de
+  données de départ — 9 pictogrammes GHS standards (GHS01-GHS09) et
+  une sélection de phrases H/P courantes pour produits chimiques
+  ménagers/cosmétiques/industriels. Pas d'écran d'admin dédié pour
+  gérer ces catalogues (rare besoin) — ajouts supplémentaires possibles
+  directement via l'éditeur de table Supabase.
+- **Admin** (`raw_material_editor_screen.dart`) : ajout de Densité/
+  Point d'éclair (après Solubilité), Notes EPI, sélecteur de
+  pictogrammes SGH (chips, catalogue restreint), sélecteurs de phrases
+  H/P (`_CatalogPickerField`, dialog de recherche avec cases à cocher —
+  listes trop longues pour des chips), plage de température de
+  stockage + sensibilité humidité/lumière + durée de conservation
+  (après Stockage). Le dosage libre par usage est remplacé par un
+  dosage structuré (`_buildDosageFields`) : dropdown Type de dosage
+  (Plage/Valeur unique/Dilution/Texte libre) avec champs conditionnels,
+  + Température d'utilisation/Temps d'action/Source-référence ;
+  l'ancien `dosage_legacy` reste affiché en lecture seule pour les
+  usages saisis avant la migration, pas perdu.
+- **Client** (`raw_material_detail_client.dart`,
+  `academie_repo.dart`) : `fetchSheet()` joint désormais aussi
+  pictogrammes/phrases H/P sélectionnés. Affichage : chips
+  pictogrammes rouges, listes phrases H puis P, badge de dosage
+  dynamique par usage (`_formatDosage()`, formaté selon le type,
+  retombe sur `dosage_legacy` si non migré), température de stockage,
+  badges sensibilité humidité/lumière, durée de conservation, notes
+  EPI — toujours dans le même flux continu, sans nouvelle séparation
+  visuelle.
