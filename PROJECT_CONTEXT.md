@@ -7673,3 +7673,45 @@ norme pour une phrase P complète). Corrigé :
   code (ex : "H314") reste dans un badge de taille fixe, le texte
   complet de la phrase est dans un `Expanded` qui wrap normalement à la
   suite. Remplace le `Wrap` de chips par une simple liste de lignes.
+
+### Campagne de documentation "Acides & Bases" (07/08)
+
+Décision : plutôt que de remplir les fiches Académie une par une à la
+main dans l'admin, contenu généré par lots avec DeepSeek (prompts
+demandant un JSON structuré pour plusieurs produits à la fois), puis
+intégré directement en SQL — plus rapide, et permet d'appliquer le
+même contenu à toutes les variantes catalogue d'un même produit
+chimique (ex : "Acide citrique", "Acide citrique alimentaire", "Acide
+citrique anhydre (E330)"...) en une seule fois via une boucle
+`for ... in (values ...) loop`.
+
+- **Nettoyage doublons catalogue** (`phase88`) : le catalogue "Acides
+  & Bases" avait été importé en masse avec des doublons de nommage.
+  Règle stricte appliquée : vérification systématique de
+  `formation_purchases` avant toute suppression — seuls 2 doublons
+  vérifiés sans aucun achat client ont été supprimés (Acide tartrique,
+  Bicarbonate de soude) ; 4 autres doublons apparents (Acide acétique,
+  Acide citrique, Acide citrique alimentaire, Acide phosphorique) ont
+  des achats clients réels et ont été conservés puis documentés
+  individuellement plutôt que supprimés.
+- **Fiches complétées** : Soude caustique (`phase87`), Acide sulfurique
+  (`phase89`), Acide chlorhydrique (`phase90`), Carbonate de sodium /
+  Bicarbonate de sodium / Ammoniaque (`phase91`, lot JSON DeepSeek),
+  Acide citrique / Acide phosphorique / Acide acétique — appliqué à
+  **toutes** les variantes catalogue de chacun, y compris celles ayant
+  déjà des clients (documenter est toujours sûr, contrairement à
+  supprimer) (`phase92`).
+- **Pattern upsert** stabilisé après un échec de contrainte unique sur
+  `phase89` (une fiche existait déjà pour Acide sulfurique) :
+  `insert ... on conflict (matiere_premiere_id) do update set ...`
+  suivi d'un `delete` puis ré-`insert` des usages et phrases H/P liées,
+  pour repartir toujours d'un état propre sans doublons.
+- **Grade alimentaire/technique** : à vérifier au cas par cas d'après
+  le nom catalogue exact, pas en déduisant automatiquement d'un
+  E-numéro présent dans le nom — un produit peut porter un code EU
+  (ex : E338) dans son nom sans que ce soit garanti être du grade
+  alimentaire réel. Dans `phase92`, la variante phosphorique
+  "H₃PO₄ (E338)" avait été classée `'Technique'` alors que son nom
+  porte justement le code alimentaire E338 — contradiction repérée et
+  corrigée en laissant le grade à `null` (à confirmer manuellement),
+  plutôt que de trancher sans certitude.
