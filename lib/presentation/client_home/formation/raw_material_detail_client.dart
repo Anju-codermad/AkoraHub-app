@@ -40,6 +40,43 @@ String? _formatDosage(Map<String, dynamic> u) {
   return (legacy == null || legacy.isEmpty) ? null : legacy;
 }
 
+/// Extrait une valeur numérique de pH depuis le champ texte libre
+/// `ph_solution` (ex : "fortement basique (pH 13-14)" -> 13.5,
+/// "pH 3.5" -> 3.5) — best-effort seulement, ce champ n'a jamais été
+/// contraint à un format précis côté admin. Retourne `null` si aucun
+/// nombre n'est détectable ; l'affichage retombe alors sur le texte
+/// brut sans badge coloré.
+double? _extractPhValue(String? phText) {
+  if (phText == null || phText.isEmpty) return null;
+  final normalized = phText.replaceAll(',', '.');
+  final rangeMatch =
+      RegExp(r'(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)').firstMatch(normalized);
+  if (rangeMatch != null) {
+    final a = double.tryParse(rangeMatch.group(1)!);
+    final b = double.tryParse(rangeMatch.group(2)!);
+    if (a != null && b != null) return (a + b) / 2;
+  }
+  final singleMatch = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(normalized);
+  if (singleMatch == null) return null;
+  return double.tryParse(singleMatch.group(1)!);
+}
+
+Color _phColor(double ph) {
+  if (ph < 2) return Colors.red;
+  if (ph < 6) return Colors.orange;
+  if (ph <= 8) return Colors.green;
+  if (ph <= 12) return Colors.blue;
+  return Colors.purple;
+}
+
+String _phLabel(double ph) {
+  if (ph < 2) return 'Acide fort';
+  if (ph < 6) return 'Acide faible';
+  if (ph <= 8) return 'Neutre';
+  if (ph <= 12) return 'Basique faible';
+  return 'Basique fort';
+}
+
 /// Couleur du badge "Niveau de danger" selon la sévérité (06/08) — les 4
 /// valeurs possibles sont `_academieNiveauxDanger` côté admin
 /// (raw_material_editor_screen.dart).
@@ -402,6 +439,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
     final sensibleLumiere = sheet['sensible_lumiere'] as bool? ?? false;
     final dureeConservation = sheet['duree_conservation_mois'] as num?;
     final niveauColor = _dangerLevelColor(sheet['niveau_danger'] as String?);
+    final phValue = _extractPhValue(sheet['ph_solution'] as String?);
     Widget field(String label, String? value) {
       if (value == null || value.isEmpty) return const SizedBox.shrink();
       return Padding(
@@ -439,15 +477,69 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
         field('Nom chimique', sheet['nom_chimique'] as String?),
         field('Synonymes', sheet['synonymes'] as String?),
         field('Grade', sheet['grade'] as String?),
-        field('Aspect', sheet['aspect'] as String?),
-        field('pH en solution', sheet['ph_solution'] as String?),
-        field('Solubilité', sheet['solubilite'] as String?),
-        field('Densité', (sheet['densite'] as num?)?.toString()),
-        field('Point d\'éclair',
-            (sheet['point_eclair'] as num?) != null
-                ? '${sheet['point_eclair']} °C'
-                : null),
-        field('Particularité', sheet['particularite'] as String?),
+        if ((sheet['aspect'] as String?)?.isNotEmpty == true)
+          _iconTextRow(
+              theme, Icons.inventory_2_outlined, sheet['aspect'] as String),
+        if ((sheet['ph_solution'] as String?)?.isNotEmpty == true) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('pH en solution',
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(color: theme.colorScheme.primary)),
+                const SizedBox(height: 4),
+                if (phValue != null)
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _phColor(phValue),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text('pH ${phValue.toStringAsFixed(1)}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_phLabel(phValue),
+                          style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                SizedBox(height: phValue != null ? 4 : 0),
+                Text(sheet['ph_solution'] as String),
+              ],
+            ),
+          ),
+        ],
+        if ((sheet['solubilite'] as String?)?.isNotEmpty == true)
+          _iconTextRow(theme, Icons.water_drop_outlined,
+              sheet['solubilite'] as String),
+        if (sheet['densite'] != null)
+          _iconTextRow(theme, Icons.scale_outlined,
+              'Densité : ${sheet['densite']} g/cm³'),
+        if (sheet['point_eclair'] != null)
+          _iconTextRow(theme, Icons.local_fire_department_outlined,
+              'Point d\'éclair : ${sheet['point_eclair']} °C'),
+        if ((sheet['particularite'] as String?)?.isNotEmpty == true) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(
+                label: Text(sheet['particularite'] as String,
+                    style: TextStyle(
+                        color: theme.colorScheme.onTertiaryContainer)),
+                backgroundColor: theme.colorScheme.tertiaryContainer,
+              ),
+            ),
+          ),
+        ],
         field('Différence avec un produit similaire',
             sheet['difference_produit_similaire'] as String?),
         if ((sheet['niveau_danger'] as String?)?.isNotEmpty == true) ...[

@@ -7570,3 +7570,23 @@ intégré directement dans le flux continu de `_buildAcademieSection` :
   icône bouclier générique. Notes EPI affichées juste en dessous.
 - **Premiers secours/Incompatibilités/stockage structuré** : lignes
   icône + texte (`_iconTextRow()`) au lieu de simples paragraphes.
+
+### Badge pH coloré + affinage des propriétés physico-chimiques (06/08)
+
+Nouvelle proposition DeepSeek (`PropertiesCard`), même remarque que la
+précédente (modèles typés inexistants, Card à éviter) — avec un point
+supplémentaire : le prompt supposait `ph_solution` en `double?`, alors
+que ce champ est un **texte libre** en base (ex : "fortement basique
+(pH 13-14)"). Ajout de `_extractPhValue()` : extrait par regex un
+nombre exploitable (moyenne si une plage "X-Y" est détectée), best-
+effort — si rien n'est détecté, le texte brut reste affiché sans badge.
+
+- **pH** : si une valeur numérique est extraite, badge coloré "pH X.X"
+  (rouge < 2 Acide fort, orange < 6 Acide faible, vert ≤ 8 Neutre,
+  bleu ≤ 12 Basique faible, violet > 12 Basique fort) + libellé, suivi
+  du texte complet original en dessous (rien n'est perdu).
+- **Aspect/Solubilité/Densité/Point d'éclair** : passés en lignes
+  icône + texte (`_iconTextRow`), cohérent avec le reste de la section
+  sécurité.
+- **Particularité** : passée d'un simple paragraphe à une chip
+  `tertiaryContainer`.
