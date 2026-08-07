@@ -83,6 +83,46 @@ IconData iconForChemicalCategory(String category) {
   return Icons.science_outlined;
 }
 
+/// Icône Material approximant chaque type d'EPI (aucune icône dédiée
+/// "gants"/"bottes" n'existe dans Material Symbols) — mêmes libellés que
+/// `_academieEpiSuggestions` (raw_material_editor_screen.dart).
+/// Partagé (06/08) entre l'admin (chips de sélection) et le client
+/// (avatars d'icônes) pour rester visuellement cohérent.
+IconData epiIcon(String epi) {
+  switch (epi) {
+    case 'gants':
+      return Icons.back_hand_outlined;
+    case 'lunettes':
+      return Icons.visibility_outlined;
+    case 'masque':
+      return Icons.masks_outlined;
+    case 'ventilation':
+      return Icons.air;
+    case 'tablier':
+      return Icons.checkroom_outlined;
+    case 'bottes':
+      return Icons.hiking_outlined;
+    default:
+      return Icons.shield_outlined;
+  }
+}
+
+/// Couleur du badge "Niveau de danger" selon la sévérité — les 4
+/// valeurs possibles sont `_academieNiveauxDanger`
+/// (raw_material_editor_screen.dart).
+Color dangerLevelColor(String? niveau) {
+  switch (niveau) {
+    case 'Corrosif':
+      return Colors.red;
+    case 'Élevé':
+      return Colors.deepOrange;
+    case 'Modéré':
+      return Colors.amber.shade800;
+    default:
+      return Colors.grey;
+  }
+}
+
 const List<String> rawMaterialUsageDomains = [
   'Nettoyage',
   'Cosmétique',

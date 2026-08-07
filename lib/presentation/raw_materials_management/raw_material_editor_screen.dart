@@ -7,6 +7,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'raw_material_style.dart';
 
 /// Nettoie une valeur texte issue d'une Map d'usage Académie : retourne
 /// `null` si absente/vide plutôt qu'une chaîne vide, pour rester
@@ -15,6 +16,51 @@ String? _cleanUsageStr(dynamic v) {
   final s = (v as String?)?.trim();
   return (s == null || s.isEmpty) ? null : s;
 }
+
+/// Suggestion (non exhaustive, best-effort — à vérifier par le staff)
+/// des phrases H couramment associées à chaque pictogramme SGH
+/// standard, pour pré-cocher automatiquement quand un pictogramme est
+/// sélectionné (06/08). Ce ne sont PAS des associations réglementaires
+/// garanties : elles varient selon la substance précise, juste un
+/// point de départ pour accélérer la saisie.
+const Map<String, List<String>> _ghsToHCodesSuggestion = {
+  'GHS01': ['H200', 'H201'],
+  'GHS02': ['H225', 'H226'],
+  'GHS03': ['H271', 'H272'],
+  'GHS04': ['H280'],
+  'GHS05': ['H314', 'H318'],
+  'GHS06': ['H301', 'H311', 'H331'],
+  'GHS07': ['H315', 'H319', 'H335'],
+  'GHS08': ['H351', 'H361'],
+  'GHS09': ['H400', 'H410', 'H411', 'H412'],
+};
+
+/// Valeurs typiques de dosage par domaine d'application (06/08) — pour
+/// pré-remplir type + unité quand l'admin choisit un domaine sur un
+/// nouvel usage, à ajuster/compléter au cas par cas. Volontairement non
+/// exhaustif : simple gain de temps sur les cas les plus fréquents.
+const Map<String, Map<String, String>> _domainDosageTemplates = {
+  'Dégraissage': {'dosage_type': 'dilution', 'unite_dosage': '%'},
+  'Débouchage canalisation': {'dosage_type': 'dilution', 'unite_dosage': '%'},
+  'Ajustement pH': {'dosage_type': 'plage', 'unite_dosage': 'g/L'},
+  'Traitement de l\'Eau': {'dosage_type': 'plage', 'unite_dosage': 'g/L'},
+  'Savonnerie': {
+    'dosage_type': 'plage',
+    'unite_dosage': '% par rapport aux huiles',
+  },
+  'Hygiène & Entretien (Détergence)': {
+    'dosage_type': 'dilution',
+    'unite_dosage': '%',
+  },
+  'Cosmétique & Soins du Corps': {
+    'dosage_type': 'plage',
+    'unite_dosage': '%',
+  },
+  'Conservation alimentaire': {
+    'dosage_type': 'valeur_unique',
+    'unite_dosage': 'ppm',
+  },
+};
 
 const List<String> _academieDosageTypes = [
   'plage',
@@ -228,6 +274,25 @@ class _RawMaterialEditorScreenState
       _academieUsages.any((u) =>
           (u['domaine_application'] as String? ?? '').trim().isNotEmpty);
 
+  /// Complétude de la fiche Académie (06/08) — sur un jeu volontairement
+  /// restreint de champs "importants" (pas la totalité, sinon la fiche
+  /// ne serait jamais à 100% avant d'avoir tout rempli d'un coup) :
+  /// nom chimique, nom commun, aspect, pH, solubilité, niveau de
+  /// danger, au moins un pictogramme, au moins un EPI.
+  double get _academieCompleteness {
+    final checks = <bool>[
+      _academieNomChimiqueCtrl.text.trim().isNotEmpty,
+      _nameCtrl.text.trim().isNotEmpty,
+      _academieAspectCtrl.text.trim().isNotEmpty,
+      _academiePhCtrl.text.trim().isNotEmpty,
+      _academieSolubiliteCtrl.text.trim().isNotEmpty,
+      _academieNiveauDanger != null,
+      _academiePictogramIds.isNotEmpty,
+      _academieEpiRequis.isNotEmpty,
+    ];
+    return checks.where((c) => c).length / checks.length;
+  }
+
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -331,7 +396,7 @@ class _RawMaterialEditorScreenState
       final safetyRows = await SupabaseConfig.client
           .from('matieres_premieres_academie')
           .select(
-              'matiere_premiere_id, grade, niveau_danger, epi_requis, premiers_secours, incompatibilites, stockage, raw_materials(name)');
+              'id, matiere_premiere_id, grade, niveau_danger, epi_requis, premiers_secours, incompatibilites, stockage, raw_materials(name)');
       _academieSafetyTemplates = List<Map<String, dynamic>>.from(safetyRows)
           .where((r) => r['matiere_premiere_id'] != widget.material?['id'])
           .toList();
@@ -366,7 +431,16 @@ class _RawMaterialEditorScreenState
               sheet['premiers_secours'] as String? ?? '';
           _academieIncompatibilitesCtrl.text =
               sheet['incompatibilites'] as String? ?? '';
-          _academieStockageCtrl.text = sheet['stockage'] as String? ?? '';
+          // Depuis le 06/08, ce champ écrit dans `consignes_stockage`
+          // (phase85) plutôt que l'ancien `stockage` — au chargement, on
+          // préfère la nouvelle colonne si déjà migrée, sinon on reprend
+          // l'ancienne valeur pour ne rien perdre (elle sera réécrite
+          // dans `consignes_stockage` à la prochaine sauvegarde).
+          final consignesStockage = sheet['consignes_stockage'] as String?;
+          _academieStockageCtrl.text =
+              (consignesStockage != null && consignesStockage.isNotEmpty)
+                  ? consignesStockage
+                  : (sheet['stockage'] as String? ?? '');
           _academieNiveauDanger = sheet['niveau_danger'] as String?;
           _academieStatutVerification =
               sheet['statut_verification'] as String? ?? 'a_valider';
@@ -467,6 +541,29 @@ class _RawMaterialEditorScreenState
   /// bases fortes partagent souvent les mêmes EPI). Ne touche jamais
   /// nom chimique/aspect/pH/solubilité/usages, propres à chaque
   /// substance.
+  /// Pré-coche les phrases H suggérées pour un pictogramme SGH donné
+  /// (voir `_ghsToHCodesSuggestion`) — n'ajoute que celles présentes
+  /// dans le catalogue chargé et pas déjà sélectionnées. Retourne le
+  /// nombre de phrases effectivement ajoutées.
+  int _applyGhsHSuggestion(String ghsCode) {
+    final suggestedCodes = _ghsToHCodesSuggestion[ghsCode];
+    if (suggestedCodes == null) return 0;
+    var added = 0;
+    setState(() {
+      for (final code in suggestedCodes) {
+        final match = _allPhrasesH.firstWhere(
+          (p) => p['code'] == code,
+          orElse: () => <String, dynamic>{},
+        );
+        final id = match['id'] as String?;
+        if (id != null && _academiePhraseHIds.add(id)) {
+          added++;
+        }
+      }
+    });
+    return added;
+  }
+
   Future<void> _pickAcademieSafetyTemplate() async {
     if (_academieSafetyTemplates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -664,6 +761,158 @@ class _RawMaterialEditorScreenState
     ];
   }
 
+  /// Importe la liste des usages détaillés d'une autre matière première
+  /// déjà documentée (06/08) — pratique pour des matières très
+  /// similaires (ex : plusieurs bases fortes utilisées dans les mêmes
+  /// domaines). Ne sauvegarde rien immédiatement : la liste importée
+  /// atterrit dans `_academieUsages` local, modifiable/supprimable avant
+  /// le prochain "Enregistrer" comme n'importe quel usage ajouté à la
+  /// main. Réutilise `_academieSafetyTemplates` (déjà chargée) pour la
+  /// recherche de matière source.
+  Future<void> _importUsagesFromOtherMaterial() async {
+    if (_academieSafetyTemplates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content:
+              Text('Aucune autre fiche Académie disponible pour l\'instant.')));
+      return;
+    }
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) {
+        String search = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtered = _academieSafetyTemplates.where((t) {
+              final name = (t['raw_materials'] is Map
+                      ? t['raw_materials']['name'] as String?
+                      : null) ??
+                  '';
+              return search.isEmpty ||
+                  name.toLowerCase().contains(search.toLowerCase());
+            }).toList();
+            return AlertDialog(
+              title: const Text('Importer les usages depuis…'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 320,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search),
+                          hintText: 'Rechercher une matière première…'),
+                      onChanged: (v) => setDialogState(() => search = v),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('Aucun résultat.'))
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, i) {
+                                final t = filtered[i];
+                                final name = t['raw_materials'] is Map
+                                    ? t['raw_materials']['name'] as String?
+                                    : null;
+                                return ListTile(
+                                  title: Text(name ?? 'Matière première'),
+                                  onTap: () => Navigator.pop(context, t),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (selected == null || !mounted) return;
+
+    final sourceAcademieId = selected['id'] as String?;
+    if (sourceAcademieId == null) return;
+    List<Map<String, dynamic>> sourceUsages;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('matieres_premieres_usages')
+          .select()
+          .eq('academie_id', sourceAcademieId)
+          .order('ordre');
+      sourceUsages = List<Map<String, dynamic>>.from(rows);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Erreur lors du chargement des usages à importer.')));
+      return;
+    }
+    if (sourceUsages.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Cette matière n\'a aucun usage détaillé à importer.')));
+      return;
+    }
+
+    // Retire id/academie_id (propres à la fiche source) et prépare les
+    // champs texte des dosages numériques, comme au chargement normal.
+    final cleaned = sourceUsages
+        .map((u) => {
+              ...u,
+              'id': null,
+              'academie_id': null,
+              'dosage_min_text': (u['dosage_min'] as num?)?.toString() ?? '',
+              'dosage_max_text': (u['dosage_max'] as num?)?.toString() ?? '',
+            })
+        .toList();
+
+    var mode = 'append';
+    if (_academieUsages.isNotEmpty) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Usages déjà présents'),
+          content: Text(
+              'Cette fiche a déjà ${_academieUsages.length} usage(s). Que faire des ${cleaned.length} usage(s) importé(s) ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'cancel'),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'append'),
+              child: const Text('Ajouter à la suite'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, 'replace'),
+              child: const Text('Remplacer'),
+            ),
+          ],
+        ),
+      );
+      if (choice == null || choice == 'cancel') return;
+      mode = choice;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      if (mode == 'replace') {
+        _academieUsages = cleaned;
+      } else {
+        _academieUsages.addAll(cleaned);
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            '${cleaned.length} usage(s) importé(s) — pensez à vérifier avant d\'enregistrer.')));
+  }
+
   Future<String?> _addNewCategory(String businessUnitId) async {
     final controller = TextEditingController();
     final name = await showDialog<String>(
@@ -840,9 +1089,10 @@ class _RawMaterialEditorScreenState
                     _academieIncompatibilitesCtrl.text.trim().isEmpty
                         ? null
                         : _academieIncompatibilitesCtrl.text.trim(),
-                'stockage': _academieStockageCtrl.text.trim().isEmpty
-                    ? null
-                    : _academieStockageCtrl.text.trim(),
+                'consignes_stockage':
+                    _academieStockageCtrl.text.trim().isEmpty
+                        ? null
+                        : _academieStockageCtrl.text.trim(),
                 'notes_epi': _academieNotesEpiCtrl.text.trim().isEmpty
                     ? null
                     : _academieNotesEpiCtrl.text.trim(),
@@ -1059,6 +1309,28 @@ class _RawMaterialEditorScreenState
               onPressed: _delete,
             ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: _academieCompleteness,
+                      minHeight: 6,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('${(_academieCompleteness * 100).round()}%',
+                    style: theme.textTheme.labelSmall),
+              ],
+            ),
+          ),
+        ),
       ),
       body: ListView(
         padding: EdgeInsets.all(4.w),
@@ -1314,6 +1586,7 @@ class _RawMaterialEditorScreenState
             runSpacing: 8,
             children: _academieEpiSuggestions
                 .map((e) => FilterChip(
+                      avatar: Icon(epiIcon(e), size: 16),
                       label: Text(e),
                       selected: _academieEpiRequis.contains(e),
                       onSelected: (selected) => setState(() {
@@ -1337,22 +1610,44 @@ class _RawMaterialEditorScreenState
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _allPictograms
-                  .map((p) => FilterChip(
-                        avatar: const Icon(Icons.warning_amber_outlined,
-                            size: 16),
-                        label:
-                            Text('${p['code']} · ${p['nom'] ?? ''}'),
-                        selected: _academiePictogramIds.contains(p['id']),
-                        onSelected: (selected) => setState(() {
-                          if (selected) {
-                            _academiePictogramIds.add(p['id'] as String);
-                          } else {
-                            _academiePictogramIds.remove(p['id']);
-                          }
-                        }),
-                      ))
-                  .toList(),
+              children: _allPictograms.map((p) {
+                final imageUrl = p['image_url'] as String?;
+                return FilterChip(
+                  avatar: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: (imageUrl != null && imageUrl.isNotEmpty)
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stack) =>
+                                const Icon(Icons.warning_amber_outlined,
+                                    size: 18),
+                          )
+                        : const Icon(Icons.warning_amber_outlined, size: 18),
+                  ),
+                  label: Text('${p['code']} · ${p['nom'] ?? ''}'),
+                  selected: _academiePictogramIds.contains(p['id']),
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _academiePictogramIds.add(p['id'] as String);
+                      } else {
+                        _academiePictogramIds.remove(p['id']);
+                      }
+                    });
+                    if (selected) {
+                      final added =
+                          _applyGhsHSuggestion(p['code'] as String);
+                      if (added > 0 && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(
+                                '$added phrase(s) H suggérée(s) ajoutée(s) — à vérifier.')));
+                      }
+                    }
+                  },
+                );
+              }).toList(),
             ),
             SizedBox(height: 1.5.h),
           ],
@@ -1452,6 +1747,14 @@ class _RawMaterialEditorScreenState
             'Visible seulement après achat Académie — domaine précis + dosage/technique, indépendant du catalogue.',
             style: theme.textTheme.bodySmall,
           ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _importUsagesFromOtherMaterial,
+              icon: const Icon(Icons.download_outlined, size: 18),
+              label: const Text('Importer usages depuis…'),
+            ),
+          ),
           SizedBox(height: 1.h),
           for (var i = 0; i < _academieUsages.length; i++)
             Card(
@@ -1471,9 +1774,23 @@ class _RawMaterialEditorScreenState
                               return _knownAcademieDomains.where(
                                   (d) => d.toLowerCase().contains(query));
                             },
-                            onSelected: (selection) => setState(() =>
-                                _academieUsages[i]['domaine_application'] =
-                                    selection),
+                            onSelected: (selection) => setState(() {
+                              _academieUsages[i]['domaine_application'] =
+                                  selection;
+                              // Pré-remplit le type/unité de dosage à
+                              // partir du domaine si rien n'a encore été
+                              // choisi pour cet usage — simple gain de
+                              // temps, l'admin peut toujours l'ajuster.
+                              final template =
+                                  _domainDosageTemplates[selection];
+                              if (template != null &&
+                                  _academieUsages[i]['dosage_type'] == null) {
+                                _academieUsages[i]['dosage_type'] =
+                                    template['dosage_type'];
+                                _academieUsages[i]['unite_dosage'] =
+                                    template['unite_dosage'];
+                              }
+                            }),
                             fieldViewBuilder:
                                 (context, controller, focusNode, onSubmitted) {
                               controller.text = _academieUsages[i]

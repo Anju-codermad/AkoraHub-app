@@ -7618,3 +7618,43 @@ admin depuis la Phase 85 — utilisé tel quel.
   en texte discret avec icône lien.
 - Message "Aucun usage documenté pour cette matière." si la liste est
   vide (auparavant la section disparaissait silencieusement).
+
+### Améliorations admin : suggestions, import, complétude (06/08)
+
+Dernière proposition DeepSeek sur l'écran admin — la plupart des 7
+points étaient déjà couverts par le travail précédent (sélecteurs
+pictogrammes/phrases, EPI+notes, stockage structuré) ; seuls les points
+vraiment nouveaux ont été ajoutés, plus deux corrections :
+
+- **`epiIcon()`/`dangerLevelColor()`** déplacées dans
+  `raw_material_style.dart` (partagé admin+client) pour éviter la
+  duplication — l'admin affiche maintenant aussi une icône par EPI sur
+  ses chips (auparavant texte seul).
+- **Doublon `stockage`/`consignes_stockage` résolu** : le champ
+  "Stockage" du formulaire (inchangé visuellement) écrit désormais dans
+  `consignes_stockage` (phase85) au lieu de l'ancien `stockage` ; au
+  chargement, préférence à `consignes_stockage` si déjà migré, sinon
+  reprise de l'ancienne valeur (rien n'est perdu). Fiche client mise à
+  jour pour lire `consignes_stockage` avec repli sur `stockage`.
+- **Suggestion automatique de phrases H** (`_ghsToHCodesSuggestion`,
+  `_applyGhsHSuggestion`) : cocher un pictogramme SGH pré-sélectionne
+  les phrases H courantes associées (ex : GHS05 Corrosif → H314/H318) —
+  correspondances indicatives non exhaustives, à vérifier par le staff,
+  pas une source réglementaire garantie.
+- **Vignette pictogramme** : les chips affichent l'image si
+  `image_url` est renseignée (repli icône sinon, comme côté client).
+- **Template de dosage par domaine** (`_domainDosageTemplates`) :
+  choisir un domaine d'application pré-remplit `dosage_type`/
+  `unite_dosage` s'ils n'étaient pas déjà définis pour cet usage
+  (ex : "Dégraissage" → dilution en %).
+- **Import d'usages depuis une autre matière**
+  (`_importUsagesFromOtherMaterial`) : bouton "Importer usages
+  depuis…" avec recherche de matière source, choix Remplacer/Ajouter à
+  la suite/Annuler si des usages existent déjà — rien n'est sauvegardé
+  tant que l'admin n'a pas cliqué "Enregistrer", il peut donc ajuster
+  avant.
+- **Barre de complétude** (`_academieCompleteness`) : `LinearProgressIndicator`
+  + pourcentage dans l'AppBar, calculé sur 8 champs clés (nom
+  chimique, nom commun, aspect, pH, solubilité, niveau de danger, au
+  moins un pictogramme, au moins un EPI) — pour prioriser le travail de
+  rédaction entre fiches.

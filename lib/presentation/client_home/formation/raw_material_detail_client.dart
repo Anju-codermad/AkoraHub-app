@@ -77,44 +77,6 @@ String _phLabel(double ph) {
   return 'Basique fort';
 }
 
-/// Couleur du badge "Niveau de danger" selon la sévérité (06/08) — les 4
-/// valeurs possibles sont `_academieNiveauxDanger` côté admin
-/// (raw_material_editor_screen.dart).
-Color _dangerLevelColor(String? niveau) {
-  switch (niveau) {
-    case 'Corrosif':
-      return Colors.red;
-    case 'Élevé':
-      return Colors.deepOrange;
-    case 'Modéré':
-      return Colors.amber.shade800;
-    default:
-      return Colors.grey;
-  }
-}
-
-/// Icône Material approximant chaque type d'EPI (aucune icône dédiée
-/// "gants"/"bottes" n'existe dans Material Symbols) — mêmes libellés que
-/// `_academieEpiSuggestions` côté admin.
-IconData _epiIcon(String epi) {
-  switch (epi) {
-    case 'gants':
-      return Icons.back_hand_outlined;
-    case 'lunettes':
-      return Icons.visibility_outlined;
-    case 'masque':
-      return Icons.masks_outlined;
-    case 'ventilation':
-      return Icons.air;
-    case 'tablier':
-      return Icons.checkroom_outlined;
-    case 'bottes':
-      return Icons.hiking_outlined;
-    default:
-      return Icons.shield_outlined;
-  }
-}
-
 /// Ligne icône + texte réutilisée pour les infos sécurité/stockage
 /// courtes (premiers secours, incompatibilités, stockage structuré...).
 Widget _iconTextRow(ThemeData theme, IconData icon, String text,
@@ -438,7 +400,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
     final sensibleHumidite = sheet['sensible_humidite'] as bool? ?? false;
     final sensibleLumiere = sheet['sensible_lumiere'] as bool? ?? false;
     final dureeConservation = sheet['duree_conservation_mois'] as num?;
-    final niveauColor = _dangerLevelColor(sheet['niveau_danger'] as String?);
+    final niveauColor = dangerLevelColor(sheet['niveau_danger'] as String?);
     final phValue = _extractPhValue(sheet['ph_solution'] as String?);
     Widget field(String label, String? value) {
       if (value == null || value.isEmpty) return const SizedBox.shrink();
@@ -638,7 +600,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
                         radius: 18,
                         backgroundColor:
                             theme.colorScheme.primary.withValues(alpha: 0.1),
-                        child: Icon(_epiIcon(e),
+                        child: Icon(epiIcon(e),
                             size: 18, color: theme.colorScheme.primary),
                       ),
                     ))
@@ -659,7 +621,11 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
           _iconTextRow(theme, Icons.warning_amber_outlined,
               sheet['incompatibilites'] as String,
               color: theme.colorScheme.error),
-        field('Stockage', sheet['stockage'] as String?),
+        field(
+            'Stockage',
+            (sheet['consignes_stockage'] as String?)?.isNotEmpty == true
+                ? sheet['consignes_stockage'] as String
+                : sheet['stockage'] as String?),
         if (tempMin != null || tempMax != null)
           _iconTextRow(
               theme,
