@@ -7715,3 +7715,37 @@ citrique anhydre (E330)"...) en une seule fois via une boucle
   porte justement le code alimentaire E338 — contradiction repérée et
   corrigée en laissant le grade à `null` (à confirmer manuellement),
   plutôt que de trancher sans certitude.
+- **Suite et fin de la campagne** (`phase93`, `phase94`, `phase95`) :
+  Acide nitrique (2 variantes), Acide oxalique, Acide lactique,
+  Hydroxyde de calcium ("Chaux eteinte" au catalogue), Silicate de
+  sodium (2 variantes) ; puis Acide benzoïque, Acide borique, Acide
+  fumarique (E297), Acide gluconique, Acide malique DL (E296), Acide
+  sulfamique, Acide tartrique L(+) (E334), Carbonate de calcium
+  (E170), Chlorure de calcium (3 variantes), Citrate de
+  sodium/potassium (E331/E332), Potasse caustique (KOH), Sel de
+  Glauber, Sulfate d'aluminium (Alun).
+  - **`phase94` — duplication au lieu de régénération** : deux
+    produits catalogue ("Soude caustique NaOH grade alimentaire",
+    "Bicarbonate de soude alimentaire") sont la même substance qu'une
+    fiche déjà documentée, juste une variante de grade. Plutôt que de
+    redemander du contenu à DeepSeek, `phase94` copie en SQL pur
+    (`insert ... select ... from matieres_premieres_academie where
+    matiere_premiere_id = <source>`) le contenu déjà vérifié vers le
+    nouveau `matiere_premiere_id`, en forçant `grade = 'Alimentaire'`
+    sur la copie — usages et phrases H/P copiés de la même façon.
+    Motif : ce cas se reproduira (plusieurs matières du catalogue ont
+    une variante technique et une variante alimentaire de la même
+    substance) et cette approche est plus fiable qu'une régénération
+    IA (élimine tout risque d'incohérence entre les deux fiches).
+  - **Produit demandé par DeepSeek mais absent du catalogue** :
+    "Carbonate de potassium" proposé dans un lot n'existe pas dans
+    `raw_materials` — vérifié avant d'écrire `phase93` (recherche
+    `%potassium%`/`%potasse%`), volontairement omis plutôt que
+    d'inventer un id ou de le confondre avec "Potasse caustique"
+    (KOH — un produit chimiquement différent, hydroxyde et non
+    carbonate).
+  - **Catégorie "Acides & Bases" terminée** (07/08) : 40 matières
+    (après suppression des 2 doublons `phase88`) ont désormais une
+    fiche Académie complète. Prochaine étape (si l'utilisatrice
+    valide) : étendre la même démarche aux autres catégories chimiques
+    du catalogue.
