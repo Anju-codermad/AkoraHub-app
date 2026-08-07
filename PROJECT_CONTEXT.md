@@ -7715,6 +7715,30 @@ citrique anhydre (E330)"...) en une seule fois via une boucle
   porte justement le code alimentaire E338 — contradiction repérée et
   corrigée en laissant le grade à `null` (à confirmer manuellement),
   plutôt que de trancher sans certitude.
+
+### Catégorie "Chélatants" (07/08) ✅ TERMINÉE (12/12)
+
+Deuxième catégorie du catalogue à être entièrement documentée, après
+Acides & Bases. Ne comptait initialement que 2 produits ("EDTA /
+Sequestrant", "EDTA disodique E385") — l'utilisatrice a choisi
+d'**élargir le catalogue** avant de documenter (contrairement à
+Acides & Bases où on documentait l'existant), sur la base d'une liste
+de 17 chélatants courants demandée à DeepSeek.
+
+- **`phase96`** : ajout de 10 nouveaux produits (`raw_materials`,
+  stock `'rupture'`, prix `null` — à compléter par l'utilisatrice une
+  fois approvisionnée) : EDTA tétrasodique, GLDA, MGDA, Gluconate de
+  sodium (E576), HEDP, ATMP, DTPA, Polyaspartate de sodium, Acide
+  phytique (E391), DTPMPA. Volontairement exclus de la liste DeepSeek :
+  Acide citrique/gluconique/tartrique/citrate (déjà au catalogue dans
+  "Acides & Bases", pas de doublon inter-catégorie) et Chlorure de
+  benzalkonium (surtout un désinfectant, pas un vrai chélatant).
+- **`phase97`+`phase98`** : fiches Académie pour les 12 produits.
+  Cas particulier : DeepSeek n'a fourni du contenu que pour 2 formes
+  d'EDTA (disodique, tétrasodique) alors que le catalogue en a 3
+  variantes — le contenu "EDTA disodique" a été appliqué à la fois à
+  "EDTA / Sequestrant" (nom générique) et à "EDTA disodique (E385)",
+  la forme disodique étant la plus courante pour un nom non spécifié.
 - **Suite et fin de la campagne** (`phase93`, `phase94`, `phase95`) :
   Acide nitrique (2 variantes), Acide oxalique, Acide lactique,
   Hydroxyde de calcium ("Chaux eteinte" au catalogue), Silicate de
