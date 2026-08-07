@@ -7739,6 +7739,28 @@ de 17 chélatants courants demandée à DeepSeek.
   variantes — le contenu "EDTA disodique" a été appliqué à la fois à
   "EDTA / Sequestrant" (nom générique) et à "EDTA disodique (E385)",
   la forme disodique étant la plus courante pour un nom non spécifié.
+
+### Catégorie "Désinfectants" (07/08) ✅ TERMINÉE (16/16)
+
+Troisième catégorie entièrement documentée, même démarche que
+Chélatants (élargir le catalogue via une liste DeepSeek avant de
+documenter). Ne comptait initialement que 5 produits (Acide
+peracétique, Hypochlorite de calcium 70 %, Hypochlorite de sodium/eau
+de Javel, Peroxyde d'hydrogène alimentaire, TCCA).
+
+- **`phase99`** : ajout de 11 nouveaux produits (stock `'rupture'`,
+  prix `null`) : Chlorure de benzalkonium (BAC), Chlorure de
+  didecyldiméthylammonium (DDAC), Éthanol 96°, Isopropanol (IPA), PHMB,
+  BCDMH (brome piscine/SPA), Dioxyde de chlore (kit chlorite de sodium
+  + activateur — produit généré in situ, pas stocké actif), Glutaraldéhyde
+  50 % (usage médical/vétérinaire, sporicide à froid), Chloramine-T,
+  Nitrate d'argent, Iode cristallisé.
+- **`phase100`+`phase101`** : fiches Académie pour les 16 produits.
+  Plusieurs codes H suggérés par DeepSeek (H400, H410, H330, H331,
+  H334, H336, H372 — phrases environnementales/rares) ne sont
+  probablement pas dans le seed `phase86` limité aux phrases courantes
+  — inserts conditionnels documentés, silencieusement ignorés si le
+  code n'existe pas (pas d'erreur bloquante).
 - **Suite et fin de la campagne** (`phase93`, `phase94`, `phase95`) :
   Acide nitrique (2 variantes), Acide oxalique, Acide lactique,
   Hydroxyde de calcium ("Chaux eteinte" au catalogue), Silicate de
