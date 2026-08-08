@@ -7889,3 +7889,55 @@ sodium), aucun documenté.
   potentiellement de la silice cristalline libre — documentée avec
   H350i et EPI renforcés (masque FFP2) plutôt qu'exclue, car c'est un
   produit déjà commercialisé par l'utilisatrice, pas un nouvel ajout.
+
+### Catégorie "Colorants" (08/08) ✅ TERMINÉE (39/39)
+
+Septième catégorie entièrement documentée. Ne comptait initialement
+que 13 produits (9 substances spécifiques + 4 entrées génériques de
+famille : Colorants alimentaires certifiés, Colorants cosmétiques,
+Colorants industriels, Pigments oxydes de fer/TiO2), aucun documenté.
+
+- **Particularité de la catégorie** : contrairement aux campagnes
+  précédentes, 4 entrées du catalogue ne sont pas des substances
+  uniques mais des familles génériques. Sur décision explicite de
+  l'utilisatrice ("Fiche de synthèse par famille"), un schéma de
+  fiche distinct a été introduit pour ces 4 entrées : `densite` et
+  `point_eclair` à `null`, champs phrasés "Variable selon le
+  colorant/pigment...", `particularite` listant 5 à 10
+  substances/codes représentatifs de la famille, et un unique usage
+  en `dosage_type = 'texte_libre'` renvoyant vers la fiche du
+  colorant/pigment spécifique effectivement choisi.
+- **`phase114`** : ajout de 23 nouveaux colorants (stock `'rupture'`,
+  prix `null`) : Rouge de betterave/bétanine (E162), Carmin/Cochenille
+  (E120), Chlorophylles/chlorophyllines (E140/E141), Curcumine (E100),
+  Extrait de paprika (E160c), Lycopène (E160d), Lutéine (E161b), Noir
+  végétal (E153), Rocou/Annatto (E160b), Spiruline/phycocyanine, Jaune
+  de quinoléine (E104), Rouge allura AC (E129), Rouge
+  carmoisine/Azorubine (E122), Rouge érythrosine (E127), Bleu patenté
+  V (E131), Vert S (E142), Noir brillant BN (E151), Brun FK (E154),
+  Brun HT (E155), CI 15850, CI 61570, CI 77007, CI 77289, CI 77742,
+  Bleu de méthylène, Fluorescéine.
+  - **Diligence doublon** : 5 produits proposés par DeepSeek exclus
+    car doublons (E163 déjà au catalogue ; CI 19140 = Tartrazine E102
+    déjà au catalogue ; CI 42090 = Bleu brillant FCF E133 déjà au
+    catalogue ; CI 45410 et CI 47005 = formes laque de l'Érythrosine
+    E127 et du Jaune de quinoléine E104, déjà proposés dans la même
+    liste DeepSeek).
+  - **Diligence sécurité** : 2 produits exclus sur choix de
+    l'utilisatrice suivant la recommandation : Rhodamine B (interdite
+    en alimentaire, suspectée cancérogène) et Violet de
+    gentiane/Cristal violet (IARC groupe 2B, cancérogène possible).
+- **`phase115`** : fiches Académie pour les 23 nouveaux colorants
+  (26 fiches livrées au total dans ce fichier, DeepSeek ayant fourni
+  du contenu au-delà du périmètre approuvé lors d'un envoi ; le
+  surplus hors liste a été écarté et seules les 23 fiches approuvées
+  ont été conservées — le compte de 23 correspond bien aux 23 ajouts
+  de phase114).
+- **`phase116`** : fiches Académie pour les 13 produits déjà présents
+  avant la campagne (9 substances spécifiques + 4 fiches de synthèse
+  par famille). Le Dioxyde de titane (E171), produit déjà au
+  catalogue, a été documenté avec les phrases H315/H319/H335/H351,
+  `niveau_danger = 'Modéré'` et `grade = 'Cosmétique'`, reflétant la
+  suspension de son usage alimentaire dans l'UE depuis 2022 — c'est
+  une documentation fidèle d'un produit déjà commercialisé, pas une
+  décision d'ajout d'un nouveau produit dangereux.
