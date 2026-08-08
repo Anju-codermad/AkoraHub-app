@@ -8077,3 +8077,66 @@ documenté.
   de trace de l'acrylamide résiduel (neurotoxique, CIRC groupe 2A)
   dans le polyacrylamide fini, strictement contrôlée et sans risque
   aux doses d'emploi.
+
+### Catégorie "Parfums & Additifs" (08/08) ✅ TERMINÉE (82/82)
+
+Neuvième catégorie entièrement documentée. Ne comptait initialement
+que 35 produits (édulcorants, arômes, exhausteurs de goût, sucres,
+vitamines, 5 entrées génériques de famille), aucun documenté.
+
+- **`phase135`** : ajout de 47 nouveaux produits (stock `'rupture'`,
+  prix `null`) répartis en édulcorants/polyols (Érythritol, Isomalt,
+  Lactitol, Maltitol, Mannitol, Polyglycitol, Sel d'aspartame-
+  acésulfame, Thaumatine, Xylitol), arômes de synthèse/identiques
+  nature (Acétate d'éthyle, Acétoïne, Aldéhydes C14/C16/C18, Anéthol,
+  Benzaldéhyde, Citral, Diacétyle, Éthylmaltol, Eucalyptol, Eugénol,
+  Furfuryl mercaptan, Isobutyrate d'éthyle, Limonène D, Linalol,
+  Maltol, Menthol, Pipéronal, Vératraldéhyde), exhausteurs de goût
+  (Guanylate/Acide guanylique, Inosinate/Acide inosinique, Protéine
+  végétale hydrolysée, Extrait de levure), fixateurs de parfum
+  (Ambre gris, Benjoin, Civettone, Galaxolide, Iso E Super, Musc
+  cétone, Myrrhe, Oliban), additifs fonctionnels alimentaires
+  (Azodicarbonamide, Carbonate acide d'ammonium/Bicarbonate
+  d'ammonium, L-cystéine, Alun de potassium, Chlorure de magnésium,
+  Chlorure de potassium).
+  - **Diligence doublon inter-catégories** : Cire de carnauba/Cire
+    d'abeille/Lécithine/Glycérol (Huiles & Beurres Cosmétiques),
+    Gomme laque (Polymères & Résines), Mono-/diglycérides E471/Gomme
+    xanthane E415/Pectine E440 (Épaississants), Dioxyde de
+    silicium/Silice colloïdale E551 (Charges Minérales), Propylène
+    glycol E1520 (Solvants) exclus. Erreurs DeepSeek non détectées
+    corrigées : Oxyde de magnésium E530 (déjà au catalogue Charges
+    Minérales, phase111) et Carbonate de sodium E500 (déjà documenté
+    dans Acides & Bases, phase91) retirés. Vanilline/Éthylvanilline
+    E426 et Tartrate de potassium E336 exclus (doublons de "Vanilline
+    de synthèse" et "Crème de tartre" déjà au catalogue). Doublons
+    internes fusionnés : Polyglycitol E964 (poudre/sirop), Carbonate
+    acide d'ammonium/Bicarbonate d'ammonium (même composé E503).
+  - **Diligence sécurité** (2 questions posées, options recommandées
+    suivies) : Azodicarbonamide E927a inclus avec avertissements
+    renforcés (interdit comme additif alimentaire en UE depuis 2005,
+    usage informatif/hors-UE uniquement, sensibilisant respiratoire) ;
+    Musc cétone inclus avec avertissements renforcés (nitro-musc PBT
+    sévèrement restreint par l'IFRA, phototoxicité, caractère daté de
+    la matière première).
+  - **Avertissements renforcés sans gate** (substances légales et
+    courantes à risques bien caractérisés) : Diacétyle (bronchiolite
+    oblitérante en exposition professionnelle chronique à des vapeurs
+    concentrées), Furfuryl mercaptan (seuil de détection au ppb,
+    usage exclusivement en solution pré-diluée), Linalol (allergène
+    de parfum à déclaration obligatoire UE, sensible à l'oxydation),
+    Limonène D (oxydation en allergènes plus puissants), L-cystéine
+    (variabilité d'origine synthétique/végétale/animale à vérifier
+    auprès du fournisseur).
+- **`phase136` à `phase141`** : fiches Académie pour les 47 nouveaux
+  produits, livrées en 6 lots (8+8+8+8+8+7).
+- **`phase142`** : fiches Académie pour les 35 produits déjà présents
+  avant la campagne. 5 entrées génériques de famille (Aromes
+  alimentaires, Épices alimentaires, Fixateurs de parfum, Huiles
+  essentielles, Parfums de synthese) documentées avec le même schéma
+  de "fiche de synthèse par famille" que la catégorie Colorants
+  (`densite`/`point_eclair` à `null`, `particularite` listant des
+  substances représentatives, usage unique en
+  `dosage_type = 'texte_libre'`). Doublon interne du catalogue
+  "Caféine (anhydre)" / "Caféine anhydre" documenté sans fusion,
+  comme pour Salpêtre en Conservateurs & Antioxydants.
