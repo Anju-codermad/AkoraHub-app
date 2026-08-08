@@ -8036,3 +8036,44 @@ Sulfite de sodium/Métabisulfite de sodium), aucun documenté.
   (E250) et Salpêtre (E252) documentés avec avertissements renforcés
   sur la méthémoglobinémie et la formation de nitrosamines
   cancérigènes en cuisson à haute température.
+
+### Catégorie "Polymères & Résines" (08/08) ✅ TERMINÉE (21/21)
+
+Dixième catégorie entièrement documentée. Ne comptait initialement
+qu'un seul produit (Polymères floculants, traitement de l'eau), non
+documenté.
+
+- **Correction d'une hypothèse erronée de DeepSeek** : lors de la
+  vérification préalable, DeepSeek a suggéré d'exclure Carbomère,
+  PVA, PVP et PEG en pensant qu'ils étaient déjà documentés dans
+  "Épaississants" ou "Solvants". Vérification faite dans
+  PROJECT_CONTEXT.md (entrée Épaississants, phase102) : ces 4
+  produits avaient en réalité été volontairement écartés
+  d'"Épaississants" précisément pour être traités dans "Polymères &
+  Résines" — ils ont donc été réintégrés à la liste d'ajout.
+- **`phase130`** : ajout de 20 nouveaux polymères et résines (stock
+  `'rupture'`, prix `null`) : polymères épaississants/filmogènes
+  (Carbomère, Copolymère d'acrylates, Polyacrylate de sodium, PVP,
+  PVA, PEG, Copolymère VP/VA), silicones et résines filmogènes
+  (Diméthicone, Cyclopentasiloxane/Cyclométhicone, Polyquaternium,
+  Résine acrylique filmogène, Polyuréthane filmogène), résines de
+  casting/bijouterie (Résine époxy, Résine polyester, Résine UV,
+  Résine polyuréthane bijouterie/art), résines naturelles (Colophane,
+  Gomme laque), et polymères techniques divers (Acétate de
+  polyvinyle/colle blanche, Silicone RTV).
+  - **Aucune exclusion sécurité** : tous les produits sont légaux et
+    couramment utilisés en artisanat/technique. Résine époxy, Résine
+    polyester, Résine UV et Résine polyuréthane (bijouterie/art)
+    documentées avec `niveau_danger = 'Élevé'` et avertissements
+    renforcés sur des risques bien caractérisés et non exclusion-
+    nécessitants : sensibilisation cutanée du durcisseur amine
+    (époxy) et des acrylates (résine UV), styrène/catalyseur MEKP
+    oxydant-corrosif (polyester), isocyanates sensibilisants
+    respiratoires (polyuréthane bijouterie/art).
+- **`phase131` à `phase133`** : fiches Académie pour les 20 nouveaux
+  produits, livrées en 3 lots (7+7+6).
+- **`phase134`** : fiche Académie pour le produit déjà présent avant
+  la campagne (Polymères floculants). Documente la présence à l'état
+  de trace de l'acrylamide résiduel (neurotoxique, CIRC groupe 2A)
+  dans le polyacrylamide fini, strictement contrôlée et sans risque
+  aux doses d'emploi.
