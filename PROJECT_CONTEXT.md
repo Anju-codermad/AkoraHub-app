@@ -7941,3 +7941,39 @@ Colorants industriels, Pigments oxydes de fer/TiO2), aucun documenté.
   suspension de son usage alimentaire dans l'UE depuis 2022 — c'est
   une documentation fidèle d'un produit déjà commercialisé, pas une
   décision d'ajout d'un nouveau produit dangereux.
+
+### Catégorie "Huiles & Beurres Cosmétiques" (08/08) ✅ TERMINÉE (46/46)
+
+Huitième catégorie entièrement documentée. Ne comptait initialement
+que 9 produits (Beurre de cacao, Beurre de karité, Cire d'abeille,
+Cire de carnauba, Glycérine pure alimentaire E422, Glycérine
+technique, Huile de coco, Huile de coco/palme, Paraffine), aucun
+documenté.
+
+- **`phase117`** : ajout de 37 nouvelles huiles, beurres et cires
+  (stock `'rupture'`, prix `null`) : 25 huiles (olive, palme,
+  palmiste, tournesol, ricin, amande douce, jojoba, argan, coco
+  fractionnée, pépin de raisin, avocat, sésame, noisette, macadamia,
+  noyau d'abricot, chanvre, bourrache, onagre, rose musquée, neem,
+  germe de blé, coton, soja, maïs, arachide), 7 beurres (mangue,
+  kokum, sal, mowrah, illipe, cupuaçu, babassu), 5 cires/graisses
+  (candelilla, soja, lanoline, riz, acacia/mimosa).
+  - **Diligence sécurité** : Huile de neem incluse sur décision de
+    l'utilisatrice suivant la recommandation, malgré une toxicité
+    documentée par ingestion (intoxications pédiatriques graves —
+    hypoglycémie, encéphalopathie) et son usage possible comme
+    biocide naturel (chevauchement avec la catégorie "Anti-Nuisibles").
+    Documentée en phase120 avec `niveau_danger = 'Élevé'` et les
+    phrases H302/H315/H319, avertissements renforcés (usage externe
+    uniquement, hors de portée des enfants).
+- **`phase118` à `phase122`** : fiches Académie pour les 37 nouveaux
+  produits, livrées en 5 lots (8+8+9+7+5). La Lanoline (lot 5,
+  phase122) est documentée avec un avertissement allergène de contact
+  connu (dermatite de contact documentée), `epi_requis = ['gants']`.
+- **`phase123`** : fiches Académie pour les 9 produits déjà présents
+  avant la campagne. La Paraffine est explicitement documentée comme
+  seul produit d'origine pétrochimique du catalogue (contrairement à
+  toutes les cires végétales), non biodégradable ; Glycérine pure
+  alimentaire (E422) et Glycérine technique sont distinguées par
+  grade et usages (la technique n'est réservée qu'aux applications
+  industrielles, jamais alimentaire ni cosmétique).
