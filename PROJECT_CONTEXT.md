@@ -7977,3 +7977,62 @@ documenté.
   alimentaire (E422) et Glycérine technique sont distinguées par
   grade et usages (la technique n'est réservée qu'aux applications
   industrielles, jamais alimentaire ni cosmétique).
+
+### Catégorie "Conservateurs & Antioxydants" (08/08) ✅ TERMINÉE (44/44)
+
+Neuvième catégorie entièrement documentée. Ne comptait initialement
+que 14 produits (Acide ascorbique, Acide ascorbique/Ascorbate Na,
+Acide sorbique, Ascorbate de sodium, Benzoate de sodium, Benzoate de
+sodium + Sorbate de K, Lysozyme, Métabisulfite de potassium, Nisine,
+Nitrite de sodium/Sel nitrité, Salpêtre [2 entrées quasi-identiques
+du catalogue existant], Sel nitrité 0,6 %, Sorbate de potassium,
+Sulfite de sodium/Métabisulfite de sodium), aucun documenté.
+
+- **`phase124`** : ajout de 30 nouveaux conservateurs et antioxydants
+  (stock `'rupture'`, prix `null`) : conservateurs cosmétiques
+  (Phénoxyéthanol, Acide benzoïque E210, Acide déhydroacétique DHA,
+  Méthylparabène, Éthylparabène, Éthylhexylglycérine, Caprylyl
+  glycol, Capryloyl glycine, Extrait de radis fermenté/Leucidal,
+  Gluconolactone, Acide lévulinique + Acide p-anisique, Acide
+  salicylique), conservateurs alimentaires (Propionate de calcium
+  E282, Propionate de sodium E281, Acide propionique E280,
+  Natamycine E235, Hexaméthylènetétramine E239), antioxydants
+  (Tocophérols, Extrait de romarin, Palmitate d'ascorbyle E304, BHA
+  E320, BHT E321, Gallate de propyle E310, Gallate d'octyle E311,
+  Gallate de dodécyle E312, Citrate de sodium E331, Tartrate de
+  sodium E335, Ascorbate de calcium E302), conservateurs œnologiques
+  (Anhydride sulfureux SO₂, Dicarbonate de diméthyle DMDC E242).
+  - **Diligence doublon inter-catégories** : plusieurs produits
+    proposés par DeepSeek exclus car leur famille chimique appartient
+    à une autre catégorie déjà traitée : Alcool benzylique (déjà dans
+    Solvants), EDTA (déjà dans Chélatants), Acide citrique/acétique/
+    formique (famille Acides & Bases), Phosphates (déjà couverts via
+    Charges Minérales). Doublons de grade fusionnés dans les fiches
+    existantes plutôt que dupliqués (Sorbate de potassium cosmétique/
+    œnologique, Benzoate de sodium cosmétique, Acide benzoïque
+    alimentaire/cosmétique fusionné en une seule entrée E210).
+  - **Diligence sécurité** (4 questions posées, options recommandées
+    suivies) : Propyl/Butylparabène exclus (restrictions UE sévères,
+    perturbateurs endocriniens suspectés — seuls méthyl/éthylparabène
+    inclus) ; Biphényle/E230 exclu (retiré des additifs alimentaires
+    autorisés en UE depuis 2004) ; BHA/E320 et BHT/E321 inclus avec
+    avertissements renforcés (BHA classé CIRC groupe 2B) ;
+    Hexaméthylènetétramine/E239 inclus avec avertissements renforcés
+    (libère du formaldéhyde, CIRC groupe 1, usage UE très restreint
+    aux croûtes de fromage type Provolone).
+- **`phase125` à `phase128`** : fiches Académie pour les 30 nouveaux
+  produits, livrées en 4 lots (8+8+8+6). Anhydride sulfureux et
+  Dicarbonate de diméthyle (DMDC) documentés avec `niveau_danger =
+  'Élevé'` (gaz corrosif toxique par inhalation pour le premier ;
+  produit corrosif sévère avant hydrolyse pour le second, malgré sa
+  décomposition finale en CO₂ et méthanol à l'état de trace).
+- **`phase129`** : fiches Académie pour les 14 produits déjà présents
+  avant la campagne (documentés en 15 fiches, car "Acide ascorbique /
+  Ascorbate Na" est un mélange combo distinct des deux produits
+  simples déjà présents). Les deux entrées quasi-identiques "Salpêtre
+  (Nitrate de potassium KNO₃ E252)" et "Salpêtre / Nitrate de
+  potassium (E252)" ont été documentées séparément avec un contenu
+  cohérent, sans fusionner le catalogue existant. Nitrite de sodium
+  (E250) et Salpêtre (E252) documentés avec avertissements renforcés
+  sur la méthémoglobinémie et la formation de nitrosamines
+  cancérigènes en cuisson à haute température.
