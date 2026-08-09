@@ -8140,3 +8140,75 @@ vitamines, 5 entrées génériques de famille), aucun documenté.
   `dosage_type = 'texte_libre'`). Doublon interne du catalogue
   "Caféine (anhydre)" / "Caféine anhydre" documenté sans fusion,
   comme pour Salpêtre en Conservateurs & Antioxydants.
+
+### Catégorie "Tensioactifs" (12/12) ✅ TERMINÉE (51/51)
+
+Dixième et **dernière** catégorie entièrement documentée — clôture de
+la campagne complète des 12 catégories de matières premières
+chimiques. Ne comptait initialement que 14 produits (SLES, SLS, SLSA,
+Sodium Coco-Sulfate, LAS, LABSA, CAPB, Cocamidopropyl Hydroxysultaine,
+Sodium Lauroyl Sarcosinate, Comperlan/Cocamide DEA, Decyl/Lauryl/Coco
+Glucoside, AOS), aucun documenté.
+
+- **`phase143`** : ajout de 37 nouveaux produits (stock `'rupture'`,
+  prix `null`) répartis en anioniques (Sodium Cocoyl Isethionate,
+  Disodium Laureth/Lauryl Sulfosuccinate, Sodium Methyl Cocoyl
+  Taurate, Sodium Cocoyl Glycinate, Potassium/Sodium Cocoate, Sodium
+  Stearate, Sodium Palmate, Ammonium Lauryl Sulfate, Magnesium
+  Laureth Sulfate, Sodium Lauryl Glucose Carboxylate), cationiques
+  (Cetrimonium Chloride, Behentrimonium Methosulfate, Distearyldimonium
+  Chloride, Stearamidopropyl Dimethylamine, Dicetyldimonium Chloride,
+  Quaternium-87), amphotères/zwitterioniques (Disodium
+  Cocoamphodiacetate, Sodium Cocoamphoacetate, Lauramidopropyl
+  Betaine, Coco-Betaine), non ioniques (Cocamide MEA/MIPA,
+  Polysorbate 20/80, Sorbitan Oleate/Stearate/Laurate, Laureth-4/7,
+  Ceteareth-20/25, PEG-40 Hydrogenated Castor Oil, PEG-7 Glyceryl
+  Cocoate, Poloxamer 407/188).
+  - **Diligence doublon inter-catégories** : vérifié par `Grep` sur
+    `PROJECT_CONTEXT.md` (termes recherchés : Polysorbate, Poloxamer,
+    Sorbitan, Cetrimonium, Behentrimonium, Sodium Stearate/Palmate/
+    Cocoate, Potassium Cocoate, PEG-40/PEG-7) — zéro occurrence,
+    aucun doublon avec les catégories déjà terminées.
+  - **Diligence sécurité** : aucune exclusion nécessaire, tous les
+    produits sont des tensioactifs légaux et couramment utilisés en
+    cosmétique/détergence artisanale, aucun gate déclenché.
+- **`phase144`** : fiches Académie pour les 37 nouveaux produits,
+  livrées en **un seul appel DeepSeek combiné** (37 produits, JSON
+  non tronqué) à la demande explicite de l'utilisatrice de minimiser
+  les allers-retours. Tensioactifs éthoxylés (Laureth, Ceteareth,
+  PEG-40/PEG-7, Polysorbate, Poloxamer, sulfosuccinates laureth)
+  documentés avec avertissement sur le risque de contamination
+  résiduelle en 1,4-dioxane (cancérogène possible) et recommandation
+  d'exiger un certificat d'analyse du fournisseur. Tensioactifs
+  cationiques de type ammonium quaternaire documentés avec
+  avertissement sur l'irritation oculaire/muqueuses et les propriétés
+  biocides à forte dose ; Distearyldimonium Chloride documenté avec
+  note sur sa biodégradabilité limitée face aux esterquats
+  (Quaternium-87, alternative "verte" moderne).
+- **`phase145`** : fiches Académie pour les 14 produits déjà présents
+  avant la campagne, également livrées en un seul appel DeepSeek
+  combiné. SLES documenté avec le même avertissement 1,4-dioxane
+  (produit éthoxylé) ; SLS et SLES documentés avec avertissement clair
+  sur leur potentiel irritant à haute concentration. LABSA (acide
+  libre) documenté `Corrosif` (H314, EPI complets : gants, lunettes,
+  tablier, ventilation, bottes), distinct du LAS (sel déjà neutralisé,
+  `Modéré`). Cocamide DEA documenté avec note sur le risque de
+  formation de nitrosamines (N-nitrosodiéthanolamine) en présence
+  d'agents nitrosants et recommandation de préférer le Cocamide
+  MEA/MIPA quand possible — reste un produit légal, non gaté (pattern
+  établi : avertissement renforcé sans blocage pour les substances
+  légales à risque bien caractérisé). Alkyl polyglucosides (Decyl/
+  Lauryl/Coco Glucoside) documentés comme très doux, biodégradables,
+  d'origine végétale, non éthoxylés, certifiables Ecocert/Cosmos.
+
+## Campagne Académie — 12/12 catégories terminées
+
+La campagne de documentation systématique des fiches techniques et
+sécurité pour l'ensemble du catalogue de matières premières chimiques
+est désormais **complète**. Les 12 catégories (Désinfectants, Acides
+& Bases, Solvants, Chélatants, Épaississants, Charges Minérales,
+Colorants, Huiles & Beurres Cosmétiques, Conservateurs &
+Antioxydants, Polymères & Résines, Parfums & Additifs, Tensioactifs)
+disposent chacune d'une fiche Académie complète (usages, dosages,
+pictogrammes GHS, phrases H/P, EPI, conditions de stockage) pour
+tous leurs produits.
