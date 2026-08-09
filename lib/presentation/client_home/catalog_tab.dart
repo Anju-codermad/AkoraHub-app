@@ -494,197 +494,236 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             ? greetingPrefix
             : '$greetingPrefix, ${_clientName!.trim()}';
 
-    return RefreshIndicator(
-      onRefresh: _loadData,
-      child: CustomScrollView(
-        slivers: [
-          // --- En-tête personnalisé : avatar, salutation, localisation, notifs ---
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: widget.onOpenProfile,
-                    child: CircleAvatar(
-                      radius: 22,
-                      backgroundImage: _clientAvatarUrl != null
-                          ? NetworkImage(_clientAvatarUrl!)
-                          : null,
-                      child: _clientAvatarUrl == null
-                          ? const Icon(Icons.person)
-                          : null,
-                    ),
-                  ),
-                  SizedBox(width: 3.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          greetingName,
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+    // Bandeau coloré haut / feuille blanche arrondie en bas (09/08,
+    // demande explicite sur maquette fournie — uniquement le style
+    // visuel, le contenu de l'Accueil reste inchangé). Fond plein écran
+    // en `Stack` (plus simple/robuste qu'un calcul de hauteur exact du
+    // bandeau) : tout ce qui vient après le "capuchon" arrondi est déjà
+    // opaque (fond blanc par défaut du Scaffold), donc le vert ne
+    // reste visible qu'au-dessus de ce capuchon.
+    final onBand = theme.colorScheme.onPrimary;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Container(color: theme.colorScheme.primary),
+        ),
+        RefreshIndicator(
+          onRefresh: _loadData,
+          child: CustomScrollView(
+            slivers: [
+              // --- En-tête personnalisé : avatar, salutation, localisation, notifs ---
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: widget.onOpenProfile,
+                        child: CircleAvatar(
+                          radius: 22,
+                          backgroundImage: _clientAvatarUrl != null
+                              ? NetworkImage(_clientAvatarUrl!)
+                              : null,
+                          child: _clientAvatarUrl == null
+                              ? const Icon(Icons.person)
+                              : null,
                         ),
-                        if (_clientLocation != null &&
-                            _clientLocation!.trim().isNotEmpty)
-                          Row(
-                            children: [
-                              Icon(Icons.location_on_outlined,
-                                  size: 14,
-                                  color: theme.colorScheme.onSurfaceVariant),
-                              const SizedBox(width: 2),
-                              Flexible(
-                                child: Text(
-                                  _clientLocation!,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      SizedBox(width: 3.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              greetingName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700, color: onBand),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (_clientLocation != null &&
+                                _clientLocation!.trim().isNotEmpty)
+                              Row(
+                                children: [
+                                  Icon(Icons.location_on_outlined,
+                                      size: 14,
+                                      color: onBand.withValues(alpha: 0.85)),
+                                  const SizedBox(width: 2),
+                                  Flexible(
+                                    child: Text(
+                                      _clientLocation!,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                              color: onBand.withValues(
+                                                  alpha: 0.85)),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Material(
+                                color: onBand.withValues(alpha: 0.16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Badge(
+                                  label: Text('$cartCount'),
+                                  isLabelVisible: cartCount > 0,
+                                  child: IconButton(
+                                    icon: Icon(Icons.shopping_cart_outlined,
+                                        color: onBand),
+                                    tooltip: 'Panier',
+                                    onPressed: widget.onOpenCart,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 2.w),
+                              Material(
+                                color: onBand.withValues(alpha: 0.16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: IconButton(
+                                  icon: Icon(Icons.receipt_long_outlined,
+                                      color: onBand),
+                                  tooltip: 'Commandes',
+                                  // Commandes a quitté la barre du bas (04/08)
+                                  // pour laisser la place à l'onglet Catalogue
+                                  // — accès conservé ici, comme Messagerie.
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const OrdersTab()),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 2.w),
+                              Material(
+                                color: onBand.withValues(alpha: 0.16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Badge(
+                                  label: Text('$_unreadMessagesCount'),
+                                  isLabelVisible: _unreadMessagesCount > 0,
+                                  child: IconButton(
+                                    icon: Icon(Icons.chat_bubble_outline,
+                                        color: onBand),
+                                    tooltip: 'Messagerie',
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (_) =>
+                                                const ChatScreen()),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 2.w),
+                              Material(
+                                color: onBand.withValues(alpha: 0.16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Badge(
+                                  label: Text('$_unreadMessagesCount'),
+                                  isLabelVisible: _unreadMessagesCount > 0,
+                                  child: IconButton(
+                                    icon: Icon(
+                                        Icons.notifications_none_rounded,
+                                        color: onBand),
+                                    tooltip: 'Notifications',
+                                    onPressed: _openNotifications,
+                                  ),
                                 ),
                               ),
                             ],
-                          ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Material(
-                            color: theme.colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Badge(
-                              label: Text('$cartCount'),
-                              isLabelVisible: cartCount > 0,
-                              child: IconButton(
-                                icon: const Icon(Icons.shopping_cart_outlined),
-                                tooltip: 'Panier',
-                                onPressed: widget.onOpenCart,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 2.w),
-                          Material(
-                            color: theme.colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.receipt_long_outlined),
-                              tooltip: 'Commandes',
-                              // Commandes a quitté la barre du bas (04/08)
-                              // pour laisser la place à l'onglet Catalogue
-                              // — accès conservé ici, comme Messagerie.
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const OrdersTab()),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 2.w),
-                          Material(
-                            color: theme.colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Badge(
-                              label: Text('$_unreadMessagesCount'),
-                              isLabelVisible: _unreadMessagesCount > 0,
-                              child: IconButton(
-                                icon: const Icon(Icons.chat_bubble_outline),
-                                tooltip: 'Messagerie',
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const ChatScreen()),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 2.w),
-                          Material(
-                            color: theme.colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Badge(
-                              label: Text('$_unreadMessagesCount'),
-                              isLabelVisible: _unreadMessagesCount > 0,
-                              child: IconButton(
-                                icon: const Icon(
-                                    Icons.notifications_none_rounded),
-                                tooltip: 'Notifications',
-                                onPressed: _openNotifications,
-                              ),
-                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
 
-          // --- Raccourci recherche (04/08) : pas une vraie recherche
-          // locale (la logique de recherche/pagination vit désormais
-          // uniquement dans l'onglet Catalogue, voir
-          // product_catalog_tab.dart, pour ne pas la dupliquer) — un tap
-          // ouvre directement le Catalogue, comme sur beaucoup d'apps
-          // e-commerce (barre de recherche "raccourci" sur l'accueil). ---
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.h),
-              child: Material(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: widget.onOpenCatalog,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 4.w, vertical: 1.6.h),
-                    child: Row(
-                      children: [
-                        Icon(Icons.search,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant),
-                        SizedBox(width: 3.w),
-                        Text(
-                          ref.tr('search_hint'),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+              // --- Raccourci recherche (04/08) : pas une vraie recherche
+              // locale (la logique de recherche/pagination vit désormais
+              // uniquement dans l'onglet Catalogue, voir
+              // product_catalog_tab.dart, pour ne pas la dupliquer) — un tap
+              // ouvre directement le Catalogue, comme sur beaucoup d'apps
+              // e-commerce (barre de recherche "raccourci" sur l'accueil).
+              // Fond blanc plein (au lieu du gris semi-transparent
+              // d'origine, 09/08) : flotte comme un "pill" sur le bandeau
+              // coloré, au lieu de rester grisâtre dessus. ---
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.h),
+                  child: Material(
+                    color: theme.colorScheme.surface,
+                    elevation: 1,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: widget.onOpenCatalog,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 4.w, vertical: 1.6.h),
+                        child: Row(
+                          children: [
+                            Icon(Icons.search,
+                                size: 20,
+                                color: theme.colorScheme.onSurfaceVariant),
+                            SizedBox(width: 3.w),
+                            Text(
+                              ref.tr('search_hint'),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-          // --- Flash info (annonce courte de l'Admin, si présente) ---
-          if (_flashInfo != null && _flashInfo!.trim().isNotEmpty)
+              // --- "Capuchon" arrondi : transition visuelle entre le
+              // bandeau coloré ci-dessus et le contenu (fond clair
+              // standard du Scaffold) ci-dessous.
+              SliverToBoxAdapter(
+                child: Container(
+                  height: 3.h,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
+                    ),
+                  ),
+                ),
+              ),
+              // Tout le contenu ci-dessous est inchangé (uniquement le
+              // style du bandeau/capuchon a été ajouté) et repose sur le
+              // fond clair par défaut, qui masque le bandeau vert restant
+              // derrière (Positioned.fill ci-dessus) pour le reste du
+              // défilement.
+
+              // --- Flash info (annonce courte de l'Admin, si présente) ---
+              if (_flashInfo != null && _flashInfo!.trim().isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 0),
@@ -1328,9 +1367,11 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
           ),
-          SliverToBoxAdapter(child: SizedBox(height: 4.h)),
-        ],
-      ),
+              SliverToBoxAdapter(child: SizedBox(height: 4.h)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

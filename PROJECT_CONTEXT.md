@@ -8321,3 +8321,31 @@ existant, et une section "Produits similaires" en bas de fiche.
     structure que `_BoughtTogetherSection` (carrousel horizontal de
     `ProductCard`) mais scoping par `category` du produit courant au
     lieu du co-achat (RPC `products_bought_together`).
+
+## Accueil client : bandeau coloré + feuille blanche arrondie (09/08)
+
+Sur maquette fournie (app de livraison, style deux tons : bandeau
+coloré en haut avec recherche, feuille blanche à coins arrondis pour
+le contenu en dessous). Demande explicite : uniquement le style
+visuel, pas le contenu de la maquette (pas de widgets "commande en
+cours"/"partenaires de livraison" — hors sujet pour AkoraHub) —
+l'Accueil (`catalog_tab.dart`) garde exactement son contenu actuel
+(en-tête, raccourci recherche, raccourcis, fil d'activité...).
+
+- `CatalogTab.build` enveloppé dans un `Stack` : fond `Container` vert
+  AkoraHub (`theme.colorScheme.primary`) en plein écran derrière tout
+  (`Positioned.fill`), plus simple/robuste qu'un calcul de hauteur
+  exacte du bandeau — tout le contenu après le "capuchon" arrondi est
+  déjà opaque (fond clair par défaut) et masque le vert pour le reste
+  du défilement.
+- En-tête (avatar/salutation/localisation/icônes panier-commandes-
+  messagerie-notifications) recoloré en blanc/clair
+  (`theme.colorScheme.onPrimary`, déjà blanc en clair comme en sombre
+  dans `app_theme.dart`) pour rester lisible sur le bandeau vert.
+- Raccourci recherche repassé en fond blanc plein (au lieu du gris
+  semi-transparent d'origine) pour flotter comme un "pill" sur le
+  bandeau, au lieu de paraître grisâtre dessus.
+- Nouveau "capuchon" arrondi (`SliverToBoxAdapter`, `Container` blanc,
+  coins hauts arrondis à 24px) juste après le raccourci recherche —
+  crée la transition visuelle entre le bandeau et le contenu, qui
+  reste sinon inchangé.
