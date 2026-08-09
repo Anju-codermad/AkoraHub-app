@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/community/community_moderation_repo.dart';
 import '../../../core/community/friends_repo.dart';
+import '../../../core/loyalty/loyalty_tiers.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/whatsapp_link.dart';
@@ -1112,6 +1113,22 @@ class _WallTabState extends ConsumerState<WallTab> {
     }
   }
 
+  /// Timestamp relatif affiché avec l'icône horloge dans l'en-tête de
+  /// carte (redesign 09/08) — même échelle que `delivery_tracking_screen`
+  /// (`_relativeTime`), dupliqué ici en privé plutôt que factorisé : deux
+  /// call sites seulement, pas encore de fichier "core" partagé pour ça.
+  String _relativeTime(String? isoDate) {
+    if (isoDate == null) return '';
+    final dt = DateTime.tryParse(isoDate);
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return "à l'instant";
+    if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'il y a ${diff.inHours} h';
+    if (diff.inDays < 7) return 'il y a ${diff.inDays} j';
+    return 'le ${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
+  }
+
   /// Hashtags cliquables (Lot 3 Communauté, 02/08) — analysés directement
   /// depuis `content`, aucune colonne dédiée : reconnaît `#mot` (lettres
   /// Unicode, chiffres, underscore) et le rend cliquable, coloré comme un
@@ -1427,11 +1444,41 @@ class _WallTabState extends ConsumerState<WallTab> {
                               final myReaction = _myReactionByPost[post['id']];
                               final mentionedProduct = _mentionedProducts[
                                   post['mentioned_product_id']];
+                              // Palier de fidélité de l'auteur (redesign
+                              // 09/08, maquette fournie) — anneau d'avatar
+                              // + badge coloré selon `loyalty_points`,
+                              // exposé publiquement depuis phase146.
+                              final tier = currentLoyaltyTier(
+                                  (author?['loyalty_points'] as num?)
+                                          ?.toInt() ??
+                                      0);
+                              final images = _postImages[post['id']];
+                              final hasCarousel =
+                                  (images?.length ?? 0) > 1;
+                              final hasSingleImage = !hasCarousel &&
+                                  post['image_url'] != null;
+                              final hasImage = hasCarousel || hasSingleImage;
 
-                              return Card(
-                                margin: EdgeInsets.symmetric(
-                                    horizontal: 4.w, vertical: 1.h),
-                                child: Padding(
+                              // Padding externe (au lieu du `margin` de
+                              // `Card`) : la bulle "Partager" doit
+                              // déborder du coin de la CARTE elle-même,
+                              // pas de la zone de marge — le `Stack` doit
+                              // donc être borné exactement par la carte.
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                    left: 4.w,
+                                    right: 4.w,
+                                    top: 1.h,
+                                    // Espace réservé sous la carte pour
+                                    // que la bulle flottante ne chevauche
+                                    // pas la carte suivante du fil.
+                                    bottom: 3.h),
+                                child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Card(
+                                    margin: EdgeInsets.zero,
+                                    child: Padding(
                                   padding: EdgeInsets.all(3.w),
                                   child: Column(
                                     crossAxisAlignment:
@@ -1476,22 +1523,35 @@ class _WallTabState extends ConsumerState<WallTab> {
                                                       ),
                                               child: Row(
                                                 children: [
-                                                  CircleAvatar(
-                                                    backgroundImage: author?[
-                                                                'avatar_url'] !=
-                                                            null
-                                                        ? NetworkImage(author![
-                                                            'avatar_url'])
-                                                        : null,
-                                                    child: author?[
-                                                                'avatar_url'] ==
-                                                            null
-                                                        ? Text(authorName
-                                                                .isNotEmpty
-                                                            ? authorName[0]
-                                                                .toUpperCase()
-                                                            : '?')
-                                                        : null,
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            2),
+                                                    decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      border: Border.all(
+                                                        color: tier.color,
+                                                        width: 2,
+                                                      ),
+                                                    ),
+                                                    child: CircleAvatar(
+                                                      backgroundImage: author?[
+                                                                  'avatar_url'] !=
+                                                              null
+                                                          ? NetworkImage(
+                                                              author![
+                                                                  'avatar_url'])
+                                                          : null,
+                                                      child: author?[
+                                                                  'avatar_url'] ==
+                                                              null
+                                                          ? Text(authorName
+                                                                  .isNotEmpty
+                                                              ? authorName[0]
+                                                                  .toUpperCase()
+                                                              : '?')
+                                                          : null,
+                                                    ),
                                                   ),
                                                   SizedBox(width: 2.w),
                                                   Expanded(
@@ -1528,23 +1588,68 @@ class _WallTabState extends ConsumerState<WallTab> {
                                                                       .colorScheme
                                                                       .primary),
                                                             ],
+                                                            const SizedBox(
+                                                                width: 6),
+                                                            Container(
+                                                              padding: const EdgeInsets
+                                                                  .symmetric(
+                                                                  horizontal:
+                                                                      6,
+                                                                  vertical: 1),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: tier
+                                                                    .color
+                                                                    .withValues(
+                                                                        alpha:
+                                                                            0.18),
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8),
+                                                              ),
+                                                              child: Text(
+                                                                tier.name,
+                                                                style: theme
+                                                                    .textTheme
+                                                                    .labelSmall
+                                                                    ?.copyWith(
+                                                                        color:
+                                                                            tier.color,
+                                                                        fontWeight:
+                                                                            FontWeight.w700),
+                                                              ),
+                                                            ),
                                                           ],
                                                         ),
-                                                        if (sector != null ||
-                                                            post['updated_at'] !=
-                                                                null)
-                                                          Text(
-                                                              [
-                                                                if (sector !=
-                                                                    null)
-                                                                  sector,
-                                                                if (post['updated_at'] !=
-                                                                    null)
-                                                                  'Modifié',
-                                                              ].join(' · '),
-                                                              style: theme
-                                                                  .textTheme
-                                                                  .bodySmall),
+                                                        Row(
+                                                          children: [
+                                                            Icon(
+                                                                Icons
+                                                                    .schedule,
+                                                                size: 12,
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .outline),
+                                                            const SizedBox(
+                                                                width: 3),
+                                                            Text(
+                                                                [
+                                                                  _relativeTime(
+                                                                      post[
+                                                                          'created_at']),
+                                                                  if (sector !=
+                                                                      null)
+                                                                    sector,
+                                                                  if (post['updated_at'] !=
+                                                                      null)
+                                                                    'Modifié',
+                                                                ].join(' · '),
+                                                                style: theme
+                                                                    .textTheme
+                                                                    .bodySmall),
+                                                          ],
+                                                        ),
                                                       ],
                                                     ),
                                                   ),
@@ -1651,96 +1756,139 @@ class _WallTabState extends ConsumerState<WallTab> {
                                         ],
                                       ),
                                       SizedBox(height: 1.h),
-                                      if ((post['content'] ?? '')
-                                          .toString()
-                                          .isNotEmpty)
-                                        _buildPostContent(
-                                            post['content'], theme),
-                                      if (post['mentioned_user_id'] !=
-                                          null) ...[
-                                        SizedBox(height: 0.5.h),
-                                        InkWell(
-                                          onTap: () => Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  PublicProfileScreen(
-                                                userId: post[
-                                                    'mentioned_user_id'],
-                                              ),
+                                      // Layout côte-à-côte texte/image
+                                      // (redesign 09/08, maquette fournie) —
+                                      // barre d'accent colorée à gauche du
+                                      // texte, image (ou carrousel) dans
+                                      // une colonne fixe à droite au lieu
+                                      // de la pleine largeur sous le texte.
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                if ((post['content'] ?? '')
+                                                    .toString()
+                                                    .isNotEmpty)
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            left: 10),
+                                                    decoration: BoxDecoration(
+                                                      border: Border(
+                                                        left: BorderSide(
+                                                            color: tier.color,
+                                                            width: 3),
+                                                      ),
+                                                    ),
+                                                    child: _buildPostContent(
+                                                        post['content'],
+                                                        theme),
+                                                  ),
+                                                if (post['mentioned_user_id'] !=
+                                                    null) ...[
+                                                  SizedBox(height: 0.5.h),
+                                                  InkWell(
+                                                    onTap: () =>
+                                                        Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            PublicProfileScreen(
+                                                          userId: post[
+                                                              'mentioned_user_id'],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      'avec @${PublicProfilesRepo.displayName(_authorProfiles[post['mentioned_user_id']])}',
+                                                      style: theme.textTheme
+                                                          .bodySmall
+                                                          ?.copyWith(
+                                                              color: theme
+                                                                  .colorScheme
+                                                                  .primary,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                           ),
-                                          child: Text(
-                                            'avec @${PublicProfilesRepo.displayName(_authorProfiles[post['mentioned_user_id']])}',
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                    color: theme.colorScheme
-                                                        .primary,
-                                                    fontWeight:
-                                                        FontWeight.w600),
-                                          ),
-                                        ),
-                                      ],
-                                      if ((_postImages[post['id']]?.length ??
-                                              0) >
-                                          1) ...[
-                                        SizedBox(height: 1.h),
-                                        _PostImageCarousel(
-                                            imageUrls:
-                                                _postImages[post['id']]!),
-                                      ] else if (post['image_url'] !=
-                                          null) ...[
-                                        SizedBox(height: 1.h),
-                                        ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.network(
-                                            post['image_url'],
-                                            fit: BoxFit.cover,
-                                            width: double.infinity,
-                                            height: 20.h,
-                                            // Ne décode jamais plus large
-                                            // que ce qui est réellement
-                                            // affiché — évite de gaspiller
-                                            // de la mémoire même si
-                                            // l'image source est plus
-                                            // grande (ex : ancienne
-                                            // publication d'avant cette
-                                            // limite de taille).
-                                            cacheWidth: 800,
-                                            errorBuilder: (_, __, ___) =>
-                                                const SizedBox.shrink(),
-                                            loadingBuilder: (context, child,
-                                                progress) {
-                                              if (progress == null) {
-                                                return child;
-                                              }
-                                              // Connexion parfois très
-                                              // lente (6 KB/s observés) —
-                                              // un espace vide sans
-                                              // indication donnerait
-                                              // l'impression que l'app
-                                              // est bloquée.
-                                              return Container(
-                                                width: double.infinity,
-                                                height: 20.h,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .surfaceContainerHighest,
-                                                child: const Center(
-                                                  child: SizedBox(
-                                                    width: 24,
-                                                    height: 24,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                            strokeWidth: 2),
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ],
+                                          if (hasImage) ...[
+                                            SizedBox(width: 3.w),
+                                            SizedBox(
+                                              width: 28.w,
+                                              child: hasCarousel
+                                                  ? _PostImageCarousel(
+                                                      imageUrls: images!)
+                                                  : ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius
+                                                              .circular(10),
+                                                      child: Image.network(
+                                                        post['image_url'],
+                                                        fit: BoxFit.cover,
+                                                        width:
+                                                            double.infinity,
+                                                        height: 16.h,
+                                                        // Ne décode jamais plus large
+                                                        // que ce qui est réellement
+                                                        // affiché — évite de gaspiller
+                                                        // de la mémoire même si
+                                                        // l'image source est plus
+                                                        // grande (ex : ancienne
+                                                        // publication d'avant cette
+                                                        // limite de taille).
+                                                        cacheWidth: 400,
+                                                        errorBuilder:
+                                                            (_, __, ___) =>
+                                                                const SizedBox
+                                                                    .shrink(),
+                                                        loadingBuilder:
+                                                            (context, child,
+                                                                progress) {
+                                                          if (progress ==
+                                                              null) {
+                                                            return child;
+                                                          }
+                                                          // Connexion parfois très
+                                                          // lente (6 KB/s observés) —
+                                                          // un espace vide sans
+                                                          // indication donnerait
+                                                          // l'impression que l'app
+                                                          // est bloquée.
+                                                          return Container(
+                                                            width: double
+                                                                .infinity,
+                                                            height: 16.h,
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .surfaceContainerHighest,
+                                                            child: const Center(
+                                                              child: SizedBox(
+                                                                width: 24,
+                                                                height: 24,
+                                                                child: CircularProgressIndicator(
+                                                                    strokeWidth:
+                                                                        2),
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                       if (mentionedProduct != null) ...[
                                         SizedBox(height: 1.h),
                                         InkWell(
@@ -1819,43 +1967,40 @@ class _WallTabState extends ConsumerState<WallTab> {
                                         ),
                                       ],
                                       SizedBox(height: 1.h),
+                                      // Pastilles like/commentaire
+                                      // (redesign 09/08, maquette
+                                      // fournie) — le bouton Partager
+                                      // quitte cette rangée pour devenir
+                                      // la bulle flottante sur le coin
+                                      // de la carte (voir plus bas).
                                       Row(
                                         children: [
                                           GestureDetector(
                                             onLongPress: () =>
                                                 _showReactionPicker(
                                                     post['id']),
-                                            child: IconButton(
+                                            child: _ReactionPill(
                                               icon: myReaction != null
-                                                  ? Text(
-                                                      kPostReactionEmojis[
-                                                              myReaction] ??
-                                                          '👍',
-                                                      style: const TextStyle(
-                                                          fontSize: 18),
-                                                    )
-                                                  : const Icon(
-                                                      Icons.favorite_border,
-                                                      size: 20),
-                                              tooltip:
-                                                  'Maintenir pour choisir une réaction',
-                                              onPressed: () => _react(
-                                                  post['id'],
+                                                  ? null
+                                                  : Icons.favorite_border,
+                                              emoji: myReaction != null
+                                                  ? kPostReactionEmojis[
+                                                          myReaction] ??
+                                                      '👍'
+                                                  : null,
+                                              label:
+                                                  '${_likeCounts[post['id']] ?? 0}',
+                                              onTap: () => _react(post['id'],
                                                   myReaction ?? 'like'),
                                             ),
                                           ),
-                                          Text(
-                                              '${_likeCounts[post['id']] ?? 0}'),
-                                          SizedBox(width: 4.w),
-                                          IconButton(
-                                            icon: const Icon(
-                                                Icons.mode_comment_outlined,
-                                                size: 20),
-                                            onPressed: () =>
-                                                _openComments(post),
+                                          SizedBox(width: 2.w),
+                                          _ReactionPill(
+                                            icon: Icons.mode_comment_outlined,
+                                            label:
+                                                '${_commentCounts[post['id']] ?? 0}',
+                                            onTap: () => _openComments(post),
                                           ),
-                                          Text(
-                                              '${_commentCounts[post['id']] ?? 0}'),
                                           const Spacer(),
                                           if (buildWhatsAppLink(
                                                   author?['phone']
@@ -1873,18 +2018,29 @@ class _WallTabState extends ConsumerState<WallTab> {
                                                       author?['phone']
                                                           as String?),
                                             ),
-                                          IconButton(
-                                            icon: const Icon(
-                                                Icons.share_outlined,
-                                                size: 20),
-                                            tooltip: 'Partager',
-                                            onPressed: () => _sharePost(
-                                                post, authorName),
-                                          ),
+                                          // Réserve la place occupée par
+                                          // la bulle "Partager" flottante
+                                          // en bas à droite de la carte.
+                                          SizedBox(width: 10.w),
                                         ],
                                       ),
                                     ],
                                   ),
+                                ),
+                                  ),
+                                  Positioned(
+                                    // Chevauche volontairement le coin
+                                    // bas-droit de la carte (maquette
+                                    // fournie, à l'essai sur demande
+                                    // explicite du 09/08).
+                                    right: -10,
+                                    bottom: -22,
+                                    child: _ShareBubble(
+                                      onTap: () =>
+                                          _sharePost(post, authorName),
+                                    ),
+                                  ),
+                                ],
                                 ),
                               );
                             },
@@ -2282,6 +2438,88 @@ class _UserPickerSheetState extends State<_UserPickerSheet> {
 /// `post_images`, voir supabase/phase53_patch_post_images_carousel.sql.
 /// Affiché seulement si la publication a 2 photos ou plus (sinon le fil
 /// retombe sur `posts.image_url`, une seule image sans PageView).
+/// Pastille like/commentaire (redesign 09/08, maquette fournie) — remplace
+/// les `IconButton` + `Text` séparés par une forme arrondie unique, plus
+/// proche de la maquette que le duo icône/texte nu d'origine.
+class _ReactionPill extends StatelessWidget {
+  final IconData? icon;
+  final String? emoji;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ReactionPill({
+    this.icon,
+    this.emoji,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest
+              .withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (emoji != null)
+              Text(emoji!, style: const TextStyle(fontSize: 15))
+            else
+              Icon(icon, size: 16, color: theme.colorScheme.primary),
+            const SizedBox(width: 5),
+            Text(label, style: theme.textTheme.labelMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bulle "Partager" flottante qui déborde du coin bas-droit de la carte
+/// (redesign 09/08, à l'essai sur demande explicite — maquette fournie).
+/// Positionnée par le `Stack`/`Positioned` autour de chaque `Card` du fil ;
+/// `Clip.none` sur ce `Stack` pour ne pas la rogner.
+class _ShareBubble extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ShareBubble({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.primary,
+      shape: const CircleBorder(),
+      elevation: 3,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.share_outlined,
+                  size: 18, color: theme.colorScheme.onPrimary),
+              Text('Partager',
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: theme.colorScheme.onPrimary)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PostImageCarousel extends StatefulWidget {
   final List<String> imageUrls;
 
@@ -2300,9 +2538,12 @@ class _PostImageCarouselState extends State<_PostImageCarousel> {
     return Column(
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: SizedBox(
-            height: 20.h,
+            // 16.h (au lieu de 20.h) depuis le redesign côte-à-côte
+            // (09/08) : ce carrousel s'affiche maintenant dans une
+            // colonne étroite à côté du texte, pas en pleine largeur.
+            height: 16.h,
             width: double.infinity,
             child: PageView.builder(
               itemCount: widget.imageUrls.length,
@@ -2311,7 +2552,7 @@ class _PostImageCarouselState extends State<_PostImageCarousel> {
                 widget.imageUrls[i],
                 fit: BoxFit.cover,
                 width: double.infinity,
-                cacheWidth: 800,
+                cacheWidth: 400,
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
             ),

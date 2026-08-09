@@ -8212,3 +8212,54 @@ Antioxydants, Polymères & Résines, Parfums & Additifs, Tensioactifs)
 disposent chacune d'une fiche Académie complète (usages, dosages,
 pictogrammes GHS, phrases H/P, EPI, conditions de stockage) pour
 tous leurs produits.
+
+## Redesign de la carte de publication (Communauté, 09/08)
+
+Sur maquette fournie par l'utilisatrice (anneau d'avatar coloré,
+badge à côté du nom, timestamp avec icône horloge, barre d'accent à
+gauche du texte, layout côte-à-côte texte/image, pastilles like/
+commentaire, bulle "Partager" flottante qui déborde du coin de la
+carte). Deux écarts assumés par rapport à la maquette, sur discussion
+préalable :
+
+- Le badge "H4" de la maquette est remplacé par le système de
+  paliers de fidélité déjà existant (`lib/core/loyalty/loyalty_tiers.dart`
+  — Bronze/Argent/Or, déjà affiché sur le Profil) plutôt qu'une
+  nouvelle nomenclature à inventer.
+- Le layout côte-à-côte et la bulle flottante sont conservés tels
+  quels **à l'essai**, malgré la réserve initiale sur le risque de
+  chevauchement entre cartes dans un fil qui défile — l'utilisatrice
+  souhaite tester en conditions réelles avant de trancher.
+
+- **`phase146`** : ajoute `loyalty_points` à la vue publique
+  `public_profiles` (jusqu'ici visible seulement par le propriétaire
+  du profil via la RLS de `profiles`) — nécessaire pour calculer le
+  palier de fidélité de N'IMPORTE QUEL auteur de post dans le fil,
+  pas seulement le sien. Même mécanisme que les patches successifs
+  de cette vue (phase9/47/52/67/76/79).
+- **`wall_tab.dart`** :
+  - Anneau coloré autour de l'avatar (couleur du palier de l'auteur)
+    + badge palier (Bronze/Argent/Or) inline à côté du nom.
+  - Nouvelle ligne timestamp avec icône horloge + `_relativeTime()`
+    (à l'instant / il y a N min / il y a N h / il y a N j / date),
+    combinée avec le secteur et l'indicateur "Modifié" existants.
+  - Barre d'accent verticale (couleur du palier) à gauche du texte de
+    la publication.
+  - Layout côte-à-côte : texte + mention utilisateur dans une colonne
+    extensible à gauche, image unique ou carrousel dans une colonne
+    fixe (28.w) à droite — au lieu de l'image pleine largeur sous le
+    texte. Le carrousel `_PostImageCarousel` passe de 20.h à 16.h de
+    hauteur pour s'adapter à cette colonne plus étroite. Le tag
+    produit mentionné reste en pleine largeur sous la rangée (élément
+    riche cliquable, pas adapté au format compact).
+  - Réactions like/commentaire transformées en pastilles arrondies
+    (`_ReactionPill`, nouveau widget partagé) au lieu d'icône+texte
+    nus.
+  - Bouton "Partager" retiré de la rangée de réactions, devient une
+    bulle circulaire flottante (`_ShareBubble`, nouveau widget) en
+    `Positioned` (right: -10, bottom: -22) sur un `Stack` autour de
+    chaque `Card`, avec `clipBehavior: Clip.none` pour ne pas la
+    rogner. La `Card` (margin `zero`) est elle-même enveloppée dans un
+    `Padding` externe (au lieu de son `margin` habituel) qui réserve
+    3.h d'espace en bas pour que la bulle qui déborde ne chevauche
+    pas la carte suivante du fil.
