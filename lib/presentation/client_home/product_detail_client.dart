@@ -4,12 +4,16 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/formation/formation_repo.dart';
 import '../../core/notifications/product_stock_alert_repo.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../core/utils/formation_web_link.dart';
+import '../raw_materials_management/raw_material_style.dart';
 import 'catalog_tab.dart' show ProductCard;
 import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
+import 'formation/raw_material_detail_client.dart';
 import 'usual_cart_provider.dart';
 
 class ProductDetailClient extends ConsumerStatefulWidget {
@@ -33,11 +37,60 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
+  // Lien fiche Académie (09/08) — voir `_loadAcademieLink`.
+  String? _rawMaterialId;
+  Map<String, dynamic>? _academieSummary;
+  bool _hasFormationAccess = false;
+
   @override
   void initState() {
     super.initState();
     _loadVariants();
     _loadPhotos();
+    _loadAcademieLink();
+  }
+
+  /// Résumé sécurité gratuit + statut d'accès Formation, pour la section
+  /// "Fiche sécurité" (09/08, demande explicite : le résumé — niveau de
+  /// danger, usages généraux, description — reste gratuit, le détail
+  /// technique complet — dosages, EPI, premiers secours — reste réservé
+  /// à l'achat Formation existant, voir `academie_summary_public` et
+  /// `has_purchased_raw_material`, phase147/phase45).
+  ///
+  /// Requête `raw_material_id` fraîche plutôt que de se fier à
+  /// `widget.product` : selon l'écran d'où on arrive (mur, favoris,
+  /// scanner...), le `Map` passé en paramètre ne contient pas forcément
+  /// toutes les colonnes de `products` (certains écrans ne sélectionnent
+  /// qu'un sous-ensemble de champs).
+  Future<void> _loadAcademieLink() async {
+    if (!SupabaseConfig.isConfigured) return;
+    try {
+      final row = await SupabaseConfig.client
+          .from('products')
+          .select('raw_material_id')
+          .eq('id', widget.product['id'])
+          .maybeSingle();
+      final materialId = row?['raw_material_id'] as String?;
+      if (materialId == null) return;
+      final results = await Future.wait<dynamic>([
+        SupabaseConfig.client
+            .from('academie_summary_public')
+            .select()
+            .eq('matiere_premiere_id', materialId)
+            .maybeSingle(),
+        FormationRepo.fetchMyPurchasedIds(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _rawMaterialId = materialId;
+        _academieSummary = results[0] as Map<String, dynamic>?;
+        _hasFormationAccess =
+            (results[1] as Set<String>).contains(materialId);
+      });
+    } catch (_) {
+      // Repli silencieux : migration phase147 pas encore exécutée, produit
+      // sans matière liée, ou hors-ligne — la section reste masquée.
+    }
   }
 
   Future<void> _loadPhotos() async {
@@ -307,6 +360,26 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
               SizedBox(height: 1.h),
               if ((p['description'] ?? '').toString().isNotEmpty)
                 Text(p['description'], style: theme.textTheme.bodyMedium),
+              if (_rawMaterialId != null && _academieSummary != null) ...[
+                SizedBox(height: 1.5.h),
+                _AcademieSummaryCard(
+                  summary: _academieSummary!,
+                  hasAccess: _hasFormationAccess,
+                  onOpenFull: () {
+                    if (_hasFormationAccess) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RawMaterialDetailClient(
+                              materialId: _rawMaterialId!),
+                        ),
+                      );
+                    } else {
+                      openFormationPurchaseWeb(context);
+                    }
+                  },
+                ),
+              ],
               SizedBox(height: 2.h),
 
               if (_isLoadingVariants)
@@ -459,6 +532,10 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
               ),
               SizedBox(height: 3.h),
               _BoughtTogetherSection(productId: p['id'], currency: _currency),
+              _SimilarProductsSection(
+                  productId: p['id'],
+                  category: p['category'],
+                  currency: _currency),
               _ReviewsSection(productId: p['id']),
             ],
           ),
@@ -701,6 +778,239 @@ class _BoughtTogetherSectionState
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Produits similaires" (09/08) — autres produits de la même catégorie,
+/// même structure que `_BoughtTogetherSection` juste au-dessus (carrousel
+/// horizontal de `ProductCard`) mais scoping par `category` plutôt que
+/// par co-achat.
+class _SimilarProductsSection extends ConsumerStatefulWidget {
+  final String productId;
+  final String? category;
+  final NumberFormat currency;
+
+  const _SimilarProductsSection(
+      {required this.productId,
+      required this.category,
+      required this.currency});
+
+  @override
+  ConsumerState<_SimilarProductsSection> createState() =>
+      _SimilarProductsSectionState();
+}
+
+class _SimilarProductsSectionState
+    extends ConsumerState<_SimilarProductsSection> {
+  List<Map<String, dynamic>> _similar = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final category = widget.category;
+    if (!SupabaseConfig.isConfigured ||
+        category == null ||
+        category.isEmpty) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    try {
+      final rows = await SupabaseConfig.client
+          .from('products')
+          .select()
+          .eq('category', category)
+          .eq('visibility', true)
+          .neq('id', widget.productId)
+          .limit(8);
+      if (!mounted) return;
+      setState(() {
+        _similar = List<Map<String, dynamic>>.from(rows);
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _quickAdd(Map<String, dynamic> product) {
+    ref.read(cartProvider.notifier).addItem(
+          CartItem(
+            productId: product['id'],
+            name: product['name'] ?? '',
+            priceDetail: (product['price_detail'] ?? 0).toDouble(),
+            priceGros: (product['price_gros'] ?? 0).toDouble(),
+            grosThresholdQty: (product['gros_threshold_qty'] ?? 10) as int,
+          ),
+        );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${product['name']} ajouté au panier'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading || _similar.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: 3.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Produits similaires', style: theme.textTheme.titleMedium),
+          SizedBox(height: 1.h),
+          SizedBox(
+            height: 26.h,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _similar.length,
+              itemBuilder: (context, index) {
+                final p = _similar[index];
+                return Padding(
+                  padding: EdgeInsets.only(right: 3.w),
+                  child: SizedBox(
+                    width: 38.w,
+                    child: ProductCard(
+                      product: p,
+                      currency: widget.currency,
+                      isFavorite:
+                          ref.watch(favoritesProvider).contains(p['id']),
+                      enableHero: false,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProductDetailClient(product: p),
+                          ),
+                        );
+                      },
+                      onQuickAdd: () => _quickAdd(p),
+                      onToggleFavorite: () => ref
+                          .read(favoritesProvider.notifier)
+                          .toggle(p['id']),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Carte "Fiche sécurité" (09/08) — résumé gratuit (niveau de danger,
+/// domaines d'usage, particularité) toujours visible ; le détail complet
+/// (dosages, EPI, premiers secours, incompatibilités...) reste réservé à
+/// l'achat Formation existant (`RawMaterialDetailClient`, verrouillé côté
+/// serveur par RLS — voir `has_purchased_raw_material`).
+class _AcademieSummaryCard extends StatelessWidget {
+  final Map<String, dynamic> summary;
+  final bool hasAccess;
+  final VoidCallback onOpenFull;
+
+  const _AcademieSummaryCard({
+    required this.summary,
+    required this.hasAccess,
+    required this.onOpenFull,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final niveauDanger = summary['niveau_danger'] as String?;
+    final particularite = summary['particularite'] as String?;
+    final domaines =
+        (summary['domaines_usage'] as List?)?.whereType<String>().toList() ??
+            const <String>[];
+    return Container(
+      padding: EdgeInsets.all(3.w),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest
+            .withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.shield_outlined,
+                  size: 18, color: theme.colorScheme.primary),
+              SizedBox(width: 2.w),
+              Text('Fiche sécurité', style: theme.textTheme.titleSmall),
+              if (niveauDanger != null && niveauDanger.isNotEmpty) ...[
+                const Spacer(),
+                Chip(
+                  label: Text(niveauDanger),
+                  backgroundColor:
+                      dangerLevelColor(niveauDanger).withValues(alpha: 0.18),
+                  labelStyle: TextStyle(
+                      color: dangerLevelColor(niveauDanger),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ],
+          ),
+          if (domaines.isNotEmpty) ...[
+            SizedBox(height: 1.h),
+            Wrap(
+              spacing: 1.5.w,
+              runSpacing: 0.5.h,
+              children: [
+                for (final d in domaines)
+                  Chip(
+                    label: Text(d, style: const TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+          ],
+          if (particularite != null && particularite.isNotEmpty) ...[
+            SizedBox(height: 1.h),
+            Text(particularite, style: theme.textTheme.bodySmall),
+          ],
+          SizedBox(height: 1.h),
+          if (hasAccess)
+            TextButton.icon(
+              onPressed: onOpenFull,
+              icon: const Icon(Icons.arrow_forward, size: 16),
+              label: const Text('Voir la fiche technique complète'),
+            )
+          else
+            Row(
+              children: [
+                Icon(Icons.lock_outline,
+                    size: 16, color: theme.colorScheme.outline),
+                SizedBox(width: 1.5.w),
+                Expanded(
+                  child: Text(
+                    'Dosages, EPI et premiers secours réservés aux '
+                    'détenteurs de l\'accès Formation.',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline),
+                  ),
+                ),
+                TextButton(
+                  onPressed: onOpenFull,
+                  child: const Text('Débloquer'),
+                ),
+              ],
+            ),
         ],
       ),
     );

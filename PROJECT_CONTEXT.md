@@ -8263,3 +8263,61 @@ préalable :
     `Padding` externe (au lieu de son `margin` habituel) qui réserve
     3.h d'espace en bas pour que la bulle qui déborde ne chevauche
     pas la carte suivante du fil.
+
+## Catalogue Akora Pro : brouillon/publié, lien Académie, résumé gratuit (09/08)
+
+Quatre chantiers discutés et validés avec l'utilisatrice avant
+implémentation : les produits chimiques vendables (pilier Akora Pro)
+doivent pouvoir être créés en amont sans apparaître côté client tant
+que la photo n'est pas prête, la fiche produit doit pouvoir renvoyer
+vers la fiche Académie correspondante, avec un résumé sécurité
+gratuit et le détail technique (dosages) réservé à l'achat Formation
+existant, et une section "Produits similaires" en bas de fiche.
+
+- **`phase147`** :
+  - `products.raw_material_id` (uuid, optionnel, FK vers
+    `raw_materials(id)`) — lien manuel choisi par le staff entre un
+    produit vendable et sa fiche Académie.
+  - Vue publique `academie_summary_public` exposant uniquement
+    `niveau_danger`, `particularite` et les domaines d'usage agrégés
+    (`matieres_premieres_usages.domaine_application`) pour une
+    matière première — contourne la RLS d'achat (même principe que
+    `raw_materials_preview`/`public_profiles`) puisque ce résumé est
+    volontairement gratuit. Le dosage et le reste du détail technique
+    restent uniquement accessibles via les tables sources, gatées par
+    `has_purchased_raw_material` (inchangé).
+- **`product_management_real.dart`** (admin) :
+  - Champ `products.visibility` (déjà en base depuis phase1_schema,
+    jamais piloté depuis ce formulaire) désormais exposé via un
+    switch "Publié/Brouillon". Un produit en édition garde son statut
+    actuel ; un nouveau produit démarre toujours en Brouillon (donc
+    invisible côté client — chaque écran client filtre déjà
+    `.eq('visibility', true)`, aucun changement nécessaire côté
+    lecture).
+  - Avertissement doux (pas de blocage dur) si le staff tente de
+    publier un produit sans aucune photo.
+  - Badge "Brouillon" dans la liste admin, même style que le chip
+    "Stock bas" existant.
+  - Nouveau champ `Autocomplete` "Lier à une fiche Académie
+    (optionnel)" — liste chargée une fois à l'ouverture du formulaire
+    (le staff a accès complet à `raw_materials` via
+    `current_role_is_staff()`), écrit dans `products.raw_material_id`.
+- **`product_detail_client.dart`** (client) :
+  - Section "Fiche sécurité" (`_AcademieSummaryCard`) affichée si le
+    produit est lié à une matière première documentée : niveau de
+    danger (badge coloré, réutilise `dangerLevelColor` de
+    `raw_material_style.dart`), domaines d'usage et particularité —
+    gratuits, chargés depuis `academie_summary_public`. En dessous,
+    soit un bouton "Voir la fiche technique complète" (si l'accès
+    Formation est déjà acheté — `FormationRepo.fetchMyPurchasedIds()`
+    — ouvre `RawMaterialDetailClient`), soit un bouton "Débloquer"
+    (ouvre la page d'achat externe, `openFormationPurchaseWeb`).
+    `raw_material_id` est re-fetché directement depuis `products`
+    plutôt que lu sur le `Map` reçu en paramètre : plusieurs écrans
+    d'entrée (mur, favoris, scanner...) ne sélectionnent qu'un
+    sous-ensemble de colonnes et n'auraient pas forcément cette
+    nouvelle colonne.
+  - Section "Produits similaires" (`_SimilarProductsSection`), même
+    structure que `_BoughtTogetherSection` (carrousel horizontal de
+    `ProductCard`) mais scoping par `category` du produit courant au
+    lieu du co-achat (RPC `products_bought_together`).

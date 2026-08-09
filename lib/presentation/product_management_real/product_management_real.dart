@@ -422,6 +422,34 @@ class _ProductManagementRealState
     final removedExistingIds = <String>{};
     bool isSaving = false;
 
+    // Brouillon/Publié (09/08, demande explicite : les nouveaux produits
+    // ne doivent pas apparaître côté client tant que la photo n'est pas
+    // prête) — réutilise `products.visibility`, qui existait déjà en base
+    // (phase1_schema) mais n'était pilotable que par défaut SQL (`true`),
+    // jamais depuis ce formulaire. Un produit édité garde son statut
+    // actuel ; un nouveau produit démarre en Brouillon.
+    bool isVisible =
+        isEditing ? (product['visibility'] as bool? ?? true) : false;
+
+    // Lien optionnel vers une fiche Académie (09/08) — affiche un lien
+    // "Fiche sécurité" sur la page produit client (voir
+    // `academie_summary_public`, phase147). Liste chargée une fois à
+    // l'ouverture du formulaire : le staff a un accès complet à
+    // `raw_materials` (RLS `current_role_is_staff()`), pas besoin de
+    // passer par la vue publique ici.
+    List<Map<String, dynamic>> rawMaterialOptions = [];
+    try {
+      final rows = await SupabaseConfig.client
+          .from('raw_materials')
+          .select('id, name, category_name')
+          .order('name');
+      rawMaterialOptions = List<Map<String, dynamic>>.from(rows);
+    } catch (_) {
+      // Repli silencieux : le champ de liaison sera juste vide si la
+      // requête échoue (hors-ligne, table pas encore migrée...).
+    }
+    String? selectedRawMaterialId = product?['raw_material_id'] as String?;
+
     if (!mounted) return;
     await showDialog(
       context: context,
@@ -656,6 +684,56 @@ class _ProductManagementRealState
                   }).toList(),
                 ),
                 const SizedBox(height: 12),
+                // Lien optionnel vers une fiche Académie (09/08) — voir
+                // commentaire à la déclaration de `rawMaterialOptions`.
+                Builder(builder: (context) {
+                  final selectedMaterial = rawMaterialOptions.firstWhere(
+                    (m) => m['id'] == selectedRawMaterialId,
+                    orElse: () => <String, dynamic>{},
+                  );
+                  return Autocomplete<Map<String, dynamic>>(
+                    initialValue: TextEditingValue(
+                        text: selectedMaterial['name'] as String? ?? ''),
+                    displayStringForOption: (m) =>
+                        m['name'] as String? ?? '',
+                    optionsBuilder: (textEditingValue) {
+                      if (textEditingValue.text.trim().isEmpty) {
+                        return rawMaterialOptions;
+                      }
+                      final query = textEditingValue.text.toLowerCase();
+                      return rawMaterialOptions.where((m) =>
+                          (m['name'] as String? ?? '')
+                              .toLowerCase()
+                              .contains(query));
+                    },
+                    onSelected: (m) => setDialogState(
+                        () => selectedRawMaterialId = m['id'] as String?),
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onSubmitted) {
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: InputDecoration(
+                          labelText: 'Lier à une fiche Académie (optionnel)',
+                          helperText: 'Affiche un lien "Fiche sécurité" '
+                              'sur la page produit client',
+                          suffixIcon: selectedRawMaterialId == null
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  tooltip: 'Retirer le lien',
+                                  onPressed: () {
+                                    controller.clear();
+                                    setDialogState(
+                                        () => selectedRawMaterialId = null);
+                                  },
+                                ),
+                        ),
+                      );
+                    },
+                  );
+                }),
+                const SizedBox(height: 12),
                 const Text('Usages (affichés sur la fiche produit)'),
                 const SizedBox(height: 4),
                 Builder(builder: (context) {
@@ -767,6 +845,46 @@ class _ProductManagementRealState
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'Stock actuel'),
                 ),
+                const SizedBox(height: 12),
+                // Brouillon/Publié (09/08) — voir commentaire à la
+                // déclaration de `isVisible`.
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(isVisible ? 'Publié' : 'Brouillon',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600)),
+                            Text(
+                              isVisible
+                                  ? 'Visible immédiatement dans le catalogue client.'
+                                  : 'Invisible côté client tant que non publié (ex. photo pas encore prête).',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: isVisible,
+                        onChanged: (v) =>
+                            setDialogState(() => isVisible = v),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -780,6 +898,37 @@ class _ProductManagementRealState
                   ? null
                   : () async {
                 if (nameCtrl.text.trim().isEmpty) return;
+                // Avertissement doux (pas un blocage dur — cohérent avec
+                // le reste de l'app) avant de publier sans aucune photo :
+                // le staff peut vouloir préparer la fiche à l'avance et
+                // publier volontairement avant la photo, mais on évite
+                // que ça arrive par inadvertance.
+                final hasAnyPhoto = newPhotos.isNotEmpty ||
+                    existingPhotos.any(
+                        (p) => !removedExistingIds.contains(p['id']));
+                if (isVisible && !hasAnyPhoto) {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Publier sans photo ?'),
+                      content: const Text(
+                          'Ce produit n\'a encore aucune photo. Les '
+                          'clients le verront tel quel dans le catalogue. '
+                          'Publier quand même ?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Annuler'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Publier quand même'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed != true) return;
+                }
                 // Verrou anti-double-clic : sans ça, un appui multiple
                 // pendant l'upload des photos (qui peut prendre plusieurs
                 // secondes) créait plusieurs produits identiques.
@@ -795,6 +944,8 @@ class _ProductManagementRealState
                   'category': selectedCategoryName ?? '',
                   'business_unit_id': selectedUnitId,
                   'use_cases': selectedUsages.toList(),
+                  'visibility': isVisible,
+                  'raw_material_id': selectedRawMaterialId,
                   'price_detail':
                       double.tryParse(priceDetailCtrl.text) ?? 0,
                   'price_gros': double.tryParse(priceGrosCtrl.text) ?? 0,
@@ -1037,6 +1188,26 @@ class _ProductManagementRealState
                                             style: theme.textTheme.titleMedium,
                                           ),
                                         ),
+                                        // Brouillon/Publié (09/08) — le
+                                        // repère visuel dans la liste
+                                        // admin pour savoir en un coup
+                                        // d'œil ce qui attend encore une
+                                        // photo avant publication.
+                                        if (p['visibility'] == false) ...[
+                                          Chip(
+                                            label: const Text('Brouillon'),
+                                            backgroundColor: theme
+                                                .colorScheme
+                                                .surfaceContainerHighest,
+                                            labelStyle: TextStyle(
+                                                color: theme
+                                                    .colorScheme.onSurfaceVariant,
+                                                fontSize: 11),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
                                         if (lowStock)
                                           Chip(
                                             label: const Text('Stock bas'),
