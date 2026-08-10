@@ -8594,3 +8594,33 @@ est censé neutraliser.
   sensible : si le mot de passe est réinitialisé suite à une
   suspicion de compromission, c'est justement là qu'il faut couper
   toute session existante (potentiellement celle de l'attaquant).
+
+## Audit de sécurité : 3 correctifs suite au bug de session (10/08)
+
+En réponse à "y a-t-il d'autres failles à vérifier ?" après le fix
+"sessions non révoquées après changement de mot de passe" — trois
+points corrigés, dont un bug de fond découvert au passage.
+
+- **`two_factor_setup_screen.dart`** : désactiver le 2FA exige
+  désormais de re-saisir le mot de passe (`_promptPasswordToDisable`
+  + `signInWithPassword` pour vérifier avant `mfa.unenroll`). Sans ça,
+  une session déjà ouverte (téléphone déverrouillé, session copiée)
+  pouvait retirer la protection 2FA sans jamais connaître le mot de
+  passe du compte.
+- **`security_settings_screen.dart`** : nouveau bouton "Déconnecter
+  les autres appareils" (`_signOutOtherDevices`,
+  `signOut(scope: SignOutScope.others)`) — jusqu'ici, la révocation
+  des autres sessions ne se déclenchait qu'automatiquement lors d'un
+  changement de mot de passe ; permet maintenant de le faire sans
+  attendre d'en changer.
+- **Bug de fond découvert** : `log_security_event` (phase34)
+  n'autorisait que `password_reset_requested`/`password_changed` —
+  les appels `mfa_enabled`/`mfa_disabled` (existants depuis la mise
+  en place du 2FA) échouaient donc silencieusement depuis toujours
+  (try/catch côté Dart). `supabase/phase152_patch_security_audit_log_
+  new_events.sql` élargit la contrainte CHECK de `security_audit_log`
+  et la liste autorisée par la fonction pour inclure `mfa_enabled`,
+  `mfa_disabled` et `sessions_revoked` (nouveau).
+- **`security_audit_log_screen.dart`** : libellés/icônes ajoutés pour
+  ces 3 types d'événement dans le journal Admin (affichaient le code
+  brut faute de correspondance).

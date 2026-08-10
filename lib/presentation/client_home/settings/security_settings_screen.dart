@@ -21,6 +21,7 @@ class SecuritySettingsScreen extends StatefulWidget {
 
 class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
   bool _isDeleting = false;
+  bool _isSigningOutOthers = false;
   bool _isLoadingPrivacy = true;
   bool _sharePhonePublicly = false;
   String? _myPhone;
@@ -208,6 +209,53 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
     );
   }
 
+  /// Révocation manuelle des autres sessions (10/08, audit de sécurité) —
+  /// jusqu'ici, ça ne se déclenchait qu'automatiquement lors d'un
+  /// changement de mot de passe. Utile pour quelqu'un qui se doute que
+  /// son compte est ouvert ailleurs sans vouloir forcément changer son
+  /// mot de passe tout de suite.
+  Future<void> _signOutOtherDevices() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déconnecter les autres appareils'),
+        content: const Text(
+            'Toutes les autres sessions connectées à votre compte seront '
+            'déconnectées. Cet appareil-ci reste connecté. Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Déconnecter'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isSigningOutOthers = true);
+    try {
+      await SupabaseConfig.client.auth.signOut(scope: SignOutScope.others);
+      try {
+        await SupabaseConfig.client.rpc('log_security_event',
+            params: {'p_event_type': 'sessions_revoked'});
+      } catch (_) {}
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Les autres appareils ont été déconnectés.')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Impossible de déconnecter les autres appareils. Réessayez.')));
+    } finally {
+      if (mounted) setState(() => _isSigningOutOthers = false);
+    }
+  }
+
   Future<void> _confirmDeleteAccount() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -275,6 +323,21 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
               title: const Text('Changer le mot de passe'),
               trailing: const Icon(Icons.chevron_right),
               onTap: _changePassword,
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Card(
+            child: ListTile(
+              leading: _isSigningOutOthers
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.devices_other_outlined),
+              title: const Text('Déconnecter les autres appareils'),
+              subtitle: const Text('Cet appareil-ci reste connecté'),
+              onTap: _isSigningOutOthers ? null : _signOutOtherDevices,
             ),
           ),
           SizedBox(height: 2.h),

@@ -107,28 +107,30 @@ class _TwoFactorSetupScreenState extends State<TwoFactorSetupScreen> {
     final factor = _verifiedFactor;
     if (factor == null) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Désactiver la double authentification'),
-        content: const Text(
-            'Votre compte sera protégé uniquement par votre mot de passe. Voulez-vous continuer ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Désactiver'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
+    // Re-confirmation par mot de passe (10/08, audit de sécurité suite au
+    // fix "sessions non révoquées après changement de mot de passe") :
+    // désactiver le 2FA retire une couche de protection — sans ce
+    // contrôle, quelqu'un ayant mis la main sur une session déjà ouverte
+    // (téléphone déverrouillé, session copiée...) pourrait la retirer
+    // sans jamais connaître le mot de passe du compte.
+    final password = await _promptPasswordToDisable();
+    if (password == null) return;
 
     setState(() => _isProcessing = true);
+    try {
+      final email = SupabaseConfig.client.auth.currentUser?.email;
+      if (email == null) throw Exception('email introuvable');
+      await SupabaseConfig.client.auth
+          .signInWithPassword(email: email, password: password);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mot de passe incorrect.')),
+      );
+      return;
+    }
+
     try {
       await SupabaseConfig.client.auth.mfa.unenroll(factor.id);
       try {
@@ -148,6 +150,48 @@ class _TwoFactorSetupScreenState extends State<TwoFactorSetupScreen> {
         const SnackBar(content: Text('Impossible de désactiver. Réessayez.')),
       );
     }
+  }
+
+  /// Dialogue de confirmation par mot de passe avant de désactiver le
+  /// 2FA — voir commentaire dans `_disable`. Retourne le mot de passe
+  /// saisi (à vérifier par l'appelant), ou `null` si annulé.
+  Future<String?> _promptPasswordToDisable() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Désactiver la double authentification'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                'Votre compte sera protégé uniquement par votre mot de '
+                'passe. Confirmez votre mot de passe pour continuer.'),
+            SizedBox(height: 2.h),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Mot de passe'),
+              onSubmitted: (_) =>
+                  Navigator.pop(context, controller.text),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Désactiver'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

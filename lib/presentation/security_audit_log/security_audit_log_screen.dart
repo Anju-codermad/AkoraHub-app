@@ -34,6 +34,9 @@ class _SecurityAuditLogScreenState extends State<SecurityAuditLogScreen> {
     'password_reset_requested': 'Réinitialisation de mot de passe demandée',
     'password_changed': 'Mot de passe changé',
     'role_changed': 'Rôle modifié',
+    'mfa_enabled': 'Double authentification activée',
+    'mfa_disabled': 'Double authentification désactivée',
+    'sessions_revoked': 'Autres appareils déconnectés',
   };
 
   final Map<String, IconData> _eventIcons = const {
@@ -42,6 +45,9 @@ class _SecurityAuditLogScreenState extends State<SecurityAuditLogScreen> {
     'password_reset_requested': Icons.mail_outline,
     'password_changed': Icons.password_outlined,
     'role_changed': Icons.admin_panel_settings_outlined,
+    'mfa_enabled': Icons.verified_user_outlined,
+    'mfa_disabled': Icons.gpp_bad_outlined,
+    'sessions_revoked': Icons.devices_other_outlined,
   };
 
   @override
