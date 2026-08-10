@@ -8374,3 +8374,39 @@ l'Accueil (`catalog_tab.dart`) garde exactement son contenu actuel
   sombre (`onSurface`/`onSurfaceVariant`, inversés par rapport à la
   version verte où ils étaient blancs) ; le capuchon et le contenu en
   dessous restent blancs (`Colors.white` explicite sur le capuchon).
+
+## Complétion automatique du catalogue produits depuis l'Académie (09/08)
+
+Demande explicite, sur constat que "Decyl Glucoside" (produit déjà
+existant, catégorie Tensioactifs) n'avait aucune description alors
+que "Soude Caustique (NaOH)" en avait une : chaque produit doit avoir
+sa description automatiquement, et toute la liste de produits du
+catalogue Akora Pro doit être complétée à partir des données déjà
+saisies dans l'Académie — il ne doit plus rester qu'à ajouter photo
+et prix.
+
+- **`phase148`** (SQL, non destructif — n'écrase jamais une valeur
+  déjà renseignée) :
+  1. Relie les produits déjà existants à leur fiche Académie par
+     correspondance exacte nom + catégorie, uniquement là où
+     `raw_material_id` est encore vide (rattrape "Soude Caustique",
+     "Decyl Glucoside" et tout produit créé avant phase147).
+  2. Complète la description des produits liés dont la description
+     est vide, à partir de `matieres_premieres_academie.particularite`
+     (repli sur `raw_materials.description` si la fiche Académie
+     n'existe pas encore).
+  3. Crée un produit **Brouillon** (`visibility = false`, invisible
+     côté client) pour chaque matière première Académie qui n'a
+     encore AUCUN produit correspondant — nom, catégorie, pilier
+     (`business_unit_id` hérité directement de la matière première,
+     pas de résolution séparée du pilier "Akora Pro"), description
+     (`particularite`) et usages généraux (agrégat des
+     `domaine_application`) pré-remplis ; prix et stock à 0 (valeurs
+     par défaut de `products`) en attendant photo + prix.
+- **`product_management_real.dart`** : le champ "Lier à une fiche
+  Académie" auto-remplit désormais la description et les usages du
+  formulaire à la sélection — uniquement si ces champs sont encore
+  vides (jamais d'écrasement d'un texte déjà saisi à la main), même
+  logique que le pré-remplissage de catégorie déjà en place sur le
+  champ "Nom du produit". Couvre les futurs produits/liaisons, en
+  complément du rattrapage ponctuel de `phase148`.

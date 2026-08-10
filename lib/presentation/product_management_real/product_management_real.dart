@@ -706,8 +706,55 @@ class _ProductManagementRealState
                               .toLowerCase()
                               .contains(query));
                     },
-                    onSelected: (m) => setDialogState(
-                        () => selectedRawMaterialId = m['id'] as String?),
+                    onSelected: (m) async {
+                      final materialId = m['id'] as String?;
+                      setDialogState(
+                          () => selectedRawMaterialId = materialId);
+                      // Auto-remplissage description/usages (09/08,
+                      // demande explicite : "chaque produit doit avoir
+                      // sa description automatiquement") — uniquement si
+                      // les champs sont encore vides, pour ne jamais
+                      // écraser un texte déjà saisi à la main. Même
+                      // logique que le pré-remplissage de catégorie sur
+                      // le champ "Nom du produit" plus haut.
+                      if (materialId == null) return;
+                      try {
+                        final academie = await SupabaseConfig.client
+                            .from('matieres_premieres_academie')
+                            .select('id, particularite')
+                            .eq('matiere_premiere_id', materialId)
+                            .maybeSingle();
+                        if (academie == null) return;
+                        if (descCtrl.text.trim().isEmpty) {
+                          final particularite =
+                              (academie['particularite'] as String?)?.trim();
+                          if (particularite != null &&
+                              particularite.isNotEmpty) {
+                            descCtrl.text = particularite;
+                          }
+                        }
+                        if (selectedUsages.isEmpty) {
+                          final usages = await SupabaseConfig.client
+                              .from('matieres_premieres_usages')
+                              .select('domaine_application')
+                              .eq('academie_id', academie['id']);
+                          setDialogState(() {
+                            for (final row
+                                in List<Map<String, dynamic>>.from(usages)) {
+                              final domaine =
+                                  row['domaine_application'] as String?;
+                              if (domaine != null && domaine.isNotEmpty) {
+                                selectedUsages.add(domaine);
+                              }
+                            }
+                          });
+                        }
+                      } catch (_) {
+                        // Repli silencieux : le staff garde la main pour
+                        // remplir manuellement si la fiche Académie
+                        // n'est pas accessible.
+                      }
+                    },
                     fieldViewBuilder:
                         (context, controller, focusNode, onSubmitted) {
                       return TextFormField(
