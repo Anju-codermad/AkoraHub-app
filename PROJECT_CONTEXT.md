@@ -8355,3 +8355,22 @@ l'Accueil (`catalog_tab.dart`) garde exactement son contenu actuel
   (~18 % seulement). `SliverToBoxAdapter(child: SizedBox(height:
   14.h))` transparent ajouté juste avant le capuchon arrondi pour
   agrandir la zone bleue visible sans toucher au contenu.
+- **Bug corrigé + recolorisation (même jour, sur capture d'écran du
+  build réel envoyée par l'utilisatrice)** : le `Positioned.fill` vert
+  (plein écran, derrière tout le `CustomScrollView`) restait visible
+  PARTOUT pendant le défilement — carrousel promo, texte "Vous
+  recommandez souvent", espaces entre les cartes — faute d'un fond
+  opaque propre à chaque section suivante (elles étaient transparentes
+  par défaut, donc le vert de fond transparaissait derrière). Corrigé
+  en remplaçant le calque plein écran par UN SEUL `Container` colorié
+  qui enveloppe directement l'en-tête + la recherche + l'espace de
+  respiration (plus de calque séparé à faire correspondre en hauteur —
+  le `Container` est exactement aussi grand que son contenu). Tout ce
+  qui suit le capuchon arrondi reste sur le fond blanc par défaut du
+  Scaffold, sans aucun fond coloré qui traîne derrière.
+  Recolorisation demandée dans la foulée : le bandeau passe du vert
+  AkoraHub à un gris très clair (`theme.colorScheme.
+  surfaceContainerHighest`), texte/icônes de l'en-tête repassés en
+  sombre (`onSurface`/`onSurfaceVariant`, inversés par rapport à la
+  version verte où ils étaient blancs) ; le capuchon et le contenu en
+  dessous restent blancs (`Colors.white` explicite sur le capuchon).
