@@ -202,6 +202,9 @@ class _ProductManagementRealState
   String _statusFilter = 'all';
   int? _publishedCount;
   int? _draftCount;
+  // null = toutes catégories (11/08 — la liste mélangeait les 13
+  // catégories, rendant un produit déjà publié difficile à retrouver).
+  String? _categoryFilter;
 
   @override
   void initState() {
@@ -230,6 +233,9 @@ class _ProductManagementRealState
     } else if (_statusFilter == 'draft') {
       query = query.eq('visibility', false);
     }
+    if (_categoryFilter != null) {
+      query = query.eq('category', _categoryFilter!);
+    }
     final q = _searchQuery.trim();
     if (q.isNotEmpty) {
       query = query.ilike('name', '%$q%');
@@ -249,6 +255,12 @@ class _ProductManagementRealState
   void _onStatusFilterChanged(String value) {
     if (_statusFilter == value) return;
     setState(() => _statusFilter = value);
+    _loadData();
+  }
+
+  void _onCategoryFilterChanged(String? value) {
+    if (_categoryFilter == value) return;
+    setState(() => _categoryFilter = value);
     _loadData();
   }
 
@@ -319,9 +331,13 @@ class _ProductManagementRealState
       }
 
       final results = await Future.wait<dynamic>([
-        _buildProductsQuery()
-            .order('created_at', ascending: false)
-            .range(0, _pageSize - 1),
+        // Tri alphabétique (11/08, remplace le tri par date de création) —
+        // retrouver un produit déjà publié est plus facile en connaissant
+        // son nom qu'en devinant quand il a été ajouté.
+        _buildProductsQuery().order('name', ascending: true).range(
+              0,
+              _pageSize - 1,
+            ),
         SupabaseConfig.client.from('business_units').select(),
         loadNameSuggestions(),
         refreshCategoriesCache(),
@@ -380,7 +396,7 @@ class _ProductManagementRealState
     try {
       final nextPage = _page + 1;
       final data = await _buildProductsQuery()
-          .order('created_at', ascending: false)
+          .order('name', ascending: true)
           .range(nextPage * _pageSize, nextPage * _pageSize + _pageSize - 1);
       final rows = List<Map<String, dynamic>>.from(data);
       if (!mounted) return;
@@ -1524,7 +1540,51 @@ class _ProductManagementRealState
               ],
             ),
           ),
+          SizedBox(height: 1.5.h),
+          _buildCategoryDropdown(theme),
         ],
+      ),
+    );
+  }
+
+  /// Menu déroulant Catégorie (11/08) — 13 catégories désormais, trop pour
+  /// des chips (deuxième ligne à faire défiler) ; un menu compact reste
+  /// discret puisqu'il sert bien plus rarement que Publié/Brouillon.
+  /// Les noms viennent du cache partagé (categoriesCacheProvider), rafraîchi
+  /// par `_loadData` — toutes catégories/piliers confondus, dédupliquées
+  /// (`products.category` est un simple texte, pas scopé par pilier ici).
+  Widget _buildCategoryDropdown(ThemeData theme) {
+    final categories = ref.watch(categoriesCacheProvider);
+    final names = categories
+        .map((c) => c['name'] as String?)
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort();
+    return SizedBox(
+      width: double.infinity,
+      child: DropdownButtonFormField<String>(
+        initialValue: _categoryFilter,
+        isExpanded: true,
+        decoration: InputDecoration(
+          isDense: true,
+          labelText: 'Catégorie',
+          prefixIcon: const Icon(Icons.category_outlined, size: 20),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+        items: [
+          const DropdownMenuItem<String>(
+            value: null,
+            child: Text('Toutes catégories'),
+          ),
+          for (final name in names)
+            DropdownMenuItem<String>(value: name, child: Text(name)),
+        ],
+        onChanged: _onCategoryFilterChanged,
       ),
     );
   }
