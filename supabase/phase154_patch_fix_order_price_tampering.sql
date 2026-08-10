@@ -120,37 +120,50 @@ create trigger recompute_order_total_trigger
 -- 3) recurring_order_items : même protection, essentielle ici car
 -- ces lignes génèrent automatiquement de vraies commandes sans repasser
 -- par l'app (voir process_recurring_orders(), phase13_schema_a.sql).
+-- Entouré d'un test d'existence (10/08) : la table peut ne pas exister
+-- sur toutes les bases si phase13_schema_a.sql n'a jamais été exécuté
+-- (fonctionnalité "Commandes récurrentes" présente dans le code Flutter
+-- mais migration jamais lancée) — sans ce garde-fou, cette partie fait
+-- échouer TOUT le script (y compris les parties 1 et 2, plus critiques)
+-- avec "relation does not exist" si la table est absente.
 -- ------------------------------------------------------------
-create or replace function public.enforce_recurring_order_item_price()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_detail numeric;
-  v_gros numeric;
-  v_threshold integer;
+do $$
 begin
-  if public.current_role_is_staff() then
-    return new;
-  end if;
-  if new.product_id is not null then
-    select price_detail, price_gros, gros_threshold_qty
-      into v_detail, v_gros, v_threshold
-      from public.products where id = new.product_id;
-    if found then
-      new.unit_price := case
-        when new.quantity >= v_threshold then coalesce(v_gros, v_detail)
-        else coalesce(v_detail, 0)
+  if to_regclass('public.recurring_order_items') is not null then
+    execute $ddl$
+      create or replace function public.enforce_recurring_order_item_price()
+      returns trigger
+      language plpgsql
+      security definer
+      set search_path = public
+      as $func$
+      declare
+        v_detail numeric;
+        v_gros numeric;
+        v_threshold integer;
+      begin
+        if public.current_role_is_staff() then
+          return new;
+        end if;
+        if new.product_id is not null then
+          select price_detail, price_gros, gros_threshold_qty
+            into v_detail, v_gros, v_threshold
+            from public.products where id = new.product_id;
+          if found then
+            new.unit_price := case
+              when new.quantity >= v_threshold then coalesce(v_gros, v_detail)
+              else coalesce(v_detail, 0)
+            end;
+          end if;
+        end if;
+        return new;
       end;
-    end if;
-  end if;
-  return new;
-end;
-$$;
+      $func$;
 
-drop trigger if exists enforce_recurring_order_item_price_trigger on public.recurring_order_items;
-create trigger enforce_recurring_order_item_price_trigger
-  before insert or update on public.recurring_order_items
-  for each row execute function public.enforce_recurring_order_item_price();
+      drop trigger if exists enforce_recurring_order_item_price_trigger on public.recurring_order_items;
+      create trigger enforce_recurring_order_item_price_trigger
+        before insert or update on public.recurring_order_items
+        for each row execute function public.enforce_recurring_order_item_price();
+    $ddl$;
+  end if;
+end $$;

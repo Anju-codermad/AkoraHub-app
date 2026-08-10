@@ -8688,7 +8688,13 @@ commandes à intervalle régulier sans repasser par l'app.
   `recompute_order_total` (AFTER sur `order_items`) qui recalcule
   `orders.total_amount` depuis la vraie somme des lignes + frais de
   livraison — annule toute falsification du total à la création de
-  la commande. Même protection sur `recurring_order_items`.
+  la commande. Même protection sur `recurring_order_items`, entourée
+  d'un test d'existence (`to_regclass`) : la table s'est révélée
+  absente de la base de production lors de l'exécution (migration
+  phase13_schema_a.sql jamais lancée, alors que la fonctionnalité
+  "Commandes récurrentes" existe côté Flutter) — sans ce garde-fou,
+  ça faisait échouer tout le script, y compris les parties 1 et 2
+  bien plus critiques.
 - **Non couvert (résiduel, ampleur limitée)** : `orders.delivery_fee`
   reste calculé côté client, pas de table de zones/tarifs en base
   pour le revalider — à voir séparément si besoin.
