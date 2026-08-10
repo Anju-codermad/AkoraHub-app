@@ -65,6 +65,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   /// l'accueil plutôt que noyée dans l'onglet Commandes (Lot 4).
   Map<String, dynamic>? _pendingAction;
 
+  /// Carte de suivi de commande (10/08, demande explicite) — la commande
+  /// la plus récente encore en cours de traitement (reçue/en préparation/
+  /// expédiée), affichée juste sous la barre de recherche pour informer le
+  /// client sans qu'il ait à aller chercher dans l'onglet Commandes.
+  /// `null` si aucune commande active : la carte ne s'affiche alors pas du
+  /// tout, plutôt qu'un bloc vide ou un message "rien à suivre".
+  Map<String, dynamic>? _activeOrder;
+
   final PageController _bannerController = PageController();
   int _bannerIndex = 0;
   Timer? _bannerAutoplayTimer;
@@ -339,6 +347,26 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         }
       }
 
+      // Commande la plus récente encore en cours (voir `_activeOrder`) —
+      // "en_attente" côté paiement n'exclut rien ici : la carte concerne le
+      // traitement de la commande, pas son paiement (déjà couvert par
+      // `loadPendingAction` en cas d'échec).
+      Future<Map<String, dynamic>?> loadActiveOrder() async {
+        if (userId == null) return null;
+        try {
+          return await SupabaseConfig.client
+              .from('orders')
+              .select('id, order_number, status')
+              .eq('customer_id', userId)
+              .inFilter('status', ['recue', 'en_preparation', 'expediee'])
+              .order('created_at', ascending: false)
+              .limit(1)
+              .maybeSingle();
+        } catch (_) {
+          return null;
+        }
+      }
+
       final parallel = await Future.wait([
         loadBanners(),
         loadUnreadCount(),
@@ -348,6 +376,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         loadRecentFormationCourses(),
         loadPendingAction(),
         loadDismissedFlashInfoId(),
+        loadActiveOrder(),
       ]);
       final loadedSlides = parallel[0] as List<_PromoSlide>;
       final unreadMessages = parallel[1] as int;
@@ -357,6 +386,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       final recentFormationCourses = parallel[5] as List<Map<String, dynamic>>;
       final pendingAction = parallel[6] as Map<String, dynamic>?;
       final dismissedFlashInfoId = parallel[7] as String?;
+      final activeOrder = parallel[8] as Map<String, dynamic>?;
       final flashInfoId = flashInfoRow?['id'] as String?;
       // Déjà lue sur cet appareil (même id) : on ne la réaffiche pas.
       final flashInfo = (flashInfoId != null && flashInfoId == dismissedFlashInfoId)
@@ -375,6 +405,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _flashInfo = flashInfo;
         _recentFormationCourses = recentFormationCourses;
         _pendingAction = pendingAction;
+        _activeOrder = activeOrder;
         _isLoading = false;
       });
       // Les vraies bannières (chargées ci-dessus) peuvent différer en
@@ -469,6 +500,19 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         duration: const Duration(seconds: 1),
       ),
     );
+  }
+
+  /// Libellé lisible pour la carte de suivi de commande (`_activeOrder`).
+  String _orderStatusLabel(String? status) {
+    switch (status) {
+      case 'en_preparation':
+        return 'En préparation';
+      case 'expediee':
+        return 'Expédiée';
+      case 'recue':
+      default:
+        return 'Reçue';
+    }
   }
 
   @override
@@ -847,6 +891,69 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                         Icon(Icons.chevron_right,
                             size: 18,
                             color: theme.colorScheme.onTertiaryContainer),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // --- Carte de suivi de commande (10/08, demande explicite) ---
+          // voir `_activeOrder` : ne s'affiche que s'il y a une commande en
+          // cours, disparaît sinon (pas de bloc vide/redondant avec
+          // l'icône "Commandes" déjà en haut de l'écran).
+          if (_activeOrder != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 1.h, 4.w, 0),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const OrdersTab(initialTabIndex: 0),
+                    ),
+                  ),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 3.w, vertical: 1.5.h),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.local_shipping_outlined,
+                                size: 18,
+                                color: theme.colorScheme.onSecondaryContainer),
+                            SizedBox(width: 2.w),
+                            Expanded(
+                              child: Text(
+                                'Commande ${_activeOrder!['order_number'] ?? ''} — '
+                                '${_orderStatusLabel(_activeOrder!['status'] as String?)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSecondaryContainer,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.chevron_right,
+                                size: 18,
+                                color: theme.colorScheme.onSecondaryContainer),
+                          ],
+                        ),
+                        SizedBox(height: 1.h),
+                        _OrderTrackingSteps(
+                          status: _activeOrder!['status'] as String?,
+                          color: theme.colorScheme.onSecondaryContainer,
+                          trackColor: theme.colorScheme.onSecondaryContainer
+                              .withValues(alpha: 0.25),
+                        ),
                       ],
                     ),
                   ),
@@ -1425,6 +1532,46 @@ class _ActivityItem {
         authorProfile = null;
 
   bool get isPost => post != null;
+}
+
+/// Mini barre de progression à 3 étapes (Reçue / En préparation /
+/// Expédiée) pour la carte de suivi de commande de l'Accueil (10/08,
+/// voir `_activeOrder`). "Livrée"/"Annulée" ne mènent jamais à cette carte
+/// (`_activeOrder` ne les charge pas), donc pas besoin de les représenter
+/// ici.
+class _OrderTrackingSteps extends StatelessWidget {
+  final String? status;
+  final Color color;
+  final Color trackColor;
+
+  const _OrderTrackingSteps({
+    required this.status,
+    required this.color,
+    required this.trackColor,
+  });
+
+  static const _steps = ['recue', 'en_preparation', 'expediee'];
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = _steps.indexOf(status ?? 'recue').clamp(0, 2);
+    return Row(
+      children: [
+        for (var i = 0; i < _steps.length; i++) ...[
+          if (i > 0) SizedBox(width: 1.w),
+          Expanded(
+            child: Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: i <= currentIndex ? color : trackColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 /// Image produit avec loader/repli d'erreur, `Hero` optionnel (voir

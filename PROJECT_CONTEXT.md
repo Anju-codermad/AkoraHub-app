@@ -8736,3 +8736,24 @@ autre fil, pas un risque) : jugés d'ampleur négligeable, pas corrigés.
 Vérifié aussi : toutes les tables ont RLS activée (aucune table
 totalement ouverte trouvée), et aucune policy d'écriture `using(true)`
 ou `with check(true)` trop permissive.
+
+## Accueil client : carte dynamique de suivi de commande (10/08)
+
+Suite à la discussion sur l'espace vide entre la barre de recherche et
+la bannière hero — écarté "déplacer l'icône Commandes du haut" (perte
+d'accès permanent) et "onglet Stories" (gros chantier, plus adapté au
+contenu marketing qu'au suivi de commande). Retenu : une carte qui
+n'apparaît QUE s'il y a une commande active.
+
+- **`catalog_tab.dart`** : `_activeOrder` (commande la plus récente
+  avec statut `recue`/`en_preparation`/`expediee`, chargée en
+  parallèle du reste dans `_loadData`) — `null` si aucune commande en
+  cours, la carte ne s'affiche alors pas du tout. Insérée juste après
+  le raccourci "devis/paiement en attente" existant (`_pendingAction`,
+  Lot 4) et avant le carrousel de bannières. Tap → `OrdersTab` (même
+  pattern que `_pendingAction`, pas de re-fetch dupliqué des détails
+  complets de la commande).
+- **`_OrderTrackingSteps`** : mini barre de progression à 3 segments
+  (Reçue / En préparation / Expédiée), remplie selon le statut actuel.
+- **`_orderStatusLabel`** : libellé français du statut affiché à côté
+  du numéro de commande.
