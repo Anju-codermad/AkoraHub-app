@@ -154,6 +154,18 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                           UserAttributes(
                               password: newPasswordController.text),
                         );
+                        // Change de mot de passe = coupe toute AUTRE
+                        // session déjà connectée (10/08, bug remonté par
+                        // l'utilisatrice : sans ça, un appareil déjà
+                        // connecté avec l'ancien mot de passe restait
+                        // connecté indéfiniment — un jeton de session
+                        // n'est jamais revalidé contre le mot de passe
+                        // tant qu'il n'a pas expiré). `scope: others`
+                        // épargne l'appareil courant. Best-effort.
+                        try {
+                          await SupabaseConfig.client.auth
+                              .signOut(scope: SignOutScope.others);
+                        } catch (_) {}
                         // Journalisation (revue de sécurité Admin) — voir
                         // supabase/phase34_patch_security_audit_log.sql.
                         // Best-effort : n'empêche jamais le changement de

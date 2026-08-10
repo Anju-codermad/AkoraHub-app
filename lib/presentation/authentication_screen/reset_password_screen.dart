@@ -50,6 +50,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       await SupabaseConfig.client.auth.updateUser(
         UserAttributes(password: _passwordController.text),
       );
+      // Change de mot de passe = coupe toute AUTRE session déjà connectée
+      // (10/08, bug remonté par l'utilisatrice : sans ça, un appareil déjà
+      // connecté avec l'ancien mot de passe restait connecté indéfiniment
+      // — le jeton de session n'est jamais revalidé contre le mot de passe
+      // tant qu'il n'a pas expiré). `scope: others` épargne la session
+      // courante (cet écran vient justement de s'authentifier via le lien
+      // de récupération). Best-effort : le mot de passe est déjà changé,
+      // un échec ici ne doit pas faire paraître l'opération en échec.
+      try {
+        await SupabaseConfig.client.auth
+            .signOut(scope: SignOutScope.others);
+      } catch (_) {}
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mot de passe mis à jour avec succès.')),

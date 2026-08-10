@@ -8567,3 +8567,30 @@ fil en mur d'images, préférer un plafond raisonnable.
 - Vidéo à publier et live streaming (idée soulevée par l'utilisatrice
   : le live serait réservé au côté admin) : notés pour plus tard, pas
   démarrés dans ce lot.
+
+## Fix sécurité : sessions non révoquées après changement de mot de passe (10/08)
+
+Bug remonté par l'utilisatrice : après un changement de mot de passe,
+l'app "fonctionne toujours avec le code précédent". Cause réelle :
+`auth.updateUser({password: ...})` change bien le mot de passe côté
+Supabase (une NOUVELLE tentative de connexion avec l'ancien mot de
+passe échoue), mais ne révoque PAS les sessions déjà ouvertes ailleurs
+— un jeton de session (access/refresh token) n'est jamais revalidé
+contre le mot de passe tant qu'il n'a pas expiré de lui-même. Concrètement :
+un appareil déjà connecté (ou une session volée) continue de
+fonctionner indéfiniment même après le changement de mot de passe —
+exactement le scénario de sécurité que le changement de mot de passe
+est censé neutraliser.
+
+- **`security_settings_screen.dart`** (`_changePassword`) et
+  **`reset_password_screen.dart`** (`_submit`, flux "mot de passe
+  oublié") : après `updateUser(password: ...)` réussi, appel
+  `auth.signOut(scope: SignOutScope.others)` — révoque toutes les
+  AUTRES sessions actives (autres appareils/navigateurs), sans
+  déconnecter l'appareil courant. Best-effort (try/catch silencieux) :
+  le mot de passe est déjà changé à ce stade, un échec de cet appel
+  ne doit pas faire paraître l'opération en échec côté utilisateur.
+- Le flux "mot de passe oublié" (recovery) est le cas le plus
+  sensible : si le mot de passe est réinitialisé suite à une
+  suspicion de compromission, c'est justement là qu'il faut couper
+  toute session existante (potentiellement celle de l'attaquant).
