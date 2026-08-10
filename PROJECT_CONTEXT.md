@@ -8528,3 +8528,20 @@ jusqu'ici renseignée que manuellement dans l'éditeur admin, pour les
   Scopé aux 5 nouvelles matières uniquement — les 12 catégories
   précédentes gardent leurs pictogrammes en saisie manuelle (pas
   demandé, pas rétrofitté).
+
+## Pictogrammes SGH automatiques pour tout le catalogue Académie (10/08)
+
+Suite logique de phase150 : l'utilisatrice demande si l'automatisation
+fonctionne aussi pour "tous les autres produits" (les 12 catégories
+précédentes, jamais pourvues en pictogrammes). Réponse : oui, en
+dérivant les pictogrammes des phrases H déjà assignées à chaque fiche
+au moment de sa création (correspondance standard CLP), plutôt que de
+les ressaisir matière par matière.
+
+- **`supabase/phase151_patch_pictogrammes_auto_toutes_categories.sql`** :
+  script générique (une correspondance H-code -> pictogramme en
+  jsonb, pas un bloc par matière) qui peuple `academie_pictograms`
+  pour TOUTE fiche Académie ayant des phrases H mais encore aucun
+  pictogramme (`not exists`) — ne touche jamais une fiche déjà
+  pourvue manuellement ou par phase150. `raise notice` en fin de
+  script pour indiquer combien de lignes ont été ajoutées.
