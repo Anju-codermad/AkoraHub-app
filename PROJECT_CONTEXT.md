@@ -8512,3 +8512,19 @@ calcium/sodium et le peroxyde d'hydrogène étaient déjà dans
   category_name` côté client (aucune liste à mettre à jour en dur).
 - Contenu à faire vérifier par l'utilisatrice comme les 12
   précédentes (`statut_verification = 'a_valider'`).
+
+## Pictogrammes SGH automatiques pour les Oxydants (10/08)
+
+Question de l'utilisatrice après avoir appris que les pictogrammes
+n'étaient jamais peuplés automatiquement (contrairement aux phrases
+H/P) : possible de le faire aussi. `academie_pictograms` n'était
+jusqu'ici renseignée que manuellement dans l'éditeur admin, pour les
+13 catégories — pas de blocage technique à le scripter.
+
+- **`supabase/phase150_patch_pictogrammes_oxydants.sql`** : peuple
+  `academie_pictograms` pour les 5 matières de phase149, cohérent
+  avec les phrases H déjà assignées (GHS03 comburant <-> H272, GHS05
+  corrosif <-> H318, GHS07 irritant <-> H302/H315/H317/H319/H335).
+  Scopé aux 5 nouvelles matières uniquement — les 12 catégories
+  précédentes gardent leurs pictogrammes en saisie manuelle (pas
+  demandé, pas rétrofitté).
