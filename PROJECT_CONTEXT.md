@@ -8410,3 +8410,18 @@ et prix.
   logique que le pré-remplissage de catégorie déjà en place sur le
   champ "Nom du produit". Couvre les futurs produits/liaisons, en
   complément du rattrapage ponctuel de `phase148`.
+
+## Cadre de la barre de recherche Accueil (09/08)
+
+Sur référence visuelle (barre de recherche blanche en pleine pilule
+sur fond bleu marine, icône loupe + micro). Uniquement le "cadre"
+demandé — pas l'icône micro, qui impliquerait une recherche vocale
+non implémentée (aucune fonctionnalité derrière, donc pas ajoutée).
+
+- `catalog_tab.dart`, raccourci recherche : `borderRadius` porté à
+  `999` (pilule complète garantie quelle que soit la hauteur réelle,
+  au lieu de `14` — coins à peine arrondis) et ajout d'un contour fin
+  (`side: BorderSide(color: theme.colorScheme.outlineVariant)`) via
+  `Material.shape` pour détacher nettement la barre du bandeau gris
+  clair. Texte enveloppé dans `Expanded` (défensif, évite un
+  débordement si une traduction longue).

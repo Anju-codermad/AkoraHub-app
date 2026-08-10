@@ -671,15 +671,25 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   // tap ouvre directement le Catalogue, comme sur beaucoup
                   // d'apps e-commerce (barre de recherche "raccourci" sur
                   // l'accueil). Fond blanc plein : flotte comme un "pill"
-                  // sur le bandeau gris clair. ---
+                  // sur le bandeau gris clair. Cadre en forme de pilule
+                  // complète (09/08, sur référence visuelle) : rayon très
+                  // large (999, garantit un arrondi total quelle que soit
+                  // la hauteur réelle) + un contour fin pour bien détacher
+                  // la barre du bandeau, au lieu du rectangle à coins
+                  // légèrement arrondis d'origine. ---
                   Padding(
                     padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.h),
                     child: Material(
                       color: theme.colorScheme.surface,
                       elevation: 1,
-                      borderRadius: BorderRadius.circular(14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                        side: BorderSide(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                      ),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(999),
                         onTap: widget.onOpenCatalog,
                         child: Padding(
                           padding: EdgeInsets.symmetric(
@@ -688,10 +698,12 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                             children: [
                               Icon(Icons.search, size: 20, color: onBandMuted),
                               SizedBox(width: 3.w),
-                              Text(
-                                ref.tr('search_hint'),
-                                style: theme.textTheme.bodyMedium
-                                    ?.copyWith(color: onBandMuted),
+                              Expanded(
+                                child: Text(
+                                  ref.tr('search_hint'),
+                                  style: theme.textTheme.bodyMedium
+                                      ?.copyWith(color: onBandMuted),
+                                ),
                               ),
                             ],
                           ),
