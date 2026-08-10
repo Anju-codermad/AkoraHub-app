@@ -8658,3 +8658,75 @@ type trouvé.
   `role` revient à sa valeur d'origine si le changement n'est pas
   autorisé. Complète (sans le remplacer) le trigger `log_role_change`
   (phase34) qui journalise les changements réels.
+
+## Revue systématique des policies RLS (10/08)
+
+Suite à "lancé une revue" — balayage de toutes les policies RLS des
+~150 fichiers de migration (reconstruction de l'état final par table,
+recherche du même type de trou que `profiles.role` : USING self-edit
+sans WITH CHECK sur une colonne sensible, ou policies `using(true)`
+trop permissives en écriture). Deux nouvelles failles trouvées et
+corrigées, une gamme de tables vérifiées et jugées saines.
+
+### Faille CRITIQUE #2 : falsification du prix des commandes
+
+`order_items_insert_own` (phase1/2) et `orders_insert_own` (phase1)
+ne vérifient que l'appartenance de la commande au client — jamais que
+`unit_price`/`total_amount` correspondent au vrai prix du produit.
+Confirmé dans `payment_screen.dart` : le prix est calculé côté
+CLIENT et envoyé tel quel. Un client pouvait donc passer une vraie
+commande à n'importe quel prix (0 Ar compris) en appelant l'API
+directement. Même faille sur `recurring_order_items`, plus risquée
+car `process_recurring_orders()` génère automatiquement de vraies
+commandes à intervalle régulier sans repasser par l'app.
+
+- **`supabase/phase154_patch_fix_order_price_tampering.sql`** :
+  trigger `enforce_order_item_price` (BEFORE INSERT/UPDATE sur
+  `order_items`) qui recalcule `unit_price`/`is_gros_price` depuis
+  `products.price_detail`/`price_gros`/`gros_threshold_qty`, sauf
+  pour le staff (ajustements manuels préservés). Trigger
+  `recompute_order_total` (AFTER sur `order_items`) qui recalcule
+  `orders.total_amount` depuis la vraie somme des lignes + frais de
+  livraison — annule toute falsification du total à la création de
+  la commande. Même protection sur `recurring_order_items`.
+- **Non couvert (résiduel, ampleur limitée)** : `orders.delivery_fee`
+  reste calculé côté client, pas de table de zones/tarifs en base
+  pour le revalider — à voir séparément si besoin.
+- **`quote_items` volontairement pas concerné** : un devis reste une
+  simple proposition tant que le staff ne l'a pas traité
+  manuellement (aucune policy ne permet à un client de faire passer
+  un devis à "accepté" lui-même) — un prix fantaisiste sur un devis
+  ne débouche sur rien sans validation humaine.
+
+### Faille modérée : falsification du contenu des messages
+
+`messages_update_own_or_staff` (phase8) autorisait la modification de
+N'IMPORTE QUEL message d'une conversation dès lors que le client est
+propriétaire de la conversation — pas seulement ses propres messages.
+Un client pouvait donc réécrire le contenu d'un message envoyé par le
+STAFF dans sa propre conversation, ou usurper `sender_role`/
+`sender_id`.
+
+- **`supabase/phase155_patch_protect_message_content.sql`** : trigger
+  `protect_message_content` (BEFORE UPDATE) qui restaure `content`,
+  `sender_id`, `sender_role`, `is_request`, `conversation_id`,
+  `created_at` à leur valeur d'origine pour tout compte non-staff —
+  seuls `read_by_client`/`read_by_staff` (marquer comme lu, l'usage
+  légitime de cette policy) restent librement modifiables.
+
+### Tables vérifiées, aucune action nécessaire
+
+`usual_cart_items` (pas de prix stocké, juste une liste de raccourci),
+`product_reviews` (rating/comment, rien de sensible),
+`posts` (seule colonne sensible, `is_pinned`, déjà protégée depuis
+phase52), `course_purchases`/`academie_purchases`/
+`formation_purchases` (statuts déjà protégés par un vrai WITH CHECK),
+`delivery_addresses` (déjà protégée). `call_invitations` (statut
+d'appel auto-modifiable par les deux participants — pas d'enjeu
+financier/accès, laissé tel quel) et `formation_group_posts`
+(catégorie auto-modifiable — juste déplace son propre post vers un
+autre fil, pas un risque) : jugés d'ampleur négligeable, pas corrigés.
+
+Vérifié aussi : toutes les tables ont RLS activée (aucune table
+totalement ouverte trouvée), et aucune policy d'écriture `using(true)`
+ou `with check(true)` trop permissive.
