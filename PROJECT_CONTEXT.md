@@ -8624,3 +8624,37 @@ points corrigés, dont un bug de fond découvert au passage.
 - **`security_audit_log_screen.dart`** : libellés/icônes ajoutés pour
   ces 3 types d'événement dans le journal Admin (affichaient le code
   brut faute de correspondance).
+
+## FAILLE CRITIQUE : élévation de privilège via profiles.role (10/08)
+
+Trouvée en poursuivant l'audit de sécurité ("y a-t-il d'autres failles
+à vérifier ?"). La policy RLS `profiles_update_own_or_staff`
+(phase1_schema.sql, la toute première migration) autorise chaque
+utilisateur à modifier sa propre ligne (`auth.uid() = id`) mais n'a
+JAMAIS eu de `with check` limitant les colonnes modifiables. Comme
+`current_role_is_staff()`/`current_role_is_admin()` (qui protègent
+QUASIMENT TOUT le back-office : produits, matières premières,
+commandes, factures, écrans admin...) lisent directement
+`profiles.role`, n'importe quel client authentifié pouvait
+s'attribuer lui-même le rôle admin via un simple appel
+`profiles.update({role: 'admin'})` sur son propre compte — accès
+total instantané, sans exploit complexe.
+
+Fait notable : ce type précis de trou (RLS `using` self-editable +
+colonne sensible non protégée par `with check`) avait déjà été
+identifié et corrigé une fois dans ce projet, pour `posts.is_pinned`
+(phase52, via un trigger similaire) — mais jamais appliqué à
+`profiles.role` lui-même, la faille la plus critique de toutes.
+Vérification faite sur les autres candidats plausibles (statuts
+d'achat `course_purchases`/`academie_purchases`/`formation_purchases`,
+tous protégés par un vrai `with check`) : aucun autre trou du même
+type trouvé.
+
+- **`supabase/phase153_patch_fix_role_escalation.sql`** : trigger
+  `guard_profile_role_change` (BEFORE UPDATE sur `profiles`) qui
+  annule silencieusement tout changement de `role` tenté par un
+  compte qui n'est pas déjà Admin (`current_role_is_admin()`) — la
+  ligne se met à jour normalement pour tous les autres champs, seul
+  `role` revient à sa valeur d'origine si le changement n'est pas
+  autorisé. Complète (sans le remplacer) le trigger `log_role_change`
+  (phase34) qui journalise les changements réels.
