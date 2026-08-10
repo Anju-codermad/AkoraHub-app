@@ -8349,3 +8349,9 @@ l'Accueil (`catalog_tab.dart`) garde exactement son contenu actuel
   coins hauts arrondis à 24px) juste après le raccourci recherche —
   crée la transition visuelle entre le bandeau et le contenu, qui
   reste sinon inchangé.
+- Ajustement (même jour, sur référence complémentaire envoyée par
+  l'utilisatrice) : le bandeau vert doit occuper une vraie portion de
+  l'écran (~35-40 %), pas juste la hauteur de l'en-tête + recherche
+  (~18 % seulement). `SliverToBoxAdapter(child: SizedBox(height:
+  14.h))` transparent ajouté juste avant le capuchon arrondi pour
+  agrandir la zone bleue visible sans toucher au contenu.

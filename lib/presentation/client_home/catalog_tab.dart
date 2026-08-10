@@ -701,6 +701,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 ),
               ),
 
+              // --- Espace bleu supplémentaire (09/08, ajusté sur
+              // référence : le bandeau doit occuper une vraie portion de
+              // l'écran, ~35-40 %, pas juste la hauteur de l'en-tête +
+              // recherche qui ne faisait qu'environ 18 %). Transparent :
+              // laisse simplement voir le fond vert du Positioned.fill.
+              SliverToBoxAdapter(child: SizedBox(height: 14.h)),
+
               // --- "Capuchon" arrondi : transition visuelle entre le
               // bandeau coloré ci-dessus et le contenu (fond clair
               // standard du Scaffold) ci-dessous.
