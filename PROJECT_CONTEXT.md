@@ -8425,3 +8425,29 @@ non implémentée (aucune fonctionnalité derrière, donc pas ajoutée).
   `Material.shape` pour détacher nettement la barre du bandeau gris
   clair. Texte enveloppé dans `Expanded` (défensif, évite un
   débordement si une traduction longue).
+
+## Retour sur la bulle "Partager" flottante + pastilles réactions (09/08)
+
+Après test sur build réel (capture d'écran), deux retours directs de
+l'utilisatrice sur la carte de publication Communauté (phase108/109) :
+les pastilles like/commentaire sont peu visibles, et la bulle
+"Partager" flottante déborde trop / est mal placée. Confrontée à ses
+deux maquettes initiales (bulle flottante vs bouton aligné dans la
+rangée de réactions), l'utilisatrice tranche pour la seconde,
+qualifiée "la bonne visuelle et praticable" — plus sûre dans un fil
+qui défile (aucun risque de chevauchement avec la carte suivante,
+contrairement à la bulle).
+
+- **`_ReactionPill`** : fond replacé de `surfaceContainerHighest` à
+  0.5 d'opacité (trop pâle sur une carte blanche) à opacité pleine +
+  un contour (`Border.all(color: theme.colorScheme.outlineVariant)`),
+  même traitement que la barre de recherche de l'Accueil pour rester
+  cohérent visuellement dans toute l'app.
+- **Bulle "Partager" flottante abandonnée** : la classe `_ShareBubble`
+  et le `Stack`/`Positioned` autour de chaque `Card` sont retirés,
+  retour à un simple `Card(margin: ...)` classique. "Partager"
+  redevient un bouton dans la rangée de réactions (après like/
+  commentaire/WhatsApp), mais stylé en pastille pleine (fond
+  `theme.colorScheme.primary`, icône + texte blancs) plutôt que
+  l'ancien `IconButton` nu — pour rester bien identifiable malgré le
+  retour au format aligné.

@@ -1459,26 +1459,20 @@ class _WallTabState extends ConsumerState<WallTab> {
                                   post['image_url'] != null;
                               final hasImage = hasCarousel || hasSingleImage;
 
-                              // Padding externe (au lieu du `margin` de
-                              // `Card`) : la bulle "Partager" doit
-                              // déborder du coin de la CARTE elle-même,
-                              // pas de la zone de marge — le `Stack` doit
-                              // donc être borné exactement par la carte.
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                    left: 4.w,
-                                    right: 4.w,
-                                    top: 1.h,
-                                    // Espace réservé sous la carte pour
-                                    // que la bulle flottante ne chevauche
-                                    // pas la carte suivante du fil.
-                                    bottom: 3.h),
-                                child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Card(
-                                    margin: EdgeInsets.zero,
-                                    child: Padding(
+                              // Bulle "Partager" flottante essayée puis
+                              // abandonnée (09/08, retour direct de
+                              // l'utilisatrice sur maquette réelle vs
+                              // rendu : "dépasse trop / mal placée",
+                              // et risque de chevauchement avec la carte
+                              // suivante dans un fil qui défile). Retour
+                              // au bouton "Partager" aligné dans la
+                              // rangée de réactions (maquette
+                              // alternative, jugée "la bonne visuelle et
+                              // praticable").
+                              return Card(
+                                margin: EdgeInsets.symmetric(
+                                    horizontal: 4.w, vertical: 1.h),
+                                child: Padding(
                                   padding: EdgeInsets.all(3.w),
                                   child: Column(
                                     crossAxisAlignment:
@@ -2018,29 +2012,56 @@ class _WallTabState extends ConsumerState<WallTab> {
                                                       author?['phone']
                                                           as String?),
                                             ),
-                                          // Réserve la place occupée par
-                                          // la bulle "Partager" flottante
-                                          // en bas à droite de la carte.
-                                          SizedBox(width: 10.w),
+                                          SizedBox(width: 2.w),
+                                          // Bouton "Partager" plein,
+                                          // aligné dans la rangée
+                                          // (maquette alternative choisie
+                                          // le 09/08 — plus pratique
+                                          // qu'une bulle flottante dans
+                                          // un fil qui défile, voir
+                                          // commentaire sur `return
+                                          // Card(` ci-dessus).
+                                          Material(
+                                            color: theme.colorScheme.primary,
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              onTap: () => _sharePost(
+                                                  post, authorName),
+                                              child: Padding(
+                                                padding: const EdgeInsets
+                                                    .symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 7),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.share_outlined,
+                                                        size: 15,
+                                                        color: theme
+                                                            .colorScheme
+                                                            .onPrimary),
+                                                    const SizedBox(width: 5),
+                                                    Text('Partager',
+                                                        style: theme
+                                                            .textTheme
+                                                            .labelMedium
+                                                            ?.copyWith(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .onPrimary)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
                                   ),
-                                ),
-                                  ),
-                                  Positioned(
-                                    // Chevauche volontairement le coin
-                                    // bas-droit de la carte (maquette
-                                    // fournie, à l'essai sur demande
-                                    // explicite du 09/08).
-                                    right: -10,
-                                    bottom: -22,
-                                    child: _ShareBubble(
-                                      onTap: () =>
-                                          _sharePost(post, authorName),
-                                    ),
-                                  ),
-                                ],
                                 ),
                               );
                             },
@@ -2463,9 +2484,13 @@ class _ReactionPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest
-              .withValues(alpha: 0.5),
+          // Fond trop pâle à 0.5 d'opacité sur une carte blanche (retour
+          // 09/08 : "pastilles peu visibles") — fond plus marqué + un
+          // contour net, même traitement que la barre de recherche de
+          // l'Accueil pour rester cohérent.
+          color: theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2477,43 +2502,6 @@ class _ReactionPill extends StatelessWidget {
             const SizedBox(width: 5),
             Text(label, style: theme.textTheme.labelMedium),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Bulle "Partager" flottante qui déborde du coin bas-droit de la carte
-/// (redesign 09/08, à l'essai sur demande explicite — maquette fournie).
-/// Positionnée par le `Stack`/`Positioned` autour de chaque `Card` du fil ;
-/// `Clip.none` sur ce `Stack` pour ne pas la rogner.
-class _ShareBubble extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _ShareBubble({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.primary,
-      shape: const CircleBorder(),
-      elevation: 3,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.share_outlined,
-                  size: 18, color: theme.colorScheme.onPrimary),
-              Text('Partager',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: theme.colorScheme.onPrimary)),
-            ],
-          ),
         ),
       ),
     );
