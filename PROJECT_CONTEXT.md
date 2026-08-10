@@ -8481,3 +8481,34 @@ de distinguer ce qui est déjà publié au milieu du flot de brouillons
   Le badge "Stock bas" ne s'affiche désormais que pour un produit déjà
   publié (`isDraft == false`), où il redevient une vraie alerte de
   réassort.
+
+## Académie — 13e catégorie : Oxydants & Agents de Blanchiment (10/08)
+
+Suite à une recherche infructueuse de "Percarbonate de soude" dans le
+catalogue produits (bulk-completion phase148 ne l'avait pas trouvé
+puisqu'il n'existait dans AUCUNE des 12 catégories terminées), audit
+confirmé : aucune des 12 catégories ne couvrait les agents oxydants/
+blanchissants de la fabrication de détergents en poudre. Ouverture
+d'une 13e catégorie, scopée strictement aux matières encore absentes
+(diligence anti-doublon : l'acide peracétique, l'hypochlorite de
+calcium/sodium et le peroxyde d'hydrogène étaient déjà dans
+"Désinfectants", phase99-101, volontairement pas recréés ici).
+
+- **`supabase/phase149_categorie_oxydants_agents_blanchiment.sql`** :
+  5 matières premières + fiches Académie complètes (nom chimique,
+  particularité, différence produit similaire, niveau de danger, EPI,
+  premiers secours, incompatibilités, stockage, phrases H/P, usages
+  avec dosage structuré) — Percarbonate de sodium (l'agent
+  recherché à l'origine), Perborate de sodium monohydraté, TAED
+  (activateur de blanchiment basse température), Persulfate de
+  sodium, Azurant optique. Ajoute aussi les codes H272 (comburant)/
+  P220/P221 manquants au catalogue phrases_h/phrases_p (phase86) —
+  aucun oxydant solide classé comburant n'existait dans les 12
+  catégories précédentes.
+- **`raw_material_style.dart`** : icône dédiée (`Icons.
+  brightness_high_outlined`) pour les catégories contenant "oxydant"
+  ou "blanchiment", reconnue automatiquement — la liste des
+  catégories Académie est dérivée dynamiquement de `raw_materials.
+  category_name` côté client (aucune liste à mettre à jour en dur).
+- Contenu à faire vérifier par l'utilisatrice comme les 12
+  précédentes (`statut_verification = 'a_valider'`).

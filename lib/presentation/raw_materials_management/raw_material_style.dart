@@ -76,6 +76,9 @@ IconData iconForChemicalCategory(String category) {
   }
   if (c.contains('pigment')) return Icons.format_paint_outlined;
   if (c.contains('siccatif')) return Icons.whatshot_outlined;
+  if (c.contains('oxydant') || c.contains('blanchiment')) {
+    return Icons.brightness_high_outlined;
+  }
   if (c.contains('insecticide') || c.contains('raticide') || c.contains('fourmis') ||
       c.contains('moustique') || c.contains('puce') || c.contains('agrivet')) {
     return Icons.pest_control_outlined;
