@@ -8451,3 +8451,33 @@ contrairement à la bulle).
   `theme.colorScheme.primary`, icône + texte blancs) plutôt que
   l'ancien `IconButton` nu — pour rester bien identifiable malgré le
   retour au format aligné.
+
+## Réorganisation de la liste Produits admin (10/08)
+
+Conséquence directe du succès de la complétion automatique du
+catalogue (phase148, voir plus haut) : la liste "Produits (Gros /
+Détail)" s'est retrouvée avec des centaines de brouillons quasi
+identiques créés en masse (une fiche par matière première Académie
+sans produit correspondant), rendant la liste "catastrophique" selon
+l'utilisatrice — plus aucun moyen de retrouver un produit précis ou
+de distinguer ce qui est déjà publié au milieu du flot de brouillons
+à prix/stock 0.
+
+- **`product_management_real.dart`** : ajout d'une barre de recherche
+  par nom (`TextField` avec `debounce` de 350 ms) et de 3 puces de
+  filtre de statut (`Tous` / `Publiés (n)` / `Brouillons (n)`),
+  toutes deux appliquées **côté serveur** (`_buildProductsQuery()`,
+  réutilisée par `_loadData` et `_loadMoreProducts` pour ne jamais
+  diverger) plutôt que côté client — reste valable au-delà de la
+  seule page déjà chargée en mémoire (pagination par 20). Les
+  compteurs Publiés/Brouillons sont chargés via `.count()` (même
+  motif que `metrics_cards_widget.dart`), en parallèle du reste des
+  requêtes de `_loadData`.
+- **Badge "Stock bas" redondant supprimé sur les brouillons** : un
+  produit "Brouillon" fraîchement créé par la complétion automatique
+  a toujours `stock_quantity = 0`, ce qui déclenchait systématiquement
+  aussi le badge "Stock bas" à côté du badge "Brouillon" — deux
+  badges pour la même information (rien n'a encore été configuré).
+  Le badge "Stock bas" ne s'affiche désormais que pour un produit déjà
+  publié (`isDraft == false`), où il redevient une vraie alerte de
+  réassort.

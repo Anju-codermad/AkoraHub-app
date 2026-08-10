@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -187,6 +188,21 @@ class _ProductManagementRealState
   bool _isLoadingMore = false;
   final _scrollController = ScrollController();
 
+  // Recherche + filtre de statut (10/08) — la liste a explosé après la
+  // complétion automatique du catalogue depuis l'Académie (phase148,
+  // des centaines de nouveaux "Brouillon"), la retrouver un produit
+  // précis ou distinguer ce qui est déjà publié devenait impossible
+  // sans un moyen de filtrer. Les deux sont appliqués côté serveur
+  // (voir `_buildProductsQuery`) plutôt que côté client, pour rester
+  // valables au-delà de la seule page déjà chargée.
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+  Timer? _searchDebounce;
+  // 'all' | 'published' | 'draft'
+  String _statusFilter = 'all';
+  int? _publishedCount;
+  int? _draftCount;
+
   @override
   void initState() {
     super.initState();
@@ -198,7 +214,42 @@ class _ProductManagementRealState
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchCtrl.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  /// Construit la requête produits en appliquant le filtre de statut et la
+  /// recherche par nom actuellement sélectionnés — réutilisé par
+  /// `_loadData` (1ère page) et `_loadMoreProducts` (pages suivantes) pour
+  /// ne jamais les faire diverger.
+  dynamic _buildProductsQuery() {
+    var query = SupabaseConfig.client.from('products').select();
+    if (_statusFilter == 'published') {
+      query = query.eq('visibility', true);
+    } else if (_statusFilter == 'draft') {
+      query = query.eq('visibility', false);
+    }
+    final q = _searchQuery.trim();
+    if (q.isNotEmpty) {
+      query = query.ilike('name', '%$q%');
+    }
+    return query;
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      setState(() => _searchQuery = value);
+      _loadData();
+    });
+  }
+
+  void _onStatusFilterChanged(String value) {
+    if (_statusFilter == value) return;
+    setState(() => _statusFilter = value);
+    _loadData();
   }
 
   void _onScroll() {
@@ -268,26 +319,50 @@ class _ProductManagementRealState
       }
 
       final results = await Future.wait<dynamic>([
-        SupabaseConfig.client
-            .from('products')
-            .select()
+        _buildProductsQuery()
             .order('created_at', ascending: false)
             .range(0, _pageSize - 1),
         SupabaseConfig.client.from('business_units').select(),
         loadNameSuggestions(),
         refreshCategoriesCache(),
         loadKnownUsages(),
+        // Compteurs Publiés/Brouillons (10/08) — affichés sur les puces de
+        // filtre pour donner une vue d'ensemble immédiate, indépendants du
+        // filtre de statut actuellement choisi (mais respectent la
+        // recherche en cours, pour rester cohérents avec ce qui est listé).
+        (() {
+          var q = SupabaseConfig.client
+              .from('products')
+              .select('id')
+              .eq('visibility', true);
+          final s = _searchQuery.trim();
+          if (s.isNotEmpty) q = q.ilike('name', '%$s%');
+          return q.count();
+        })(),
+        (() {
+          var q = SupabaseConfig.client
+              .from('products')
+              .select('id')
+              .eq('visibility', false);
+          final s = _searchQuery.trim();
+          if (s.isNotEmpty) q = q.ilike('name', '%$s%');
+          return q.count();
+        })(),
       ]);
       final products = results[0];
       final units = results[1];
       final nameSuggestions = results[2];
       final knownUsages = results[4];
+      final publishedCountRes = results[5];
+      final draftCountRes = results[6];
       final productsList = List<Map<String, dynamic>>.from(products);
       setState(() {
         _products = productsList;
         _businessUnits = List<Map<String, dynamic>>.from(units);
         _nameSuggestions = List<Map<String, dynamic>>.from(nameSuggestions);
         _knownUsages = List<String>.from(knownUsages);
+        _publishedCount = publishedCountRes.count;
+        _draftCount = draftCountRes.count;
         _isLoading = false;
         _hasMore = productsList.length == _pageSize;
       });
@@ -304,9 +379,7 @@ class _ProductManagementRealState
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final data = await SupabaseConfig.client
-          .from('products')
-          .select()
+      final data = await _buildProductsQuery()
           .order('created_at', ascending: false)
           .range(nextPage * _pageSize, nextPage * _pageSize + _pageSize - 1);
       final rows = List<Map<String, dynamic>>.from(data);
@@ -1179,11 +1252,15 @@ class _ProductManagementRealState
         icon: const Icon(Icons.add),
         label: const Text('Produit'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : RefreshIndicator(
+      body: Column(
+        children: [
+          _buildFilterBar(theme),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(child: Text(_error!))
+                    : RefreshIndicator(
                   onRefresh: _loadData,
                   child: _products.isEmpty
                       ? ListView(
@@ -1191,7 +1268,10 @@ class _ProductManagementRealState
                             SizedBox(height: 20.h),
                             Center(
                               child: Text(
-                                'Aucun produit pour le moment.\nAppuyez sur "+" pour en créer un.',
+                                _searchQuery.isNotEmpty ||
+                                        _statusFilter != 'all'
+                                    ? 'Aucun produit ne correspond à ce filtre.'
+                                    : 'Aucun produit pour le moment.\nAppuyez sur "+" pour en créer un.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodyMedium,
                               ),
@@ -1218,8 +1298,16 @@ class _ProductManagementRealState
                               );
                             }
                             final p = _products[index];
-                            final lowStock = (p['stock_quantity'] ?? 0) <=
-                                (p['low_stock_threshold'] ?? 5);
+                            final isDraft = p['visibility'] == false;
+                            // "Stock bas" n'a de sens que pour un produit
+                            // déjà publié et vendu — sur un brouillon tout
+                            // juste créé (stock à 0 par défaut, voir
+                            // phase148), ce badge ne fait que doubler
+                            // l'information déjà donnée par "Brouillon"
+                            // sans rien apporter (10/08).
+                            final lowStock = !isDraft &&
+                                (p['stock_quantity'] ?? 0) <=
+                                    (p['low_stock_threshold'] ?? 5);
                             return Card(
                               child: Padding(
                                 padding: EdgeInsets.all(3.w),
@@ -1240,7 +1328,7 @@ class _ProductManagementRealState
                                         // admin pour savoir en un coup
                                         // d'œil ce qui attend encore une
                                         // photo avant publication.
-                                        if (p['visibility'] == false) ...[
+                                        if (isDraft) ...[
                                           Chip(
                                             label: const Text('Brouillon'),
                                             backgroundColor: theme
@@ -1366,6 +1454,78 @@ class _ProductManagementRealState
                           },
                         ),
                 ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Barre de recherche + filtre de statut (10/08) — voir commentaire à la
+  /// déclaration de `_searchCtrl`/`_statusFilter`.
+  Widget _buildFilterBar(ThemeData theme) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(4.w, 2.w, 4.w, 2.w),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _searchCtrl,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Rechercher un produit par nom...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _searchCtrl.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        _onSearchChanged('');
+                      },
+                    ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          SizedBox(height: 1.5.h),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: const Text('Tous'),
+                  selected: _statusFilter == 'all',
+                  onSelected: (_) => _onStatusFilterChanged('all'),
+                ),
+                SizedBox(width: 2.w),
+                ChoiceChip(
+                  label: Text('Publiés'
+                      '${_publishedCount != null ? ' ($_publishedCount)' : ''}'),
+                  selected: _statusFilter == 'published',
+                  onSelected: (_) => _onStatusFilterChanged('published'),
+                ),
+                SizedBox(width: 2.w),
+                ChoiceChip(
+                  label: Text('Brouillons'
+                      '${_draftCount != null ? ' ($_draftCount)' : ''}'),
+                  selected: _statusFilter == 'draft',
+                  onSelected: (_) => _onStatusFilterChanged('draft'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
