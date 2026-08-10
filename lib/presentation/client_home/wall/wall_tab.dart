@@ -2087,6 +2087,13 @@ class _NewPostSheet extends StatefulWidget {
 }
 
 class _NewPostSheetState extends State<_NewPostSheet> {
+  // Plafond du nombre de photos par publication (10/08, demande explicite
+  // de vérifier si un vrai illimité était possible) — techniquement oui
+  // (aucune limite codée ni en base), mais un vrai illimité dégraderait
+  // l'upload sur connexion mobile lente et transformerait le fil en mur
+  // d'images : plafond raisonnable choisi à la place.
+  static const _maxImages = 20;
+
   final _controller = TextEditingController();
   List<File> _images = [];
   bool _isPosting = false;
@@ -2140,10 +2147,27 @@ class _NewPostSheetState extends State<_NewPostSheet> {
   /// compression qu'avant (maxWidth/imageQuality appliqués par
   /// `image_picker` avant l'upload), juste plusieurs fichiers à la fois.
   Future<void> _pickImages() async {
+    if (_images.length >= _maxImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Maximum $_maxImages photos par publication.')),
+      );
+      return;
+    }
     final picker = ImagePicker();
-    final picked = await picker.pickMultiImage(imageQuality: 60, maxWidth: 800);
+    final remaining = _maxImages - _images.length;
+    final picked = await picker.pickMultiImage(
+        imageQuality: 60, maxWidth: 800, limit: remaining);
     if (picked.isNotEmpty) {
-      setState(() => _images = [..._images, ...picked.map((p) => File(p.path))]);
+      final overflow = picked.length > remaining;
+      setState(() => _images = [
+            ..._images,
+            ...picked.take(remaining).map((p) => File(p.path)),
+          ]);
+      if (overflow && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Maximum $_maxImages photos par publication.')),
+        );
+      }
     }
   }
 
@@ -2301,9 +2325,11 @@ class _NewPostSheetState extends State<_NewPostSheet> {
             spacing: 4,
             children: [
               TextButton.icon(
-                onPressed: _pickImages,
+                onPressed: _images.length >= _maxImages ? null : _pickImages,
                 icon: const Icon(Icons.photo_outlined),
-                label: const Text('Photos'),
+                label: Text(_images.isEmpty
+                    ? 'Photos'
+                    : 'Photos (${_images.length}/$_maxImages)'),
               ),
               TextButton.icon(
                 onPressed: _products.isEmpty ? null : _pickProduct,

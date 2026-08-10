@@ -8545,3 +8545,25 @@ les ressaisir matière par matière.
   pictogramme (`not exists`) — ne touche jamais une fiche déjà
   pourvue manuellement ou par phase150. `raise notice` en fin de
   script pour indiquer combien de lignes ont été ajoutées.
+
+## Plafond du nombre de photos par publication Communauté (10/08)
+
+Question de l'utilisatrice : peut-on rendre le nombre d'images
+illimité ? Vérifié : c'était déjà techniquement le cas (aucune limite
+codée dans `_pickImages`, aucune contrainte sur `post_images`). Avis
+donné et retenu par l'utilisatrice (via choix multiSelect, elle n'a
+gardé que ce point sur les 3 proposés — vidéo à publier et live
+streaming laissés de côté pour l'instant) : un vrai illimité
+dégraderait l'upload sur connexion mobile lente et transformerait le
+fil en mur d'images, préférer un plafond raisonnable.
+
+- **`wall_tab.dart`** (`_NewPostSheetState`) : `_maxImages = 20`.
+  `_pickImages()` calcule les emplacements restants et les passe en
+  `limit:` au sélecteur (`image_picker`), avec un filet de sécurité
+  (`.take(remaining)`) si le picker en renvoie quand même plus. Un
+  SnackBar prévient si la limite est atteinte. Le bouton "Photos"
+  affiche le compteur (`Photos (n/20)`) et se désactive une fois le
+  plafond atteint.
+- Vidéo à publier et live streaming (idée soulevée par l'utilisatrice
+  : le live serait réservé au côté admin) : notés pour plus tard, pas
+  démarrés dans ce lot.
