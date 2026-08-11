@@ -650,3 +650,6 @@
 
 ## 2026-08-11 15:26 UTC — Claude
 - Fix : cartes Produits et Clients inscrits du tableau de bord non cliquables (`87d5db5`)
+
+## 2026-08-11 15:51 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`cb490b7`)
