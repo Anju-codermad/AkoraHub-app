@@ -95,7 +95,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.language_outlined),
+                  leading: const Icon(Icons.translate),
                   title: const Text('Langue / Fiteny'),
                   trailing: Text(
                     locale == 'fr' ? 'Français' : 'Malagasy',
