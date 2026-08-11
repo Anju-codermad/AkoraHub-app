@@ -620,3 +620,6 @@
 
 ## 2026-08-05 09:44 UTC — Claude
 - merge: intégrer le changelog automatique (`e9b0781`)
+
+## 2026-08-11 06:51 UTC — Anju-codermad
+- Decrease SizedBox height in catalog_tab.dart (`c708a7c`)
