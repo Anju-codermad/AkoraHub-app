@@ -190,11 +190,12 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
                     onMetricTap: (metricType) {
                       HapticFeedback.selectionClick();
                       // Navigate to detailed view based on metric type
-                      if (metricType == 'sales') {
-                        Navigator.pushNamed(context, '/analytics-dashboard');
+                      if (metricType == 'products') {
+                        Navigator.pushNamed(
+                            context, '/product-management-real');
                       } else if (metricType == 'orders') {
                         Navigator.pushNamed(context, '/order-management-real');
-                      } else if (metricType == 'followers') {
+                      } else if (metricType == 'clients') {
                         Navigator.pushNamed(context, '/customer-management-real');
                       } else if (metricType == 'messages') {
                         Navigator.pushNamed(context, '/messaging-center');
