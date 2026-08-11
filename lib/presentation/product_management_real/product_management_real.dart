@@ -879,16 +879,33 @@ class _ProductManagementRealState
                   // "Gel Sol" n'a rien à voir avec "Savonnerie" ou
                   // "Métallurgie"). _knownUsages (liste générique + tout
                   // usage ajouté manuellement sur n'importe quel produit,
-                  // voir _loadData) sert de repli si la catégorie n'est pas
-                  // couverte, et reste toujours mélangé pour ne jamais
-                  // perdre un usage personnalisé déjà utilisé ailleurs. On
-                  // ajoute aussi ceux de ce produit-ci au cas où le
-                  // formulaire est ouvert avant le prochain rechargement.
+                  // voir _loadData) ne sert VRAIMENT de repli que si la
+                  // catégorie n'a pas de liste dédiée (11/08, corrige un
+                  // décalage entre ce commentaire et le code : avant, les
+                  // deux étaient toujours mélangés, ce qui noyait la liste
+                  // sous des centaines d'usages accumulés dans tout le
+                  // catalogue — illisible une fois les ~150 matières
+                  // premières Académie sync-ées automatiquement, cf.
+                  // phase159).
+                  final categoryOptions =
+                      kProductUsageSuggestionsByCategory[selectedCategoryName];
                   final allOptions = <String>{
-                    ...?kProductUsageSuggestionsByCategory[selectedCategoryName],
-                    ..._knownUsages,
+                    ...?categoryOptions,
+                    if (categoryOptions == null || categoryOptions.isEmpty)
+                      ..._knownUsages,
                     ...selectedUsages,
-                  }.toList();
+                  }.toList()
+                    // Déjà cochés en premier (visible immédiatement sans
+                    // scroller, notamment pour les fiches auto-remplies
+                    // depuis l'Académie), puis le reste par ordre alphabétique.
+                    ..sort((a, b) {
+                      final aSelected = selectedUsages.contains(a);
+                      final bSelected = selectedUsages.contains(b);
+                      if (aSelected != bSelected) {
+                        return aSelected ? -1 : 1;
+                      }
+                      return a.toLowerCase().compareTo(b.toLowerCase());
+                    });
                   return Wrap(
                     spacing: 8,
                     runSpacing: 4,
