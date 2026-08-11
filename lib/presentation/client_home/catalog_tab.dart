@@ -761,7 +761,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   // pile à la hauteur de l'en-tête + recherche. Fait
                   // partie du même `Container` gris que le reste du
                   // bandeau ci-dessus (pas de risque de débordement).
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 2.h),
                 ],
               ),
             ),
