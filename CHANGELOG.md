@@ -626,3 +626,6 @@
 
 ## 2026-08-11 07:19 UTC — Claude
 - CI GitHub Actions : aligner le nom de l'APK sur Codemagic (`17f10f0`)
+
+## 2026-08-11 07:49 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`a35a174`)
