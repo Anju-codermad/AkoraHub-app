@@ -623,3 +623,6 @@
 
 ## 2026-08-11 06:51 UTC — Anju-codermad
 - Decrease SizedBox height in catalog_tab.dart (`c708a7c`)
+
+## 2026-08-11 07:19 UTC — Claude
+- CI GitHub Actions : aligner le nom de l'APK sur Codemagic (`17f10f0`)
