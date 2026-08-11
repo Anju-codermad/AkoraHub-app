@@ -647,3 +647,6 @@
 
 ## 2026-08-11 09:14 UTC — Anju-codermad
 - Add files via upload (`b36aa9a`)
+
+## 2026-08-11 15:26 UTC — Claude
+- Fix : cartes Produits et Clients inscrits du tableau de bord non cliquables (`87d5db5`)
