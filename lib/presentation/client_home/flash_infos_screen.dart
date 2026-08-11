@@ -40,10 +40,12 @@ class _FlashInfosScreenState extends State<FlashInfosScreen> {
       _error = null;
     });
     try {
+      final nowIso = DateTime.now().toUtc().toIso8601String();
       final data = await SupabaseConfig.client
           .from('flash_infos')
           .select()
           .eq('active', true)
+          .or('expires_at.is.null,expires_at.gt.$nowIso')
           .order('created_at', ascending: false);
       setState(() {
         _infos = List<Map<String, dynamic>>.from(data);

@@ -184,10 +184,12 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
 
       Future<Map<String, dynamic>?> loadFlashInfo() async {
         try {
+          final nowIso = DateTime.now().toUtc().toIso8601String();
           return await SupabaseConfig.client
               .from('flash_infos')
               .select('id, message')
               .eq('active', true)
+              .or('expires_at.is.null,expires_at.gt.$nowIso')
               .order('created_at', ascending: false)
               .limit(1)
               .maybeSingle();

@@ -118,6 +118,10 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
+    // Durée avant disparition automatique (11/08, demande explicite) — une
+    // annonce oubliée par l'Admin ne doit jamais rester affichée
+    // indéfiniment. 48h par défaut, ajustable au cas par cas.
+    int durationHours = 48;
 
     await showModalBottomSheet(
       context: context,
@@ -157,6 +161,25 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                       : null,
                 ),
                 SizedBox(height: 1.h),
+                DropdownButtonFormField<int>(
+                  initialValue: durationHours,
+                  decoration: const InputDecoration(
+                    labelText: 'Disparaît automatiquement après',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 24, child: Text('24 heures')),
+                    DropdownMenuItem(value: 48, child: Text('48 heures')),
+                    DropdownMenuItem(value: 72, child: Text('72 heures')),
+                    DropdownMenuItem(value: 168, child: Text('7 jours')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setSheetState(() => durationHours = value);
+                    }
+                  },
+                ),
+                SizedBox(height: 1.h),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -176,6 +199,10 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                                   .insert({
                                 'message': controller.text.trim(),
                                 'created_by': userId,
+                                'expires_at': DateTime.now()
+                                    .toUtc()
+                                    .add(Duration(hours: durationHours))
+                                    .toIso8601String(),
                               });
                               if (context.mounted) Navigator.pop(context);
                               _load();
@@ -257,13 +284,21 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                             final active = info['active'] as bool? ?? true;
                             final createdAt =
                                 DateTime.tryParse(info['created_at'] ?? '');
+                            final expiresAt =
+                                DateTime.tryParse(info['expires_at'] ?? '');
+                            final isExpired = expiresAt != null &&
+                                expiresAt.isBefore(DateTime.now().toUtc());
                             return Card(
                               child: ListTile(
                                 title: Text(info['message'] ?? ''),
-                                subtitle: createdAt != null
-                                    ? Text(
-                                        'Publié le ${_dateFormat.format(createdAt.toLocal())}')
-                                    : null,
+                                subtitle: Text([
+                                  if (createdAt != null)
+                                    'Publié le ${_dateFormat.format(createdAt.toLocal())}',
+                                  if (expiresAt != null)
+                                    isExpired
+                                        ? 'Expiré le ${_dateFormat.format(expiresAt.toLocal())}'
+                                        : 'Disparaît le ${_dateFormat.format(expiresAt.toLocal())}',
+                                ].join('\n')),
                                 isThreeLine: true,
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
