@@ -118,10 +118,11 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
-    // Durée avant disparition automatique (11/08, demande explicite) — une
-    // annonce oubliée par l'Admin ne doit jamais rester affichée
-    // indéfiniment. 48h par défaut, ajustable au cas par cas.
-    int durationHours = 48;
+    // Durée avant disparition automatique, en minutes (11/08, demande
+    // explicite — puis étendu le même jour pour permettre des durées très
+    // courtes, ex. tester l'affichage) — une annonce oubliée par l'Admin ne
+    // doit jamais rester affichée indéfiniment. 48h par défaut.
+    int durationMinutes = 48 * 60;
 
     await showModalBottomSheet(
       context: context,
@@ -162,20 +163,24 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                 ),
                 SizedBox(height: 1.h),
                 DropdownButtonFormField<int>(
-                  initialValue: durationHours,
+                  initialValue: durationMinutes,
                   decoration: const InputDecoration(
                     labelText: 'Disparaît automatiquement après',
                     border: OutlineInputBorder(),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 24, child: Text('24 heures')),
-                    DropdownMenuItem(value: 48, child: Text('48 heures')),
-                    DropdownMenuItem(value: 72, child: Text('72 heures')),
-                    DropdownMenuItem(value: 168, child: Text('7 jours')),
+                    DropdownMenuItem(value: 5, child: Text('5 minutes')),
+                    DropdownMenuItem(value: 15, child: Text('15 minutes')),
+                    DropdownMenuItem(value: 30, child: Text('30 minutes')),
+                    DropdownMenuItem(value: 60, child: Text('1 heure')),
+                    DropdownMenuItem(value: 24 * 60, child: Text('24 heures')),
+                    DropdownMenuItem(value: 48 * 60, child: Text('48 heures')),
+                    DropdownMenuItem(value: 72 * 60, child: Text('72 heures')),
+                    DropdownMenuItem(value: 7 * 24 * 60, child: Text('7 jours')),
                   ],
                   onChanged: (value) {
                     if (value != null) {
-                      setSheetState(() => durationHours = value);
+                      setSheetState(() => durationMinutes = value);
                     }
                   },
                 ),
@@ -201,7 +206,7 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                                 'created_by': userId,
                                 'expires_at': DateTime.now()
                                     .toUtc()
-                                    .add(Duration(hours: durationHours))
+                                    .add(Duration(minutes: durationMinutes))
                                     .toIso8601String(),
                               });
                               if (context.mounted) Navigator.pop(context);
