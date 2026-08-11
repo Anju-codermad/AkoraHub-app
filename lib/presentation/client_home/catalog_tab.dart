@@ -391,9 +391,18 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       final activeOrder = parallel[8] as Map<String, dynamic>?;
       final flashInfoId = flashInfoRow?['id'] as String?;
       // Déjà lue sur cet appareil (même id) : on ne la réaffiche pas.
+      // {nom} (11/08, demande explicite) : substitué par le nom du client
+      // qui regarde — un même message stocké une seule fois en base
+      // s'affiche personnalisé pour chacun, plutôt qu'un message générique
+      // "à tout le monde".
       final flashInfo = (flashInfoId != null && flashInfoId == dismissedFlashInfoId)
           ? null
-          : flashInfoRow?['message'] as String?;
+          : (flashInfoRow?['message'] as String?)?.replaceAll(
+              '{nom}',
+              (profile?['full_name'] as String?)?.trim().isNotEmpty == true
+                  ? (profile!['full_name'] as String).trim()
+                  : 'cher client',
+            );
 
       setState(() {
         _clientName = profile?['full_name'] as String?;

@@ -155,6 +155,10 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                     labelText: 'Message',
                     hintText: 'Ex : Promo -10% sur les insecticides '
                         'cette semaine !',
+                    helperText: 'Astuce : tapez {nom} pour qu\'il soit '
+                        'remplacé par le nom de chaque client '
+                        '(ex : "Tongasoa, {nom} !")',
+                    helperMaxLines: 2,
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty)
