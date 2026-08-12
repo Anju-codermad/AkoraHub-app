@@ -552,7 +552,30 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                   textAlign: TextAlign.center,
                 ),
 
-                SizedBox(height: 4.h),
+                SizedBox(height: 2.h),
+
+                // Lien d'inscription remonté ici (12/08, demande explicite —
+                // "difficile à trouver parce qu'il est en bas") : un nouveau
+                // client doit le voir dès l'ouverture de l'écran, sans faire
+                // défiler tout le formulaire de connexion.
+                OutlinedButton(
+                  onPressed: _handleRegister,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(_currentTranslations['new_business']!),
+                      SizedBox(width: 1.w),
+                      Text(
+                        _currentTranslations['register']!,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 3.h),
+                const Divider(),
+                SizedBox(height: 1.h),
 
                 // Comptes récents : accès rapide façon Facebook (pré-remplit
                 // l'email au tap, le mot de passe reste toujours requis).
@@ -705,31 +728,6 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 SocialLoginWidget(
                   onSocialLogin: _handleSocialLogin,
                   translations: _currentTranslations,
-                ),
-
-                SizedBox(height: 4.h),
-
-                // Register link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _currentTranslations['new_business']!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _handleRegister,
-                      child: Text(
-                        _currentTranslations['register']!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
 
                 SizedBox(height: 2.h),
