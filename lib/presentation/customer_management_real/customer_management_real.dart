@@ -131,6 +131,150 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     return list;
   }
 
+  /// Compte les clients par type (Hôtel/Hôpital/Entreprise/Particulier).
+  Map<String, int> _typeCounts() {
+    final counts = <String, int>{};
+    for (final c in _customers) {
+      final type = (c['client_type'] as String?) ?? 'particulier';
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// Compte les clients par tranche d'âge, calculée depuis `birth_date`
+  /// (Phase 19). Un client sans date de naissance renseignée compte à
+  /// part plutôt que d'être exclu du total.
+  Map<String, int> _ageBracketCounts() {
+    final counts = <String, int>{
+      'Moins de 25 ans': 0,
+      '25-34 ans': 0,
+      '35-44 ans': 0,
+      '45-54 ans': 0,
+      '55 ans et plus': 0,
+      'Non renseigné': 0,
+    };
+    final now = DateTime.now();
+    for (final c in _customers) {
+      final birthDate = DateTime.tryParse(c['birth_date']?.toString() ?? '');
+      if (birthDate == null) {
+        counts['Non renseigné'] = counts['Non renseigné']! + 1;
+        continue;
+      }
+      var age = now.year - birthDate.year;
+      if (now.month < birthDate.month ||
+          (now.month == birthDate.month && now.day < birthDate.day)) {
+        age--;
+      }
+      final bracket = age < 25
+          ? 'Moins de 25 ans'
+          : age < 35
+              ? '25-34 ans'
+              : age < 45
+                  ? '35-44 ans'
+                  : age < 55
+                      ? '45-54 ans'
+                      : '55 ans et plus';
+      counts[bracket] = counts[bracket]! + 1;
+    }
+    return counts;
+  }
+
+  /// Localisations les plus fréquentes (texte `location`, alimenté par la
+  /// géolocalisation Niveau 1 côté client — voir phase5_patch_geolocation.sql).
+  /// Regroupement par correspondance exacte : suffisant tant que le nombre
+  /// de clients reste petit, sans complexité de normalisation de texte.
+  List<MapEntry<String, int>> _topLocations({int limit = 5}) {
+    final counts = <String, int>{};
+    for (final c in _customers) {
+      final loc = (c['location'] as String?)?.trim();
+      if (loc == null || loc.isEmpty) continue;
+      counts[loc] = (counts[loc] ?? 0) + 1;
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return entries.take(limit).toList();
+  }
+
+  Widget _buildDemographicsCard(ThemeData theme) {
+    if (_customers.isEmpty) return const SizedBox.shrink();
+    final total = _customers.length;
+    final typeCounts = _typeCounts();
+    final ageCounts = _ageBracketCounts();
+    final topLocations = _topLocations();
+
+    Widget buildBar(String label, int count) {
+      final pct = total == 0 ? 0.0 : count / total;
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 0.5.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(label,
+                      style: theme.textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis),
+                ),
+                Text('$count (${(pct * 100).round()}%)',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            SizedBox(height: 0.3.h),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 6,
+                backgroundColor:
+                    theme.colorScheme.outline.withValues(alpha: 0.15),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Card(
+      margin: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 1.h),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        title: Text(
+          'Données démographiques',
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text('Basé sur les $total client(s) inscrit(s)'),
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 2.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Par type de client', style: theme.textTheme.labelLarge),
+                ..._typeLabels.entries
+                    .map((e) => buildBar(e.value, typeCounts[e.key] ?? 0)),
+                SizedBox(height: 1.5.h),
+                Text('Par tranche d\'âge', style: theme.textTheme.labelLarge),
+                ...ageCounts.entries
+                    .where((e) => e.value > 0)
+                    .map((e) => buildBar(e.key, e.value)),
+                if (topLocations.isNotEmpty) ...[
+                  SizedBox(height: 1.5.h),
+                  Text('Top localisations',
+                      style: theme.textTheme.labelLarge),
+                  ...topLocations.map((e) => buildBar(e.key, e.value)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   IconData _iconForType(String? type) {
     switch (type) {
       case 'hotel':
@@ -248,6 +392,7 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
               ? Center(child: Text(_error!))
               : Column(
                   children: [
+                    _buildDemographicsCard(theme),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       padding: EdgeInsets.symmetric(
