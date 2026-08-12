@@ -64,12 +64,18 @@ class LanguageSelectorWidget extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(
+              Icons.translate,
+              color: theme.colorScheme.onSurface,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
             Text(
               languages
                   .firstWhere((l) => l['code'] == currentLanguage)['flag']!,
               style: const TextStyle(fontSize: 20),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             CustomIconWidget(
               iconName: 'arrow_drop_down',
               color: theme.colorScheme.onSurface,
