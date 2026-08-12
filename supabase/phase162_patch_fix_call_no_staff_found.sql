@@ -15,6 +15,11 @@
 -- `public_profiles`, déjà lisible par tout utilisateur connecté.
 -- ============================================================
 
+-- Note (12/08) : `create or replace view` refuse de changer le nom ou la
+-- position d'une colonne existante ("cannot change name of view column
+-- ... to ...") — `role` doit donc être ajoutée à la FIN de la liste,
+-- après les colonnes déjà en place, sinon Postgres croit qu'on renomme
+-- la colonne suivante.
 create or replace view public.public_profiles as
 select
   id,
@@ -23,7 +28,6 @@ select
   client_type,
   avatar_url,
   case when share_phone_publicly then phone else null end as phone,
-  role,
   role in ('admin','commercial','production','comptable') as is_staff,
   referred_by,
   created_at,
@@ -32,7 +36,8 @@ select
     when cover_urls is not null and cardinality(cover_urls) > 0 then cover_urls[1]
     else cover_url
   end as cover_photo_url,
-  coalesce(loyalty_points, 0) as loyalty_points
+  coalesce(loyalty_points, 0) as loyalty_points,
+  role
 from public.profiles;
 
 grant select on public.public_profiles to authenticated, anon;
