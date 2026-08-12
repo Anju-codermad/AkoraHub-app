@@ -6,6 +6,7 @@ import '../business_units_management/business_units_management.dart';
 import '../staff_management/staff_management.dart';
 import '../invoicing/invoicing_screen.dart';
 import '../alerts_center/alerts_center.dart';
+import '../delivery_management/delivery_management.dart';
 import '../flash_infos_management/flash_infos_management.dart';
 import '../home_banners_management/home_banners_management.dart';
 import '../notification_sounds_catalog_admin/notification_sounds_catalog_admin_screen.dart';
@@ -30,8 +31,124 @@ import '../customer_analytics/customer_analytics_dashboard.dart';
 /// consulter les alertes n'est pas "créer quelque chose de nouveau").
 /// Ce menu les regroupe dans un vrai écran de navigation, organisé par
 /// section.
-class MoreMenuScreen extends StatelessWidget {
+///
+/// Rôles Services/Livraison (Phase 166/167, 12/08) : ces deux rôles n'ont
+/// volontairement accès qu'à leur propre tâche (voir RLS) — leur afficher
+/// le menu complet ci-dessous n'aurait aucun sens (la plupart des écrans
+/// leur renverraient des listes vides ou des erreurs). On affiche donc un
+/// menu réduit selon le rôle du compte connecté, sans toucher au
+/// comportement existant pour les 4 autres rôles staff.
+class MoreMenuScreen extends StatefulWidget {
   const MoreMenuScreen({super.key});
+
+  @override
+  State<MoreMenuScreen> createState() => _MoreMenuScreenState();
+}
+
+class _MoreMenuScreenState extends State<MoreMenuScreen> {
+  bool _loading = true;
+  String? _role;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null || !SupabaseConfig.isConfigured) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final profile = await SupabaseConfig.client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+      if (!mounted) return;
+      setState(() {
+        _role = profile['role'] as String?;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_role == 'livraison') {
+      return _RestrictedMoreMenu(
+        tile: _MenuTile(
+          icon: Icons.local_shipping_outlined,
+          label: 'Livraisons',
+          subtitle: 'Commandes à livrer, statut, position GPS',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const DeliveryManagement()),
+          ),
+        ),
+      );
+    }
+    if (_role == 'services') {
+      return _RestrictedMoreMenu(
+        tile: _MenuTile(
+          icon: Icons.miscellaneous_services_outlined,
+          label: 'Demandes de service',
+          subtitle: 'Installations, interventions, consultations demandées',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const ServiceRequestsManagement()),
+          ),
+        ),
+      );
+    }
+    return const _FullMoreMenu();
+  }
+}
+
+/// Menu réduit : uniquement la tâche du rôle + Paramètres + Déconnexion.
+class _RestrictedMoreMenu extends StatelessWidget {
+  final Widget tile;
+  const _RestrictedMoreMenu({required this.tile});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Plus')),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: [
+          tile,
+          const Divider(height: 24),
+          _MenuTile(
+            icon: Icons.settings_outlined,
+            label: 'Paramètres',
+            subtitle: 'Notifications, langue, mode sombre, sécurité, aide',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+          const Divider(height: 24),
+          _SignOutTile(theme: theme),
+        ],
+      ),
+    );
+  }
+}
+
+class _FullMoreMenu extends StatelessWidget {
+  const _FullMoreMenu();
 
   @override
   Widget build(BuildContext context) {
@@ -241,43 +358,52 @@ class MoreMenuScreen extends StatelessWidget {
             ),
           ),
           const Divider(height: 24),
-          _MenuTile(
-            icon: Icons.logout,
-            label: 'Déconnexion',
-            iconColor: theme.colorScheme.error,
-            labelColor: theme.colorScheme.error,
-            onTap: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Déconnexion'),
-                  content:
-                      const Text('Voulez-vous vraiment vous déconnecter ?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Annuler'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Déconnexion'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirmed != true) return;
-
-              if (SupabaseConfig.isConfigured) {
-                await SupabaseConfig.client.auth.signOut();
-              }
-              if (context.mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/authentication-screen', (r) => false);
-              }
-            },
-          ),
+          _SignOutTile(theme: theme),
         ],
       ),
+    );
+  }
+}
+
+class _SignOutTile extends StatelessWidget {
+  final ThemeData theme;
+  const _SignOutTile({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return _MenuTile(
+      icon: Icons.logout,
+      label: 'Déconnexion',
+      iconColor: theme.colorScheme.error,
+      labelColor: theme.colorScheme.error,
+      onTap: () async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Déconnexion'),
+            content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Déconnexion'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+
+        if (SupabaseConfig.isConfigured) {
+          await SupabaseConfig.client.auth.signOut();
+        }
+        if (context.mounted) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/authentication-screen', (r) => false);
+        }
+      },
     );
   }
 }

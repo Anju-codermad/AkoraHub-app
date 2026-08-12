@@ -452,7 +452,9 @@ Deno.serve(async (req) => {
       // Nouvelle demande de service côté client (onglet "Services",
       // voir supabase/phase65_patch_service_requests.sql) — notifie
       // toute l'équipe (Admin/Commercial), même principe que les
-      // signalements de publications.
+      // signalements de publications. Le rôle "services" (Phase 166/167,
+      // 12/08) traite désormais ces demandes au quotidien — sans lui, il
+      // ne serait jamais notifié d'une nouvelle demande.
       category = "commande";
       const { data: unit } = record.business_unit_id
         ? await supabase
@@ -464,7 +466,7 @@ Deno.serve(async (req) => {
       const { data: staff } = await supabase
         .from("profiles")
         .select(`fcm_token, ${soundColumn(category)}`)
-        .in("role", ["admin", "commercial"])
+        .in("role", ["admin", "commercial", "services"])
         .not("fcm_token", "is", null);
       title = "Nouvelle demande de service";
       body = unit?.name

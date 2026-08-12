@@ -35,6 +35,7 @@ Map? _embedAsMap(dynamic value) {
 class _ServiceRequestsManagementState
     extends State<ServiceRequestsManagement> {
   List<Map<String, dynamic>> _requests = [];
+  Map<String, Map<String, dynamic>> _contactsById = {};
   bool _isLoading = true;
   String? _error;
   String _statusFilter = 'nouvelle';
@@ -65,8 +66,32 @@ class _ServiceRequestsManagementState
               '*, business_units(name), profiles(full_name, company_name, phone), '
               'service_catalog_items(name, service_categories(name))')
           .order('created_at', ascending: false);
+      final requests = List<Map<String, dynamic>>.from(data);
+
+      // Rôle Services (Phase 167, 12/08) : pas d'accès à `profiles` (RLS),
+      // l'embed ci-dessus revient donc vide pour ce rôle — on récupère le
+      // contact via la vue allégée `logistics_contacts` à la place.
+      final customerIds = requests
+          .map((r) => r['customer_id'] as String?)
+          .whereType<String>()
+          .toSet()
+          .toList();
+      var contacts = <String, Map<String, dynamic>>{};
+      if (customerIds.isNotEmpty) {
+        try {
+          final contactsData = await SupabaseConfig.client
+              .from('logistics_contacts')
+              .select('id, full_name, company_name, phone, region, location')
+              .inFilter('id', customerIds);
+          for (final c in List<Map<String, dynamic>>.from(contactsData)) {
+            contacts[c['id'] as String] = c;
+          }
+        } catch (_) {}
+      }
+
       setState(() {
-        _requests = List<Map<String, dynamic>>.from(data);
+        _requests = requests;
+        _contactsById = contacts;
         _isLoading = false;
       });
     } catch (e) {
@@ -183,7 +208,8 @@ class _ServiceRequestsManagementState
                       else
                         ...filtered.map((r) {
                           final status = (r['status'] ?? 'nouvelle').toString();
-                          final customer = _embedAsMap(r['profiles']);
+                          final customer = _embedAsMap(r['profiles']) ??
+                              _contactsById[r['customer_id']];
                           final catalogItem =
                               _embedAsMap(r['service_catalog_items']);
                           final unit = catalogItem != null
