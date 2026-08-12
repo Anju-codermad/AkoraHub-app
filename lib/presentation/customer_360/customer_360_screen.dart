@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/constants/client_types.dart';
 import '../../core/loyalty/loyalty_tiers.dart';
 import '../../core/supabase/supabase_config.dart';
 
@@ -72,12 +73,6 @@ class _Customer360ScreenState extends State<Customer360Screen> {
       locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
   final _dateFormat = DateFormat('d MMM yyyy', 'fr_FR');
 
-  final Map<String, String> _clientTypeLabels = const {
-    'hotel': 'Hôtel',
-    'hopital': 'Hôpital',
-    'entreprise': 'Entreprise',
-    'particulier': 'Particulier',
-  };
   final Map<String, String> _orderStatusLabels = const {
     'recue': 'Reçue',
     'en_preparation': 'En préparation',
@@ -793,7 +788,7 @@ class _Customer360ScreenState extends State<Customer360Screen> {
                 if (profile['client_type'] != null)
                   Chip(
                     label: Text(
-                        _clientTypeLabels[profile['client_type']] ??
+                        kClientTypeLabels[profile['client_type']] ??
                             profile['client_type']),
                     visualDensity: VisualDensity.compact,
                   ),

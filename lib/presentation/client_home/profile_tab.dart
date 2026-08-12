@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/constants/client_types.dart';
 import '../../core/constants/madagascar_regions.dart';
 import '../../core/loyalty/loyalty_tiers.dart';
 import '../../core/providers/profile_accent_provider.dart';
@@ -64,13 +65,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   // la jonction entre le bandeau et la carte. Correspond au rayon de
   // l'avatar (44) + son liseré blanc (3).
   static const double _avatarOverlap = 47;
-
-  final Map<String, String> _sectorLabels = const {
-    'hotel': 'Hôtel',
-    'hopital': 'Hôpital',
-    'entreprise': 'Entreprise',
-    'particulier': 'Particulier',
-  };
 
   final Map<String, IconData> _sectorIcons = const {
     'hotel': Icons.hotel_outlined,
@@ -505,7 +499,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ? [legacyCoverUrl]
             : const <String>[]);
     final bio = (profile['bio'] as String?)?.trim();
-    final sector = _sectorLabels[profile['client_type']];
+    final sector = kClientTypeLabels[profile['client_type']];
     final displayName = (fullName == null || fullName.trim().isEmpty)
         ? (user?.email ?? '')
         : fullName;
@@ -1110,13 +1104,6 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   bool _isLocating = false;
   bool _isSaving = false;
 
-  final Map<String, String> _sectorLabels = const {
-    'hotel': 'Hôtel',
-    'hopital': 'Hôpital',
-    'entreprise': 'Entreprise',
-    'particulier': 'Particulier',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -1376,9 +1363,11 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                 labelText: 'Secteur',
                 border: OutlineInputBorder(),
               ),
-              items: _sectorLabels.entries
-                  .map((e) =>
-                      DropdownMenuItem(value: e.key, child: Text(e.value)))
+              items: kClientTypeOptions
+                  .map((type) => DropdownMenuItem(
+                        value: type['value'],
+                        child: Text(type['label']!),
+                      ))
                   .toList(),
               onChanged: (v) => setState(() => _clientType = v),
             ),

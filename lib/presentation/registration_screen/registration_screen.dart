@@ -9,6 +9,7 @@ import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/constants/client_types.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/services/referral_repo.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -62,13 +63,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               Uri.parse(_privacyPolicyUrl),
               mode: LaunchMode.externalApplication,
             );
-
-  final List<Map<String, String>> _clientTypes = const [
-    {'value': 'particulier', 'label': 'Particulier'},
-    {'value': 'hotel', 'label': 'Hôtel'},
-    {'value': 'hopital', 'label': 'Hôpital'},
-    {'value': 'entreprise', 'label': 'Entreprise'},
-  ];
 
   @override
   void dispose() {
@@ -460,22 +454,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
             SizedBox(height: 3.h),
 
-            // Type de client
+            // Type de client — menu déroulant (12/08, demande explicite) :
+            // la liste est passée de 4 à 13 secteurs, des puces
+            // deviendraient illisibles (voir lib/core/constants/client_types.dart).
             Text('Je suis un(e)...', style: theme.textTheme.labelLarge),
             SizedBox(height: 1.h),
-            Wrap(
-              spacing: 2.w,
-              runSpacing: 1.h,
-              children: _clientTypes.map((type) {
-                final selected = _clientType == type['value'];
-                return ChoiceChip(
-                  label: Text(type['label']!),
-                  selected: selected,
-                  onSelected: (_) {
-                    setState(() => _clientType = type['value']!);
-                  },
-                );
-              }).toList(),
+            DropdownButtonFormField<String>(
+              initialValue: _clientType,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+              items: kClientTypeOptions
+                  .map((type) => DropdownMenuItem(
+                        value: type['value'],
+                        child: Text(type['label']!),
+                      ))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _clientType = v);
+              },
             ),
             SizedBox(height: 3.h),
 
@@ -507,14 +504,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             TextFormField(
               controller: _companyNameController,
               decoration: InputDecoration(
-                labelText: _clientType == 'hotel'
-                    ? 'Nom de l\'hôtel'
-                    : _clientType == 'hopital'
-                        ? 'Nom de l\'hôpital / établissement'
-                        : _clientType == 'entreprise'
-                            ? 'Nom de l\'entreprise'
-                            : 'Entreprise (si vous achetez pour '
-                                'un compte professionnel)',
+                // Libellé générique (12/08) : avec 13 secteurs possibles
+                // (voir kClientTypeOptions), un libellé par secteur serait
+                // long à maintenir pour peu de gain.
+                labelText: _clientType == 'particulier'
+                    ? 'Entreprise (si vous achetez pour '
+                        'un compte professionnel)'
+                    : 'Nom de l\'établissement / de la société',
               ),
               validator: _clientType != 'particulier'
                   ? (v) => (v == null || v.trim().isEmpty)

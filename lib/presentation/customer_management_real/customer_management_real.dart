@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/constants/client_types.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../customer_360/customer_360_screen.dart';
 
@@ -40,12 +41,6 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
   static const num _grosCompteThreshold = 1000000;
   static const int _inactifAfterDays = 90;
 
-  final Map<String, String> _typeLabels = const {
-    'hotel': 'Hôtel',
-    'hopital': 'Hôpital',
-    'entreprise': 'Entreprise',
-    'particulier': 'Particulier',
-  };
   final Map<String, String> _segmentLabels = const {
     'nouveau': 'Nouveaux',
     'recurrent': 'Récurrents',
@@ -423,8 +418,10 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Par type de client', style: theme.textTheme.labelLarge),
-                ..._typeLabels.entries
-                    .map((e) => buildBar(e.value, typeCounts[e.key] ?? 0)),
+                ...kClientTypeOptions
+                    .where((e) => (typeCounts[e['value']] ?? 0) > 0)
+                    .map((e) => buildBar(
+                        e['label']!, typeCounts[e['value']] ?? 0)),
                 SizedBox(height: 1.5.h),
                 Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
@@ -473,8 +470,24 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
         return Icons.hotel;
       case 'hopital':
         return Icons.local_hospital;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'ecole':
+        return Icons.school;
       case 'entreprise':
         return Icons.business_center;
+      case 'usine':
+        return Icons.factory;
+      case 'pharmacie':
+        return Icons.local_pharmacy;
+      case 'salon_beaute':
+        return Icons.content_cut;
+      case 'commerce':
+        return Icons.storefront;
+      case 'administration':
+        return Icons.account_balance;
+      case 'ong':
+        return Icons.volunteer_activism;
       default:
         return Icons.person;
     }
@@ -598,13 +611,13 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                                 setState(() => _typeFilter = 'tous'),
                           ),
                           SizedBox(width: 2.w),
-                          ..._typeLabels.entries.map((entry) => Padding(
+                          ...kClientTypeOptions.map((type) => Padding(
                                 padding: EdgeInsets.only(right: 2.w),
                                 child: ChoiceChip(
-                                  label: Text(entry.value),
-                                  selected: _typeFilter == entry.key,
-                                  onSelected: (_) =>
-                                      setState(() => _typeFilter = entry.key),
+                                  label: Text(type['label']!),
+                                  selected: _typeFilter == type['value'],
+                                  onSelected: (_) => setState(
+                                      () => _typeFilter = type['value']!),
                                 ),
                               )),
                         ],
@@ -717,7 +730,7 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                                         children: [
                                           Text(
                                             [
-                                              _typeLabels[
+                                              kClientTypeLabels[
                                                       c['client_type']] ??
                                                   '',
                                               if ((c['phone'] ?? '')

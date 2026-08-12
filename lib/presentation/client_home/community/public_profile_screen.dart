@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/community/community_moderation_repo.dart';
 import '../../../core/community/friends_repo.dart';
+import '../../../core/constants/client_types.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/utils/whatsapp_link.dart';
 import 'friend_chat_screen.dart';
@@ -55,12 +56,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   String? get _myId => SupabaseConfig.client.auth.currentUser?.id;
 
-  final Map<String, String> _sectorLabels = const {
-    'hotel': 'Hôtellerie',
-    'hopital': 'Santé',
-    'entreprise': 'Entreprises',
-    'particulier': 'Particuliers',
-  };
 
   @override
   void initState() {
@@ -413,12 +408,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                                 _buildMutualFriendsRow(theme),
                               ],
                               if (showFullProfile &&
-                                  _sectorLabels[_profile?['client_type']] !=
+                                  kClientTypeLabels[
+                                          _profile?['client_type']] !=
                                       null)
                                 Padding(
                                   padding: EdgeInsets.only(top: 0.5.h),
                                   child: Chip(
-                                    label: Text(_sectorLabels[
+                                    label: Text(kClientTypeLabels[
                                         _profile?['client_type']]!),
                                   ),
                                 ),
