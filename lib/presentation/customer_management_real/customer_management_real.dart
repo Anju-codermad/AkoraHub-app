@@ -32,6 +32,7 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
   String? _error;
   String _typeFilter = 'tous';
   String _segmentFilter = 'tous';
+  String _regionFilter = 'toutes';
 
   /// Seuil de valeur totale (lifetime value) au-dessus duquel un client
   /// est considéré "gros compte" — hypothèse de départ, ajustable si
@@ -115,6 +116,21 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     return value >= _grosCompteThreshold;
   }
 
+  /// Régions distinctes présentes chez les clients (Madagascar comme
+  /// texte libre pour les autres pays) — pour filtrer et retrouver
+  /// rapidement les clients d'une zone lors des livraisons (12/08,
+  /// demande explicite).
+  List<String> get _availableRegions {
+    final regions = _customers
+        .map((c) => (c['region'] as String?)?.trim())
+        .where((r) => r != null && r.isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList();
+    regions.sort();
+    return regions;
+  }
+
   List<Map<String, dynamic>> get _filtered {
     var list = _customers;
     if (_typeFilter != 'tous') {
@@ -127,6 +143,9 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
             ? _isGrosCompte(id)
             : _activitySegment(id) == _segmentFilter;
       }).toList();
+    }
+    if (_regionFilter != 'toutes') {
+      list = list.where((c) => c['region'] == _regionFilter).toList();
     }
     return list;
   }
@@ -230,6 +249,21 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     return entries.take(limit).toList();
   }
 
+  /// Régions les plus fréquentes (`profiles.region`, Phase 165) — liste
+  /// fermée des 24 régions pour Madagascar, texte libre pour les autres
+  /// pays (voir profile_tab.dart).
+  List<MapEntry<String, int>> _topRegions({int limit = 5}) {
+    final counts = <String, int>{};
+    for (final c in _customers) {
+      final region = (c['region'] as String?)?.trim();
+      if (region == null || region.isEmpty) continue;
+      counts[region] = (counts[region] ?? 0) + 1;
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return entries.take(limit).toList();
+  }
+
   /// Pays les plus fréquents (`profiles.country`, Phase 164) — distinct
   /// de `location` (ville/région) : plusieurs clients hors Madagascar
   /// (Maurice, Réunion, Comores...), ce champ n'est donc pas toujours
@@ -256,6 +290,7 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     final genderKnown = genderCounts['femme']! + genderCounts['homme']!;
     final topLocations = _topLocations();
     final topCountries = _topCountries();
+    final topRegions = _topRegions();
 
     const femmeColor = Color(0xFF90CAF9);
     const hommeColor = Color(0xFF1565C0);
@@ -407,6 +442,12 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                 ...ageCounts.entries
                     .where((e) => e.value > 0)
                     .map((e) => buildAgeGenderBar(e.key, e.value)),
+                if (topRegions.isNotEmpty) ...[
+                  SizedBox(height: 1.5.h),
+                  Text('Principales régions',
+                      style: theme.textTheme.labelLarge),
+                  ...topRegions.map((e) => buildBar(e.key, e.value)),
+                ],
                 if (topLocations.isNotEmpty) ...[
                   SizedBox(height: 1.5.h),
                   Text('Principales villes',
@@ -594,6 +635,35 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                         ],
                       ),
                     ),
+                    // Filtre par région (12/08, demande explicite) : ne
+                    // s'affiche que si au moins un client a une région
+                    // renseignée — inutile de montrer un filtre vide.
+                    if (_availableRegions.isNotEmpty)
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.only(
+                            left: 4.w, right: 4.w, bottom: 1.h),
+                        child: Row(
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Toutes régions'),
+                              selected: _regionFilter == 'toutes',
+                              onSelected: (_) =>
+                                  setState(() => _regionFilter = 'toutes'),
+                            ),
+                            SizedBox(width: 2.w),
+                            ..._availableRegions.map((region) => Padding(
+                                  padding: EdgeInsets.only(right: 2.w),
+                                  child: ChoiceChip(
+                                    label: Text(region),
+                                    selected: _regionFilter == region,
+                                    onSelected: (_) => setState(
+                                        () => _regionFilter = region),
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ),
                     Expanded(
                       child: RefreshIndicator(
                         onRefresh: _loadCustomers,
@@ -654,6 +724,10 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                                                   .toString()
                                                   .isNotEmpty)
                                                 c['phone'],
+                                              if ((c['region'] ?? '')
+                                                  .toString()
+                                                  .isNotEmpty)
+                                                c['region'],
                                             ]
                                                 .where((s) => s != '')
                                                 .join(' · '),

@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/constants/madagascar_regions.dart';
 import '../../core/loyalty/loyalty_tiers.dart';
 import '../../core/providers/profile_accent_provider.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -1103,6 +1104,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   late final TextEditingController _bioController;
   String? _clientType;
   String? _country;
+  String? _region;
   double? _latitude;
   double? _longitude;
   bool _isLocating = false;
@@ -1133,6 +1135,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _longitude = (widget.profile['longitude'] as num?)?.toDouble();
     _clientType = widget.profile['client_type'] as String?;
     _country = widget.profile['country'] as String?;
+    _region = widget.profile['region'] as String?;
   }
 
   @override
@@ -1233,6 +1236,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         'latitude': _latitude,
         'longitude': _longitude,
         'country': _country,
+        'region': _region,
         'client_type': _clientType,
         'bio': _bioController.text.trim(),
       }).eq('id', userId);
@@ -1337,6 +1341,34 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                       ),
               ),
             ),
+            SizedBox(height: 1.5.h),
+            // Région (12/08, demande explicite) : choix fermé parmi les
+            // 24 régions officielles pour Madagascar (fiable, confirmé
+            // par l'Admin) — texte libre pour tout autre pays, aucune
+            // liste de régions fiable n'existant pour l'ensemble des
+            // pays du monde.
+            (_country == null || _country == 'Madagascar')
+                ? DropdownButtonFormField<String>(
+                    initialValue: _region,
+                    decoration: const InputDecoration(
+                      labelText: 'Région (optionnel)',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: kMadagascarRegions
+                        .map((r) =>
+                            DropdownMenuItem(value: r, child: Text(r)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _region = v),
+                  )
+                : TextFormField(
+                    key: ValueKey('region_text_$_country'),
+                    initialValue: _region,
+                    decoration: const InputDecoration(
+                      labelText: 'Région / Province (optionnel)',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _region = v,
+                  ),
             SizedBox(height: 1.5.h),
             DropdownButtonFormField<String>(
               initialValue: _clientType,
