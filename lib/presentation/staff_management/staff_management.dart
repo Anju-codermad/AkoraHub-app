@@ -24,11 +24,45 @@ class _StaffManagementState extends State<StaffManagement> {
   bool _isLoading = true;
   String? _error;
 
+  // Descriptions ajoutées le 12/08 (demande explicite) pour que l'Admin
+  // sache exactement ce que chaque rôle recouvre avant de l'attribuer —
+  // basé sur l'organigramme réel d'Akora (Akora_Operational_Architecture.pdf).
   final List<Map<String, String>> _roles = const [
-    {'value': 'admin', 'label': 'Admin'},
-    {'value': 'commercial', 'label': 'Commercial'},
-    {'value': 'production', 'label': 'Production'},
-    {'value': 'comptable', 'label': 'Comptable'},
+    {
+      'value': 'admin',
+      'label': 'Admin',
+      'description':
+          'Direction Générale : accès total à toute l\'application, sans restriction.',
+    },
+    {
+      'value': 'commercial',
+      'label': 'Commercial',
+      'description':
+          'Ventes, devis, prix, messages clients, marketing digital et réseaux sociaux.',
+    },
+    {
+      'value': 'production',
+      'label': 'Production',
+      'description':
+          'Matières premières, fiches techniques, FDS, lots de fabrication, contrôle qualité.',
+    },
+    {
+      'value': 'comptable',
+      'label': 'Comptable',
+      'description': 'Factures, trésorerie, paie et documents administratifs.',
+    },
+    {
+      'value': 'services',
+      'label': 'Services',
+      'description':
+          'Demandes de service (nettoyage, blanchisserie, désinsectisation) : suivi et mise à jour du statut.',
+    },
+    {
+      'value': 'livraison',
+      'label': 'Livraison',
+      'description':
+          'Commandes à livrer (adresse, région, téléphone) : marquer comme expédiée/livrée. Pas d\'accès aux prix ni au catalogue.',
+    },
   ];
 
   @override
@@ -159,6 +193,7 @@ class _StaffManagementState extends State<StaffManagement> {
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 8,
                   children: _roles.map((r) {
                     return ChoiceChip(
                       label: Text(r['label']!),
@@ -168,6 +203,13 @@ class _StaffManagementState extends State<StaffManagement> {
                       },
                     );
                   }).toList(),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _roles.firstWhere((r) => r['value'] == selectedRole,
+                      orElse: () => const {})['description'] ??
+                      '',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
                 const Text('Piliers assignés'),
