@@ -593,6 +593,30 @@ Deno.serve(async (req) => {
       body = String(record.content ?? "").slice(0, 100) ||
         "Nouveau message";
       recipientIds = [record.recipient_id as string];
+    } else if (payload.table === "profiles") {
+      // Nouveau client inscrit sur l'apk (voir
+      // supabase/phase161_patch_notif_nouveau_client.sql) — notifie toute
+      // l'équipe (Admin/Commercial) en temps réel, même principe que les
+      // signalements/demandes de service. Le trigger SQL ne se déclenche
+      // déjà que pour role = 'client' (pas de bruit sur la création d'un
+      // compte staff).
+      category = "message";
+      const clientName = (record.company_name || record.full_name) as
+        | string
+        | undefined;
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Nouveau client inscrit";
+      body = clientName
+        ? `${clientName} vient de créer son compte sur AkoraHub.`
+        : "Un nouveau client vient de créer son compte sur AkoraHub.";
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "call_invitations") {
       // Appel entrant (voir supabase/phase37_patch_calls.sql) — payload
       // dédié (pas de choix de son par l'utilisateur ici, contrairement
