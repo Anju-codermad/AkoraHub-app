@@ -141,40 +141,75 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     return counts;
   }
 
+  static const _ageBrackets = [
+    'Moins de 25 ans',
+    '25-34 ans',
+    '35-44 ans',
+    '45-54 ans',
+    '55 ans et plus',
+    'Non renseigné',
+  ];
+
+  String _bracketFor(Map<String, dynamic> c) {
+    final birthDate = DateTime.tryParse(c['birth_date']?.toString() ?? '');
+    if (birthDate == null) return 'Non renseigné';
+    final now = DateTime.now();
+    var age = now.year - birthDate.year;
+    if (now.month < birthDate.month ||
+        (now.month == birthDate.month && now.day < birthDate.day)) {
+      age--;
+    }
+    return age < 25
+        ? 'Moins de 25 ans'
+        : age < 35
+            ? '25-34 ans'
+            : age < 45
+                ? '35-44 ans'
+                : age < 55
+                    ? '45-54 ans'
+                    : '55 ans et plus';
+  }
+
   /// Compte les clients par tranche d'âge, calculée depuis `birth_date`
   /// (Phase 19). Un client sans date de naissance renseignée compte à
   /// part plutôt que d'être exclu du total.
   Map<String, int> _ageBracketCounts() {
-    final counts = <String, int>{
-      'Moins de 25 ans': 0,
-      '25-34 ans': 0,
-      '35-44 ans': 0,
-      '45-54 ans': 0,
-      '55 ans et plus': 0,
-      'Non renseigné': 0,
-    };
-    final now = DateTime.now();
+    final counts = <String, int>{for (final b in _ageBrackets) b: 0};
     for (final c in _customers) {
-      final birthDate = DateTime.tryParse(c['birth_date']?.toString() ?? '');
-      if (birthDate == null) {
-        counts['Non renseigné'] = counts['Non renseigné']! + 1;
-        continue;
-      }
-      var age = now.year - birthDate.year;
-      if (now.month < birthDate.month ||
-          (now.month == birthDate.month && now.day < birthDate.day)) {
-        age--;
-      }
-      final bracket = age < 25
-          ? 'Moins de 25 ans'
-          : age < 35
-              ? '25-34 ans'
-              : age < 45
-                  ? '35-44 ans'
-                  : age < 55
-                      ? '45-54 ans'
-                      : '55 ans et plus';
+      final bracket = _bracketFor(c);
       counts[bracket] = counts[bracket]! + 1;
+    }
+    return counts;
+  }
+
+  /// Répartition Femme/Homme/Non renseigné dans chaque tranche d'âge
+  /// (`profiles.gender`, Phase 163) — permet la barre empilée façon
+  /// "Âge et genre" (demande explicite du 12/08, référence Facebook
+  /// Page Insights).
+  Map<String, Map<String, int>> _ageGenderBreakdown() {
+    final result = <String, Map<String, int>>{
+      for (final b in _ageBrackets) b: {'femme': 0, 'homme': 0, 'inconnu': 0}
+    };
+    for (final c in _customers) {
+      final bracket = _bracketFor(c);
+      final gender = c['gender'] as String?;
+      final key = (gender == 'homme' || gender == 'femme') ? gender! : 'inconnu';
+      result[bracket]![key] = result[bracket]![key]! + 1;
+    }
+    return result;
+  }
+
+  /// Répartition globale Femme/Homme (clients ayant renseigné leur sexe
+  /// uniquement — même convention que les outils d'analytics grand
+  /// public type Facebook Insights, qui n'incluent pas les "inconnus"
+  /// dans le pourcentage affiché).
+  Map<String, int> _genderCounts() {
+    final counts = {'femme': 0, 'homme': 0};
+    for (final c in _customers) {
+      final gender = c['gender'] as String?;
+      if (gender == 'homme' || gender == 'femme') {
+        counts[gender] = counts[gender]! + 1;
+      }
     }
     return counts;
   }
@@ -200,7 +235,89 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     final total = _customers.length;
     final typeCounts = _typeCounts();
     final ageCounts = _ageBracketCounts();
+    final ageGender = _ageGenderBreakdown();
+    final genderCounts = _genderCounts();
+    final genderKnown = genderCounts['femme']! + genderCounts['homme']!;
     final topLocations = _topLocations();
+
+    const femmeColor = Color(0xFF90CAF9);
+    const hommeColor = Color(0xFF1565C0);
+
+    Widget buildLegendChip(String label, int count, Color color) {
+      final pct = genderKnown == 0 ? 0 : (count * 100 / genderKnown).round();
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 14,
+            height: 14,
+            decoration:
+                BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+          ),
+          SizedBox(width: 1.5.w),
+          Text('$label $pct% ($count)', style: theme.textTheme.bodySmall),
+        ],
+      );
+    }
+
+    Widget buildAgeGenderBar(String label, int bracketTotal) {
+      final breakdown = ageGender[label]!;
+      final pct = total == 0 ? 0.0 : bracketTotal / total;
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 0.5.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(label, style: theme.textTheme.bodySmall),
+                Text('${(pct * 100).round()}%',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            SizedBox(height: 0.3.h),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Stack(
+                children: [
+                  Container(
+                    height: 8,
+                    color: theme.colorScheme.outline.withValues(alpha: 0.1),
+                  ),
+                  FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: pct,
+                    child: SizedBox(
+                      height: 8,
+                      child: Row(
+                        children: [
+                          if (breakdown['femme']! > 0)
+                            Expanded(
+                                flex: breakdown['femme']!,
+                                child: Container(color: femmeColor)),
+                          if (breakdown['homme']! > 0)
+                            Expanded(
+                                flex: breakdown['homme']!,
+                                child: Container(color: hommeColor)),
+                          if (breakdown['inconnu']! > 0)
+                            Expanded(
+                                flex: breakdown['inconnu']!,
+                                child: Container(
+                                    color: theme.colorScheme.outline
+                                        .withValues(alpha: 0.3))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     Widget buildBar(String label, int count) {
       final pct = total == 0 ? 0.0 : count / total;
@@ -257,13 +374,25 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                 ..._typeLabels.entries
                     .map((e) => buildBar(e.value, typeCounts[e.key] ?? 0)),
                 SizedBox(height: 1.5.h),
-                Text('Par tranche d\'âge', style: theme.textTheme.labelLarge),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 3.w,
+                  runSpacing: 0.5.h,
+                  children: [
+                    Text('Âge et genre', style: theme.textTheme.labelLarge),
+                    if (genderKnown > 0) ...[
+                      buildLegendChip('Femmes', genderCounts['femme']!, femmeColor),
+                      buildLegendChip('Hommes', genderCounts['homme']!, hommeColor),
+                    ],
+                  ],
+                ),
+                SizedBox(height: 0.5.h),
                 ...ageCounts.entries
                     .where((e) => e.value > 0)
-                    .map((e) => buildBar(e.key, e.value)),
+                    .map((e) => buildAgeGenderBar(e.key, e.value)),
                 if (topLocations.isNotEmpty) ...[
                   SizedBox(height: 1.5.h),
-                  Text('Top localisations',
+                  Text('Principales villes',
                       style: theme.textTheme.labelLarge),
                   ...topLocations.map((e) => buildBar(e.key, e.value)),
                 ],
