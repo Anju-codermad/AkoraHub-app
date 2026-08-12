@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -49,6 +52,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   String _phoneCountryIso = 'MG';
 
   String _clientType = 'particulier';
+  String? _gender;
+  File? _avatarFile;
   bool _isLoading = false;
 
   late final TapGestureRecognizer _privacyPolicyRecognizer =
@@ -158,6 +163,35 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+  Future<void> _pickAvatar() async {
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    setState(() => _avatarFile = File(picked.path));
+  }
+
+  /// Upload la photo choisie à l'inscription (si l'utilisateur en a
+  /// choisi une) vers le même bucket `avatars` que `profile_tab.dart`
+  /// (`_pickAndUploadAvatar`) — ne bloque jamais la création du compte
+  /// si l'upload échoue, la photo n'est qu'un bonus optionnel.
+  Future<void> _uploadAvatarIfPicked(String userId) async {
+    final file = _avatarFile;
+    if (file == null) return;
+    try {
+      final fileName = '$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await SupabaseConfig.client.storage.from('avatars').upload(
+            fileName,
+            file,
+          );
+      final url = SupabaseConfig.client.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'avatar_url': url}).eq('id', userId);
+    } catch (_) {}
+  }
+
   void _goToStep1() {
     setState(() => _currentStep = 0);
     _pageController.animateToPage(
@@ -219,6 +253,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ? null
             : _phoneController.text.trim(),
         'birth_date': _birthDate?.toIso8601String().split('T').first,
+        'gender': _gender,
         if (referredBy != null) 'referred_by': referredBy,
       };
 
@@ -226,13 +261,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
       if (response.session == null) {
         // "Confirm email" activé côté Supabase : aucune session tant que
-        // le code reçu par email n'est pas saisi.
+        // le code reçu par email n'est pas saisi. La photo n'est
+        // uploadée qu'une fois l'email vérifié (voir
+        // EmailOtpVerificationScreen) — pas de session = pas de droit
+        // d'écriture sur le bucket `avatars`.
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (_) => EmailOtpVerificationScreen(
               email: _emailController.text.trim(),
               pendingProfileUpdate: pendingProfileUpdate,
+              avatarFile: _avatarFile,
             ),
           ),
         );
@@ -247,6 +286,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             .from('profiles')
             .update(pendingProfileUpdate)
             .eq('id', userId);
+        await _uploadAvatarIfPicked(userId);
       }
 
       HapticFeedback.mediumImpact();
@@ -371,6 +411,55 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
             SizedBox(height: 3.h),
 
+            // Photo de profil (12/08, demande explicite) : optionnelle —
+            // l'imposer bloquerait des inscriptions, uploadée seulement
+            // une fois le compte réellement créé (voir _handleRegister /
+            // EmailOtpVerificationScreen).
+            Center(
+              child: GestureDetector(
+                onTap: _pickAvatar,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor:
+                          theme.colorScheme.primary.withValues(alpha: 0.1),
+                      backgroundImage:
+                          _avatarFile != null ? FileImage(_avatarFile!) : null,
+                      child: _avatarFile == null
+                          ? Icon(Icons.person_outline,
+                              size: 40, color: theme.colorScheme.primary)
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: theme.scaffoldBackgroundColor, width: 2),
+                        ),
+                        child: Icon(Icons.camera_alt,
+                            size: 16, color: theme.colorScheme.onPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 1.h),
+            Center(
+              child: Text(
+                'Ajouter une photo (optionnel)',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
+            SizedBox(height: 3.h),
+
             // Type de client
             Text('Je suis un(e)...', style: theme.textTheme.labelLarge),
             SizedBox(height: 1.h),
@@ -451,6 +540,31 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       : null,
                 ),
               ),
+            ),
+            SizedBox(height: 2.h),
+
+            // Sexe (12/08, demande explicite) : optionnel, même principe
+            // que la date de naissance — utile pour les statistiques
+            // démographiques (voir customer_management_real.dart).
+            Text('Sexe (optionnel)', style: theme.textTheme.labelLarge),
+            SizedBox(height: 1.h),
+            Wrap(
+              spacing: 2.w,
+              runSpacing: 1.h,
+              children: [
+                ChoiceChip(
+                  label: const Text('Homme'),
+                  selected: _gender == 'homme',
+                  onSelected: (selected) =>
+                      setState(() => _gender = selected ? 'homme' : null),
+                ),
+                ChoiceChip(
+                  label: const Text('Femme'),
+                  selected: _gender == 'femme',
+                  onSelected: (selected) =>
+                      setState(() => _gender = selected ? 'femme' : null),
+                ),
+              ],
             ),
             SizedBox(height: 3.h),
 

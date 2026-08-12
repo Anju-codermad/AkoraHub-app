@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,11 +26,13 @@ import './phone_otp_verification_screen.dart';
 class EmailOtpVerificationScreen extends StatefulWidget {
   final String email;
   final Map<String, dynamic> pendingProfileUpdate;
+  final File? avatarFile;
 
   const EmailOtpVerificationScreen({
     super.key,
     required this.email,
     required this.pendingProfileUpdate,
+    this.avatarFile,
   });
 
   @override
@@ -103,6 +106,7 @@ class _EmailOtpVerificationScreenState
             .from('profiles')
             .update(profileWithoutPhone)
             .eq('id', userId);
+        await _uploadAvatarIfPicked(userId);
       }
 
       if (!mounted) return;
@@ -131,6 +135,29 @@ class _EmailOtpVerificationScreenState
     } finally {
       if (mounted) setState(() => _isVerifying = false);
     }
+  }
+
+  /// Même logique que `registration_screen.dart` (`_uploadAvatarIfPicked`)
+  /// — dupliquée volontairement plutôt que partagée, ce chemin (email à
+  /// confirmer) et l'autre (session immédiate) ne s'exécutent jamais dans
+  /// le même écran. Best-effort : n'échoue jamais la vérification si
+  /// l'upload rate.
+  Future<void> _uploadAvatarIfPicked(String userId) async {
+    final file = widget.avatarFile;
+    if (file == null) return;
+    try {
+      final fileName = '$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await SupabaseConfig.client.storage.from('avatars').upload(
+            fileName,
+            file,
+          );
+      final url = SupabaseConfig.client.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'avatar_url': url}).eq('id', userId);
+    } catch (_) {}
   }
 
   Future<void> _resend() async {
