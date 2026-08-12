@@ -207,8 +207,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (lastStaffMessage != null) {
       return lastStaffMessage['sender_id'] as String;
     }
+    // La RLS de `profiles` ne laisse un client voir que sa propre ligne
+    // (phase1_schema.sql) — on passe par la vue publique légère
+    // `public_profiles` (phase9, étendue en phase162 pour exposer
+    // `role`), sinon cette recherche ne trouve jamais personne.
     final anyStaff = await SupabaseConfig.client
-        .from('profiles')
+        .from('public_profiles')
         .select('id')
         .inFilter('role', ['admin', 'commercial'])
         .limit(1)
