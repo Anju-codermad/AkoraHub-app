@@ -222,7 +222,7 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     for (final c in _customers) {
       final gender = c['gender'] as String?;
       if (gender == 'homme' || gender == 'femme') {
-        counts[gender] = counts[gender]! + 1;
+        counts[gender!] = counts[gender]! + 1;
       }
     }
     return counts;

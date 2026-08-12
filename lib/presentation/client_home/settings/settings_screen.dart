@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../core/chat/chat_bubble_settings_repo.dart';
@@ -69,6 +70,7 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: EdgeInsets.all(4.w),
         children: [
+          const _PasswordAutofillHintBanner(),
           if (email != null) ...[
             Card(
               child: ListTile(
@@ -286,6 +288,101 @@ class _ChatBubbleVisibilityTileState
       subtitle: const Text('Afficher le raccourci vers l\'assistance sur toutes les pages'),
       value: !_hidden,
       onChanged: _isLoading ? null : _toggle,
+    );
+  }
+}
+
+/// Rappel "enregistrez votre mot de passe" (12/08, demande explicite) —
+/// le popup système Android/iOS n'est jamais reprogrammable par l'app une
+/// fois refusé (décision volontaire de Google/Apple), donc ce bandeau
+/// interne guide manuellement vers les réglages du téléphone à la place.
+/// Réapparaît une fois par mois si fermé, indéfiniment tant que
+/// l'utilisateur ne l'a jamais fermé.
+class _PasswordAutofillHintBanner extends StatefulWidget {
+  const _PasswordAutofillHintBanner();
+
+  @override
+  State<_PasswordAutofillHintBanner> createState() =>
+      _PasswordAutofillHintBannerState();
+}
+
+class _PasswordAutofillHintBannerState
+    extends State<_PasswordAutofillHintBanner> {
+  static const _prefsKey = 'password_autofill_hint_dismissed_at';
+  static const _cooldown = Duration(days: 30);
+  bool _checked = false;
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkVisibility();
+  }
+
+  Future<void> _checkVisibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissedAtMs = prefs.getInt(_prefsKey);
+    final shouldShow = dismissedAtMs == null ||
+        DateTime.now().difference(
+                DateTime.fromMillisecondsSinceEpoch(dismissedAtMs)) >
+            _cooldown;
+    if (!mounted) return;
+    setState(() {
+      _visible = shouldShow;
+      _checked = true;
+    });
+  }
+
+  Future<void> _dismiss() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefsKey, DateTime.now().millisecondsSinceEpoch);
+    if (mounted) setState(() => _visible = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_checked || !_visible) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: 2.h),
+      child: Card(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.lock_outline, color: theme.colorScheme.primary),
+              SizedBox(width: 3.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Connexion plus rapide',
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(height: 0.5.h),
+                    Text(
+                      'Activez l\'enregistrement automatique du mot de '
+                      'passe dans les paramètres de votre téléphone '
+                      '(Google → Mots de passe et comptes) pour vous '
+                      'connecter en un geste la prochaine fois.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                tooltip: 'Fermer',
+                onPressed: _dismiss,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
