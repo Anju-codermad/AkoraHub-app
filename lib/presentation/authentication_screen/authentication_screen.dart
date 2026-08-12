@@ -274,6 +274,14 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   Future<void> _onAuthenticated() async {
     if (!mounted) return;
 
+    // Propose à Android/iOS de sauvegarder le mot de passe (12/08, demande
+    // explicite — "l'application n'a encore fonctionné pour sauvegarder
+    // le mot de passe") : sans cet appel, le système ne sait jamais que la
+    // saisie du formulaire de connexion (email + mot de passe, voir
+    // AutofillGroup ci-dessous) vient de réussir, et n'affiche donc jamais
+    // la proposition "Enregistrer le mot de passe ?".
+    TextInput.finishAutofillContext();
+
     // Double authentification (01/08) : le mot de passe (ou OAuth) vient de
     // réussir, mais si ce compte a activé la 2FA (voir
     // `two_factor_setup_screen.dart`), la session est encore au niveau
@@ -618,34 +626,42 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                       ),
                     ),
 
-                // Email input
-                EmailInputWidget(
-                  controller: _emailController,
-                  errorText: _emailError,
-                  onChanged: (_) {
-                    if (_emailError != null) {
-                      setState(() {
-                        _emailError = null;
-                      });
-                    }
-                  },
-                  translations: _currentTranslations,
-                ),
-
-                SizedBox(height: 2.h),
-
-                // Password input
-                PasswordInputWidget(
-                  controller: _passwordController,
-                  errorText: _passwordError,
-                  onChanged: (_) {
-                    if (_passwordError != null) {
-                      setState(() {
-                        _passwordError = null;
-                      });
-                    }
-                  },
-                  translations: _currentTranslations,
+                // Email + mot de passe regroupés dans un AutofillGroup
+                // (12/08, demande explicite) : sans ce regroupement,
+                // Android/iOS ne comprend pas que ces deux champs forment
+                // un même formulaire de connexion et ne propose jamais
+                // d'enregistrer le mot de passe.
+                AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      EmailInputWidget(
+                        controller: _emailController,
+                        errorText: _emailError,
+                        onChanged: (_) {
+                          if (_emailError != null) {
+                            setState(() {
+                              _emailError = null;
+                            });
+                          }
+                        },
+                        translations: _currentTranslations,
+                      ),
+                      SizedBox(height: 2.h),
+                      PasswordInputWidget(
+                        controller: _passwordController,
+                        errorText: _passwordError,
+                        onChanged: (_) {
+                          if (_passwordError != null) {
+                            setState(() {
+                              _passwordError = null;
+                            });
+                          }
+                        },
+                        translations: _currentTranslations,
+                      ),
+                    ],
+                  ),
                 ),
                 ],
 

@@ -36,6 +36,7 @@ class EmailInputWidget extends StatelessWidget {
         TextField(
           controller: controller,
           keyboardType: TextInputType.emailAddress,
+          autofillHints: const [AutofillHints.email, AutofillHints.username],
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: translations['email_hint'] ?? 'business@example.com',

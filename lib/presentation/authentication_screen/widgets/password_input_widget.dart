@@ -43,6 +43,7 @@ class _PasswordInputWidgetState extends State<PasswordInputWidget> {
         TextField(
           controller: widget.controller,
           obscureText: !_isPasswordVisible,
+          autofillHints: const [AutofillHints.password],
           onChanged: widget.onChanged,
           decoration: InputDecoration(
             hintText: widget.translations['password_hint'] ?? '••••••••',
