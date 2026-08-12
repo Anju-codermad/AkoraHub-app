@@ -19,10 +19,10 @@ class LanguageSelectorWidget extends StatelessWidget {
     final theme = Theme.of(context);
 
     final languages = [
-      {'code': 'fr', 'name': 'Français', 'flag': '🇫🇷'},
-      {'code': 'mg', 'name': 'Malagasy', 'flag': '🇲🇬'},
-      {'code': 'en', 'name': 'English', 'flag': '🇬🇧'},
-      {'code': 'ar', 'name': 'العربية', 'flag': '🇸🇦'},
+      {'code': 'fr', 'name': 'Français'},
+      {'code': 'mg', 'name': 'Malagasy'},
+      {'code': 'en', 'name': 'English'},
+      {'code': 'ar', 'name': 'العربية'},
     ];
 
     return PopupMenuButton<String>(
@@ -35,19 +35,9 @@ class LanguageSelectorWidget extends StatelessWidget {
       itemBuilder: (context) => languages.map((lang) {
         return PopupMenuItem<String>(
           value: lang['code']!,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                lang['flag']!,
-                style: const TextStyle(fontSize: 20),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                lang['name']!,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
+          child: Text(
+            lang['name']!,
+            style: theme.textTheme.bodyMedium,
           ),
         );
       }).toList(),
@@ -69,11 +59,11 @@ class LanguageSelectorWidget extends StatelessWidget {
               color: theme.colorScheme.onSurface,
               size: 18,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
-              languages
-                  .firstWhere((l) => l['code'] == currentLanguage)['flag']!,
-              style: const TextStyle(fontSize: 20),
+              currentLanguage.toUpperCase(),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 4),
             CustomIconWidget(
