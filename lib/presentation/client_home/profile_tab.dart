@@ -1102,6 +1102,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   late final TextEditingController _locationController;
   late final TextEditingController _bioController;
   String? _clientType;
+  String? _country;
   double? _latitude;
   double? _longitude;
   bool _isLocating = false;
@@ -1131,6 +1132,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _latitude = (widget.profile['latitude'] as num?)?.toDouble();
     _longitude = (widget.profile['longitude'] as num?)?.toDouble();
     _clientType = widget.profile['client_type'] as String?;
+    _country = widget.profile['country'] as String?;
   }
 
   @override
@@ -1180,6 +1182,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
       String address =
           '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+      String? country;
       try {
         final placemarks = await placemarkFromCoordinates(
             position.latitude, position.longitude);
@@ -1189,6 +1192,12 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               .where((s) => s != null && s.trim().isNotEmpty)
               .toList();
           if (parts.isNotEmpty) address = parts.join(', ');
+          // Pays (12/08, demande explicite — clients hors Madagascar :
+          // Maurice, Réunion, Comores, etc.), ignoré jusqu'ici même si le
+          // reverse-géocodage le fournit déjà (voir Phase 164).
+          if (p.country != null && p.country!.trim().isNotEmpty) {
+            country = p.country!.trim();
+          }
         }
       } catch (_) {}
 
@@ -1197,6 +1206,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         _locationController.text = address;
         _latitude = position.latitude;
         _longitude = position.longitude;
+        _country = country;
       });
     } catch (e) {
       if (!mounted) return;
@@ -1222,6 +1232,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         'location': _locationController.text.trim(),
         'latitude': _latitude,
         'longitude': _longitude,
+        'country': _country,
         'client_type': _clientType,
         'bio': _bioController.text.trim(),
       }).eq('id', userId);

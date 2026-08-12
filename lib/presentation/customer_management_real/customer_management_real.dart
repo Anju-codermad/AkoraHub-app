@@ -230,6 +230,22 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     return entries.take(limit).toList();
   }
 
+  /// Pays les plus fréquents (`profiles.country`, Phase 164) — distinct
+  /// de `location` (ville/région) : plusieurs clients hors Madagascar
+  /// (Maurice, Réunion, Comores...), ce champ n'est donc pas toujours
+  /// "Madagascar" comme on aurait pu le supposer à tort.
+  List<MapEntry<String, int>> _topCountries({int limit = 5}) {
+    final counts = <String, int>{};
+    for (final c in _customers) {
+      final country = (c['country'] as String?)?.trim();
+      if (country == null || country.isEmpty) continue;
+      counts[country] = (counts[country] ?? 0) + 1;
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return entries.take(limit).toList();
+  }
+
   Widget _buildDemographicsCard(ThemeData theme) {
     if (_customers.isEmpty) return const SizedBox.shrink();
     final total = _customers.length;
@@ -239,6 +255,7 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
     final genderCounts = _genderCounts();
     final genderKnown = genderCounts['femme']! + genderCounts['homme']!;
     final topLocations = _topLocations();
+    final topCountries = _topCountries();
 
     const femmeColor = Color(0xFF90CAF9);
     const hommeColor = Color(0xFF1565C0);
@@ -395,6 +412,11 @@ class _CustomerManagementRealState extends State<CustomerManagementReal> {
                   Text('Principales villes',
                       style: theme.textTheme.labelLarge),
                   ...topLocations.map((e) => buildBar(e.key, e.value)),
+                ],
+                if (topCountries.isNotEmpty) ...[
+                  SizedBox(height: 1.5.h),
+                  Text('Principaux pays', style: theme.textTheme.labelLarge),
+                  ...topCountries.map((e) => buildBar(e.key, e.value)),
                 ],
               ],
             ),
