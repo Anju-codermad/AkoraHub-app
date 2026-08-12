@@ -88,8 +88,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       'remember_me': 'Se souvenir de moi',
       'login_button': 'Se connecter',
       'or_continue_with': 'Ou continuer avec',
-      'new_business': 'Nouvelle entreprise?',
-      'register': 'S\'inscrire',
+      'register': 'Créer un compte',
       'invalid_email': 'Adresse email invalide',
       'invalid_password': 'Le mot de passe doit contenir au moins 8 caractères',
       'invalid_credentials': 'Email ou mot de passe incorrect',
@@ -108,8 +107,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       'remember_me': 'Tadidio aho',
       'login_button': 'Hiditra',
       'or_continue_with': 'Na tohizana amin\'ny',
-      'new_business': 'Orinasa vaovao?',
-      'register': 'Hisoratra anarana',
+      'register': 'Mamorona kaonty',
       'invalid_email': 'Email tsy mety',
       'invalid_password':
           'Ny teny miafina dia tokony hanana litera 8 farafahakeliny',
@@ -129,8 +127,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       'remember_me': 'Remember me',
       'login_button': 'Sign In',
       'or_continue_with': 'Or continue with',
-      'new_business': 'New Business?',
-      'register': 'Register',
+      'register': 'Create an account',
       'invalid_email': 'Invalid email address',
       'invalid_password': 'Password must be at least 8 characters',
       'invalid_credentials': 'Invalid email or password',
@@ -149,8 +146,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       'remember_me': 'تذكرني',
       'login_button': 'تسجيل الدخول',
       'or_continue_with': 'أو المتابعة مع',
-      'new_business': 'عمل جديد؟',
-      'register': 'تسجيل',
+      'register': 'إنشاء حساب',
       'invalid_email': 'عنوان بريد إلكتروني غير صالح',
       'invalid_password': 'يجب أن تكون كلمة المرور 8 أحرف على الأقل',
       'invalid_credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
@@ -560,16 +556,9 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 // défiler tout le formulaire de connexion.
                 OutlinedButton(
                   onPressed: _handleRegister,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_currentTranslations['new_business']!),
-                      SizedBox(width: 1.w),
-                      Text(
-                        _currentTranslations['register']!,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ],
+                  child: Text(
+                    _currentTranslations['register']!,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
 
