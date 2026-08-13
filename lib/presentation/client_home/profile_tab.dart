@@ -543,6 +543,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               padding: EdgeInsets.all(4.w),
               child: Text(_error!, style: const TextStyle(color: Colors.red)),
             ),
+          // Rappel secteur d'activité obligatoire (13/08, demande
+          // explicite) — surtout pour les comptes créés avant l'ajout de
+          // ce champ, ou via l'ancien sélecteur sans valeur par défaut.
+          // Volontairement non-bloquant (pas de popup à fermer avant de
+          // pouvoir utiliser l'app) mais aussi non-masquable : reste
+          // affiché tant que le secteur n'est pas choisi, contrairement
+          // au bandeau mot de passe (settings_screen.dart) qui, lui, peut
+          // être ignoré indéfiniment sans conséquence pour l'entreprise.
+          if (profile['client_type'] == null)
+            _SectorReminderBanner(onTap: _openEditSheet),
           _buildProfileHeader(
             theme: theme,
             coverUrls: coverUrls,
@@ -1045,6 +1055,53 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 }
 
 /// Bandeau de stats cliquables façon Instagram (Lot 2 du Profil, 03/08).
+class _SectorReminderBanner extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SectorReminderBanner({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(4.w, 2.h, 4.w, 0),
+      child: Card(
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.35),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.business_outlined, color: theme.colorScheme.error),
+                SizedBox(width: 3.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Secteur d\'activité manquant',
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                      SizedBox(height: 0.5.h),
+                      Text(
+                        'Merci d\'indiquer votre secteur (Particulier ou '
+                        'un autre) pour compléter votre profil.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: theme.colorScheme.error),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StatItem extends StatelessWidget {
   final String value;
   final String label;
