@@ -119,6 +119,12 @@ class _Customer360ScreenState extends State<Customer360Screen> {
       _error = null;
     });
     try {
+      // Seul le profil est indispensable (Client introuvable sinon) — les
+      // 12 autres sources sont secondaires (commandes, devis, notes...) et
+      // ne doivent jamais faire échouer TOUTE la fiche si l'une d'elles est
+      // lente ou en erreur (fréquent sur une connexion faible : timeout sur
+      // une seule requête parmi 13 en parallèle bloquait tout l'écran avec
+      // un message générique, sans rien afficher du reste).
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client
             .from('profiles')
@@ -129,33 +135,39 @@ class _Customer360ScreenState extends State<Customer360Screen> {
             .from('orders')
             .select()
             .eq('customer_id', widget.customerId)
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .from('quotes')
             .select()
             .eq('customer_id', widget.customerId)
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .from('invoices')
             .select()
             .eq('customer_id', widget.customerId)
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .from('product_reviews')
             .select()
             .eq('author_id', widget.customerId)
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .from('posts')
             .select()
             .eq('author_id', widget.customerId)
             .order('created_at', ascending: false)
-            .limit(20),
+            .limit(20)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .from('delivery_addresses')
             .select()
             .eq('customer_id', widget.customerId)
-            .order('is_default', ascending: false),
+            .order('is_default', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .rpc('staff_get_customer_email', params: {
           'customer_id': widget.customerId,
@@ -164,27 +176,32 @@ class _Customer360ScreenState extends State<Customer360Screen> {
             .from('customer_notes')
             .select()
             .eq('customer_id', widget.customerId)
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .from('conversations')
             .select()
             .eq('customer_id', widget.customerId)
-            .maybeSingle(),
+            .maybeSingle()
+            .catchError((_) => null),
         SupabaseConfig.client
             .from('customer_benefits')
             .select()
             .eq('customer_id', widget.customerId)
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .from('post_reports')
             .select()
             .eq('reporter_id', widget.customerId)
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
         SupabaseConfig.client
             .from('post_reports')
             .select('*, posts!inner(content, author_id)')
             .eq('posts.author_id', widget.customerId)
-            .order('created_at', ascending: false),
+            .order('created_at', ascending: false)
+            .catchError((_) => <Map<String, dynamic>>[]),
       ]);
 
       final reviews = List<Map<String, dynamic>>.from(results[4]);
@@ -260,7 +277,9 @@ class _Customer360ScreenState extends State<Customer360Screen> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _error = 'Impossible de charger la fiche client.';
+        _error = 'Impossible de charger la fiche client.\n'
+            'Vérifiez votre connexion et réessayez.\n\n'
+            'Détail technique : $e';
       });
     }
   }
@@ -464,7 +483,29 @@ class _Customer360ScreenState extends State<Customer360Screen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null || profile == null
-              ? Center(child: Text(_error ?? 'Client introuvable.'))
+              ? Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(6.w),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _error ?? 'Client introuvable.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        if (_error != null) ...[
+                          SizedBox(height: 2.h),
+                          FilledButton.icon(
+                            onPressed: _load,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Réessayer'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
