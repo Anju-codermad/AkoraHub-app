@@ -322,23 +322,32 @@ Deno.serve(async (req) => {
       }
       return new Response("ok");
     } else if (payload.table === "products") {
-      // Nouveau produit visible -> notifie les clients abonnés à cette
-      // catégorie précise de ce pilier (voir
-      // supabase/phase36_patch_product_category_subscriptions.sql).
+      // Nouveau produit publié — à la création (visibility=true dès
+      // l'insert) OU au passage Brouillon -> Publié (voir
+      // supabase/phase169_patch_notify_all_clients_new_product.sql).
+      // Notifie TOUS les clients (13/08, demande explicite) plutôt que
+      // seulement les abonnés à cette catégorie précise
+      // (product_category_subscriptions, Phase 36 — cette table reste
+      // utilisée pour le choix du son "produit" par client mais plus pour
+      // cibler les destinataires ici, afin de ne jamais envoyer deux
+      // notifications différentes pour le même évènement). Diffusion
+      // large (pas de filtre par secteur) : jugé plus simple pour
+      // commencer, à affiner plus tard une fois les secteurs clients
+      // majoritairement renseignés.
       category = "produit";
-      const businessUnitId = record.business_unit_id as string | undefined;
-      const categoryName = record.category as string | undefined;
-      if (!businessUnitId || !categoryName) return new Response("ok");
-      const { data: subs } = await supabase
-        .from("product_category_subscriptions")
-        .select("customer_id")
-        .eq("business_unit_id", businessUnitId)
-        .eq("category_name", categoryName);
-      recipientIds = (subs ?? []).map((s: Record<string, unknown>) =>
-        s.customer_id as string
-      );
+      const { data: clients } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .eq("role", "client")
+        .not("fcm_token", "is", null);
       title = "Nouveau produit disponible";
-      body = `${record.name ?? "Un nouveau produit"} vient d'être ajouté dans "${categoryName}".`;
+      body = `${
+        record.name ?? "Un nouveau produit"
+      } vient d'être ajouté au catalogue.`;
+      for (const c of clients ?? []) {
+        await sendToProfile(serviceAccount, c, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "product_back_in_stock") {
       // "M'alerter quand disponible" (06/08) — un produit qui repasse en
       // stock (trigger sur stock_quantity, voir

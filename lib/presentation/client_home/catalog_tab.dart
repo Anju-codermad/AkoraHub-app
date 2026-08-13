@@ -49,6 +49,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   int _unreadMessagesCount = 0;
   List<_ActivityItem> _activityFeed = [];
   List<Map<String, dynamic>> _reorderSuggestions = [];
+
+  /// Sélection aléatoire de produits publiés (13/08, demande explicite) —
+  /// aide à découvrir le catalogue, y compris pour un client sans encore
+  /// d'historique de commandes (contrairement à `_reorderSuggestions`, qui
+  /// ne s'affiche que pour les clients réguliers). Tirée côté base
+  /// (`random_published_products`, voir phase170) plutôt que côté app, pour
+  /// piocher dans TOUT le catalogue et pas seulement le lot déjà chargé.
+  List<Map<String, dynamic>> _randomProducts = [];
   String? _flashInfo;
 
   /// Id de l'annonce flash affichée — distinct de `_flashInfo` (son
@@ -369,6 +377,18 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         }
       }
 
+      Future<List<Map<String, dynamic>>> loadRandomProducts() async {
+        try {
+          final rows = await SupabaseConfig.client
+              .rpc('random_published_products', params: {'limit_count': 10});
+          return List<Map<String, dynamic>>.from(rows);
+        } catch (_) {
+          // Repli silencieux : fonction pas encore créée (migration
+          // phase170 non exécutée) — la section reste juste masquée.
+          return [];
+        }
+      }
+
       final parallel = await Future.wait([
         loadBanners(),
         loadUnreadCount(),
@@ -379,6 +399,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         loadPendingAction(),
         loadDismissedFlashInfoId(),
         loadActiveOrder(),
+        loadRandomProducts(),
       ]);
       final loadedSlides = parallel[0] as List<_PromoSlide>;
       final unreadMessages = parallel[1] as int;
@@ -389,6 +410,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       final pendingAction = parallel[6] as Map<String, dynamic>?;
       final dismissedFlashInfoId = parallel[7] as String?;
       final activeOrder = parallel[8] as Map<String, dynamic>?;
+      final randomProducts = parallel[9] as List<Map<String, dynamic>>;
       final flashInfoId = flashInfoRow?['id'] as String?;
       // Déjà lue sur cet appareil (même id) : on ne la réaffiche pas.
       // {nom} (11/08, demande explicite) : substitué par le nom du client
@@ -417,6 +439,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _recentFormationCourses = recentFormationCourses;
         _pendingAction = pendingAction;
         _activeOrder = activeOrder;
+        _randomProducts = randomProducts;
         _isLoading = false;
       });
       // Les vraies bannières (chargées ci-dessus) peuvent différer en
@@ -1150,6 +1173,58 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                               .read(favoritesProvider.notifier)
                               .toggle(p['id']),
                           reorderBadge: true,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+
+          // --- Découvrez aussi : sélection aléatoire de produits publiés
+          // (13/08, demande explicite) — contrairement à "Vous recommandez
+          // souvent" ci-dessus, s'affiche pour tous les clients, y compris
+          // ceux sans historique de commandes. Voir _loadData /
+          // random_published_products (phase170).
+          if (_randomProducts.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
+                child: Text('Découvrez aussi',
+                    style: theme.textTheme.titleMedium),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 26.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  itemCount: _randomProducts.length,
+                  itemBuilder: (context, index) {
+                    final p = _randomProducts[index];
+                    return Padding(
+                      padding: EdgeInsets.only(right: 3.w),
+                      child: SizedBox(
+                        width: 38.w,
+                        child: ProductCard(
+                          product: p,
+                          currency: _currency,
+                          isFavorite:
+                              ref.watch(favoritesProvider).contains(p['id']),
+                          enableHero: false,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              productDetailRoute(
+                                  ProductDetailClient(product: p)),
+                            );
+                          },
+                          onQuickAdd: () => _quickAddToCart(p),
+                          onToggleFavorite: () => ref
+                              .read(favoritesProvider.notifier)
+                              .toggle(p['id']),
                         ),
                       ),
                     );
