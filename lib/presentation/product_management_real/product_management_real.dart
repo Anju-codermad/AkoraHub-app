@@ -539,6 +539,53 @@ class _ProductManagementRealState
     }
     String? selectedRawMaterialId = product?['raw_material_id'] as String?;
 
+    // Usages par catégorie de matière première (13/08) — dérivés des
+    // fiches Académie déjà renseignées (`matieres_premieres_usages.
+    // domaine_application`), pour compléter `kProductUsageSuggestionsByCategory`
+    // (qui ne couvre que les 10 catégories "produit fini" d'Akora
+    // Fanadiovana) sur les catégories du pilier Matières Premières
+    // ("Tensioactifs", "Oxydants & Agents de Blanchiment"...). Sans ça,
+    // ces catégories retombaient sur `_knownUsages` — la liste accumulée
+    // sur TOUT le catalogue, largement hors-sujet pour la catégorie
+    // réellement choisie (ex : usages "Alimentaire" proposés sur un
+    // tensioactif). Basé sur les usages réellement saisis plutôt qu'une
+    // liste inventée à la main : reste juste si de nouvelles matières
+    // premières/catégories sont ajoutées, sans maintenance manuelle.
+    final academieUsagesByCategory = <String, Set<String>>{};
+    try {
+      final academieRows = await SupabaseConfig.client
+          .from('matieres_premieres_academie')
+          .select('id, matiere_premiere_id');
+      final materialIdToAcademieId = <String, String>{
+        for (final row in List<Map<String, dynamic>>.from(academieRows))
+          row['matiere_premiere_id'] as String: row['id'] as String,
+      };
+      final academieIdToCategory = <String, String>{
+        for (final m in rawMaterialOptions)
+          if (materialIdToAcademieId[m['id']] != null &&
+              m['category_name'] != null)
+            materialIdToAcademieId[m['id']]!: m['category_name'] as String,
+      };
+      if (academieIdToCategory.isNotEmpty) {
+        final usageRows = await SupabaseConfig.client
+            .from('matieres_premieres_usages')
+            .select('academie_id, domaine_application')
+            .inFilter('academie_id', academieIdToCategory.keys.toList());
+        for (final row in List<Map<String, dynamic>>.from(usageRows)) {
+          final category = academieIdToCategory[row['academie_id']];
+          final domaine = row['domaine_application'] as String?;
+          if (category != null && domaine != null && domaine.isNotEmpty) {
+            academieUsagesByCategory
+                .putIfAbsent(category, () => <String>{})
+                .add(domaine);
+          }
+        }
+      }
+    } catch (_) {
+      // Repli silencieux : la liste générique (_knownUsages) reste
+      // utilisable même si cette requête échoue.
+    }
+
     if (!mounted) return;
     await showDialog(
       context: context,
@@ -877,18 +924,24 @@ class _ProductManagementRealState
                   // (kProductUsageSuggestionsByCategory, 05/08) — beaucoup
                   // plus pertinents qu'une liste générique unique (un
                   // "Gel Sol" n'a rien à voir avec "Savonnerie" ou
-                  // "Métallurgie"). _knownUsages (liste générique + tout
-                  // usage ajouté manuellement sur n'importe quel produit,
-                  // voir _loadData) ne sert VRAIMENT de repli que si la
-                  // catégorie n'a pas de liste dédiée (11/08, corrige un
-                  // décalage entre ce commentaire et le code : avant, les
-                  // deux étaient toujours mélangés, ce qui noyait la liste
-                  // sous des centaines d'usages accumulés dans tout le
-                  // catalogue — illisible une fois les ~150 matières
-                  // premières Académie sync-ées automatiquement, cf.
-                  // phase159).
+                  // "Métallurgie"). Pour les catégories du pilier Matières
+                  // Premières non couvertes par cette liste statique
+                  // (ex. "Tensioactifs"), academieUsagesByCategory prend le
+                  // relais (13/08) — dérivé des vraies fiches Académie.
+                  // _knownUsages (liste générique + tout usage ajouté
+                  // manuellement sur n'importe quel produit, voir
+                  // _loadData) ne sert VRAIMENT de repli que si la
+                  // catégorie n'a ni liste dédiée ni usages Académie
+                  // (11/08, corrige un décalage entre ce commentaire et le
+                  // code : avant, les deux étaient toujours mélangés, ce
+                  // qui noyait la liste sous des centaines d'usages
+                  // accumulés dans tout le catalogue — illisible une fois
+                  // les ~150 matières premières Académie sync-ées
+                  // automatiquement, cf. phase159).
                   final categoryOptions =
-                      kProductUsageSuggestionsByCategory[selectedCategoryName];
+                      kProductUsageSuggestionsByCategory[selectedCategoryName] ??
+                          academieUsagesByCategory[selectedCategoryName]
+                              ?.toList();
                   final allOptions = <String>{
                     ...?categoryOptions,
                     if (categoryOptions == null || categoryOptions.isEmpty)
