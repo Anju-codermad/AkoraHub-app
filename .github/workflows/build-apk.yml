@@ -92,7 +92,16 @@ jobs:
         run: flutter pub get
 
       - name: Compiler l'App Bundle (release) — format exigé par Google Play
-        run: flutter build appbundle --release
+        # --android-skip-build-dependency-validation (13/08) : le channel
+        # "stable" de Flutter (non figé à une version précise dans ce
+        # workflow) est monté à une version qui exige Gradle >= 8.14.0,
+        # alors que android/gradle/wrapper/gradle-wrapper.properties est
+        # sur 8.11.1 (compatible avec l'AGP 8.9.1 utilisé ici) — sans ce
+        # flag, chaque build échouait avant même de compiler quoi que ce
+        # soit. Flag suggéré directement par le message d'erreur Flutter
+        # lui-même ; évite de devoir faire monter Gradle ET l'AGP en
+        # parallèle sans pouvoir tester la compatibilité localement.
+        run: flutter build appbundle --release --android-skip-build-dependency-validation
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
 
@@ -101,9 +110,11 @@ jobs:
         # app-arm64-v8a-release.apk plutôt qu'un APK universel — sans ça,
         # le nom de fichier différait entre les deux pipelines et cassait
         # le lien stable /releases/latest/download/<nom> chaque fois que
-        # ce workflow republiait "latest" avec un nom différent (constaté
+        # ce workflow républiait "latest" avec un nom différent (constaté
         # 11/08 : lien Facebook cassé juste après un build réussi).
-        run: flutter build apk --release --split-per-abi
+        # --android-skip-build-dependency-validation (13/08) : voir
+        # commentaire sur l'étape App Bundle ci-dessus.
+        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
 

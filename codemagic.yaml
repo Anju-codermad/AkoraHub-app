@@ -90,10 +90,17 @@ workflows:
         # téléphone donné (utile pour l'installer directement en test ;
         # le Play Store, lui, utilise l'AAB ci-dessous qui optimise déjà
         # par appareil automatiquement).
-        script: flutter build apk --release --split-per-abi
+        # --android-skip-build-dependency-validation (13/08) : le channel
+        # "stable" (non figé à une version précise ci-dessus) exige
+        # désormais Gradle >= 8.14.0, alors que
+        # android/gradle/wrapper/gradle-wrapper.properties est sur 8.11.1
+        # (compatible avec l'AGP 8.9.1 utilisé ici) — sans ce flag, le
+        # build échoue avant même de compiler quoi que ce soit. Flag
+        # suggéré directement par le message d'erreur Flutter.
+        script: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
 
       - name: Compiler l'App Bundle (release) — format Google Play
-        script: flutter build appbundle --release
+        script: flutter build appbundle --release --android-skip-build-dependency-validation
 
       - name: Déployer l'APK + les pages publiques sur Netlify
         # Même mécanisme que .github/workflows/build-apk.yml côté GitHub
