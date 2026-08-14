@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/chat/unread_support_messages.dart';
+import '../../core/constants/client_types.dart';
 import '../../core/localization/app_translations.dart';
 import '../../core/navigation/product_detail_route.dart';
 import '../../core/providers/cart_provider.dart';
@@ -160,7 +161,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           ? null
           : await SupabaseConfig.client
               .from('profiles')
-              .select('full_name, avatar_url, location')
+              .select('full_name, avatar_url, location, client_type')
               .eq('id', userId)
               .single();
 
@@ -378,13 +379,25 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       }
 
       Future<List<Map<String, dynamic>>> loadRandomProducts() async {
+        // Pondération par secteur (13/08, demande explicite) : les
+        // catégories les plus pertinentes pour le secteur du client
+        // passent en premier côté base, sans exclure le reste du
+        // catalogue (voir kSectorPreferredCategories + phase171).
+        final preferredCategories =
+            kSectorPreferredCategories[profile?['client_type']];
         try {
-          final rows = await SupabaseConfig.client
-              .rpc('random_published_products', params: {'limit_count': 10});
+          final rows = await SupabaseConfig.client.rpc(
+            'random_published_products',
+            params: {
+              'limit_count': 10,
+              if (preferredCategories != null)
+                'preferred_categories': preferredCategories,
+            },
+          );
           return List<Map<String, dynamic>>.from(rows);
         } catch (_) {
-          // Repli silencieux : fonction pas encore créée (migration
-          // phase170 non exécutée) — la section reste juste masquée.
+          // Repli silencieux : fonction pas encore créée/à jour (migration
+          // phase170/171 non exécutée) — la section reste juste masquée.
           return [];
         }
       }

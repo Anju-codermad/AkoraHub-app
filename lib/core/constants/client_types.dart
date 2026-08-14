@@ -24,3 +24,54 @@ const List<Map<String, String>> kClientTypeOptions = [
 final Map<String, String> kClientTypeLabels = {
   for (final option in kClientTypeOptions) option['value']!: option['label']!,
 };
+
+/// Catégories de produits (`products.category`, pilier Akora Fanadiovana —
+/// voir `kProductUsageSuggestionsByCategory` dans product_management_real.dart
+/// pour la liste exacte des 10 noms) mises en avant pour chaque secteur
+/// (13/08, demande explicite : "pondération par secteur" sur la section
+/// aléatoire "Découvrez aussi" de l'accueil client). Volontairement pas
+/// exhaustif ni exclusif : sert de PRIORITÉ dans le tirage côté base
+/// (random_published_products, phase171), pas de filtre strict — un
+/// secteur absent d'ici (ou "particulier"/"autre", trop génériques pour une
+/// vraie préférence) retombe simplement sur un tirage sans biais.
+const Map<String, List<String>> kSectorPreferredCategories = {
+  'hotel': [
+    'Sanitaire & Salle de Bain',
+    'Lessive & Textile',
+    'Vitres & Surfaces',
+    'Désinfectants & Hygiène',
+  ],
+  'hopital': ['Désinfectants & Hygiène', 'Sanitaire & Salle de Bain'],
+  'restaurant': [
+    'Cuisine & Vaisselle',
+    'Désinfectants & Hygiène',
+    'Sanitaire & Salle de Bain',
+  ],
+  'ecole': [
+    'Désinfectants & Hygiène',
+    'Sanitaire & Salle de Bain',
+    'Vitres & Surfaces',
+  ],
+  'entreprise': [
+    'Vitres & Surfaces',
+    'Sanitaire & Salle de Bain',
+    'Désinfectants & Hygiène',
+  ],
+  'usine': [
+    'Produits spécialisés',
+    'Entretien Véhicules',
+    'Désinfectants & Hygiène',
+  ],
+  'pharmacie': ['Désinfectants & Hygiène', 'Sanitaire & Salle de Bain'],
+  'salon_beaute': ['Soins du Corps & Cosmétiques', 'Sanitaire & Salle de Bain'],
+  'commerce': [
+    'Vitres & Surfaces',
+    'Sanitaire & Salle de Bain',
+    'Cuisine & Vaisselle',
+  ],
+  'administration': [
+    'Vitres & Surfaces',
+    'Sanitaire & Salle de Bain',
+    'Désinfectants & Hygiène',
+  ],
+};
