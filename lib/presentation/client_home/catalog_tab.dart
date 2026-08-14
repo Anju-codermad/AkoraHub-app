@@ -385,6 +385,28 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         // catalogue (voir kSectorPreferredCategories + phase171).
         final preferredCategories =
             kSectorPreferredCategories[profile?['client_type']];
+        // Exclut les produits déjà montrés dans "Pour vous" (les 5 plus
+        // récents, voir loadActivityFeed) — sans ça, un catalogue encore
+        // restreint fait ressortir le même produit (le plus récent) dans
+        // les deux sections de l'accueil (14/08, constaté en conditions
+        // réelles). Requête légère dupliquée à dessein (juste les id) :
+        // garde ce chargeur indépendant des autres, avec son propre repli
+        // silencieux, plutôt que de dépendre de l'ordre d'exécution de
+        // loadActivityFeed dans le Future.wait plus bas.
+        List<String> recentProductIds = [];
+        try {
+          final recentRows = await SupabaseConfig.client
+              .from('products')
+              .select('id')
+              .eq('visibility', true)
+              .order('created_at', ascending: false)
+              .limit(5);
+          recentProductIds = List<Map<String, dynamic>>.from(recentRows)
+              .map((r) => r['id'] as String)
+              .toList();
+        } catch (_) {
+          // Repli silencieux : le tirage se fait alors sans exclusion.
+        }
         try {
           final rows = await SupabaseConfig.client.rpc(
             'random_published_products',
@@ -392,6 +414,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               'limit_count': 10,
               if (preferredCategories != null)
                 'preferred_categories': preferredCategories,
+              if (recentProductIds.isNotEmpty) 'exclude_ids': recentProductIds,
             },
           );
           return List<Map<String, dynamic>>.from(rows);
