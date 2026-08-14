@@ -103,6 +103,19 @@ class _ProductVariantsScreenState
     }
   }
 
+  /// Multiplicateur du format sélectionné (`formats.base_unit_quantity`,
+  /// voir phase172) — null si le format n'en a pas (formats existants
+  /// avant cette fonctionnalité, ex. "100 ml"), auquel cas le calcul
+  /// automatique n'est simplement pas proposé pour ce format.
+  num? _baseUnitQuantityFor(String? formatId) {
+    if (formatId == null) return null;
+    final format = ref.read(formatsCacheProvider).firstWhere(
+          (f) => f['id'] == formatId,
+          orElse: () => <String, dynamic>{},
+        );
+    return format['base_unit_quantity'] as num?;
+  }
+
   Future<void> _showVariantDialog({Map<String, dynamic>? variant}) async {
     final isEditing = variant != null;
     String? selectedFormatId = variant?['format_id'];
@@ -115,6 +128,23 @@ class _ProductVariantsScreenState
         text: (variant?['gros_threshold_qty'] ?? 10).toString());
     final stockCtrl = TextEditingController(
         text: (variant?['stock_quantity'] ?? 0).toString());
+
+    // Prix de base du produit (ses propres price_detail/price_gros, pas
+    // ceux d'une variante) — sert de référence au calcul automatique
+    // ci-dessous : "prix de base x multiplicateur du format".
+    final basePriceDetail =
+        (widget.product['price_detail'] as num?)?.toDouble() ?? 0;
+    final basePriceGros =
+        (widget.product['price_gros'] as num?)?.toDouble() ?? 0;
+
+    void applyAutoCalc(void Function(void Function()) setDialogState) {
+      final multiplier = _baseUnitQuantityFor(selectedFormatId);
+      if (multiplier == null) return;
+      setDialogState(() {
+        priceDetailCtrl.text = (basePriceDetail * multiplier).toString();
+        priceGrosCtrl.text = (basePriceGros * multiplier).toString();
+      });
+    }
 
     await showDialog(
       context: context,
@@ -139,8 +169,15 @@ class _ProductVariantsScreenState
                                   child: Text(f['name']),
                                 ))
                             .toList(),
-                        onChanged: (v) =>
-                            setDialogState(() => selectedFormatId = v),
+                        onChanged: (v) {
+                          setDialogState(() => selectedFormatId = v);
+                          // Pré-remplissage automatique uniquement à la
+                          // création (jamais en édition, pour ne jamais
+                          // écraser un prix déjà ajusté manuellement) et
+                          // seulement si le format a un multiplicateur
+                          // connu (voir _baseUnitQuantityFor).
+                          if (!isEditing) applyAutoCalc(setDialogState);
+                        },
                       ),
                     ),
                     IconButton(
@@ -211,6 +248,21 @@ class _ProductVariantsScreenState
                     ),
                   ],
                 ),
+                // Recalcul manuel (14/08) — au cas où l'auto-remplissage à
+                // la sélection du format ne suffit pas (variante déjà
+                // existante, ou prix modifié entre-temps sur le produit).
+                // Masqué si le format choisi n'a pas de multiplicateur
+                // connu (formats.base_unit_quantity, voir phase172).
+                if (_baseUnitQuantityFor(selectedFormatId) != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => applyAutoCalc(setDialogState),
+                      icon: const Icon(Icons.calculate_outlined, size: 18),
+                      label: const Text(
+                          'Calculer depuis le prix de base du produit'),
+                    ),
+                  ),
                 SizedBox(height: 1.h),
                 TextField(
                   controller: grosThresholdCtrl,
