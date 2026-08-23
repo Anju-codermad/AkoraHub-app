@@ -15,6 +15,7 @@ class AlertsCenter extends StatefulWidget {
 
 class _AlertsCenterState extends State<AlertsCenter> {
   List<Map<String, dynamic>> _lowStockProducts = [];
+  List<Map<String, dynamic>> _lowStockVariants = [];
   List<Map<String, dynamic>> _expiringBatches = [];
   List<Map<String, dynamic>> _predictedStockouts = [];
   bool _isLoading = true;
@@ -49,6 +50,25 @@ class _AlertsCenterState extends State<AlertsCenter> {
           .where((p) =>
               (p['stock_quantity'] ?? 0) <= (p['low_stock_threshold'] ?? 5))
           .toList();
+
+      // Stock bas par VARIANTE (conditionnement) — ajouté 14/08 : chaque
+      // format (ex. "Sac 25 kg") a son propre stock indépendant depuis les
+      // conditionnements industriels, mais n'était surveillé nulle part —
+      // un conditionnement précis pouvait tomber à zéro sans que personne
+      // ne soit prévenu, même si le produit "parent" semblait en stock.
+      List<Map<String, dynamic>> lowStockVariants = [];
+      try {
+        final allVariants = await SupabaseConfig.client
+            .from('product_variants')
+            .select('*, products(name), formats(name), parfums(name)');
+        lowStockVariants = List<Map<String, dynamic>>.from(allVariants)
+            .where((v) =>
+                (v['stock_quantity'] ?? 0) <=
+                (v['low_stock_threshold'] ?? 5))
+            .toList();
+      } catch (_) {
+        // Repli silencieux : reste vide si la table n'est pas accessible.
+      }
 
       // DLC proche : lots dont la date d'expiration est dans les 30 prochains
       // jours (ou déjà dépassée).
@@ -99,6 +119,7 @@ class _AlertsCenterState extends State<AlertsCenter> {
 
       setState(() {
         _lowStockProducts = lowStock;
+        _lowStockVariants = lowStockVariants;
         _expiringBatches = List<Map<String, dynamic>>.from(batches);
         _predictedStockouts = predictedStockouts;
         _isLoading = false;
@@ -115,6 +136,7 @@ class _AlertsCenterState extends State<AlertsCenter> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final totalAlerts = _lowStockProducts.length +
+        _lowStockVariants.length +
         _expiringBatches.length +
         _predictedStockouts.length;
 
@@ -192,6 +214,45 @@ class _AlertsCenterState extends State<AlertsCenter> {
                                           'Stock : ${p['stock_quantity']} (seuil : ${p['low_stock_threshold']})'),
                                     ),
                                   )),
+                              SizedBox(height: 2.h),
+                            ],
+                            if (_lowStockVariants.isNotEmpty) ...[
+                              Text(
+                                  'Conditionnements en stock bas (${_lowStockVariants.length})',
+                                  style: theme.textTheme.titleMedium),
+                              SizedBox(height: 0.5.h),
+                              Text(
+                                'Le stock du produit peut sembler correct '
+                                'alors qu\'un format précis est bas.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    color:
+                                        theme.colorScheme.onSurfaceVariant),
+                              ),
+                              SizedBox(height: 1.h),
+                              ..._lowStockVariants.map((v) {
+                                final productName =
+                                    v['products']?['name'] ?? 'Produit';
+                                final formatName = v['formats']?['name'];
+                                final parfumName = v['parfums']?['name'];
+                                final variantLabel = [formatName, parfumName]
+                                    .whereType<String>()
+                                    .join(' · ');
+                                return Card(
+                                  color: theme.colorScheme.errorContainer
+                                      .withValues(alpha: 0.4),
+                                  child: ListTile(
+                                    leading: Icon(Icons.inventory_2_outlined,
+                                        color: theme.colorScheme.error),
+                                    title: Text(
+                                      variantLabel.isNotEmpty
+                                          ? '$productName — $variantLabel'
+                                          : productName,
+                                    ),
+                                    subtitle: Text(
+                                        'Stock : ${v['stock_quantity']} (seuil : ${v['low_stock_threshold']})'),
+                                  ),
+                                );
+                              }),
                               SizedBox(height: 2.h),
                             ],
                             if (_expiringBatches.isNotEmpty) ...[
