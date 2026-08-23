@@ -12,6 +12,7 @@ import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'product_variants_screen.dart';
 import 'batch_list_screen.dart';
+import 'usage_audit_screen.dart';
 
 /// Usages suggérés à la publication d'un produit (Savonnerie, Industriel,
 /// Nettoyage...) — reproduit les badges déjà utilisés sur les visuels
@@ -1332,7 +1333,22 @@ class _ProductManagementRealState
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Produits (Gros / Détail)')),
+      appBar: AppBar(
+        title: const Text('Produits (Gros / Détail)'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.fact_check_outlined),
+            tooltip: 'Vérifier les usages',
+            onPressed: () async {
+              final result = await Navigator.push<Map<String, dynamic>>(
+                context,
+                MaterialPageRoute(builder: (_) => const UsageAuditScreen()),
+              );
+              if (result != null) _showProductDialog(product: result);
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showProductDialog(),
         icon: const Icon(Icons.add),
