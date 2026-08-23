@@ -286,7 +286,13 @@ class _ProductVariantsScreenState
             ),
             FilledButton(
               onPressed: () async {
-                if (selectedFormatId == null) return;
+                if (selectedFormatId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Choisissez un format avant d\'enregistrer.')),
+                  );
+                  return;
+                }
                 final payload = {
                   'product_id': widget.product['id'],
                   'format_id': selectedFormatId,
