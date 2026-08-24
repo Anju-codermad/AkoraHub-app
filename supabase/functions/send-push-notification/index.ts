@@ -457,6 +457,22 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "posts_pending_approval") {
+      // Nouvelle publication d'un client en attente de validation (voir
+      // supabase/phase177_patch_posts_approval_workflow.sql) — mêmes
+      // destinataires que les signalements (post_reports) ci-dessus.
+      category = "message";
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Publication à valider";
+      body = "Une nouvelle publication Communauté attend votre validation.";
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "service_requests") {
       // Nouvelle demande de service côté client (onglet "Services",
       // voir supabase/phase65_patch_service_requests.sql) — notifie

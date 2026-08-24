@@ -19,6 +19,7 @@ import '../raw_materials_management/formation_hub.dart';
 import '../formation_groups_management/formation_groups_management.dart';
 import '../client_home/settings/settings_screen.dart';
 import '../post_reports_management/post_reports_management.dart';
+import '../post_approval_management/post_approval_management.dart';
 import '../service_catalog_management/service_catalog_management.dart';
 import '../service_requests_management/service_requests_management.dart';
 import '../customer_analytics/customer_analytics_dashboard.dart';
@@ -255,6 +256,16 @@ class _FullMoreMenu extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const PostReportsManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.rate_review_outlined,
+            label: 'Publications à valider',
+            subtitle: 'Nouvelles publications en attente d\'approbation',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const PostApprovalManagement()),
             ),
           ),
           _MenuTile(

@@ -796,11 +796,23 @@ class _WallTabState extends ConsumerState<WallTab> {
   }
 
   Future<void> _createPost() async {
-    await showModalBottomSheet(
+    final posted = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (context) => _NewPostSheet(onPosted: _loadPosts),
     );
+    // Publications non-staff en attente de validation (24/08, sur demande)
+    // — voir posts_pending_approval_notice / supabase/phase177_*.sql.
+    // La publication n'apparaît pas encore sur le mur public tant que le
+    // staff ne l'a pas approuvée : on le dit explicitement plutôt que de
+    // laisser le client chercher sa publication sans la trouver.
+    if (posted == true && !_isStaff && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            'Publication envoyée : elle sera visible sur le mur après validation par l\'équipe.'),
+        duration: Duration(seconds: 5),
+      ));
+    }
   }
 
   /// Modifier/Supprimer sa propre publication (01/08) — n'était pas
@@ -1638,6 +1650,9 @@ class _WallTabState extends ConsumerState<WallTab> {
                                                                   if (post['updated_at'] !=
                                                                       null)
                                                                     'Modifié',
+                                                                  if (post['approval_status'] ==
+                                                                      'pending')
+                                                                    'En attente de validation',
                                                                 ].join(' · '),
                                                                 style: theme
                                                                     .textTheme
@@ -2230,7 +2245,7 @@ class _NewPostSheetState extends State<_NewPostSheet> {
       }
 
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.pop(context, true);
       widget.onPosted();
     } catch (e) {
       if (!mounted) return;
