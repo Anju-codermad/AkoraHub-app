@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -45,6 +46,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _dateFormat = DateFormat('HH:mm');
   Stream<List<Map<String, dynamic>>>? _messagesStream;
 
+  /// 'ia' (Akora AI répond automatiquement), 'humain_demande' (le client a
+  /// demandé un humain, en attente) ou 'humain_actif' (le staff a repris la
+  /// main) — voir supabase/phase176_patch_ai_assistant.sql. Suivi en direct
+  /// via un flux Realtime dédié (indépendant de `_messagesStream`) pour que
+  /// la bannière change sans que le client ait à rouvrir l'écran.
+  String _mode = 'ia';
+  Stream<List<Map<String, dynamic>>>? _conversationStream;
+  StreamSubscription<List<Map<String, dynamic>>>? _conversationSub;
+  bool _togglingMode = false;
+
   final _scrollController = ScrollController();
   int _lastMessageCount = 0;
   bool _showJumpToLatest = false;
@@ -81,6 +92,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void dispose() {
     _typing?.dispose();
+    _conversationSub?.cancel();
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -135,13 +147,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     try {
       final existing = await SupabaseConfig.client
           .from('conversations')
-          .select('id')
+          .select('id, mode')
           .eq('customer_id', userId)
           .maybeSingle();
 
       String conversationId;
+      String initialMode;
       if (existing != null) {
         conversationId = existing['id'] as String;
+        initialMode = (existing['mode'] as String?) ?? 'ia';
       } else {
         final created = await SupabaseConfig.client
             .from('conversations')
@@ -149,16 +163,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             .select()
             .single();
         conversationId = created['id'] as String;
+        initialMode = (created['mode'] as String?) ?? 'ia';
       }
 
       setState(() {
         _conversationId = conversationId;
+        _mode = initialMode;
         _messagesStream = SupabaseConfig.client
             .from('messages')
             .stream(primaryKey: ['id'])
             .eq('conversation_id', conversationId)
             .order('created_at');
+        _conversationStream = SupabaseConfig.client
+            .from('conversations')
+            .stream(primaryKey: ['id']).eq('id', conversationId);
         _isLoading = false;
+      });
+      _conversationSub = _conversationStream!.listen((rows) {
+        if (!mounted || rows.isEmpty) return;
+        final mode = rows.first['mode'] as String? ?? 'ia';
+        if (mode != _mode) setState(() => _mode = mode);
       });
       _typing = TypingPresence(
         topic: 'conversation:$conversationId',
@@ -168,15 +192,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         },
       );
 
-      // Marque les messages du staff comme lus à l'ouverture — sans quoi le
-      // badge de notification de l'Accueil (voir catalog_tab.dart,
-      // _unreadMessagesCount) ne redescendrait jamais à zéro.
+      // Marque les messages du staff et de l'IA comme lus à l'ouverture —
+      // sans quoi le badge de notification de l'Accueil (voir
+      // catalog_tab.dart, _unreadMessagesCount) ne redescendrait jamais à
+      // zéro.
       try {
         await SupabaseConfig.client
             .from('messages')
             .update({'read_by_client': true})
             .eq('conversation_id', conversationId)
-            .eq('sender_role', 'staff')
+            .inFilter('sender_role', ['staff', 'ai'])
             .eq('read_by_client', false);
       } catch (_) {
         // Non bloquant : la conversation reste utilisable même si le
@@ -255,6 +280,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         const SnackBar(
             content: Text('Impossible de démarrer l\'appel. Réessayez.')),
       );
+    }
+  }
+
+  /// Choix client IA <-> humain (voir supabase/phase176_patch_ai_assistant.sql).
+  /// Demander un humain notifie le staff par WhatsApp côté backend (webhook
+  /// Database Webhook sur `conversations` UPDATE, akora-fb-assistant).
+  /// Revenir à l'IA est toujours possible, y compris pendant que le staff
+  /// est déjà intervenu (mode 'humain_actif').
+  Future<void> _toggleHumanMode() async {
+    if (_conversationId == null || _togglingMode) return;
+    final requestingHuman = _mode == 'ia';
+    final nextMode = requestingHuman ? 'humain_demande' : 'ia';
+    setState(() => _togglingMode = true);
+    try {
+      await SupabaseConfig.client
+          .from('conversations')
+          .update({'mode': nextMode}).eq('id', _conversationId as Object);
+      if (requestingHuman) {
+        await SupabaseConfig.client.from('messages').insert({
+          'conversation_id': _conversationId,
+          'sender_id': null,
+          'sender_role': 'ai',
+          'content':
+              'Un membre de notre équipe va vous répondre sous peu 🙏',
+          'read_by_client': true,
+          'read_by_staff': true,
+        });
+      }
+      if (mounted) setState(() => _mode = nextMode);
+    } catch (e) {
+      debugPrint('Échec changement de mode chat : $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    } finally {
+      if (mounted) setState(() => _togglingMode = false);
     }
   }
 
@@ -343,6 +405,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  Widget _buildModeBanner(ThemeData theme) {
+    final isPending = _mode == 'humain_demande';
+    final color = isPending ? theme.colorScheme.tertiary : theme.colorScheme.primary;
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              isPending ? Icons.hourglass_top : Icons.support_agent,
+              size: 18,
+              color: color,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isPending
+                    ? 'Un membre de l\'équipe va vous répondre.'
+                    : 'Vous discutez avec un membre de l\'équipe.',
+                style: theme.textTheme.bodySmall?.copyWith(color: color),
+              ),
+            ),
+            TextButton(
+              onPressed: _togglingMode ? null : _toggleHumanMode,
+              child: const Text('Assistant IA'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -352,6 +447,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       appBar: AppBar(
         title: const Text('Messagerie'),
         actions: [
+          IconButton(
+            icon: Icon(_mode == 'ia'
+                ? Icons.support_agent_outlined
+                : Icons.smart_toy_outlined),
+            tooltip: _mode == 'ia'
+                ? 'Parler à une vraie personne'
+                : 'Revenir à l\'assistant IA',
+            onPressed: _togglingMode ? null : _toggleHumanMode,
+          ),
           IconButton(
             icon: const Icon(Icons.call_outlined),
             tooltip: 'Appel audio',
@@ -375,6 +479,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 )
               : Column(
                   children: [
+                    if (_mode != 'ia') _buildModeBanner(theme),
                     Expanded(
                       child: Stack(
                         children: [
@@ -417,6 +522,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               final msgIndex = messages.length - 1 - index;
                               final m = messages[msgIndex];
                               final isClient = m['sender_role'] == 'client';
+                              final isAi = m['sender_role'] == 'ai';
                               final isRequest = m['is_request'] == true;
                               final createdAt =
                                   DateTime.tryParse(m['created_at'] ?? '');
@@ -453,6 +559,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if (isAi)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              bottom: 4),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.smart_toy_outlined,
+                                                  size: 12,
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Akora AI',
+                                                style: theme
+                                                    .textTheme.labelSmall
+                                                    ?.copyWith(
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       if (isRequest)
                                         Padding(
                                           padding: const EdgeInsets.only(

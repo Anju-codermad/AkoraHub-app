@@ -20,7 +20,7 @@ Future<int> fetchUnreadSupportMessagesCount() async {
         .from('messages')
         .select('id')
         .eq('conversation_id', convo['id'])
-        .eq('sender_role', 'staff')
+        .inFilter('sender_role', ['staff', 'ai'])
         .eq('read_by_client', false);
     return List.from(unread).length;
   } catch (_) {
