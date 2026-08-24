@@ -357,6 +357,7 @@ class _AdminConversationThreadState
                     itemBuilder: (context, index) {
                       final m = _messages[index];
                       final isMine = m['sender_id'] == _myId;
+                      final isAi = m['sender_role'] == 'ai';
                       final isRequest = m['is_request'] == true;
                       return Align(
                         alignment: isMine
@@ -379,6 +380,29 @@ class _AdminConversationThreadState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if (isAi)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.smart_toy_outlined,
+                                          size: 12,
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Akora AI',
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               if (isRequest)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 4),
