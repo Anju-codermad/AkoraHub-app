@@ -3899,11 +3899,16 @@ ne pas repartir de zéro à chaque fois qu'on en reparle.
   Google Play), en plus de l'APK (`build-apk.yml`).
 - [x] Signature de release configurée (`android/key.properties` +
   secrets GitHub `ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD`
-  / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD`) — **à confirmer** que
-  ces secrets sont bien renseignés côté GitHub, sinon les builds
-  actuels sont signés avec la clé debug (inutilisable pour un envoi
-  Play Store, qui exige une vraie clé d'upload conservée précieusement
-  d'une version à l'autre).
+  / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD`) — **confirmé actifs**
+  (builds signés avec succès à chaque run, ex. run #497). **Sauvegarde
+  personnelle du fichier `.jks` + mots de passe faite le 24/08** (via un
+  workflow `export-keystore.yml` temporaire, déclenché manuellement une
+  fois puis supprimé) : comme pour tout secret GitHub, ce fichier
+  n'était récupérable NULLE PART ailleurs (write-only), et contrairement
+  aux autres secrets du projet, celui-ci ne peut jamais être "tourné" en
+  cas de perte une fois l'app publiée sur le Play Store (Google exige la
+  même clé pour toutes les mises à jour futures) — la sauvegarde était
+  donc critique, pas juste une bonne pratique.
 - [x] Icônes d'app présentes (`android/app/src/main/res/mipmap-*`),
   nom affiché "AkoraHub" dans le manifeste.
 - [x] Politique de confidentialité déjà rédigée
