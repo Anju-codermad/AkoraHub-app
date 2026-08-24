@@ -7,6 +7,7 @@ import 'package:sizer/sizer.dart';
 import '../../core/formation/formation_repo.dart';
 import '../../core/notifications/product_stock_alert_repo.dart';
 import '../../core/providers/cart_provider.dart';
+import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../core/utils/formation_web_link.dart';
 import '../raw_materials_management/raw_material_style.dart';
@@ -127,14 +128,43 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
       setState(() {
         _variants = variants;
         if (variants.isNotEmpty) {
-          _selectedFormatId = variants.first['format_id'];
-          _selectedParfumId = variants.first['parfum_id'];
+          final defaultVariant = _defaultVariantInKg(variants) ?? variants.first;
+          _selectedFormatId = defaultVariant['format_id'];
+          _selectedParfumId = defaultVariant['parfum_id'];
         }
         _isLoadingVariants = false;
       });
     } catch (_) {
       setState(() => _isLoadingVariants = false);
     }
+  }
+
+  /// Choisit le format présélectionné à l'ouverture de la fiche produit
+  /// (24/08, sur demande) : quand plusieurs conditionnements existent,
+  /// privilégier celui en kg (le plus petit, ex. "1 kg" plutôt que "Sac
+  /// 25 kg") au lieu du 1er variant renvoyé par la requête (ordre non
+  /// garanti). S'appuie sur `formats.base_unit_quantity` (phase172) : un
+  /// format en grammes a une valeur < 1 (ex. 0.5 pour "500 g"), donc ce
+  /// filtre `>= 1` exclut naturellement les formats en grammes sans avoir
+  /// à analyser le texte du nom. Retourne null si aucun format en kg
+  /// n'existe parmi les variantes (repli sur le 1er variant, inchangé).
+  Map<String, dynamic>? _defaultVariantInKg(
+      List<Map<String, dynamic>> variants) {
+    final formats = ref.read(formatsCacheProvider);
+    Map<String, dynamic>? best;
+    num? bestQty;
+    for (final v in variants) {
+      final format = formats.firstWhere(
+        (f) => f['id'] == v['format_id'],
+        orElse: () => <String, dynamic>{},
+      );
+      final qty = format['base_unit_quantity'] as num?;
+      if (qty != null && qty >= 1 && (bestQty == null || qty < bestQty)) {
+        bestQty = qty;
+        best = v;
+      }
+    }
+    return best;
   }
 
   List<Map<String, dynamic>> get _availableFormats {
