@@ -191,6 +191,7 @@ class PushNotificationService {
           androidChannelId(category, soundId),
           'AkoraHub — ${category.label}',
           importance: Importance.high,
+          playSound: true,
           sound: RawResourceAndroidNotificationSound(soundId),
         ),
       );
