@@ -6,6 +6,7 @@ import 'package:sizer/sizer.dart';
 
 import '../core/app_export.dart';
 import '../core/auth/global_auth_listener.dart';
+import '../core/deeplink/deep_link_service.dart';
 import '../core/notifications/push_notification_service.dart';
 import '../core/providers/theme_provider.dart';
 import '../core/supabase/supabase_config.dart';
@@ -55,6 +56,12 @@ void main() async {
   // global_auth_listener.dart) — capte la connexion Google même si le
   // retour du navigateur a fait redémarrer l'app à froid sur le splash.
   GlobalAuthListener.init();
+
+  // Lien produit partageable (akorahub://produit/{id}, 24/08) — voir
+  // core/deeplink/deep_link_service.dart. Sans "await" pour la même
+  // raison que les notifications push ci-dessous : ne doit jamais
+  // retarder le premier écran.
+  DeepLinkService.init();
 
   // Notifications push (Firebase). Volontairement PAS "await" ici :
   // l'initialisation inclut la demande d'autorisation de notifications

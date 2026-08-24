@@ -154,10 +154,19 @@ jobs:
         # NETLIFY_SITE_ID ne sont pas configurés (jeton d'accès personnel
         # Netlify + ID du site "akorahub-formation", pas son nom).
         if: ${{ env.NETLIFY_AUTH_TOKEN != '' && env.NETLIFY_SITE_ID != '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           rm -rf /tmp/netlify-deploy
           mkdir -p /tmp/netlify-deploy
           cp docs/formation-access/*.html /tmp/netlify-deploy/
+          # produit.html (24/08, lien produit partageable) lit le
+          # catalogue directement depuis l'API publique Supabase — mêmes
+          # secrets GitHub que ceux déjà injectés dans env.json pour
+          # l'app elle-même, aucun nouveau secret à créer.
+          sed -i "s#__SUPABASE_URL__#${SUPABASE_URL}#g; s#__SUPABASE_ANON_KEY__#${SUPABASE_ANON_KEY}#g" \
+            /tmp/netlify-deploy/produit.html
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk /tmp/netlify-deploy/akorahub-latest.apk
           if npx --yes netlify-cli@17 deploy --prod \
               --dir=/tmp/netlify-deploy \

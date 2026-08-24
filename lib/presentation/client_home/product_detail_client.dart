@@ -241,9 +241,15 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
             tooltip: 'Partager',
             onPressed: () {
               final price = (p['price_detail'] as num?)?.toDouble() ?? 0;
+              // Lien produit partageable (24/08) — ouvre directement la
+              // fiche si AkoraHub est déjà installée, sinon propose le
+              // téléchargement (voir docs/formation-access/produit.html
+              // et core/deeplink/deep_link_service.dart).
+              final link =
+                  'https://akorahub-formation.netlify.app/produit.html?id=${p['id']}';
               SharePlus.instance.share(ShareParams(
                 text: '${p['name'] ?? 'Ce produit'} — '
-                    '${_currency.format(price)} sur AkoraHub',
+                    '${_currency.format(price)} sur AkoraHub\n$link',
               ));
             },
           ),
