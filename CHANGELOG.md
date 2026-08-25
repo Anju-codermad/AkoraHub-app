@@ -839,3 +839,6 @@
 
 ## 2026-08-25 09:43 UTC — Claude
 - fix: appId manquant dans FB.init empêchait l'affichage du plug-in de chat (`b5777d3`)
+
+## 2026-08-25 11:50 UTC — Claude
+- feat: bouton Messenger de secours (m.me) sur les pages publiques (`7954e02`)
