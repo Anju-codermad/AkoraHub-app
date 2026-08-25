@@ -908,3 +908,6 @@
 
 ## 2026-08-25 21:09 UTC — Claude
 - chore: renumérote la migration ateliers en phase182 (`2264eb6`)
+
+## 2026-08-25 21:15 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`c7f9c64`)
