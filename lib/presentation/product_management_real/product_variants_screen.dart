@@ -37,17 +37,19 @@ class _ProductVariantsScreenState
   Future<void> _loadAll() async {
     setState(() => _isLoading = true);
     try {
-      // Formats/parfums passent par le cache partagé (rarement modifiés —
-      // voir lib/core/reference_data/reference_table_cache.dart) plutôt
-      // qu'une requête dédiée à chaque ouverture de cet écran.
+      // Formats/parfums/concentrations passent par le cache partagé
+      // (rarement modifiés — voir
+      // lib/core/reference_data/reference_table_cache.dart) plutôt qu'une
+      // requête dédiée à chaque ouverture de cet écran.
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client
             .from('product_variants')
-            .select('*, formats(name), parfums(name)')
+            .select('*, formats(name), parfums(name), concentrations(name)')
             .eq('product_id', widget.product['id'])
             .order('created_at'),
         ref.read(formatsCacheProvider.notifier).refresh(),
         ref.read(parfumsCacheProvider.notifier).refresh(),
+        ref.read(concentrationsCacheProvider.notifier).refresh(),
       ]);
       setState(() {
         _variants = List<Map<String, dynamic>>.from(results[0]);
@@ -94,11 +96,13 @@ class _ProductVariantsScreenState
           .select()
           .single();
       // Invalide le cache partagé (force: true, ignore le TTL) pour que ce
-      // format/parfum fraîchement créé apparaisse immédiatement dans le
-      // menu déroulant, plutôt que d'attendre jusqu'à 6h.
-      final notifier = table == 'formats'
-          ? ref.read(formatsCacheProvider.notifier)
-          : ref.read(parfumsCacheProvider.notifier);
+      // format/parfum/concentration fraîchement créé(e) apparaisse
+      // immédiatement dans le menu déroulant, plutôt que d'attendre 6h.
+      final notifier = switch (table) {
+        'formats' => ref.read(formatsCacheProvider.notifier),
+        'parfums' => ref.read(parfumsCacheProvider.notifier),
+        _ => ref.read(concentrationsCacheProvider.notifier),
+      };
       await notifier.refresh(force: true);
       return result['id'] as String;
     } catch (e) {
@@ -123,6 +127,7 @@ class _ProductVariantsScreenState
     final isEditing = variant != null;
     String? selectedFormatId = variant?['format_id'];
     String? selectedParfumId = variant?['parfum_id'];
+    String? selectedConcentrationId = variant?['concentration_id'];
     final priceDetailCtrl = TextEditingController(
         text: (variant?['price_detail'] ?? '').toString());
     final priceGrosCtrl =
@@ -210,8 +215,8 @@ class _ProductVariantsScreenState
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: selectedParfumId,
-                        decoration: const InputDecoration(
-                            labelText: 'Parfum / Concentration (optionnel)'),
+                        decoration:
+                            const InputDecoration(labelText: 'Parfum (optionnel)'),
                         items: [
                           const DropdownMenuItem<String>(
                             value: null,
@@ -234,6 +239,45 @@ class _ProductVariantsScreenState
                         final id = await _addNewReference('parfums', 'Parfum');
                         if (id != null) {
                           setDialogState(() => selectedParfumId = id);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                // Axe dédié (25/08) : distinct de Parfum pour ne jamais
+                // mélanger senteurs (Liquide Vaisselle, Lave-sol...) et
+                // concentrations/degrés (Eau de Javel, Peroxyde
+                // d'hydrogène) dans le même menu déroulant.
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: selectedConcentrationId,
+                        decoration: const InputDecoration(
+                            labelText: 'Concentration (optionnel)'),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('Aucune'),
+                          ),
+                          ...ref.read(concentrationsCacheProvider).map((c) =>
+                              DropdownMenuItem(
+                                value: c['id'] as String,
+                                child: Text(c['name']),
+                              )),
+                        ],
+                        onChanged: (v) =>
+                            setDialogState(() => selectedConcentrationId = v),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      tooltip: 'Ajouter une concentration',
+                      onPressed: () async {
+                        final id = await _addNewReference(
+                            'concentrations', 'Concentration');
+                        if (id != null) {
+                          setDialogState(() => selectedConcentrationId = id);
                         }
                       },
                     ),
@@ -401,6 +445,7 @@ class _ProductVariantsScreenState
                   'product_id': widget.product['id'],
                   'format_id': selectedFormatId,
                   'parfum_id': selectedParfumId,
+                  'concentration_id': selectedConcentrationId,
                   'price_detail': double.tryParse(priceDetailCtrl.text) ?? 0,
                   'price_gros': double.tryParse(priceGrosCtrl.text) ?? 0,
                   'gros_threshold_qty':
@@ -488,6 +533,7 @@ class _ProductVariantsScreenState
                     final v = _variants[index];
                     final formatName = v['formats']?['name'] ?? '';
                     final parfumName = v['parfums']?['name'];
+                    final concentrationName = v['concentrations']?['name'];
                     final imageUrl = v['image_url'] as String?;
                     return Card(
                       child: ListTile(
@@ -503,9 +549,9 @@ class _ProductVariantsScreenState
                               )
                             : null,
                         title: Text(
-                          parfumName != null
-                              ? '$formatName · $parfumName'
-                              : formatName,
+                          [formatName, parfumName, concentrationName]
+                              .where((s) => s != null && s.isNotEmpty)
+                              .join(' · '),
                         ),
                         subtitle: Text(
                           'Détail ${_currency.format(v['price_detail'] ?? 0)} · '

@@ -33,6 +33,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
   List<Map<String, dynamic>> _variants = [];
   String? _selectedFormatId;
   String? _selectedParfumId;
+  String? _selectedConcentrationId;
   List<String> _photos = [];
   int _photoIndex = 0;
   final _currency =
@@ -122,7 +123,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     try {
       final data = await SupabaseConfig.client
           .from('product_variants')
-          .select('*, formats(name), parfums(name)')
+          .select('*, formats(name), parfums(name), concentrations(name)')
           .eq('product_id', widget.product['id']);
       final variants = List<Map<String, dynamic>>.from(data);
       setState(() {
@@ -131,6 +132,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
           final defaultVariant = _defaultVariantInKg(variants) ?? variants.first;
           _selectedFormatId = defaultVariant['format_id'];
           _selectedParfumId = defaultVariant['parfum_id'];
+          _selectedConcentrationId = defaultVariant['concentration_id'];
         }
         _isLoadingVariants = false;
       });
@@ -192,14 +194,38 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     return list;
   }
 
+  // Axe dédié (25/08) : distinct de Parfum, pour les produits vendus par
+  // concentration/degré (Eau de Javel, Peroxyde d'hydrogène) plutôt que
+  // par senteur — voir phase183_patch_concentration_axis.sql.
+  List<Map<String, dynamic>> get _availableConcentrations {
+    final seen = <String>{};
+    final list = <Map<String, dynamic>>[];
+    for (final v in _variants) {
+      if (v['format_id'] != _selectedFormatId) continue;
+      if (v['parfum_id'] != _selectedParfumId) continue;
+      final id = v['concentration_id'] as String?;
+      if (id != null && seen.add(id)) {
+        list.add({'id': id, 'name': v['concentrations']?['name'] ?? ''});
+      }
+    }
+    return list;
+  }
+
   Map<String, dynamic>? get _selectedVariant {
+    for (final v in _variants) {
+      if (v['format_id'] == _selectedFormatId &&
+          v['parfum_id'] == _selectedParfumId &&
+          v['concentration_id'] == _selectedConcentrationId) {
+        return v;
+      }
+    }
+    // Replis successifs, du plus proche au plus large.
     for (final v in _variants) {
       if (v['format_id'] == _selectedFormatId &&
           v['parfum_id'] == _selectedParfumId) {
         return v;
       }
     }
-    // Repli : le premier variant correspondant au format, peu importe le parfum.
     for (final v in _variants) {
       if (v['format_id'] == _selectedFormatId) return v;
     }
@@ -440,19 +466,27 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                       .toList(),
                   onChanged: (v) => setState(() {
                     _selectedFormatId = v;
-                    // Réinitialise le parfum si celui choisi n'est plus valide.
-                    final valid = _availableParfums.map((e) => e['id']);
-                    if (!valid.contains(_selectedParfumId)) {
-                      _selectedParfumId =
-                          _availableParfums.isNotEmpty
-                              ? _availableParfums.first['id']
+                    // Réinitialise parfum/concentration si le choix
+                    // précédent n'est plus valide pour ce format.
+                    final validParfums = _availableParfums.map((e) => e['id']);
+                    if (!validParfums.contains(_selectedParfumId)) {
+                      _selectedParfumId = _availableParfums.isNotEmpty
+                          ? _availableParfums.first['id']
+                          : null;
+                    }
+                    final validConcentrations =
+                        _availableConcentrations.map((e) => e['id']);
+                    if (!validConcentrations.contains(_selectedConcentrationId)) {
+                      _selectedConcentrationId =
+                          _availableConcentrations.isNotEmpty
+                              ? _availableConcentrations.first['id']
                               : null;
                     }
                   }),
                 ),
                 if (_availableParfums.isNotEmpty) ...[
                   SizedBox(height: 1.5.h),
-                  Text('Parfum / Concentration', style: theme.textTheme.titleSmall),
+                  Text('Parfum', style: theme.textTheme.titleSmall),
                   SizedBox(height: 0.5.h),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedParfumId,
@@ -463,7 +497,35 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                               child: Text(f['name']),
                             ))
                         .toList(),
-                    onChanged: (v) => setState(() => _selectedParfumId = v),
+                    onChanged: (v) => setState(() {
+                      _selectedParfumId = v;
+                      final validConcentrations =
+                          _availableConcentrations.map((e) => e['id']);
+                      if (!validConcentrations
+                          .contains(_selectedConcentrationId)) {
+                        _selectedConcentrationId =
+                            _availableConcentrations.isNotEmpty
+                                ? _availableConcentrations.first['id']
+                                : null;
+                      }
+                    }),
+                  ),
+                ],
+                if (_availableConcentrations.isNotEmpty) ...[
+                  SizedBox(height: 1.5.h),
+                  Text('Concentration', style: theme.textTheme.titleSmall),
+                  SizedBox(height: 0.5.h),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedConcentrationId,
+                    decoration: const InputDecoration(isDense: true),
+                    items: _availableConcentrations
+                        .map((f) => DropdownMenuItem(
+                              value: f['id'] as String,
+                              child: Text(f['name']),
+                            ))
+                        .toList(),
+                    onChanged: (v) =>
+                        setState(() => _selectedConcentrationId = v),
                   ),
                 ],
                 SizedBox(height: 2.h),
@@ -544,10 +606,13 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                           : () {
                         final formatName = variant?['formats']?['name'];
                         final parfumName = variant?['parfums']?['name'];
+                        final concentrationName =
+                            variant?['concentrations']?['name'];
                         final label = [
                           p['name'] ?? '',
                           if (formatName != null) formatName,
                           if (parfumName != null) parfumName,
+                          if (concentrationName != null) concentrationName,
                         ].join(' - ');
 
                         ref.read(cartProvider.notifier).addItem(CartItem(

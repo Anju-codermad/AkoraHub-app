@@ -75,6 +75,11 @@ final parfumsCacheProvider =
   (ref) => ReferenceTableCache('parfums', 'parfums'),
 );
 
+final concentrationsCacheProvider =
+    StateNotifierProvider<ReferenceTableCache, List<Map<String, dynamic>>>(
+  (ref) => ReferenceTableCache('concentrations', 'concentrations'),
+);
+
 final categoriesCacheProvider =
     StateNotifierProvider<ReferenceTableCache, List<Map<String, dynamic>>>(
   (ref) => ReferenceTableCache('categories', 'categories'),
