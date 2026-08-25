@@ -857,3 +857,6 @@
 
 ## 2026-08-25 12:33 UTC — Claude
 - chore: fichier de validation Google Search Console (`1ebf400`)
+
+## 2026-08-25 13:09 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`3900f3e`)
