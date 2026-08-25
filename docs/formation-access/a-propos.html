@@ -108,14 +108,13 @@
     background: var(--accent-soft); color: var(--accent-strong); border-radius: 999px;
     padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 700;
   }
-  .founder-row { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.6rem; }
+  .founder-row { display: flex; align-items: center; gap: 0.9rem; margin-top: 0.6rem; }
   .founder-avatar {
-    width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
-    background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-display); font-weight: 700; font-size: 0.92rem;
+    width: 68px; height: 68px; border-radius: 50%; flex-shrink: 0;
+    object-fit: cover; object-position: top center; border: 2px solid var(--accent-soft);
   }
-  .founder-name { font-size: 0.86rem; font-weight: 700; color: var(--text); }
-  .founder-role { font-size: 0.78rem; color: var(--text-muted); }
+  .founder-name { font-size: 0.92rem; font-weight: 700; color: var(--text); }
+  .founder-role { font-size: 0.8rem; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -175,7 +174,7 @@
 
   <h2>Fondateur</h2>
   <div class="founder-row">
-    <div class="founder-avatar">AJ</div>
+    <img class="founder-avatar" src="founder.webp" alt="A. Julio, fondateur d'Akora Fanadiovana" />
     <div>
       <div class="founder-name">A. Julio</div>
       <div class="founder-role">Fondateur, Akora Fanadiovana</div>
