@@ -52,15 +52,18 @@
   .site-footer-links a:hover { color: var(--accent-strong); }
   .site-footer-copy { color: var(--text-faint); font-size: 0.78rem; margin-top: 0.8rem; }
 
-  .hero-grid-wrap { max-width: 560px; margin: 0 auto; }
-  .hero-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
-    aspect-ratio: 4 / 3; overflow: hidden; background: var(--accent-soft);
+  .hero-banner-wrap { max-width: 560px; margin: 0 auto; }
+  .hero-banner {
+    position: relative; aspect-ratio: 16 / 6.5; overflow: hidden; background: var(--accent-soft);
   }
-  .hero-grid > div {
-    background: var(--accent-soft); overflow: hidden;
+  .hero-slide {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; transition: opacity 1.4s ease;
   }
-  .hero-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .hero-slide.active { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-slide { transition: none; }
+  }
 
   header { text-align: center; margin: 1.6rem 0 2rem; }
   .logo { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; margin-bottom: 0.8rem; }
@@ -117,10 +120,8 @@
     </div>
   </div>
 </nav>
-<div class="hero-grid-wrap">
-  <div class="hero-grid" id="hero-grid">
-    <div></div><div></div><div></div><div></div>
-  </div>
+<div class="hero-banner-wrap">
+  <div class="hero-banner" id="hero-banner"></div>
 </div>
 <div class="page">
   <header>
@@ -180,24 +181,37 @@
 <script>
   // Hero fait de vraies photos du catalogue (pas d'images génériques) —
   // même API publique que catalogue.html/produit.html, mêmes identifiants
-  // Supabase substitués au déploiement.
+  // Supabase substitués au déploiement. Bannière large avec fondu
+  // automatique entre les photos (pas de défilement si une seule photo,
+  // ou si l'utilisateur préfère moins d'animation — voir prefers-reduced-motion).
   (async () => {
     const SUPABASE_URL = "__SUPABASE_URL__";
     const SUPABASE_ANON_KEY = "__SUPABASE_ANON_KEY__";
     if (SUPABASE_URL.indexOf("__") === 0) return;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/products?visibility=eq.true&image_url=not.is.null&select=name,image_url&limit=4`,
+        `${SUPABASE_URL}/rest/v1/products?visibility=eq.true&image_url=not.is.null&select=name,image_url&limit=6`,
         { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
       );
       const products = await res.json();
       if (!Array.isArray(products) || products.length === 0) return;
-      const grid = document.getElementById("hero-grid");
-      grid.innerHTML = products.slice(0, 4).map((p) => `
-        <div><img src="${p.image_url}" alt="${(p.name || "").replace(/"/g, "&quot;")}" loading="lazy" /></div>
+      const banner = document.getElementById("hero-banner");
+      banner.innerHTML = products.map((p, i) => `
+        <img class="hero-slide${i === 0 ? ' active' : ''}" src="${p.image_url}"
+             alt="${(p.name || "").replace(/"/g, "&quot;")}" loading="${i === 0 ? 'eager' : 'lazy'}" />
       `).join("");
+      const slides = banner.querySelectorAll(".hero-slide");
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (slides.length > 1 && !reduceMotion) {
+        let current = 0;
+        setInterval(() => {
+          slides[current].classList.remove("active");
+          current = (current + 1) % slides.length;
+          slides[current].classList.add("active");
+        }, 4000);
+      }
     } catch (e) {
-      // Repli silencieux : les 4 tuiles vides (fond de couleur) restent affichées.
+      // Repli silencieux : bannière vide (fond de couleur) reste affichée.
     }
   })();
 </script>
