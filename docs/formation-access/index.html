@@ -48,6 +48,7 @@
   .site-footer-links a:hover { color: var(--accent-strong); }
   .site-footer-copy { color: var(--text-faint); font-size: 0.78rem; margin-top: 0.8rem; }
 
+  .hero-grid-wrap { max-width: 560px; margin: 0 auto; }
   .hero-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
     aspect-ratio: 4 / 3; overflow: hidden; background: var(--accent-soft);
@@ -109,8 +110,10 @@
     </div>
   </div>
 </nav>
-<div class="hero-grid" id="hero-grid">
-  <div></div><div></div><div></div><div></div>
+<div class="hero-grid-wrap">
+  <div class="hero-grid" id="hero-grid">
+    <div></div><div></div><div></div><div></div>
+  </div>
 </div>
 <div class="page">
   <header>
