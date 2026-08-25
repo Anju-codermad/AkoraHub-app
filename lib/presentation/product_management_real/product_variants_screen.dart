@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
@@ -128,6 +131,16 @@ class _ProductVariantsScreenState
         text: (variant?['gros_threshold_qty'] ?? 10).toString());
     final stockCtrl = TextEditingController(
         text: (variant?['stock_quantity'] ?? 0).toString());
+    // Photo propre à la variante (25/08, demande explicite : étiquette
+    // différente par degré/concentration, ex. Eau de Javel 9°/12°/18°) —
+    // distincte des photos du produit lui-même (product_images). `pickedPhoto`
+    // = fraîchement sélectionnée, pas encore uploadée ; `currentImageUrl` =
+    // celle qui sera effectivement enregistrée (existante, remplacée, ou
+    // effacée par l'utilisateur) — toujours envoyée telle quelle dans le
+    // payload, ce qui gère uniformément création, édition sans changement,
+    // remplacement et suppression.
+    XFile? pickedPhoto;
+    String? currentImageUrl = variant?['image_url'] as String?;
 
     // Prix de base du produit (ses propres price_detail/price_gros, pas
     // ceux d'une variante) — sert de référence au calcul automatique
@@ -227,6 +240,71 @@ class _ProductVariantsScreenState
                   ],
                 ),
                 SizedBox(height: 1.h),
+                Text('Photo de la variante (optionnel)',
+                    style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                Builder(builder: (context) {
+                  Future<void> pick() async {
+                    try {
+                      final picked =
+                          await ImagePicker().pickImage(source: ImageSource.gallery);
+                      if (picked != null) {
+                        setDialogState(() => pickedPhoto = picked);
+                      }
+                    } catch (_) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Impossible d\'ouvrir la galerie photo.')),
+                      );
+                    }
+                  }
+
+                  final hasPhoto = pickedPhoto != null || currentImageUrl != null;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: pick,
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: hasPhoto
+                              ? (pickedPhoto != null
+                                  ? Image.file(File(pickedPhoto!.path),
+                                      width: 72, height: 72, fit: BoxFit.cover)
+                                  : Image.network(currentImageUrl!,
+                                      width: 72, height: 72, fit: BoxFit.cover))
+                              : Container(
+                                  width: 72,
+                                  height: 72,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .outline
+                                            .withValues(alpha: 0.4)),
+                                  ),
+                                  child: const Icon(Icons.add_a_photo_outlined),
+                                ),
+                        ),
+                        if (hasPhoto)
+                          Positioned(
+                            top: -8,
+                            right: -8,
+                            child: IconButton(
+                              icon: const Icon(Icons.cancel, size: 20),
+                              onPressed: () => setDialogState(() {
+                                pickedPhoto = null;
+                                currentImageUrl = null;
+                              }),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+                SizedBox(height: 1.h),
                 Row(
                   children: [
                     Expanded(
@@ -293,6 +371,32 @@ class _ProductVariantsScreenState
                   );
                   return;
                 }
+                try {
+                  // Upload de la photo AVANT de construire le payload (elle
+                  // doit être terminée pour connaître l'URL finale à
+                  // enregistrer) — même bucket `products` que les photos du
+                  // produit lui-même, sous-dossier dédié pour ne jamais
+                  // entrer en conflit de nom de fichier.
+                  if (pickedPhoto != null) {
+                    final file = File(pickedPhoto!.path);
+                    final fileName =
+                        '${widget.product['id']}/variants/${DateTime.now().millisecondsSinceEpoch}.jpg';
+                    await SupabaseConfig.client.storage
+                        .from('products')
+                        .upload(fileName, file);
+                    currentImageUrl = SupabaseConfig.client.storage
+                        .from('products')
+                        .getPublicUrl(fileName);
+                  }
+                } catch (_) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content:
+                            Text('Erreur lors de l\'envoi de la photo.')),
+                  );
+                  return;
+                }
                 final payload = {
                   'product_id': widget.product['id'],
                   'format_id': selectedFormatId,
@@ -302,6 +406,7 @@ class _ProductVariantsScreenState
                   'gros_threshold_qty':
                       int.tryParse(grosThresholdCtrl.text) ?? 10,
                   'stock_quantity': double.tryParse(stockCtrl.text) ?? 0,
+                  'image_url': currentImageUrl,
                 };
                 try {
                   if (isEditing) {
@@ -383,8 +488,20 @@ class _ProductVariantsScreenState
                     final v = _variants[index];
                     final formatName = v['formats']?['name'] ?? '';
                     final parfumName = v['parfums']?['name'];
+                    final imageUrl = v['image_url'] as String?;
                     return Card(
                       child: ListTile(
+                        leading: imageUrl != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.network(
+                                  imageUrl,
+                                  width: 44,
+                                  height: 44,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : null,
                         title: Text(
                           parfumName != null
                               ? '$formatName · $parfumName'

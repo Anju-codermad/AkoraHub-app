@@ -281,13 +281,19 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Builder(builder: (context) {
-                // `_photos` (table product_images) prime si dispo ; sinon
-                // repli sur la couverture unique `image_url` ; sinon icône.
-                final photos = _photos.isNotEmpty
-                    ? _photos
-                    : ((p['image_url'] as String?)?.isNotEmpty == true
-                        ? [p['image_url'] as String]
-                        : <String>[]);
+                // Photo propre à la variante sélectionnée (25/08, ex. Eau
+                // de Javel 9°/12°/18° — étiquette différente par degré)
+                // prioritaire sur tout le reste ; sinon `_photos` (table
+                // product_images) ; sinon repli sur la couverture unique
+                // `image_url` ; sinon icône.
+                final variantPhoto = variant?['image_url'] as String?;
+                final photos = (variantPhoto?.isNotEmpty == true)
+                    ? [variantPhoto!]
+                    : (_photos.isNotEmpty
+                        ? _photos
+                        : ((p['image_url'] as String?)?.isNotEmpty == true
+                            ? [p['image_url'] as String]
+                            : <String>[]));
                 if (photos.isEmpty) {
                   return Container(
                     height: 20.h,
