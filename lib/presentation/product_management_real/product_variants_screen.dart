@@ -472,7 +472,7 @@ class _ProductVariantsScreenState
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                         content: Text(
-                            'Erreur (cette combinaison Format+Parfum existe peut-être déjà).')),
+                            'Erreur (cette combinaison Format+Parfum+Concentration existe peut-être déjà).')),
                   );
                 }
               },
