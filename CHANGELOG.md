@@ -905,3 +905,6 @@
 
 ## 2026-08-25 20:56 UTC — Claude
 - feat: système d'ateliers en présentiel avec capacité limitée (backend) (`12bb176`)
+
+## 2026-08-25 21:09 UTC — Claude
+- chore: renumérote la migration ateliers en phase182 (`2264eb6`)
