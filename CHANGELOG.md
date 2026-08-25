@@ -845,3 +845,6 @@
 
 ## 2026-08-25 11:51 UTC — Claude
 - Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`c9f4ef7`)
+
+## 2026-08-25 11:58 UTC — Claude
+- seo: descriptions, Open Graph/Twitter, canonical, sitemap, robots.txt (`012d3d9`)
