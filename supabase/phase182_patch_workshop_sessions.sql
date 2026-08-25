@@ -1,5 +1,5 @@
 -- ============================================================
--- AkoraHub - Patch Phase 181 : ateliers en présentiel avec capacité
+-- AkoraHub - Patch Phase 182 : ateliers en présentiel avec capacité
 -- limitée (sessions programmées, réservation, staff-validation)
 -- À exécuter une seule fois : Supabase Dashboard -> SQL Editor -> New query
 --
