@@ -17,11 +17,12 @@ workflows:
         #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD  (optionnel — signature release)
         #   MAPS_API_KEY  (optionnel — suivi de livraison Google Maps,
         #     lu directement par android/app/build.gradle via System.getenv)
-        #   NETLIFY_AUTH_TOKEN, NETLIFY_SITE_ID  (optionnel — pages
-        #     publiques légères, voir .github/workflows/build-apk.yml)
         #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY  (optionnel — upload de
         #     l'APK sur Cloudflare R2 pour le lien de mise à jour stable,
-        #     24/08 — remplace Netlify pour ce fichier précis)
+        #     24/08). Les pages HTML publiques (docs/formation-access/) ne
+        #     dépendent plus de ce pipeline du tout depuis le 25/08 : elles
+        #     sont hébergées sur Cloudflare Pages, branché directement sur
+        #     le dépôt GitHub, redéploiement automatique à chaque push.
         #   UPDATE_VERSION_WEBHOOK_SECRET  (optionnel — doit correspondre
         #     au secret configuré côté Supabase, Edge Function
         #     update-latest-version)
@@ -126,29 +127,6 @@ workflows:
             echo "export R2_UPLOAD_OK=1" >> "$CM_ENV"
           else
             echo "Upload R2 échoué (non bloquant)."
-          fi
-
-      - name: Déployer les pages publiques sur Netlify
-        # Même mécanisme que .github/workflows/build-apk.yml côté GitHub
-        # Actions : ne dépose plus que les pages HTML légères
-        # (docs/formation-access/) — l'APK est passé sur Cloudflare R2
-        # ci-dessus (24/08, voir ce commentaire pour le pourquoi).
-        # Optionnel : ignoré si les secrets ne sont pas configurés.
-        script: |
-          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
-            echo "NETLIFY_AUTH_TOKEN/NETLIFY_SITE_ID non configurés — étape ignorée."
-            exit 0
-          fi
-          rm -rf /tmp/netlify-deploy
-          mkdir -p /tmp/netlify-deploy
-          cp docs/formation-access/*.html /tmp/netlify-deploy/
-          if npx --yes netlify-cli@17 deploy --prod \
-              --dir=/tmp/netlify-deploy \
-              --site="$NETLIFY_SITE_ID" \
-              --auth="$NETLIFY_AUTH_TOKEN"; then
-            echo "export NETLIFY_DEPLOY_OK=1" >> "$CM_ENV"
-          else
-            echo "Déploiement Netlify échoué (non bloquant)."
           fi
 
       - name: Notifier Supabase de la nouvelle version disponible

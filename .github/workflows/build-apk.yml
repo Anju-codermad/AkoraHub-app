@@ -22,8 +22,6 @@ jobs:
     env:
       GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
       FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT }}
-      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
@@ -148,8 +146,12 @@ jobs:
         # AUCUN frais de bande passante sortante — un fichier volumineux
         # téléchargé des milliers de fois n'y coûte jamais rien de plus
         # que le stockage (10 Go gratuits, l'APK en fait ~100-300 Mo).
-        # Netlify reste utilisé uniquement pour les pages HTML légères
-        # (voir étape suivante).
+        # Les pages HTML légères (docs/formation-access/) ne dépendent
+        # plus de ce workflow du tout depuis le 25/08 : le site Akora
+        # Fanadiovana est hébergé sur Cloudflare Pages, branché
+        # directement sur ce dépôt GitHub, et se redéploie tout seul à
+        # chaque push sur main (voir Cloudflare Dashboard -> Workers &
+        # Pages -> akorahub). Netlify n'est plus utilisé du tout.
         #
         # Optionnel : ignoré tant que R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY
         # ne sont pas configurés côté secrets GitHub.
@@ -165,45 +167,6 @@ jobs:
             echo "R2_UPLOAD_OK=1" >> "$GITHUB_ENV"
           else
             echo "Upload R2 échoué (non bloquant) — le lien de mise à jour restera sur GitHub Releases pour ce build."
-          fi
-
-      - name: Déployer les pages publiques sur Netlify
-        # Remplace l'upload Supabase Storage (abandonné le 05/08 — plan
-        # Free plafonné à 50 Mo, très en dessous des ~300 Mo de l'APK,
-        # échec systématique 413 "Payload too large"). Ne dépose plus que
-        # les pages HTML légères (docs/formation-access/) depuis le 24/08
-        # — l'APK est passé sur Cloudflare R2 ci-dessus (voir ce
-        # commentaire pour le pourquoi).
-        #
-        # Bénéfice secondaire : index.html et privacy-policy.html se
-        # déploient désormais automatiquement à chaque build (même
-        # contenu que le dépôt) — plus besoin de glisser-déposer
-        # manuellement sur Netlify à chaque modification de ces pages.
-        #
-        # Optionnel : ignoré tant que les secrets NETLIFY_AUTH_TOKEN et
-        # NETLIFY_SITE_ID ne sont pas configurés (jeton d'accès personnel
-        # Netlify + ID du site "akorahub-formation", pas son nom).
-        if: ${{ env.NETLIFY_AUTH_TOKEN != '' && env.NETLIFY_SITE_ID != '' }}
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: |
-          rm -rf /tmp/netlify-deploy
-          mkdir -p /tmp/netlify-deploy
-          cp docs/formation-access/*.html /tmp/netlify-deploy/
-          # produit.html (24/08, lien produit partageable) lit le
-          # catalogue directement depuis l'API publique Supabase — mêmes
-          # secrets GitHub que ceux déjà injectés dans env.json pour
-          # l'app elle-même, aucun nouveau secret à créer.
-          sed -i "s#__SUPABASE_URL__#${SUPABASE_URL}#g; s#__SUPABASE_ANON_KEY__#${SUPABASE_ANON_KEY}#g" \
-            /tmp/netlify-deploy/produit.html
-          if npx --yes netlify-cli@17 deploy --prod \
-              --dir=/tmp/netlify-deploy \
-              --site="$NETLIFY_SITE_ID" \
-              --auth="$NETLIFY_AUTH_TOKEN"; then
-            echo "NETLIFY_DEPLOY_OK=1" >> "$GITHUB_ENV"
-          else
-            echo "Déploiement Netlify échoué (non bloquant) — les pages publiques resteront sur leur dernière version déployée."
           fi
 
       - name: Notifier Supabase de la nouvelle version disponible

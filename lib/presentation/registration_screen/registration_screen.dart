@@ -27,12 +27,13 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
-  // Hébergée sur Netlify (même site que la page d'achat Formation) :
+  // Hébergée sur Cloudflare Pages (site "Akora Fanadiovana", même site
+  // que la page d'achat Formation — 25/08, remplace Netlify) :
   // Supabase Storage force le Content-Type des .html de ses buckets
   // publics à text/plain (anti-phishing), inutilisable pour une vraie
   // page web — voir PROJECT_CONTEXT.md, section Formation (01/08).
   static const _privacyPolicyUrl =
-      'https://akorahub-formation.netlify.app/privacy-policy.html';
+      'https://akorahub.pages.dev/privacy-policy.html';
 
   final _step1FormKey = GlobalKey<FormState>();
   final _step2FormKey = GlobalKey<FormState>();
