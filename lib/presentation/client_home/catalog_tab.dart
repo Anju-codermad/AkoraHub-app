@@ -1619,25 +1619,59 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
           ),
-          // Logo cliquable vers le site web (25/08, demande explicite) —
-          // ouvre la vitrine publique dans le navigateur du téléphone.
+          // Logo (site web) + bulle Akora AI (Messenger), côte à côte
+          // (25/08, demandes explicites) — ouvrent chacun leur lien dans le
+          // navigateur/l'appli Messenger du téléphone.
           SliverToBoxAdapter(
-            child: Center(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(28),
-                onTap: () => launchUrl(
-                  Uri.parse('https://akorahub-app.pages.dev'),
-                  mode: LaunchMode.externalApplication,
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(2.w),
-                  child: CircleAvatar(
-                    radius: 28,
-                    backgroundImage:
-                        const AssetImage('assets/images/brand_logo.jpg'),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(28),
+                  onTap: () => launchUrl(
+                    Uri.parse('https://akorahub-app.pages.dev'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(2.w),
+                    child: Column(
+                      children: [
+                        const CircleAvatar(
+                          radius: 28,
+                          backgroundImage:
+                              AssetImage('assets/images/brand_logo.jpg'),
+                        ),
+                        SizedBox(height: 0.5.h),
+                        Text('Notre site', style: TextStyle(fontSize: 10.sp)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+                SizedBox(width: 4.w),
+                InkWell(
+                  borderRadius: BorderRadius.circular(28),
+                  onTap: () => launchUrl(
+                    Uri.parse('https://m.me/105965631922451'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(2.w),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          child: const Icon(Icons.smart_toy_outlined,
+                              color: Colors.white),
+                        ),
+                        SizedBox(height: 0.5.h),
+                        Text('Akora AI', style: TextStyle(fontSize: 10.sp)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           SliverToBoxAdapter(child: SizedBox(height: 4.h)),
