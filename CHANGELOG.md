@@ -851,3 +851,6 @@
 
 ## 2026-08-25 11:58 UTC — Claude
 - seo: remettre noindex sur services.html (contenu placeholder) (`c9ccea2`)
+
+## 2026-08-25 12:19 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`2c651b2`)
