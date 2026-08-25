@@ -118,10 +118,23 @@ class _TwoFactorSetupScreenState extends State<TwoFactorSetupScreen> {
 
     setState(() => _isProcessing = true);
     try {
+      // Passe par `hyper-endpoint` (25/08, audit de sécurité) plutôt que
+      // signInWithPassword directement : un appel direct ici contournait
+      // le blocage après 5 échecs en 15 minutes (voir
+      // supabase/functions/hyper-endpoint/index.ts et
+      // authentication_screen.dart, même flux) — quelqu'un avec une
+      // session déjà ouverte aurait pu essayer le mot de passe sans
+      // limite pour retirer le 2FA.
       final email = SupabaseConfig.client.auth.currentUser?.email;
       if (email == null) throw Exception('email introuvable');
+      final response = await SupabaseConfig.client.functions.invoke(
+        'hyper-endpoint',
+        body: {'email': email, 'password': password},
+      );
+      final data = response.data as Map;
+      if (data['ok'] != true) throw Exception('mot de passe incorrect');
       await SupabaseConfig.client.auth
-          .signInWithPassword(email: email, password: password);
+          .setSession(data['refresh_token'] as String);
     } catch (_) {
       if (!mounted) return;
       setState(() => _isProcessing = false);

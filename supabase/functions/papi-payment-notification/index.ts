@@ -10,6 +10,21 @@
 // forger une fausse confirmation de paiement.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Comparaison en temps constant (25/08, audit de sécurité) — un simple
+// `!==` retourne dès le premier caractère différent, ce qui laisse
+// théoriquement deviner le token octet par octet via le temps de
+// réponse. Même principe que la vérification HMAC de
+// fiveonepay-payment-notification, adapté à une comparaison directe de
+// chaînes (Papi ne signe pas tout le corps de la requête).
+function timingSafeEqual(a: string, b: string): boolean {
+  const maxLength = Math.max(a.length, b.length);
+  let diff = a.length === b.length ? 0 : 1;
+  for (let i = 0; i < maxLength; i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   try {
     const body = await req.json();
@@ -35,7 +50,11 @@ Deno.serve(async (req) => {
       .eq("order_number", paymentReference)
       .maybeSingle();
 
-    if (!order || order.papi_notification_token !== notificationToken) {
+    if (
+      !order ||
+      !order.papi_notification_token ||
+      !timingSafeEqual(order.papi_notification_token, notificationToken)
+    ) {
       // Ne répond jamais par une erreur ici : Papi réessaierait
       // indéfiniment un webhook en échec. On journalise seulement côté
       // serveur (Logs de cette fonction) pour investigation manuelle.
