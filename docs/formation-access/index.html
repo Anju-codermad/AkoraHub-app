@@ -48,7 +48,16 @@
   .site-footer-links a:hover { color: var(--accent-strong); }
   .site-footer-copy { color: var(--text-faint); font-size: 0.78rem; margin-top: 0.8rem; }
 
-  header { text-align: center; margin-bottom: 2rem; }
+  .hero-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
+    aspect-ratio: 4 / 3; overflow: hidden; background: var(--accent-soft);
+  }
+  .hero-grid > div {
+    background: var(--accent-soft); overflow: hidden;
+  }
+  .hero-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  header { text-align: center; margin: 1.6rem 0 2rem; }
   .logo { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; margin-bottom: 0.8rem; }
   .brand { font-weight: 800; font-size: 1.6rem; color: var(--accent-strong); letter-spacing: -0.01em; }
   .tagline { color: var(--text-muted); font-size: 0.98rem; margin-top: 0.4rem; }
@@ -100,6 +109,9 @@
     </div>
   </div>
 </nav>
+<div class="hero-grid" id="hero-grid">
+  <div></div><div></div><div></div><div></div>
+</div>
 <div class="page">
   <header>
     <img class="logo" src="logo.jpg" alt="Akora Fanadiovana" />
@@ -155,5 +167,29 @@
     <p class="site-footer-copy">© Akora Fanadiovana — Antananarivo, Madagascar</p>
   </div>
 </footer>
+<script>
+  // Hero fait de vraies photos du catalogue (pas d'images génériques) —
+  // même API publique que catalogue.html/produit.html, mêmes identifiants
+  // Supabase substitués au déploiement.
+  (async () => {
+    const SUPABASE_URL = "__SUPABASE_URL__";
+    const SUPABASE_ANON_KEY = "__SUPABASE_ANON_KEY__";
+    if (SUPABASE_URL.indexOf("__") === 0) return;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/products?visibility=eq.true&image_url=not.is.null&select=name,image_url&limit=4`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      const products = await res.json();
+      if (!Array.isArray(products) || products.length === 0) return;
+      const grid = document.getElementById("hero-grid");
+      grid.innerHTML = products.slice(0, 4).map((p) => `
+        <div><img src="${p.image_url}" alt="${(p.name || "").replace(/"/g, "&quot;")}" loading="lazy" /></div>
+      `).join("");
+    } catch (e) {
+      // Repli silencieux : les 4 tuiles vides (fond de couleur) restent affichées.
+    }
+  })();
+</script>
 </body>
 </html>
