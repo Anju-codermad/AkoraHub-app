@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Catalogue — Akora Fanadiovana</title>
+<meta name="robots" content="noindex" />
+<style>
+  :root {
+    --bg: #faf9f5;
+    --surface: #ffffff;
+    --text: #1c2420;
+    --text-muted: #59685f;
+    --text-faint: #8a978f;
+    --accent: #145f58;
+    --accent-strong: #0a5142;
+    --accent-soft: #e6f1ec;
+    --border: #dfe6e0;
+    --border-strong: #c5d0c8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 880px; margin: 0 auto; padding: 1.6rem 1.1rem 3.5rem; }
+
+  .top { margin-bottom: 1.4rem; }
+  .back { color: var(--accent-strong); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+  h1 { font-size: 1.4rem; margin: 0.6rem 0 0.3rem; letter-spacing: -0.01em; }
+  .subtitle { color: var(--text-muted); font-size: 0.92rem; margin: 0 0 1.2rem; }
+
+  .search-box { position: relative; margin-bottom: 1.6rem; }
+  .search-box input {
+    width: 100%; padding: 0.7rem 0.9rem 0.7rem 2.3rem; border: 1px solid var(--border-strong);
+    border-radius: 8px; font-size: 1rem; background: var(--surface); color: var(--text);
+  }
+  .search-box input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .search-box::before {
+    content: "🔍"; position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%);
+    font-size: 0.9rem; opacity: 0.5;
+  }
+
+  .category { margin-bottom: 1.8rem; }
+  .category h2 {
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--accent-strong); margin: 0 0 0.7rem;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.9rem;
+  }
+  .product-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .product-link { color: inherit; text-decoration: none; display: block; }
+  .photo {
+    width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--accent-soft);
+    display: block;
+  }
+  .product-body { padding: 0.7rem 0.8rem 0.85rem; }
+  .product-name {
+    font-size: 0.9rem; font-weight: 600; margin: 0 0 0.3rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .product-price { font-size: 0.92rem; font-weight: 700; color: var(--accent-strong); margin: 0 0 0.6rem; }
+  .order-btn {
+    display: block; text-align: center; text-decoration: none; font-weight: 600; font-size: 0.8rem;
+    padding: 0.55rem 0.6rem; border-radius: 7px; background: var(--accent); color: #fff;
+  }
+
+  .state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <a class="back" href="index.html">← Akora Fanadiovana</a>
+    <h1>Catalogue produits</h1>
+    <p class="subtitle">Matières premières de fabrication &amp; cosmétique. Commande via l'application AkoraHub.</p>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="search" placeholder="Rechercher un produit…" />
+  </div>
+
+  <div id="content" class="state">Chargement du catalogue…</div>
+</div>
+
+<script>
+  const SUPABASE_URL = "__SUPABASE_URL__";
+  const SUPABASE_ANON_KEY = "__SUPABASE_ANON_KEY__";
+  const APK_URL = "https://pub-70ec95969f72425aa8ccf641a3bba312.r2.dev/akorahub-latest.apk";
+
+  let allProducts = [];
+
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function productCard(p) {
+    const price = typeof p.price_detail === "number"
+      ? p.price_detail.toLocaleString("fr-FR") + " Ar"
+      : "";
+    const photo = p.image_url
+      ? `<img class="photo" src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" />`
+      : `<div class="photo"></div>`;
+    return `
+      <div class="product-card">
+        <a class="product-link" href="produit.html?id=${encodeURIComponent(p.id)}">
+          ${photo}
+          <div class="product-body">
+            <p class="product-name">${escapeHtml(p.name)}</p>
+            ${price ? `<p class="product-price">${price}</p>` : ""}
+          </div>
+        </a>
+        <div style="padding: 0 0.8rem 0.8rem;">
+          <a class="order-btn" href="${APK_URL}">Commander dans l'app</a>
+        </div>
+      </div>
+    `;
+  }
+
+  function render(products) {
+    const content = document.getElementById("content");
+    if (products.length === 0) {
+      content.className = "state";
+      content.innerHTML = "<p>Aucun produit trouvé.</p>";
+      return;
+    }
+    const byCategory = new Map();
+    for (const p of products) {
+      const cat = p.category || "Autres";
+      if (!byCategory.has(cat)) byCategory.set(cat, []);
+      byCategory.get(cat).push(p);
+    }
+    content.className = "";
+    content.innerHTML = [...byCategory.entries()].map(([cat, items]) => `
+      <div class="category">
+        <h2>${escapeHtml(cat)}</h2>
+        <div class="grid">${items.map(productCard).join("")}</div>
+      </div>
+    `).join("");
+  }
+
+  async function load() {
+    const content = document.getElementById("content");
+    if (SUPABASE_URL.indexOf("__") === 0) {
+      content.innerHTML = '<p>Catalogue indisponible.</p>';
+      return;
+    }
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/products?visibility=eq.true&select=id,name,category,price_detail,image_url&order=category,name`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      allProducts = await res.json();
+      if (!Array.isArray(allProducts)) allProducts = [];
+    } catch (e) {
+      allProducts = [];
+    }
+    render(allProducts);
+  }
+
+  document.getElementById("search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = q
+      ? allProducts.filter((p) =>
+          (p.name || "").toLowerCase().includes(q) ||
+          (p.category || "").toLowerCase().includes(q))
+      : allProducts;
+    render(filtered);
+  });
+
+  load();
+</script>
+</body>
+</html>
