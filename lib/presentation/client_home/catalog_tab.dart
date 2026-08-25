@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/chat/unread_support_messages.dart';
 import '../../core/constants/client_types.dart';
@@ -1614,6 +1615,27 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 label: const Text('Voir tout le catalogue'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: Size(double.infinity, 48),
+                ),
+              ),
+            ),
+          ),
+          // Logo cliquable vers le site web (25/08, demande explicite) —
+          // ouvre la vitrine publique dans le navigateur du téléphone.
+          SliverToBoxAdapter(
+            child: Center(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: () => launchUrl(
+                  Uri.parse('https://akorahub-app.pages.dev'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(2.w),
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundImage:
+                        const AssetImage('assets/images/brand_logo.jpg'),
+                  ),
                 ),
               ),
             ),
