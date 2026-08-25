@@ -114,11 +114,12 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.6rem 1.1rem;
   }
   .founder-photo {
-    width: 130px; height: 130px; border-radius: 10px; flex-shrink: 0;
-    object-fit: cover;
+    width: 220px; height: 220px; border-radius: 10px; flex-shrink: 0;
+    object-fit: contain;
   }
   .founder-name { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 0.2rem; }
   .founder-role { font-size: 0.85rem; color: var(--text-muted); }
+  @media (min-width: 600px) { .founder-photo { width: 280px; height: 280px; } }
   @media (min-width: 600px) { .founder-photo { width: 170px; height: 170px; } }
 </style>
 </head>
@@ -179,7 +180,7 @@
 
   <h2>Fondateur</h2>
   <div class="founder-card">
-    <img class="founder-photo" src="founder.webp" alt="A. Julio, fondateur d'Akora Fanadiovana" />
+    <img class="founder-photo" src="founder-full.webp" alt="A. Julio, fondateur d'Akora Fanadiovana" />
     <div>
       <div class="founder-name">A. Julio</div>
       <div class="founder-role">Fondateur, Akora Fanadiovana</div>
