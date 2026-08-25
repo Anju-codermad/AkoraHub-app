@@ -32,6 +32,7 @@
   .site-nav {
     display: flex; align-items: center; justify-content: space-between;
     margin: -32px -20px 24px; padding: 0.9rem 20px; border-bottom: 1px solid #eee;
+    position: relative;
   }
   .site-nav-brand {
     display: flex; align-items: center; gap: 0.5rem; text-decoration: none;
@@ -41,9 +42,18 @@
   .site-nav-links { display: flex; gap: 1.1rem; }
   .site-nav-links a { text-decoration: none; font-size: 0.86rem; font-weight: 600; color: #666; }
   .site-nav-links a:hover { color: #0b5a80; }
-  @media (max-width: 480px) {
-    .site-nav { flex-direction: column; gap: 0.6rem; align-items: center; }
-    .site-nav-links { flex-wrap: wrap; justify-content: center; gap: 0.5rem 0.9rem; }
+  .site-nav-toggle {
+    display: none; background: none; border: none; cursor: pointer;
+    padding: 0.3rem; font-size: 1.4rem; line-height: 1; color: #1c2420;
+  }
+  @media (max-width: 899px) {
+    .site-nav-toggle { display: block; }
+    .site-nav-links {
+      display: none; position: absolute; top: 100%; left: 0; right: 0;
+      flex-direction: column; gap: 0.9rem; background: #fff;
+      border-bottom: 1px solid #eee; padding: 1rem 20px; z-index: 30;
+    }
+    .site-nav-links.open { display: flex; }
   }
 
   .site-footer { background: #0b5a80; color: #dbe9ee; margin: 40px -20px -80px; padding: 2.6rem 20px 1.6rem; }
@@ -87,6 +97,8 @@
     <img src="logo.jpg" alt="" />
     Akora Fanadiovana
   </a>
+  <button class="site-nav-toggle" aria-label="Menu"
+    onclick="document.querySelector('.site-nav-links').classList.toggle('open')">☰</button>
   <div class="site-nav-links">
     <a href="index.html">Accueil</a>
     <a href="catalogue.html">Catalogue</a>
