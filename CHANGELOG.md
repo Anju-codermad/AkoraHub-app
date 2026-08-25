@@ -848,3 +848,6 @@
 
 ## 2026-08-25 11:58 UTC — Claude
 - seo: descriptions, Open Graph/Twitter, canonical, sitemap, robots.txt (`012d3d9`)
+
+## 2026-08-25 11:58 UTC — Claude
+- seo: remettre noindex sur services.html (contenu placeholder) (`c9ccea2`)
