@@ -139,6 +139,7 @@
   .category-section { margin-bottom: 2.2rem; }
   .chips { display: flex; gap: 0.6rem; overflow-x: auto; padding-bottom: 0.2rem; scrollbar-width: none; }
   .chips::-webkit-scrollbar { display: none; }
+  @media (min-width: 700px) { .chips { flex-wrap: wrap; overflow-x: visible; } }
   .chip {
     flex: 0 0 auto; background: var(--surface); border: 1px solid var(--border-strong);
     border-radius: 999px; padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600;
