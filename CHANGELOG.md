@@ -791,3 +791,6 @@
 
 ## 2026-08-25 07:24 UTC — Anju-codermad
 - Add files via upload (`850dfd0`)
+
+## 2026-08-25 07:25 UTC — Claude
+- Intégrer le logo Akora Fanadiovana au site (`1ce9206`)
