@@ -33,7 +33,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // publics à text/plain (anti-phishing), inutilisable pour une vraie
   // page web — voir PROJECT_CONTEXT.md, section Formation (01/08).
   static const _privacyPolicyUrl =
-      'https://akorahub.pages.dev/privacy-policy.html';
+      'https://akorahub-app.pages.dev/privacy-policy.html';
 
   final _step1FormKey = GlobalKey<FormState>();
   final _step2FormKey = GlobalKey<FormState>();

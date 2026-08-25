@@ -24,7 +24,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// sur main, sans étape manuelle (remplace Netlify, qui a fini par
 /// bloquer tous les déploiements pour dépassement de quota le 24/08).
 const String formationPurchaseWebUrl =
-    'https://akorahub.pages.dev/formation.html';
+    'https://akorahub-app.pages.dev/formation.html';
 
 Future<void> openFormationPurchaseWeb(BuildContext context) async {
   try {
