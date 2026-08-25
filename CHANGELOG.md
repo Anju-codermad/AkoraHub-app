@@ -902,3 +902,6 @@
 
 ## 2026-08-25 20:56 UTC — Claude
 - Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`ff98ada`)
+
+## 2026-08-25 20:56 UTC — Claude
+- feat: système d'ateliers en présentiel avec capacité limitée (backend) (`12bb176`)
