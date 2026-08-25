@@ -881,3 +881,6 @@
 
 ## 2026-08-25 20:04 UTC — Anju-codermad
 - Add files via upload (`27aa1a7`)
+
+## 2026-08-25 20:05 UTC — Claude
+- feat: photo du fondateur dans la page À propos (`cd0b0e1`)
