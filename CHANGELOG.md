@@ -833,3 +833,9 @@
 
 ## 2026-08-25 08:39 UTC — Claude
 - Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`bf1c91e`)
+
+## 2026-08-25 09:07 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`9d8d24c`)
+
+## 2026-08-25 09:43 UTC — Claude
+- fix: appId manquant dans FB.init empêchait l'affichage du plug-in de chat (`b5777d3`)
