@@ -11,6 +11,7 @@ import '../flash_infos_management/flash_infos_management.dart';
 import '../home_banners_management/home_banners_management.dart';
 import '../notification_sounds_catalog_admin/notification_sounds_catalog_admin_screen.dart';
 import '../payment_methods_management/payment_methods_management.dart';
+import '../mobile_money_reconciliation/mobile_money_reconciliation_screen.dart';
 import '../quotes_management/quotes_management.dart';
 import '../order_management_real/order_management_real.dart';
 import '../messaging_center_real/messaging_center_real.dart';
@@ -327,6 +328,17 @@ class _FullMoreMenu extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const PaymentMethodsManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.sms_outlined,
+            label: 'Paiements Mobile Money à rapprocher',
+            subtitle: 'Confirmations SMS que l\'automatisation n\'a pas '
+                'su lier seule à une commande',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const MobileMoneyReconciliationScreen()),
             ),
           ),
           _MenuTile(
