@@ -108,15 +108,27 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    if (!operator || !parsedAmount) {
-      // On garde une trace même d'un SMS qu'on n'a pas su analyser
-      // (opérateur ou montant introuvable) — visible en "unmatched" côté
-      // écran admin, pour rapprochement manuel et pour repérer si le
-      // format du SMS a changé.
+    if (!operator) {
+      // Le téléphone-passerelle relaie TOUS les SMS reçus (déclencheur
+      // "Tout numéro", car les opérateurs envoient depuis un nom
+      // d'expéditeur, pas un numéro classique) — un SMS personnel, un
+      // code OTP ou une pub n'a donc aucun rapport avec un paiement.
+      // Ignoré silencieusement, sans même l'enregistrer, pour ne pas
+      // polluer l'écran admin de rapprochement.
+      return new Response("ok", { status: 200 });
+    }
+
+    if (!parsedAmount) {
+      // Ici en revanche, l'opérateur EST reconnu (mot-clé Mvola/Orange
+      // Money/Airtel Money dans le texte) mais le montant n'a pas pu être
+      // extrait — probablement un SMS opérateur qui n'est pas une
+      // confirmation de réception (solde, pub...), ou un format qui a
+      // changé. On le garde en "unmatched" pour vérification manuelle et
+      // pour repérer si l'analyse du texte doit être ajustée.
       await supabaseAdmin.from("mobile_money_sms_events").insert({
-        operator: operator ?? "mvola",
+        operator,
         raw_text: text,
-        parsed_amount: parsedAmount,
+        parsed_amount: null,
         parsed_sender_phone: parsedSenderPhone,
         sms_received_at: smsReceivedAt,
         match_status: "unmatched",
