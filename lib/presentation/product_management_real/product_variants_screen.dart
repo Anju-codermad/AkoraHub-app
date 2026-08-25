@@ -211,7 +211,7 @@ class _ProductVariantsScreenState
                       child: DropdownButtonFormField<String>(
                         initialValue: selectedParfumId,
                         decoration: const InputDecoration(
-                            labelText: 'Parfum (optionnel)'),
+                            labelText: 'Parfum / Concentration (optionnel)'),
                         items: [
                           const DropdownMenuItem<String>(
                             value: null,

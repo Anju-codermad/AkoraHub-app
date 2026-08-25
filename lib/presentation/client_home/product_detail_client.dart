@@ -452,7 +452,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                 ),
                 if (_availableParfums.isNotEmpty) ...[
                   SizedBox(height: 1.5.h),
-                  Text('Parfum', style: theme.textTheme.titleSmall),
+                  Text('Parfum / Concentration', style: theme.textTheme.titleSmall),
                   SizedBox(height: 0.5.h),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedParfumId,
