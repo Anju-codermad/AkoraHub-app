@@ -24,6 +24,7 @@ jobs:
       FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
     steps:
       - name: Récupérer le code
@@ -117,6 +118,28 @@ jobs:
         run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+
+      - name: Compiler la version web (admin) — même code que l'app mobile
+        # 25/08, demande explicite : plutôt que de recoder l'admin en HTML/JS
+        # séparément (doublon à maintenir), on compile directement l'app
+        # Flutter existante pour le web — mêmes écrans produits/variantes/
+        # commandes/formation, testés localement (build réussi sans erreur).
+        # Certains écrans dépendant de plugins natifs (caméra, scanner
+        # code-barre, carte de livraison, appels audio/vidéo) peuvent ne
+        # pas fonctionner correctement sur navigateur — à vérifier au cas
+        # par cas, non bloquant pour le reste de l'admin.
+        run: flutter build web --release
+
+      - name: Déployer l'admin web sur Cloudflare Pages
+        # Optionnel — ignoré tant que CLOUDFLARE_API_TOKEN n'est pas
+        # configuré (Account API Token, permission "Cloudflare Pages:Edit"
+        # uniquement). Le projet "akorahub-admin" est créé automatiquement
+        # par Wrangler au premier déploiement s'il n'existe pas déjà.
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ecfee9b5296944ea1de770687795776a
+        run: npx wrangler@latest pages deploy build/web --project-name=akorahub-admin --branch=main --commit-dirty=true
 
       - name: Publier sur Firebase App Distribution (testeurs bêta)
         # Optionnel — ne s'active que si le compte de service dédié est
