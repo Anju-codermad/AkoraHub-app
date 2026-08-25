@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1619,63 +1620,107 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
           ),
-          // Logo (site web) + bulle Akora AI (Messenger), côte à côte
+          // Logo (site web), Akora AI (Messenger) et réseaux sociaux
           // (25/08, demandes explicites) — ouvrent chacun leur lien dans le
-          // navigateur/l'appli Messenger du téléphone.
+          // navigateur/l'appli correspondante du téléphone. Icônes WhatsApp/
+          // Facebook/TikTok : mêmes tracés SVG que le footer du site web,
+          // pour rester visuellement cohérent (pas de nouvelle dépendance,
+          // flutter_svg est déjà utilisé ailleurs dans l'app).
           SliverToBoxAdapter(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 4.w,
+              runSpacing: 1.5.h,
               children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(28),
-                  onTap: () => launchUrl(
-                    Uri.parse('https://akorahub-app.pages.dev'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(2.w),
-                    child: Column(
-                      children: [
-                        const CircleAvatar(
-                          radius: 28,
-                          backgroundImage:
-                              AssetImage('assets/images/brand_logo.jpg'),
-                        ),
-                        SizedBox(height: 0.5.h),
-                        Text('Notre site', style: TextStyle(fontSize: 10.sp)),
-                      ],
-                    ),
-                  ),
+                _SocialLinkButton(
+                  label: 'Notre site',
+                  url: 'https://akorahub-app.pages.dev',
+                  avatarImage: const AssetImage('assets/images/brand_logo.jpg'),
                 ),
-                SizedBox(width: 4.w),
-                InkWell(
-                  borderRadius: BorderRadius.circular(28),
-                  onTap: () => launchUrl(
-                    Uri.parse('https://m.me/105965631922451'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(2.w),
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          child: const Icon(Icons.smart_toy_outlined,
-                              color: Colors.white),
-                        ),
-                        SizedBox(height: 0.5.h),
-                        Text('Akora AI', style: TextStyle(fontSize: 10.sp)),
-                      ],
-                    ),
-                  ),
+                _SocialLinkButton(
+                  label: 'Akora AI',
+                  url: 'https://m.me/105965631922451',
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  icon: Icons.smart_toy_outlined,
+                ),
+                _SocialLinkButton(
+                  label: 'WhatsApp',
+                  url: 'https://wa.me/261340874696',
+                  backgroundColor: const Color(0xFF25D366),
+                  svgPath:
+                      'M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.87 9.87 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2Zm0 18.06h-.01a8.15 8.15 0 0 1-4.15-1.14l-.3-.18-3.11.82.83-3.03-.19-.31a8.14 8.14 0 0 1-1.25-4.33c0-4.5 3.66-8.16 8.17-8.16 2.18 0 4.23.85 5.77 2.39a8.1 8.1 0 0 1 2.39 5.78c0 4.5-3.67 8.16-8.15 8.16Zm4.48-6.11c-.25-.12-1.45-.71-1.67-.8-.22-.08-.39-.12-.55.13-.16.24-.63.79-.78.96-.14.16-.29.18-.53.06-.25-.12-1.04-.38-1.98-1.21-.73-.65-1.23-1.46-1.37-1.7-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.55-1.33-.76-1.82-.2-.48-.4-.41-.55-.42h-.47c-.16 0-.42.06-.64.31-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.13 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.09.47-.07 1.45-.59 1.65-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.47-.28Z',
+                ),
+                _SocialLinkButton(
+                  label: 'Facebook',
+                  url: 'https://www.facebook.com/share/19RrfFUYkk/',
+                  backgroundColor: const Color(0xFF1877F2),
+                  svgPath:
+                      'M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z',
+                ),
+                _SocialLinkButton(
+                  label: 'TikTok',
+                  url: 'https://www.tiktok.com/@akorafanadiovana',
+                  backgroundColor: Colors.black,
+                  svgPath:
+                      'M16.6 5.82s.51.5 0 0A4.278 4.278 0 0 1 15.54 3h-3.09v12.4a2.592 2.592 0 0 1-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6c0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64c0 3.33 2.76 5.7 5.69 5.7c3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3s-1.88.09-3.24-1.48z',
                 ),
               ],
             ),
           ),
           SliverToBoxAdapter(child: SizedBox(height: 4.h)),
         ],
+      ),
+    );
+  }
+}
+
+/// Icône ronde + libellé, cliquable vers une URL externe — utilisé pour le
+/// site web, Akora AI (Messenger) et les réseaux sociaux sur l'Accueil.
+class _SocialLinkButton extends StatelessWidget {
+  final String label;
+  final String url;
+  final Color? backgroundColor;
+  final ImageProvider? avatarImage;
+  final IconData? icon;
+  final String? svgPath;
+
+  const _SocialLinkButton({
+    required this.label,
+    required this.url,
+    this.backgroundColor,
+    this.avatarImage,
+    this.icon,
+    this.svgPath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(28),
+      onTap: () =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      child: Padding(
+        padding: EdgeInsets.all(2.w),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: backgroundColor,
+              backgroundImage: avatarImage,
+              child: svgPath != null
+                  ? SvgPicture.string(
+                      '<svg viewBox="0 0 24 24"><path fill="#fff" d="$svgPath"/></svg>',
+                      width: 26,
+                      height: 26,
+                    )
+                  : (icon != null
+                      ? Icon(icon, color: Colors.white)
+                      : null),
+            ),
+            SizedBox(height: 0.5.h),
+            Text(label, style: TextStyle(fontSize: 10.sp)),
+          ],
+        ),
       ),
     );
   }
