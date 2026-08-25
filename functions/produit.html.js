@@ -36,12 +36,34 @@ export async function onRequestGet(context) {
   }
   if (!product || product.visibility === false) return response;
 
+  // Produits à variantes (Format/Parfum/Concentration, ex. Eau de Javel,
+  // Peroxyde d'hydrogène) : la fiche produit elle-même n'a ni photo ni
+  // prix (price_detail reste à 0 par défaut, image_url à vide) — tout est
+  // sur `product_variants`. Repli sur la variante la moins chère pour
+  // qu'un tel produit ait quand même une vraie photo/un vrai prix dans
+  // l'aperçu de lien (25/08, demande explicite : "tout le produit... doit
+  // avoir un lien correspondant").
+  let variant;
+  if (!product.image_url || !product.price_detail) {
+    try {
+      const vres = await fetch(
+        `${env.SUPABASE_URL}/rest/v1/product_variants?product_id=eq.${encodeURIComponent(id)}&select=price_detail,image_url&order=price_detail.asc&limit=1`,
+        { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${env.SUPABASE_ANON_KEY}` } }
+      );
+      const vrows = await vres.json();
+      variant = vrows && vrows[0];
+    } catch (e) {
+      // Repli silencieux : la fiche produit garde ses propres valeurs.
+    }
+  }
+
   const title = `${product.name} — Akora Fanadiovana`;
-  const price = typeof product.price_detail === "number"
-    ? product.price_detail.toLocaleString("fr-FR") + " Ar"
+  const effectivePrice = product.price_detail || variant?.price_detail;
+  const price = typeof effectivePrice === "number" && effectivePrice > 0
+    ? effectivePrice.toLocaleString("fr-FR") + " Ar"
     : "";
   const description = price ? `${price} — Commandez sur AkoraHub.` : "Commandez sur AkoraHub.";
-  const image = product.image_url || "https://akorahub-app.pages.dev/logo.jpg";
+  const image = product.image_url || variant?.image_url || "https://akorahub-app.pages.dev/logo.jpg";
 
   const tags = `
     <meta property="og:type" content="product" />

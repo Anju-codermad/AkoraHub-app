@@ -223,11 +223,30 @@
       return;
     }
 
-    const price = typeof product.price_detail === "number"
-      ? product.price_detail.toLocaleString("fr-FR") + " Ar"
+    // Produits à variantes (Format/Parfum/Concentration) : la fiche
+    // produit elle-même n'a ni photo ni prix — repli sur la variante la
+    // moins chère (25/08, même logique que functions/produit.html.js).
+    let variant;
+    if (!product.image_url || !product.price_detail) {
+      try {
+        const vres = await fetch(
+          `${SUPABASE_URL}/rest/v1/product_variants?product_id=eq.${encodeURIComponent(id)}&select=price_detail,image_url&order=price_detail.asc&limit=1`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        const vrows = await vres.json();
+        variant = vrows && vrows[0];
+      } catch (e) {
+        // Repli silencieux : la fiche produit garde ses propres valeurs.
+      }
+    }
+
+    const effectivePrice = product.price_detail || variant?.price_detail;
+    const price = typeof effectivePrice === "number" && effectivePrice > 0
+      ? effectivePrice.toLocaleString("fr-FR") + " Ar"
       : "";
-    const photo = product.image_url
-      ? `<img class="photo" src="${escapeHtml(product.image_url)}" alt="${escapeHtml(product.name)}" />`
+    const effectiveImage = product.image_url || variant?.image_url;
+    const photo = effectiveImage
+      ? `<img class="photo" src="${escapeHtml(effectiveImage)}" alt="${escapeHtml(product.name)}" />`
       : "";
 
     content.className = "";
