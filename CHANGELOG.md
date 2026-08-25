@@ -776,3 +776,6 @@
 
 ## 2026-08-25 00:59 UTC — Claude
 - Move APK hosting from Netlify to Cloudflare R2 (`4ad03c3`)
+
+## 2026-08-25 01:33 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`7203bf1`)
