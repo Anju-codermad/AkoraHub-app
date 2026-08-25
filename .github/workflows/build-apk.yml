@@ -24,6 +24,8 @@ jobs:
       FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_APP_DISTRIBUTION_SERVICE_ACCOUNT }}
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
       NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
     steps:
       - name: Récupérer le code
@@ -136,14 +138,42 @@ jobs:
           file: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           releaseNotes: ${{ github.event.head_commit.message }}
 
-      - name: Déployer l'APK + les pages publiques sur Netlify
+      - name: Uploader l'APK sur Cloudflare R2
+        # Remplace le dépôt de l'APK sur Netlify (24/08) — le plan gratuit
+        # Netlify a une limite de bande passante mensuelle, et chaque
+        # build + chaque téléchargement client consommaient ce quota au
+        # même endroit que les pages publiques légères (docs/formation-access/),
+        # ce qui a fini par tout suspendre (site entier mis en pause le
+        # 24/08 : "reached its usage limits"). R2 (compatible S3) n'a
+        # AUCUN frais de bande passante sortante — un fichier volumineux
+        # téléchargé des milliers de fois n'y coûte jamais rien de plus
+        # que le stockage (10 Go gratuits, l'APK en fait ~100-300 Mo).
+        # Netlify reste utilisé uniquement pour les pages HTML légères
+        # (voir étape suivante).
+        #
+        # Optionnel : ignoré tant que R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY
+        # ne sont pas configurés côté secrets GitHub.
+        if: ${{ env.R2_ACCESS_KEY_ID != '' && env.R2_SECRET_ACCESS_KEY != '' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          if aws s3 cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+              s3://akorahub-releases/akorahub-latest.apk \
+              --endpoint-url https://ecfee9b5296944ea1de770687795776a.r2.cloudflarestorage.com; then
+            echo "R2_UPLOAD_OK=1" >> "$GITHUB_ENV"
+          else
+            echo "Upload R2 échoué (non bloquant) — le lien de mise à jour restera sur GitHub Releases pour ce build."
+          fi
+
+      - name: Déployer les pages publiques sur Netlify
         # Remplace l'upload Supabase Storage (abandonné le 05/08 — plan
         # Free plafonné à 50 Mo, très en dessous des ~300 Mo de l'APK,
-        # échec systématique 413 "Payload too large"). Réutilise le site
-        # Netlify déjà en place pour les pages publiques
-        # (docs/formation-access/) : dépose l'APK à côté, toujours sous
-        # le même nom (akorahub-latest.apk, jamais versionné par build) —
-        # donne un lien qui ne change jamais d'un build à l'autre.
+        # échec systématique 413 "Payload too large"). Ne dépose plus que
+        # les pages HTML légères (docs/formation-access/) depuis le 24/08
+        # — l'APK est passé sur Cloudflare R2 ci-dessus (voir ce
+        # commentaire pour le pourquoi).
         #
         # Bénéfice secondaire : index.html et privacy-policy.html se
         # déploient désormais automatiquement à chaque build (même
@@ -167,14 +197,13 @@ jobs:
           # l'app elle-même, aucun nouveau secret à créer.
           sed -i "s#__SUPABASE_URL__#${SUPABASE_URL}#g; s#__SUPABASE_ANON_KEY__#${SUPABASE_ANON_KEY}#g" \
             /tmp/netlify-deploy/produit.html
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk /tmp/netlify-deploy/akorahub-latest.apk
           if npx --yes netlify-cli@17 deploy --prod \
               --dir=/tmp/netlify-deploy \
               --site="$NETLIFY_SITE_ID" \
               --auth="$NETLIFY_AUTH_TOKEN"; then
             echo "NETLIFY_DEPLOY_OK=1" >> "$GITHUB_ENV"
           else
-            echo "Déploiement Netlify échoué (non bloquant) — le lien de mise à jour restera sur GitHub Releases pour ce build."
+            echo "Déploiement Netlify échoué (non bloquant) — les pages publiques resteront sur leur dernière version déployée."
           fi
 
       - name: Notifier Supabase de la nouvelle version disponible
@@ -196,14 +225,15 @@ jobs:
         # Dashboard). D'où l'en-tête Authorization avec la clé anon
         # ci-dessous, en plus du secret applicatif.
         #
-        # downloadUrl pointe vers le lien Netlify stable UNIQUEMENT si le
-        # déploiement de l'étape précédente a réellement réussi
-        # (NETLIFY_DEPLOY_OK == 1) — pas juste si les secrets sont
-        # configurés, pour ne jamais construire un lien vers un fichier
-        # qui n'a pas été déposé (bug repéré sur la tentative Supabase
-        # Storage précédente, corrigé le 05/08). Repli sur l'ancien lien
-        # GitHub (toujours inutilisable par un vrai client tant que le
-        # dépôt est privé, mais au moins pas un lien mort).
+        # downloadUrl pointe vers le lien R2 stable UNIQUEMENT si l'upload
+        # de l'étape précédente a réellement réussi (R2_UPLOAD_OK == 1) —
+        # pas juste si les secrets sont configurés, pour ne jamais
+        # construire un lien vers un fichier qui n'a pas été déposé (bug
+        # repéré sur la tentative Supabase Storage précédente, corrigé le
+        # 05/08 ; migré de Netlify vers R2 le 24/08, voir l'étape
+        # "Uploader l'APK sur Cloudflare R2" ci-dessus). Repli sur
+        # l'ancien lien GitHub (toujours inutilisable par un vrai client
+        # tant que le dépôt est privé, mais au moins pas un lien mort).
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -212,8 +242,8 @@ jobs:
           VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
           VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
           BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
-          if [ "$NETLIFY_DEPLOY_OK" = "1" ]; then
-            DOWNLOAD_URL="https://akorahub-formation.netlify.app/akorahub-latest.apk"
+          if [ "$R2_UPLOAD_OK" = "1" ]; then
+            DOWNLOAD_URL="https://pub-70ec95969f72425aa8ccf641a3bba312.r2.dev/akorahub-latest.apk"
           else
             DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/tag/build-${{ github.run_number }}"
           fi

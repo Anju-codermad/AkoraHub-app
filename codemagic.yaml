@@ -17,9 +17,11 @@ workflows:
         #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD  (optionnel — signature release)
         #   MAPS_API_KEY  (optionnel — suivi de livraison Google Maps,
         #     lu directement par android/app/build.gradle via System.getenv)
-        #   NETLIFY_AUTH_TOKEN, NETLIFY_SITE_ID  (optionnel — lien de mise
-        #     à jour stable, voir .github/workflows/build-apk.yml pour le
-        #     même mécanisme côté GitHub Actions)
+        #   NETLIFY_AUTH_TOKEN, NETLIFY_SITE_ID  (optionnel — pages
+        #     publiques légères, voir .github/workflows/build-apk.yml)
+        #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY  (optionnel — upload de
+        #     l'APK sur Cloudflare R2 pour le lien de mise à jour stable,
+        #     24/08 — remplace Netlify pour ce fichier précis)
         #   UPDATE_VERSION_WEBHOOK_SECRET  (optionnel — doit correspondre
         #     au secret configuré côté Supabase, Edge Function
         #     update-latest-version)
@@ -102,16 +104,36 @@ workflows:
       - name: Compiler l'App Bundle (release) — format Google Play
         script: flutter build appbundle --release --android-skip-build-dependency-validation
 
-      - name: Déployer l'APK + les pages publiques sur Netlify
+      - name: Uploader l'APK sur Cloudflare R2
+        # Même migration que .github/workflows/build-apk.yml côté GitHub
+        # Actions (24/08) : le plan gratuit Netlify a atteint sa limite de
+        # bande passante (site entier suspendu) à force de redéployer
+        # l'APK à chaque build + chaque téléchargement client. R2 n'a pas
+        # de frais de bande passante sortante. Optionnel : ignoré si les
+        # secrets ne sont pas configurés.
+        script: |
+          if [ -z "$R2_ACCESS_KEY_ID" ] || [ -z "$R2_SECRET_ACCESS_KEY" ]; then
+            echo "R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY non configurés — étape ignorée."
+            exit 0
+          fi
+          command -v aws >/dev/null 2>&1 || pip3 install --user --quiet awscli
+          export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+          export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+          export AWS_DEFAULT_REGION=auto
+          if aws s3 cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+              s3://akorahub-releases/akorahub-latest.apk \
+              --endpoint-url https://ecfee9b5296944ea1de770687795776a.r2.cloudflarestorage.com; then
+            echo "export R2_UPLOAD_OK=1" >> "$CM_ENV"
+          else
+            echo "Upload R2 échoué (non bloquant)."
+          fi
+
+      - name: Déployer les pages publiques sur Netlify
         # Même mécanisme que .github/workflows/build-apk.yml côté GitHub
-        # Actions : dépose l'APK universel (celui compilé sans
-        # --split-per-abi n'existe pas ici, donc on redéploie l'APK
-        # ARM64 — largement suffisant, la quasi-totalité des téléphones
-        # Android récents sont en ARM64) sous un nom fixe
-        # (akorahub-latest.apk) à côté des pages publiques déjà
-        # hébergées (docs/formation-access/) — donne un lien stable qui
-        # ne change jamais d'un build à l'autre. Optionnel : ignoré si
-        # les secrets ne sont pas configurés.
+        # Actions : ne dépose plus que les pages HTML légères
+        # (docs/formation-access/) — l'APK est passé sur Cloudflare R2
+        # ci-dessus (24/08, voir ce commentaire pour le pourquoi).
+        # Optionnel : ignoré si les secrets ne sont pas configurés.
         script: |
           if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
             echo "NETLIFY_AUTH_TOKEN/NETLIFY_SITE_ID non configurés — étape ignorée."
@@ -120,7 +142,6 @@ workflows:
           rm -rf /tmp/netlify-deploy
           mkdir -p /tmp/netlify-deploy
           cp docs/formation-access/*.html /tmp/netlify-deploy/
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk /tmp/netlify-deploy/akorahub-latest.apk
           if npx --yes netlify-cli@17 deploy --prod \
               --dir=/tmp/netlify-deploy \
               --site="$NETLIFY_SITE_ID" \
@@ -133,9 +154,9 @@ workflows:
       - name: Notifier Supabase de la nouvelle version disponible
         # Alimente `app_latest_version` pour que l'app propose une mise à
         # jour au démarrage — voir core/updates/update_checker.dart.
-        # downloadUrl n'utilise le lien Netlify que si le déploiement
-        # ci-dessus a réellement réussi, sinon repli sur les Releases
-        # GitHub (voir même logique côté GitHub Actions, phase du 05/08).
+        # downloadUrl n'utilise le lien R2 que si l'upload ci-dessus a
+        # réellement réussi, sinon repli sur les Releases GitHub (même
+        # logique côté GitHub Actions ; migré de Netlify vers R2 le 24/08).
         script: |
           if [ -z "$UPDATE_VERSION_WEBHOOK_SECRET" ]; then
             echo "UPDATE_VERSION_WEBHOOK_SECRET non configuré — étape ignorée."
@@ -144,8 +165,8 @@ workflows:
           VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //')
           VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
           BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
-          if [ "$NETLIFY_DEPLOY_OK" = "1" ]; then
-            DOWNLOAD_URL="https://akorahub-formation.netlify.app/akorahub-latest.apk"
+          if [ "$R2_UPLOAD_OK" = "1" ]; then
+            DOWNLOAD_URL="https://pub-70ec95969f72425aa8ccf641a3bba312.r2.dev/akorahub-latest.apk"
           else
             DOWNLOAD_URL="https://github.com/Anju-codermad/AkoraHub-app/releases"
           fi
