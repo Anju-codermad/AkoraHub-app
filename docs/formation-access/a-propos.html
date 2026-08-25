@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Services — Akora Fanadiovana</title>
-<meta name="robots" content="noindex" />
-<meta name="description" content="Les services d'Akora Fanadiovana à Antananarivo : livraison suivie, conseils techniques, formation AkoraFormation et paiement flexible depuis l'application AkoraHub." />
-<link rel="canonical" href="https://akorahub-app.pages.dev/services.html" />
+<title>À propos — Akora Fanadiovana</title>
+<meta name="robots" content="index, follow" />
+<meta name="description" content="Akora Fanadiovana : fondée en 2020, notre mission, nos activités, nos objectifs et nos valeurs — produits d'entretien, d'hygiène et de désinfection à Antananarivo." />
+<link rel="canonical" href="https://akorahub-app.pages.dev/a-propos.html" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Akora Fanadiovana" />
-<meta property="og:title" content="Services — Akora Fanadiovana" />
-<meta property="og:description" content="Livraison suivie, conseils techniques, formation et paiement flexible à Antananarivo." />
+<meta property="og:title" content="À propos — Akora Fanadiovana" />
+<meta property="og:description" content="Fondée en 2020 : notre mission, nos activités, nos objectifs et nos valeurs à Antananarivo." />
 <meta property="og:image" content="https://akorahub-app.pages.dev/logo.jpg" />
-<meta property="og:url" content="https://akorahub-app.pages.dev/services.html" />
+<meta property="og:url" content="https://akorahub-app.pages.dev/a-propos.html" />
 <meta property="og:locale" content="fr_FR" />
 <meta name="twitter:card" content="summary" />
-<meta name="twitter:title" content="Services — Akora Fanadiovana" />
-<meta name="twitter:description" content="Livraison suivie, conseils techniques, formation et paiement flexible à Antananarivo." />
+<meta name="twitter:title" content="À propos — Akora Fanadiovana" />
+<meta name="twitter:description" content="Fondée en 2020 : notre mission, nos activités, nos objectifs et nos valeurs à Antananarivo." />
 <meta name="twitter:image" content="https://akorahub-app.pages.dev/logo.jpg" />
 <link rel="icon" type="image/jpeg" href="logo.jpg" />
 <style>
@@ -31,6 +31,7 @@
     --accent-soft: #e3f1f7;
     --border: #dfe6e0;
     --border-strong: #c5d0c8;
+    --font-display: "Sora", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   * { box-sizing: border-box; }
   body {
@@ -95,8 +96,26 @@
   .footer-bottom a { color: #9dc2cc; text-decoration: none; }
   .footer-bottom a:hover { color: #fff; }
 
-  h1 { font-size: 1.4rem; margin: 0 0 0.6rem; letter-spacing: -0.01em; }
-  .state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+  h1 { font-family: var(--font-display); font-size: 1.6rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; }
+  h2 { font-family: var(--font-display); font-size: 1.05rem; margin: 1.8rem 0 0.7rem; }
+  .lead { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 0.5rem; }
+  .about-list { margin: 0 0 0.5rem; padding-left: 1.2rem; color: var(--text-muted); font-size: 0.92rem; line-height: 1.65; }
+  .about-list li { margin-bottom: 0.4rem; }
+  .about-list ul { margin-top: 0.4rem; }
+
+  .values-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .value-badge {
+    background: var(--accent-soft); color: var(--accent-strong); border-radius: 999px;
+    padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 700;
+  }
+  .founder-row { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.6rem; }
+  .founder-avatar {
+    width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 0.92rem;
+  }
+  .founder-name { font-size: 0.86rem; font-weight: 700; color: var(--text); }
+  .founder-role { font-size: 0.78rem; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -116,8 +135,52 @@
   </div>
 </nav>
 <div class="page">
-  <h1>Nos services</h1>
-  <div class="state">Cette page est en préparation — les services seront bientôt détaillés ici. En attendant, découvrez notre <a href="catalogue.html">catalogue produits</a> ou contactez-nous directement.</div>
+  <h1>À propos de nous</h1>
+  <p class="lead">
+    Fondée en 2020, Akora Fanadiovana s'engage à offrir des solutions fiables et innovantes dans l'entretien, l'hygiène et la désinfection, en répondant aux besoins des particuliers, des entreprises et des institutions publiques à Antananarivo.
+  </p>
+
+  <h2>Notre mission</h2>
+  <p class="lead">
+    Apporter à chaque client des produits qui allient efficacité, sécurité et accessibilité, tout en respectant les normes de qualité et d'hygiène les plus exigeantes. Nous croyons que la propreté et la santé sont des piliers essentiels du bien-être collectif.
+  </p>
+
+  <h2>Nos activités</h2>
+  <ul class="about-list">
+    <li>Production et distribution de produits d'entretien et d'hygiène (désinfectants, nettoyants, détergents, lessives, etc.)</li>
+    <li>Solutions personnalisées pour collectivités, sociétés et particuliers</li>
+    <li>Accompagnement technique pour un usage optimal et sécurisé des produits</li>
+  </ul>
+
+  <h2>Nos objectifs</h2>
+  <ul class="about-list">
+    <li>Garantir une qualité constante, conforme aux normes nationales et internationales</li>
+    <li>
+      Promouvoir des formats adaptés à chaque besoin :
+      <ul>
+        <li>produits en vrac (bidons 5L, 20L, 50L) pour les entreprises, collectivités et gros consommateurs</li>
+        <li>produits emballés (flacons 500ml, 1L, 5L) pour les ménages et usages quotidiens</li>
+      </ul>
+    </li>
+    <li>Contribuer à une consommation plus responsable et écologique, en réduisant les emballages superflus grâce au vrac</li>
+  </ul>
+
+  <h2>Nos valeurs</h2>
+  <div class="values-row">
+    <span class="value-badge">Transparence</span>
+    <span class="value-badge">Fiabilité</span>
+    <span class="value-badge">Accessibilité</span>
+    <span class="value-badge">Innovation</span>
+  </div>
+
+  <h2>Fondateur</h2>
+  <div class="founder-row">
+    <div class="founder-avatar">AJ</div>
+    <div>
+      <div class="founder-name">A. Julio</div>
+      <div class="founder-role">Fondateur, Akora Fanadiovana</div>
+    </div>
+  </div>
 </div>
 <footer class="site-footer" id="contact">
   <div class="site-footer-inner">
