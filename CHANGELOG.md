@@ -884,3 +884,6 @@
 
 ## 2026-08-25 20:05 UTC — Claude
 - feat: photo du fondateur dans la page À propos (`cd0b0e1`)
+
+## 2026-08-25 20:12 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`5f155e2`)
