@@ -794,3 +794,6 @@
 
 ## 2026-08-25 07:25 UTC — Claude
 - Intégrer le logo Akora Fanadiovana au site (`1ce9206`)
+
+## 2026-08-25 07:31 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`342a302`)
