@@ -40,6 +40,10 @@
   .site-nav-links { display: flex; gap: 1.1rem; }
   .site-nav-links a { text-decoration: none; font-size: 0.86rem; font-weight: 600; color: var(--text-muted); }
   .site-nav-links a:hover { color: var(--accent-strong); }
+  @media (max-width: 480px) {
+    .site-nav-inner { flex-direction: column; gap: 0.6rem; align-items: center; }
+    .site-nav-links { flex-wrap: wrap; justify-content: center; gap: 0.5rem 0.9rem; }
+  }
 
   .site-footer { border-top: 1px solid var(--border); margin-top: 2.5rem; padding: 1.8rem 1.1rem 2.2rem; }
   .site-footer-inner { max-width: 560px; margin: 0 auto; text-align: center; }
@@ -112,8 +116,11 @@
       Akora Fanadiovana
     </a>
     <div class="site-nav-links">
+      <a href="index.html">Accueil</a>
       <a href="catalogue.html">Catalogue</a>
+      <a href="services.html">Services</a>
       <a href="formation.html">Formation</a>
+      <a href="#contact">Contact</a>
     </div>
   </div>
 </nav>
@@ -129,7 +136,7 @@
 
   <div id="content" class="state">Chargement du catalogue…</div>
 </div>
-<footer class="site-footer">
+<footer class="site-footer" id="contact">
   <div class="site-footer-inner">
     <div class="social">
       <a href="https://wa.me/261340874696" target="_blank" rel="noopener">

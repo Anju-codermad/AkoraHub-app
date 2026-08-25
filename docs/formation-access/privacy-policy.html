@@ -39,6 +39,10 @@
   .site-nav-links { display: flex; gap: 1.1rem; }
   .site-nav-links a { text-decoration: none; font-size: 0.86rem; font-weight: 600; color: #666; }
   .site-nav-links a:hover { color: #0b5a80; }
+  @media (max-width: 480px) {
+    .site-nav { flex-direction: column; gap: 0.6rem; align-items: center; }
+    .site-nav-links { flex-wrap: wrap; justify-content: center; gap: 0.5rem 0.9rem; }
+  }
 
   .site-footer { border-top: 1px solid #eee; margin: 40px -20px -80px; padding: 1.8rem 20px 2.2rem; }
   .site-footer-inner { text-align: center; }
@@ -63,8 +67,11 @@
     Akora Fanadiovana
   </a>
   <div class="site-nav-links">
+    <a href="index.html">Accueil</a>
     <a href="catalogue.html">Catalogue</a>
+    <a href="services.html">Services</a>
     <a href="formation.html">Formation</a>
+    <a href="#contact">Contact</a>
   </div>
 </nav>
 
@@ -212,7 +219,7 @@ en haut de cette page reflète la version en vigueur.
   Téléphone : 034 08 746 96
 </div>
 
-<footer class="site-footer">
+<footer class="site-footer" id="contact">
   <div class="site-footer-inner">
     <div class="social">
       <a href="https://wa.me/261340874696" target="_blank" rel="noopener">
