@@ -18,6 +18,9 @@
 <meta name="twitter:description" content="Matières premières de fabrication, cosmétique et entretien, avec prix et stock à Antananarivo." />
 <meta name="twitter:image" content="https://akorahub-app.pages.dev/logo.jpg" />
 <link rel="icon" type="image/jpeg" href="logo.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;0,900;1,600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #faf9f5;
@@ -30,6 +33,7 @@
     --accent-soft: #e3f1f7;
     --border: #dfe6e0;
     --border-strong: #c5d0c8;
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   }
   * { box-sizing: border-box; }
   body {
@@ -127,7 +131,7 @@
     color: #fff; max-width: 880px; margin: 0 auto; padding: 1.2rem;
   }
   @media (min-width: 950px) { .hero-content { max-width: 1100px; } }
-  .hero-title { font-weight: 800; letter-spacing: -0.01em; font-size: clamp(1.2rem, 4.5vw, 1.6rem); margin: 0 0 0.3rem; }
+  .hero-title { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; font-size: clamp(1.2rem, 4.5vw, 1.6rem); margin: 0 0 0.3rem; }
   .hero-sub { font-size: 0.86rem; color: #dbe9ec; margin: 0; }
 
   .search-box { position: relative; margin-bottom: 1.6rem; }
