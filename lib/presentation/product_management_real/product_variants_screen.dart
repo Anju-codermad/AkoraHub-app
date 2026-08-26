@@ -110,6 +110,21 @@ class _ProductVariantsScreenState
     }
   }
 
+  /// Disponibilité calculée pour le format sélectionné, en mode stock
+  /// partagé (25/08) : stock total du produit ÷ contenance du format
+  /// (`base_unit_quantity`). Affichée à la place d'un champ de saisie.
+  String _availabilityLabel(String? formatId) {
+    final total = (widget.product['stock_quantity'] as num?) ?? 0;
+    final qty = _baseUnitQuantityFor(formatId);
+    if (formatId == null) return 'Stock total du produit : $total';
+    if (qty == null || qty <= 0) {
+      return 'Disponibilité inconnue (ce format n\'a pas de contenance '
+          'renseignée) — stock total du produit : $total';
+    }
+    final available = (total / qty).floor();
+    return 'Disponible : $available (stock total : $total)';
+  }
+
   /// Multiplicateur du format sélectionné (`formats.base_unit_quantity`,
   /// voir phase172) — null si le format n'en a pas (formats existants
   /// avant cette fonctionnalité, ex. "100 ml"), auquel cas le calcul
@@ -393,11 +408,23 @@ class _ProductVariantsScreenState
                       labelText: 'Seuil quantité pour prix Gros'),
                 ),
                 SizedBox(height: 1.h),
-                TextField(
-                  controller: stockCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Stock'),
-                ),
+                // Stock partagé (25/08) : le stock de ce produit est un
+                // total unique en unité de base (voir champ "Stock partagé
+                // entre les variantes" sur la fiche produit) — pas de
+                // stock à saisir par variante, la disponibilité de CE
+                // format est calculée automatiquement (voir la liste des
+                // variantes, `_availabilityFor`).
+                if (widget.product['use_shared_stock'] == true)
+                  Text(
+                    _availabilityLabel(selectedFormatId),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                else
+                  TextField(
+                    controller: stockCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Stock'),
+                  ),
               ],
             ),
           ),
@@ -556,7 +583,7 @@ class _ProductVariantsScreenState
                         subtitle: Text(
                           'Détail ${_currency.format(v['price_detail'] ?? 0)} · '
                           'Gros ${_currency.format(v['price_gros'] ?? 0)} · '
-                          'Stock ${v['stock_quantity']}',
+                          '${widget.product['use_shared_stock'] == true ? _availabilityLabel(v['format_id']) : 'Stock ${v['stock_quantity']}'}',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,

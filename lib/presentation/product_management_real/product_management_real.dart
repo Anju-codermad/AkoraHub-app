@@ -521,6 +521,17 @@ class _ProductManagementRealState
     bool isVisible =
         isEditing ? (product['visibility'] as bool? ?? true) : false;
 
+    // Stock partagé entre les variantes (25/08, demande explicite) : pour
+    // un produit vendu en vrac sous plusieurs contenants (ex. Liquide
+    // Vaisselle en 1L/5L/Bidon 20L, tous remplis depuis le même stock de
+    // liquide), "Stock actuel" ci-dessus devient le stock TOTAL en unité
+    // de base (litres/kg) plutôt qu'un stock à saisir séparément pour
+    // chaque variante — voir product_variants_screen.dart, qui calcule
+    // alors la disponibilité par contenant (stock ÷ base_unit_quantity du
+    // format, phase172/185) au lieu de demander un stock par variante.
+    bool useSharedStock =
+        isEditing ? (product['use_shared_stock'] as bool? ?? false) : false;
+
     // Lien optionnel vers une fiche Académie (09/08) — affiche un lien
     // "Fiche sécurité" sur la page produit client (voir
     // `academie_summary_public`, phase147). Liste chargée une fois à
@@ -1050,7 +1061,47 @@ class _ProductManagementRealState
                 TextField(
                   controller: stockCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Stock actuel'),
+                  decoration: InputDecoration(
+                    labelText: useSharedStock
+                        ? 'Stock total (unité de base — L ou kg)'
+                        : 'Stock actuel',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Stock partagé entre les variantes',
+                                style:
+                                    TextStyle(fontWeight: FontWeight.w600)),
+                            Text(
+                              useSharedStock
+                                  ? 'Un seul stock total ci-dessus (ex. 200 L) ; la dispo de chaque format (1L, 5L, Bidon 20L...) est calculée automatiquement.'
+                                  : 'Chaque variante garde son propre stock, saisi séparément dans l\'écran Variantes.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: useSharedStock,
+                        onChanged: (v) =>
+                            setDialogState(() => useSharedStock = v),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 // Brouillon/Publié (09/08) — voir commentaire à la
@@ -1159,6 +1210,7 @@ class _ProductManagementRealState
                   'gros_threshold_qty':
                       int.tryParse(grosThresholdCtrl.text) ?? 10,
                   'stock_quantity': double.tryParse(stockCtrl.text) ?? 0,
+                  'use_shared_stock': useSharedStock,
                 };
 
                 try {
