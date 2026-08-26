@@ -22,6 +22,18 @@ function escapeHtml(s) {
   }[c]));
 }
 
+// Dérive un suffixe d'unité lisible ("kg", "L", "25 kg"...) à partir du nom
+// d'un format (26/08, demande explicite : un client a dû redemander "Atao
+// firy kg ?" — combien de kg pour ce prix — après avoir reçu un lien
+// partagé sans unité). "1 kg"/"1 L" (l'unité de base) donnent juste le mot
+// d'unité ; les autres conditionnements gardent leur nom complet.
+function unitSuffixFromFormatName(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^1\s+(.+)$/);
+  return match ? match[1] : trimmed;
+}
+
 export async function handleProduitOg(context) {
   const { request, next, env } = context;
   const url = new URL(request.url);
@@ -48,25 +60,26 @@ export async function handleProduitOg(context) {
   // prix (price_detail reste à 0 par défaut, image_url à vide) — tout est
   // sur `product_variants`. Repli sur la variante la moins chère pour
   // qu'un tel produit ait quand même une vraie photo/un vrai prix dans
-  // l'aperçu de lien.
+  // l'aperçu de lien. Toujours interrogée (même quand `products` a déjà
+  // son propre prix/photo, ex. backfill phase185) pour connaître le
+  // format de conditionnement associé et afficher l'unité (26/08).
   let variant;
-  if (!product.image_url || !product.price_detail) {
-    try {
-      const vres = await fetch(
-        `${env.SUPABASE_URL}/rest/v1/product_variants?product_id=eq.${encodeURIComponent(id)}&select=price_detail,image_url&order=price_detail.asc&limit=1`,
-        { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${env.SUPABASE_ANON_KEY}` } }
-      );
-      const vrows = await vres.json();
-      variant = vrows && vrows[0];
-    } catch (e) {
-      // Repli silencieux : la fiche produit garde ses propres valeurs.
-    }
+  try {
+    const vres = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/product_variants?product_id=eq.${encodeURIComponent(id)}&select=price_detail,image_url,formats(name)&order=price_detail.asc&limit=1`,
+      { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${env.SUPABASE_ANON_KEY}` } }
+    );
+    const vrows = await vres.json();
+    variant = vrows && vrows[0];
+  } catch (e) {
+    // Repli silencieux : la fiche produit garde ses propres valeurs.
   }
 
   const title = `${product.name} — Akora Fanadiovana`;
   const effectivePrice = product.price_detail || variant?.price_detail;
+  const unitLabel = unitSuffixFromFormatName(variant?.formats?.name);
   const price = typeof effectivePrice === "number" && effectivePrice > 0
-    ? effectivePrice.toLocaleString("fr-FR") + " Ar"
+    ? effectivePrice.toLocaleString("fr-FR") + " Ar" + (unitLabel ? `/${unitLabel}` : "")
     : "";
   const description = price ? `${price} — Commandez sur AkoraHub.` : "Commandez sur AkoraHub.";
   const image = product.image_url || variant?.image_url || "https://akorahub-app.pages.dev/logo.jpg";

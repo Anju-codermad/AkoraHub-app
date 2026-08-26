@@ -394,6 +394,16 @@
       }[c]));
     }
 
+    // "1 kg"/"1 L" (l'unité de base) donnent juste le mot d'unité ; les
+    // autres conditionnements (ex. "25 kg") gardent leur nom complet
+    // (26/08 — voir catalogue.html/produit.html, même logique).
+    function unitSuffixFromFormatName(name) {
+      const trimmed = (name || "").trim();
+      if (!trimmed) return null;
+      const match = trimmed.match(/^1\s+(.+)$/);
+      return match ? match[1] : trimmed;
+    }
+
     let products = [];
     try {
       const res = await fetch(
@@ -404,6 +414,27 @@
       if (!Array.isArray(products)) products = [];
     } catch (e) {
       products = [];
+    }
+
+    // Format le moins cher de chaque produit à variantes, pour afficher
+    // l'unité (kg/L) à côté du prix (26/08, demande explicite).
+    const unitByProductId = new Map();
+    try {
+      const vres = await fetch(
+        `${SUPABASE_URL}/rest/v1/product_variants?select=product_id,price_detail,formats(name)&order=product_id.asc,price_detail.asc`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      const variants = await vres.json();
+      if (Array.isArray(variants)) {
+        for (const v of variants) {
+          if (!unitByProductId.has(v.product_id)) {
+            const unit = unitSuffixFromFormatName(v.formats?.name);
+            if (unit) unitByProductId.set(v.product_id, unit);
+          }
+        }
+      }
+    } catch (e) {
+      // Repli silencieux : les prix restent affichés sans unité.
     }
 
     const withPhoto = products.filter((p) => p.image_url);
@@ -441,8 +472,10 @@
     const featured = withPhoto.slice(0, 6);
     if (featured.length) {
       document.getElementById("featured-grid").innerHTML = featured.map((p) => {
+        const unitLabel = unitByProductId.get(p.id);
         const price = typeof p.price_detail === "number"
-          ? p.price_detail.toLocaleString("fr-FR") + " Ar" : "";
+          ? p.price_detail.toLocaleString("fr-FR") + " Ar" + (unitLabel ? `/${unitLabel}` : "")
+          : "";
         return `
           <a class="product-card" href="produit.html?id=${encodeURIComponent(p.id)}">
             <img class="product-photo" src="${p.image_url}" alt="${escapeHtml(p.name)}" loading="lazy" />

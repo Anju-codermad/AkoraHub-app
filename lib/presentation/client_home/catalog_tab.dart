@@ -14,6 +14,7 @@ import '../../core/localization/app_translations.dart';
 import '../../core/navigation/product_detail_route.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../core/utils/price_unit.dart';
 import 'chat_screen.dart';
 import 'community/public_profiles_repo.dart';
 import 'favorites_provider.dart';
@@ -293,7 +294,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               frequentProductIds.take(5).map((e) => e.key).toList();
           final productRows = await SupabaseConfig.client
               .from('products')
-              .select()
+              .select('*, product_variants(price_detail, formats(name))')
               .inFilter('id', topIds)
               .eq('visibility', true);
           final productsById = {
@@ -1882,6 +1883,9 @@ class ProductCard extends StatelessWidget {
         stockQty != null &&
         stockThreshold != null &&
         stockQty <= stockThreshold;
+    final unitLabel =
+        unitLabelFromEmbeddedVariants(product['product_variants']);
+    final unitSuffix = unitLabel != null ? '/$unitLabel' : '';
 
     return Material(
       color: theme.colorScheme.surface,
@@ -2015,7 +2019,7 @@ class ProductCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 2),
                 child: Text(
-                  'Dès ${currency.format(product['price_detail'] ?? 0)}',
+                  'Dès ${currency.format(product['price_detail'] ?? 0)}$unitSuffix',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: theme.colorScheme.primary,

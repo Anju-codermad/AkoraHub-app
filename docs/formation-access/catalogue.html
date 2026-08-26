@@ -268,6 +268,11 @@
   const APK_URL = "https://pub-70ec95969f72425aa8ccf641a3bba312.r2.dev/akorahub-latest.apk";
 
   let allProducts = [];
+  // Unité (kg/L/pièce...) du conditionnement le moins cher de chaque
+  // produit à variantes, ex. "kg" pour "1 kg" (26/08, demande explicite :
+  // un client a dû redemander "Atao firy kg ?" après avoir reçu un lien
+  // sans unité) — voir `load()` pour le remplissage.
+  let unitByProductId = new Map();
 
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, (c) => ({
@@ -275,9 +280,19 @@
     }[c]));
   }
 
+  // "1 kg"/"1 L" (l'unité de base) donnent juste le mot d'unité ; les
+  // autres conditionnements (ex. "25 kg") gardent leur nom complet.
+  function unitSuffixFromFormatName(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(/^1\s+(.+)$/);
+    return match ? match[1] : trimmed;
+  }
+
   function productCard(p) {
+    const unitLabel = unitByProductId.get(p.id);
     const price = typeof p.price_detail === "number"
-      ? p.price_detail.toLocaleString("fr-FR") + " Ar"
+      ? p.price_detail.toLocaleString("fr-FR") + " Ar" + (unitLabel ? `/${unitLabel}` : "")
       : "";
     const photo = p.image_url
       ? `<img class="photo" src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" />`
@@ -345,6 +360,28 @@
       if (!Array.isArray(allProducts)) allProducts = [];
     } catch (e) {
       allProducts = [];
+    }
+
+    // Format le moins cher de chaque produit à variantes (ex. Soude
+    // Caustique, Eau de Javel) — une seule requête groupée plutôt qu'une
+    // par produit, triée par prix croissant pour ne garder que la 1ère
+    // (moins chère) rencontrée par produit.
+    try {
+      const vres = await fetch(
+        `${SUPABASE_URL}/rest/v1/product_variants?select=product_id,price_detail,formats(name)&order=product_id.asc,price_detail.asc`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      const variants = await vres.json();
+      if (Array.isArray(variants)) {
+        for (const v of variants) {
+          if (!unitByProductId.has(v.product_id)) {
+            const unit = unitSuffixFromFormatName(v.formats?.name);
+            if (unit) unitByProductId.set(v.product_id, unit);
+          }
+        }
+      }
+    } catch (e) {
+      // Repli silencieux : les prix restent affichés sans unité.
     }
 
     // Hero animé (25/08, demande explicite) : mêmes photos que le

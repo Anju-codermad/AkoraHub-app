@@ -198,8 +198,13 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchProductsPage(int page) async {
-    var query =
-        SupabaseConfig.client.from('products').select().eq('visibility', true);
+    // `product_variants(price_detail, formats(name))` embarqué (26/08) :
+    // permet à ProductCard d'afficher l'unité (kg/L) à côté du prix pour
+    // les produits à variantes, sans requête séparée par carte.
+    var query = SupabaseConfig.client
+        .from('products')
+        .select('*, product_variants(price_detail, formats(name))')
+        .eq('visibility', true);
     if (_selectedUnitId != null) {
       query = query.eq('business_unit_id', _selectedUnitId!);
     }
