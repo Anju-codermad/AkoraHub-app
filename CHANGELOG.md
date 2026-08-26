@@ -968,3 +968,6 @@
 
 ## 2026-08-26 16:27 UTC — Claude
 - Affiche l'unité (kg/L/pièce) à côté du prix sur Favoris et Panier habituel (`eaf7bef`)
+
+## 2026-08-26 19:24 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`766ebc2`)
