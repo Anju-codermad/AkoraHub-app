@@ -10,6 +10,7 @@ import '../../core/providers/cart_provider.dart';
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../core/utils/formation_web_link.dart';
+import '../../core/utils/price_unit.dart';
 import '../raw_materials_management/raw_material_style.dart';
 import 'catalog_tab.dart' show ProductCard;
 import 'community/public_profiles_repo.dart';
@@ -250,6 +251,9 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     final isGros = _quantity >= threshold;
     final unitPrice = isGros ? priceGros : priceDetail;
     final total = unitPrice * _quantity;
+    final unitLabel =
+        unitSuffixFromFormatName(variant?['formats']?['name'] as String?);
+    final unitSuffix = unitLabel != null ? '/$unitLabel' : '';
 
     final isFavorite = ref.watch(favoritesProvider).contains(p['id']);
     final isInUsualCart = ref.watch(usualCartProvider).contains(p['id']);
@@ -266,7 +270,6 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
             icon: const Icon(Icons.share_outlined),
             tooltip: 'Partager',
             onPressed: () {
-              final price = (p['price_detail'] as num?)?.toDouble() ?? 0;
               // Lien produit partageable (24/08) — ouvre directement la
               // fiche si AkoraHub est déjà installée, sinon propose le
               // téléchargement (voir docs/formation-access/produit.html
@@ -275,7 +278,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                   'https://akorahub-app.pages.dev/produit.html?id=${p['id']}';
               SharePlus.instance.share(ShareParams(
                 text: '${p['name'] ?? 'Ce produit'} — '
-                    '${_currency.format(price)} sur AkoraHub\n$link',
+                    '${_currency.format(priceDetail)}$unitSuffix sur AkoraHub\n$link',
               ));
             },
           ),
@@ -541,9 +544,10 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Prix Détail : ${_currency.format(priceDetail)}'),
                     Text(
-                        'Prix Gros (dès $threshold unités) : ${_currency.format(priceGros)}'),
+                        'Prix Détail : ${_currency.format(priceDetail)}$unitSuffix'),
+                    Text(
+                        'Prix Gros (dès $threshold unités) : ${_currency.format(priceGros)}$unitSuffix'),
                     SizedBox(height: 1.h),
                     Text(
                       isGros
