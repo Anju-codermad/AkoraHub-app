@@ -188,14 +188,33 @@ class _PaymentMethodsManagementState extends State<PaymentMethodsManagement> {
           );
   }
 
+  /// Une seule ligne en base par opérateur (voir phase59) : ce switch-ci
+  /// ne concerne QUE ce fournisseur. Si l'opérateur est actif via
+  /// l'AUTRE fournisseur, ou totalement désactivé, ce n'est pas visible
+  /// juste en regardant ce switch (il est simplement "off" dans les deux
+  /// cas) — d'où ce sous-titre explicite, pour éviter de croire qu'un
+  /// opérateur est bien actif alors qu'il est invisible côté client.
+  String? _providerStatusSubtitle(PaymentMethod method, String thisProvider) {
+    final isOnHere =
+        _enabled.contains(method) && _providers[method] == thisProvider;
+    if (isOnHere) return null;
+    if (!_enabled.contains(method)) {
+      return '⚠️ Désactivé — invisible pour les clients';
+    }
+    final activeProvider =
+        _providers[method] == 'fiveonepay' ? 'FiveOne Pay' : 'Papi.mg';
+    return 'Actif via $activeProvider';
+  }
+
   Widget _providerTile(PaymentMethod method, String provider,
       {bool disabled = false, String? subtitleOverride}) {
+    final subtitle = subtitleOverride ?? _providerStatusSubtitle(method, provider);
     return ListTile(
       leading: method.logoAsset != null
           ? CircleAvatar(backgroundImage: AssetImage(method.logoAsset!))
           : Icon(method.icon),
       title: Text(method.label),
-      subtitle: subtitleOverride != null ? Text(subtitleOverride) : null,
+      subtitle: subtitle != null ? Text(subtitle) : null,
       trailing: _providerSwitch(method, provider, disabled: disabled),
     );
   }
