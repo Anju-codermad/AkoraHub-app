@@ -108,9 +108,27 @@
   .footer-bottom a { color: #9dc2cc; text-decoration: none; }
   .footer-bottom a:hover { color: #fff; }
 
-  .top { margin-bottom: 1.4rem; }
-  h1 { font-size: 1.4rem; margin: 0.6rem 0 0.3rem; letter-spacing: -0.01em; }
-  .subtitle { color: var(--text-muted); font-size: 0.92rem; margin: 0 0 1.2rem; }
+  /* ---------- Hero animé (25/08) : mêmes photos que le catalogue,
+     bannière plus compacte que celle de l'accueil (page utilitaire). ---------- */
+  .hero { position: relative; width: 100%; height: 60vw; min-height: 200px; max-height: 320px; overflow: hidden; background: var(--accent-soft); margin-bottom: 1.6rem; }
+  @media (min-width: 700px) { .hero { height: 32vw; max-height: 360px; } }
+  .hero-slide {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; transition: opacity 1.4s ease;
+  }
+  .hero-slide.active { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .hero-slide { transition: none; } }
+  .hero-scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(0deg, rgba(6,16,18,0.6) 0%, rgba(6,16,18,0.25) 60%, rgba(6,16,18,0.1) 100%);
+  }
+  .hero-content {
+    position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end;
+    color: #fff; max-width: 880px; margin: 0 auto; padding: 1.2rem;
+  }
+  @media (min-width: 950px) { .hero-content { max-width: 1100px; } }
+  .hero-title { font-weight: 800; letter-spacing: -0.01em; font-size: clamp(1.2rem, 4.5vw, 1.6rem); margin: 0 0 0.3rem; }
+  .hero-sub { font-size: 0.86rem; color: #dbe9ec; margin: 0; }
 
   .search-box { position: relative; margin-bottom: 1.6rem; }
   .search-box input {
@@ -173,12 +191,17 @@
     </div>
   </div>
 </nav>
-<div class="page">
-  <div class="top">
-    <h1>Catalogue produits</h1>
-    <p class="subtitle">Matières premières de fabrication &amp; cosmétique. Commande via l'application AkoraHub.</p>
-  </div>
 
+<section class="hero">
+  <div id="hero-banner"></div>
+  <div class="hero-scrim"></div>
+  <div class="hero-content">
+    <h1 class="hero-title">Catalogue produits</h1>
+    <p class="hero-sub">Matières premières de fabrication &amp; cosmétique. Commande via l'application AkoraHub.</p>
+  </div>
+</section>
+
+<div class="page">
   <div class="search-box">
     <input type="text" id="search" placeholder="Rechercher un produit…" />
   </div>
@@ -323,6 +346,29 @@
     } catch (e) {
       allProducts = [];
     }
+
+    // Hero animé (25/08, demande explicite) : mêmes photos que le
+    // catalogue affiché plus bas, pas une sélection à part — même
+    // mécanique de fondu enchaîné que la bannière de l'accueil.
+    const heroItems = allProducts.filter((p) => p.image_url).slice(0, 30);
+    if (heroItems.length) {
+      const banner = document.getElementById("hero-banner");
+      banner.innerHTML = heroItems.map((p, i) => `
+        <img class="hero-slide${i === 0 ? " active" : ""}" src="${p.image_url}"
+             alt="${escapeHtml(p.name)}" loading="${i === 0 ? "eager" : "lazy"}" />
+      `).join("");
+      const slides = banner.querySelectorAll(".hero-slide");
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (slides.length > 1 && !reduceMotion) {
+        let current = 0;
+        setInterval(() => {
+          slides[current].classList.remove("active");
+          current = (current + 1) % slides.length;
+          slides[current].classList.add("active");
+        }, 4000);
+      }
+    }
+
     // Pré-remplit et filtre depuis un lien "catégorie" venu de l'accueil
     // (index.html?cat=... -> catalogue.html?cat=...), sinon affiche tout.
     const cat = new URLSearchParams(window.location.search).get("cat");
