@@ -91,50 +91,46 @@
   }
 
   /* ---------- Hero ---------- */
-  /* ---------- Hero (26/08) : deux colonnes asymétriques plutôt que la
-     bannière plein-cadre "photo + voile sombre + texte blanc" — le
-     réflexe le plus vu sur les sites générés automatiquement. Le texte
-     vit sur le fond crème normal du site (lisible sans voile), la photo
-     est cadrée à part dans un panneau aux coins irréguliers et
-     légèrement penché, comme une photo posée plutôt qu'un bandeau
-     cinéma. ---------- */
-  .hero {
-    max-width: 1100px; margin: 0 auto; padding: 2rem 1.1rem 0.5rem;
-    display: flex; flex-direction: column; gap: 1.8rem;
-  }
-  @media (min-width: 900px) {
-    .hero { flex-direction: row; align-items: center; gap: 3.2rem; padding: 3.2rem 2.4rem 1rem; }
-    .hero-text { flex: 1; }
-  }
-  .hero-eyebrow {
-    display: inline-block; align-self: flex-start;
-    font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.09em;
-    font-size: 0.72rem; font-weight: 700; color: var(--accent-strong);
-    background: var(--accent-soft); border: 1px solid var(--border-strong);
-    border-radius: 999px; padding: 0.35rem 0.85rem; margin: 0 0 1rem;
-  }
-  .hero-title {
-    font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em;
-    font-size: clamp(1.7rem, 5.4vw, 2.5rem); line-height: 1.14; margin: 0 0 0.8rem;
-    color: var(--text); text-wrap: balance;
-  }
-  .hero-sub { font-size: 0.98rem; color: var(--text-muted); max-width: 42ch; margin: 0 0 1.4rem; }
-  .hero-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
-  .hero-actions a.button.outline {
-    background: transparent; border: 1.5px solid var(--accent-strong); color: var(--accent-strong);
-  }
-  .hero-photo {
-    position: relative; width: 100%; aspect-ratio: 4 / 3; overflow: hidden;
-    background: var(--accent-soft); border-radius: 30px 10px 30px 10px;
-    transform: rotate(-1.4deg); box-shadow: 0 20px 44px -20px rgba(28,36,32,0.4);
-  }
-  @media (min-width: 900px) { .hero-photo { flex: 1; max-width: 460px; aspect-ratio: 1 / 1; } }
+  /* height (pas aspect-ratio) : évite le bug où max-height rétrécit
+     aussi la largeur quand aspect-ratio est combiné à max-height. */
+  .hero { position: relative; width: 100%; height: 92vw; min-height: 340px; max-height: 460px; overflow: hidden; background: var(--accent-soft); }
+  @media (min-width: 700px) { .hero { height: 46vw; max-height: 520px; } }
   .hero-slide {
     position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
     opacity: 0; transition: opacity 1.4s ease;
   }
   .hero-slide.active { opacity: 1; }
   @media (prefers-reduced-motion: reduce) { .hero-slide { transition: none; } }
+  .hero-scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(0deg, rgba(6,16,18,0.55) 0%, rgba(6,16,18,0.2) 55%, rgba(6,16,18,0.08) 100%),
+                linear-gradient(90deg, rgba(6,16,18,0.85) 0%, rgba(6,16,18,0.55) 35%, rgba(6,16,18,0.05) 68%);
+  }
+  @media (max-width: 640px) {
+    .hero-scrim { background: linear-gradient(180deg, rgba(6,16,18,0.5), rgba(6,16,18,0.62)); }
+  }
+  .hero-content {
+    position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center;
+    color: #fff; max-width: 720px; margin: 0 auto; padding: 1.6rem 1.3rem;
+  }
+  @media (min-width: 900px) { .hero-content { max-width: 1100px; padding: 1.6rem 2.4rem; } }
+  .hero-eyebrow {
+    display: inline-block; align-self: flex-start;
+    font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.09em;
+    font-size: 0.72rem; font-weight: 700; color: #eaf6fb;
+    background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 999px; padding: 0.35rem 0.85rem; margin: 0 0 1rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-weight: 800; letter-spacing: -0.01em;
+    font-size: clamp(1.55rem, 6vw, 2.15rem); line-height: 1.14; margin: 0 0 0.7rem; text-wrap: balance;
+  }
+  .hero-sub { font-size: 0.92rem; color: #dbe9ec; max-width: 38ch; margin: 0 0 1.2rem; }
+  .hero-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+  .hero-actions a.button { padding: 0.75rem 1.15rem; font-size: 0.9rem; }
+  .hero-actions a.button.ghost-light {
+    background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.55); color: #fff;
+  }
 
   /* ---------- Trust strip ---------- */
   .trust-strip {
@@ -262,17 +258,16 @@
 </nav>
 
 <section class="hero">
-  <div class="hero-text">
+  <div id="hero-banner"></div>
+  <div class="hero-scrim"></div>
+  <div class="hero-content">
     <p class="hero-eyebrow">Akora Fanadiovana</p>
     <h1 class="hero-title">Vos matières premières,<br>livrées à Madagascar</h1>
     <p class="hero-sub">Fabrication, cosmétique et entretien — un large catalogue avec suivi de livraison et conseils techniques, depuis l'application AkoraHub.</p>
     <div class="hero-actions">
       <a class="button primary" href="catalogue.html">Voir le catalogue</a>
-      <a class="button outline" href="https://pub-70ec95969f72425aa8ccf641a3bba312.r2.dev/akorahub-latest.apk">Télécharger l'app</a>
+      <a class="button ghost-light" href="https://pub-70ec95969f72425aa8ccf641a3bba312.r2.dev/akorahub-latest.apk">Télécharger l'app</a>
     </div>
-  </div>
-  <div class="hero-photo">
-    <div id="hero-banner"></div>
   </div>
 </section>
 
