@@ -6,6 +6,7 @@ import 'package:sizer/sizer.dart';
 import '../../core/navigation/product_detail_route.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../core/utils/price_unit.dart';
 import 'product_detail_client.dart';
 import 'usual_cart_provider.dart';
 
@@ -66,7 +67,7 @@ class _UsualCartScreenState extends ConsumerState<UsualCartScreen> {
       }
       final products = await SupabaseConfig.client
           .from('products')
-          .select()
+          .select('*, product_variants(price_detail, formats(name))')
           .inFilter('id', ids);
       final quantityById = {
         for (final r in rows) r['product_id'] as String: r['quantity'] as int,
@@ -176,6 +177,10 @@ class _UsualCartScreenState extends ConsumerState<UsualCartScreen> {
                           final productId = p['id'] as String;
                           final quantity = _quantities[productId] ?? 1;
                           final imageUrl = (p['image_url'] as String?) ?? '';
+                          final unitLabel = unitLabelFromEmbeddedVariants(
+                              p['product_variants']);
+                          final unitSuffix =
+                              unitLabel != null ? '/$unitLabel' : '';
                           return Card(
                             child: ListTile(
                               contentPadding: const EdgeInsets.fromLTRB(
@@ -218,7 +223,7 @@ class _UsualCartScreenState extends ConsumerState<UsualCartScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               subtitle: Text(
-                                  _currency.format(p['price_detail'] ?? 0)),
+                                  '${_currency.format(p['price_detail'] ?? 0)}$unitSuffix'),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [

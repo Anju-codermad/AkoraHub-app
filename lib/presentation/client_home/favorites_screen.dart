@@ -6,6 +6,7 @@ import 'package:sizer/sizer.dart';
 import '../../core/navigation/product_detail_route.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../core/utils/price_unit.dart';
 import 'favorites_provider.dart';
 import 'product_detail_client.dart';
 
@@ -47,7 +48,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
     try {
       final products = await SupabaseConfig.client
           .from('products')
-          .select()
+          .select('*, product_variants(price_detail, formats(name))')
           .inFilter('id', favoriteIds);
       setState(() {
         _products = List<Map<String, dynamic>>.from(products);
@@ -169,6 +170,9 @@ class _FavoriteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final imageUrl = (product['image_url'] as String?) ?? '';
+    final unitLabel =
+        unitLabelFromEmbeddedVariants(product['product_variants']);
+    final unitSuffix = unitLabel != null ? '/$unitLabel' : '';
 
     return Material(
       color: theme.colorScheme.surface,
@@ -241,7 +245,7 @@ class _FavoriteCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 2),
                 child: Text(
-                  'Dès ${currency.format(product['price_detail'] ?? 0)}',
+                  'Dès ${currency.format(product['price_detail'] ?? 0)}$unitSuffix',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: theme.colorScheme.primary,
