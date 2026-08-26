@@ -965,3 +965,6 @@
 
 ## 2026-08-26 13:15 UTC — Claude
 - Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`d36f653`)
+
+## 2026-08-26 16:27 UTC — Claude
+- Affiche l'unité (kg/L/pièce) à côté du prix sur Favoris et Panier habituel (`eaf7bef`)
