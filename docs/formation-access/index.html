@@ -244,6 +244,22 @@
     padding: 0.8rem 1.1rem; border-radius: 8px;
   }
   a.button.primary { background: var(--accent); color: #fff; }
+
+  /* ---------- Animations d'apparition (27/08) : les blocs apparaissent
+     en fondu vers le haut à l'arrivée sur la page ou au défilement,
+     comme sur akora-fb-assistant. Désactivées si l'utilisateur préfère
+     moins de mouvement (accessibilité). ---------- */
+  .reveal {
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+  .reveal.is-visible { opacity: 1; transform: translateY(0); }
+  .reveal-delay-1.is-visible { transition-delay: 0.1s; }
+  .reveal-delay-2.is-visible { transition-delay: 0.2s; }
+  .reveal-delay-3.is-visible { transition-delay: 0.3s; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { transition: none; opacity: 1; transform: none; }
+  }
 </style>
 </head>
 <body>
@@ -268,7 +284,7 @@
 <section class="hero">
   <div id="hero-banner"></div>
   <div class="hero-scrim"></div>
-  <div class="hero-content">
+  <div class="hero-content reveal">
     <p class="hero-eyebrow">Akora Fanadiovana</p>
     <h1 class="hero-title">Vos matières premières,<br>livrées à Madagascar</h1>
     <p class="hero-sub">Fabrication, cosmétique et entretien — un large catalogue avec suivi de livraison et conseils techniques, depuis l'application AkoraHub.</p>
@@ -279,7 +295,7 @@
   </div>
 </section>
 
-<div class="trust-strip">
+<div class="trust-strip reveal reveal-delay-1">
   <div class="trust-item">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h11v8H3z"/><path d="M14 10h4l3 3v2h-7z"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/></svg>
     <span>Livraison suivie</span>
@@ -298,14 +314,14 @@
   </div>
 </div>
 
-<p class="reviews-badge">
+<p class="reviews-badge reveal reveal-delay-2">
   <span class="stars">★★★★★</span>
   <span>5,0 sur 5</span>
   <a href="https://maps.app.goo.gl/NuKuQMKuk6oRbQNQ8" target="_blank" rel="noopener">— 9 avis Google</a>
 </p>
 
 <div class="page">
-  <div class="about-section">
+  <div class="about-section reveal">
     <p class="about">
       Fondée en 2020, Akora Fanadiovana conçoit et distribue des produits d'entretien, d'hygiène et de désinfection pour particuliers, entreprises et institutions à Madagascar. <a href="a-propos.html">En savoir plus</a>
     </p>
@@ -327,14 +343,14 @@
     <div class="featured-grid" id="featured-grid"></div>
   </div>
 
-  <div class="promo teal">
+  <div class="promo teal reveal">
     <h2>Application AkoraHub</h2>
     <p>Commandez vos matières premières, suivez vos livraisons et échangez avec notre équipe directement depuis l'application.</p>
     <a class="button" href="https://pub-70ec95969f72425aa8ccf641a3bba312.r2.dev/akorahub-latest.apk">Télécharger l'application</a>
     <p class="promo-note">📱 L'app n'est pas encore sur le Play Store — Android peut afficher un avertissement "Source inconnue" à l'installation, c'est normal, autorisez-le pour continuer.</p>
   </div>
 
-  <div class="promo soft">
+  <div class="promo soft reveal">
     <h2>AkoraFormation</h2>
     <p>Débloquez les fiches techniques complètes de nos produits : nom chimique, dosages, EPI, incompatibilités…</p>
     <a class="button" href="formation.html">Accéder à la formation</a>
@@ -527,6 +543,28 @@
       dot.className = 'hours-dot ' + (isOpen ? 'open' : 'closed');
       text.textContent = isOpen ? 'Ouvert maintenant' : 'Fermé actuellement';
     }
+  })();
+</script>
+<script>
+  // Animation d'apparition en fondu (27/08, demande explicite : même
+  // esprit que akora-fb-assistant) — chaque bloc ".reveal" apparaît en
+  // fondu vers le haut à l'arrivée sur la page ou au défilement.
+  (function () {
+    var els = document.querySelectorAll('.reveal');
+    if (!els.length) return;
+    if (!('IntersectionObserver' in window)) {
+      els.forEach(function (el) { el.classList.add('is-visible'); });
+      return;
+    }
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    els.forEach(function (el) { observer.observe(el); });
   })();
 </script>
 <div id="fb-root"></div>

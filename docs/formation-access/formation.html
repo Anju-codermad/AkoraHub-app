@@ -216,6 +216,22 @@
   .course-name { font-weight: 500; }
   .course-cat { color: var(--text-faint); font-size: 0.8rem; }
   .course-price { font-weight: 700; color: var(--accent-strong); white-space: nowrap; }
+
+  /* ---------- Animations d'apparition (27/08) : les blocs apparaissent
+     en fondu vers le haut à l'arrivée sur la page ou au défilement,
+     comme sur akora-fb-assistant. Désactivées si l'utilisateur préfère
+     moins de mouvement (accessibilité). ---------- */
+  .reveal {
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+  .reveal.is-visible { opacity: 1; transform: translateY(0); }
+  .reveal-delay-1.is-visible { transition-delay: 0.1s; }
+  .reveal-delay-2.is-visible { transition-delay: 0.2s; }
+  .reveal-delay-3.is-visible { transition-delay: 0.3s; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { transition: none; opacity: 1; transform: none; }
+  }
 </style>
 </head>
 <body>
@@ -238,13 +254,13 @@
 </nav>
 <div class="page">
 
-  <header>
+  <header class="reveal">
     <p class="eyebrow">AkoraHub — Formation</p>
     <h1>Débloquer l'accès Formation</h1>
     <p class="subtitle">Achetez l'accès aux fiches ingrédients, produit par produit. Le prix baisse automatiquement selon le nombre de produits déjà débloqués.</p>
   </header>
 
-  <div id="login-card" class="card">
+  <div id="login-card" class="card reveal reveal-delay-1">
     <div id="login-error" class="error hidden"></div>
     <label for="email">Email</label>
     <input type="email" id="email" autocomplete="email" placeholder="vous@exemple.com" />
@@ -902,6 +918,28 @@ boot();
       dot.className = 'hours-dot ' + (isOpen ? 'open' : 'closed');
       text.textContent = isOpen ? 'Ouvert maintenant' : 'Fermé actuellement';
     }
+  })();
+</script>
+<script>
+  // Animation d'apparition en fondu (27/08, demande explicite : même
+  // esprit que akora-fb-assistant) — chaque bloc ".reveal" apparaît en
+  // fondu vers le haut à l'arrivée sur la page ou au défilement.
+  (function () {
+    var els = document.querySelectorAll('.reveal');
+    if (!els.length) return;
+    if (!('IntersectionObserver' in window)) {
+      els.forEach(function (el) { el.classList.add('is-visible'); });
+      return;
+    }
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    els.forEach(function (el) { observer.observe(el); });
   })();
 </script>
 <div id="fb-root"></div>
