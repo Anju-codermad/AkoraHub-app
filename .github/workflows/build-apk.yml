@@ -30,6 +30,22 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
+      - name: Fixer le numéro de build (versionCode) à un nombre toujours croissant
+        # Bug découvert le 27/08 : `pubspec.yaml` gardait le même numéro de
+        # build ("+2") depuis des dizaines de compilations successives —
+        # Android compare le versionCode à l'installation, et un APK avec
+        # le MÊME numéro que celui déjà installé n'est pas toujours reconnu
+        # comme une vraie mise à jour (l'app peut rester sur l'ancien code
+        # même après avoir réinstallé un .apk "à jour"). `github.run_number`
+        # augmente à chaque exécution de ce workflow, donc chaque build
+        # produit désormais un numéro strictement plus grand que le
+        # précédent.
+        run: |
+          VERSION_NAME=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          sed -i "s/^version: .*/version: ${VERSION_NAME}+${{ github.run_number }}/" pubspec.yaml
+          echo "Nouvelle ligne de version :"
+          grep '^version:' pubspec.yaml
+
       - name: Libérer de l'espace disque sur le runner
         run: |
           echo "--- Espace disque avant nettoyage ---"
