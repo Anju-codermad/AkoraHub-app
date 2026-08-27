@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import '../client_home/client_home.dart';
 import '../business_profile_settings/business_profile_settings.dart';
 import '../business_units_management/business_units_management.dart';
 import '../staff_management/staff_management.dart';
@@ -113,7 +114,7 @@ class _MoreMenuScreenState extends State<MoreMenuScreen> {
         ),
       );
     }
-    return const _FullMoreMenu();
+    return _FullMoreMenu(isAdmin: _role == 'admin');
   }
 }
 
@@ -150,7 +151,8 @@ class _RestrictedMoreMenu extends StatelessWidget {
 }
 
 class _FullMoreMenu extends StatelessWidget {
-  const _FullMoreMenu();
+  final bool isAdmin;
+  const _FullMoreMenu({required this.isAdmin});
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +163,23 @@ class _FullMoreMenu extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
+          // Aperçu côté client (26/08, demande explicite) : réservé au
+          // rôle admin — permet de vérifier rapidement ce qui vient
+          // d'être publié sans se déconnecter/reconnecter avec un autre
+          // compte. Reste connecté avec la même session (pas un vrai
+          // changement de compte), voir _ClientPreviewWrapper.
+          if (isAdmin) ...[
+            _MenuTile(
+              icon: Icons.visibility_outlined,
+              label: 'Aperçu côté client',
+              subtitle: 'Voir l\'app comme un client, sans changer de compte',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const _ClientPreviewWrapper()),
+              ),
+            ),
+            const Divider(height: 24),
+          ],
           _SectionHeader('Gestion'),
           _MenuTile(
             icon: Icons.receipt_long_outlined,
@@ -482,6 +501,56 @@ class _MenuTile extends StatelessWidget {
           ? const Icon(Icons.chevron_right, size: 20)
           : null,
       onTap: onTap,
+    );
+  }
+}
+
+/// Affiche `ClientHome` telle quelle (même session admin, pas de vrai
+/// changement de compte) avec un bouton "Retour Admin" flottant en
+/// permanence par-dessus — nécessaire car l'onglet Accueil de
+/// `ClientHome` n'a pas d'AppBar/flèche retour (voir client_home.dart),
+/// donc rien n'indiquerait autrement comment revenir à l'Admin.
+class _ClientPreviewWrapper extends StatelessWidget {
+  const _ClientPreviewWrapper();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const ClientHome(),
+        Positioned(
+          top: 8,
+          right: 12,
+          child: SafeArea(
+            child: Material(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => Navigator.of(context).pop(),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_back, size: 16, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text(
+                        'Retour Admin',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
