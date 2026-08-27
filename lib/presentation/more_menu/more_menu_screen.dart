@@ -25,6 +25,7 @@ import '../post_approval_management/post_approval_management.dart';
 import '../service_catalog_management/service_catalog_management.dart';
 import '../service_requests_management/service_requests_management.dart';
 import '../customer_analytics/customer_analytics_dashboard.dart';
+import '../website_leads_management/website_leads_management.dart';
 
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
@@ -208,6 +209,16 @@ class _FullMoreMenu extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const ServiceRequestsManagement()),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.contact_page_outlined,
+            label: 'Demandes du site web',
+            subtitle: 'Contacts laissés via "Demander un devis" sur le site',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const WebsiteLeadsManagement()),
             ),
           ),
           _MenuTile(

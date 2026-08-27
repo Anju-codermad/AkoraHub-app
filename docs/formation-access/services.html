@@ -129,6 +129,28 @@
   .service-card p { font-size: 0.88rem; color: var(--text-muted); margin: 0; line-height: 1.55; }
   .services-cta { background: var(--accent-soft); border-radius: 14px; padding: 1.6rem 1.4rem; text-align: center; }
   .services-cta p { color: var(--text-muted); font-size: 0.92rem; margin: 0 0 1.1rem; }
+
+  /* ---------- Formulaire de contact (27/08) : demander un devis sans
+     compte ni panier — le site n'en propose pas (voir SITE_APP_SYNC.md),
+     ce petit formulaire capture quand même un client intéressé. ---------- */
+  .lead-form-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 1.6rem 1.4rem; margin-top: 1.2rem;
+  }
+  .lead-form-card h2 { font-family: var(--font-display); font-size: 1.05rem; margin: 0 0 0.4rem; }
+  .lead-form-card p { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1.1rem; }
+  .lead-form { display: flex; flex-direction: column; gap: 0.8rem; max-width: 420px; }
+  .lead-form input, .lead-form textarea {
+    width: 100%; padding: 0.7rem 0.9rem; border: 1px solid var(--border-strong);
+    border-radius: 8px; font-size: 0.95rem; font-family: inherit; background: var(--bg); color: var(--text);
+  }
+  .lead-form textarea { min-height: 80px; resize: vertical; }
+  .lead-form input:focus, .lead-form textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .lead-form button { align-self: flex-start; }
+  .lead-form-status { font-size: 0.88rem; margin-top: 0.8rem; }
+  .lead-form-status.success { color: #1a7a3c; }
+  .lead-form-status.error { color: #b3261e; }
+  .hidden { display: none !important; }
   a.button {
     display: inline-block; text-align: center; text-decoration: none; font-weight: 600; font-size: 0.96rem;
     padding: 0.8rem 1.3rem; border-radius: 8px;
@@ -209,6 +231,18 @@
     <p>Une question sur un service ou un produit précis ?</p>
     <a class="button primary" href="https://m.me/105965631922451" target="_blank" rel="noopener">Discuter sur Messenger</a>
   </div>
+
+  <div class="lead-form-card">
+    <h2>Ou laissez-nous vos coordonnées</h2>
+    <p>Un devis ou un rappel de notre équipe, sans créer de compte.</p>
+    <form class="lead-form" id="leadForm">
+      <input type="text" name="name" placeholder="Votre nom" required />
+      <input type="tel" name="phone" placeholder="Votre numéro de téléphone" required />
+      <textarea name="message" placeholder="Votre besoin (optionnel)"></textarea>
+      <button type="submit" class="button primary">Envoyer</button>
+    </form>
+    <p class="lead-form-status hidden" id="leadFormStatus"></p>
+  </div>
 </div>
 <footer class="site-footer" id="contact">
   <div class="site-footer-inner">
@@ -285,6 +319,51 @@
       dot.className = 'hours-dot ' + (isOpen ? 'open' : 'closed');
       text.textContent = isOpen ? 'Ouvert maintenant' : 'Fermé actuellement';
     }
+  })();
+</script>
+<script>
+  // Formulaire "Demander un devis" (27/08) : insertion directe dans
+  // Supabase (table website_leads, phase186) — écriture publique
+  // autorisée par RLS, pas besoin de compte/connexion côté visiteur.
+  (function () {
+    const SUPABASE_URL = "__SUPABASE_URL__";
+    const SUPABASE_ANON_KEY = "__SUPABASE_ANON_KEY__";
+    const form = document.getElementById("leadForm");
+    const status = document.getElementById("leadFormStatus");
+    if (!form) return;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (SUPABASE_URL.indexOf("__") === 0) return;
+      const submitButton = form.querySelector("button[type=submit]");
+      submitButton.disabled = true;
+      const data = new FormData(form);
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/website_leads`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            name: data.get("name"),
+            phone: data.get("phone"),
+            message: data.get("message") || null,
+            source_page: "services.html",
+          }),
+        });
+        if (!res.ok) throw new Error("Échec de l'envoi");
+        form.reset();
+        status.textContent = "Merci ! Nous vous recontactons rapidement.";
+        status.className = "lead-form-status success";
+      } catch (err) {
+        status.textContent =
+          "Une erreur est survenue — contactez-nous directement sur Messenger.";
+        status.className = "lead-form-status error";
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
   })();
 </script>
 <div id="fb-root"></div>
