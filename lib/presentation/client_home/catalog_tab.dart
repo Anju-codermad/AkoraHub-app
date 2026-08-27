@@ -1640,7 +1640,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 ),
                 _SocialLinkButton(
                   label: 'Akora AI',
-                  url: 'https://m.me/105965631922451',
+                  url:
+                      'https://anju-codermad-akora-fb-assistant.julioandrinirina95.workers.dev/',
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   icon: Icons.smart_toy_outlined,
                 ),
