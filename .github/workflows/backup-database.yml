@@ -1,0 +1,51 @@
+name: Sauvegarde quotidienne de la base de données
+
+# Contexte (27/08, demande explicite) : Supabase ne fait AUCUNE sauvegarde
+# automatique sur le plan Gratuit (contrairement aux plans payants) — ce
+# robot exporte toute la base chaque jour et dépose le fichier sur
+# Cloudflare R2 (même bucket que l'APK, dossier "backups/"), pour ne
+# jamais tout perdre en cas de problème côté Supabase.
+#
+# Secret à ajouter une seule fois (Settings -> Secrets and variables ->
+# Actions -> New repository secret) : SUPABASE_DB_URL — la chaîne de
+# connexion "Direct connection" (pas "Connection pooling") trouvée dans
+# Supabase Dashboard -> Project Settings -> Database -> Connection string
+# (choisir l'onglet "URI"), avec le mot de passe de la base déjà inclus.
+# Réutilise les secrets R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY déjà
+# configurés pour l'upload de l'APK (build-apk.yml).
+on:
+  schedule:
+    - cron: '0 2 * * *' # tous les jours à 2h UTC (5h à Madagascar)
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: Exporter et sauvegarder la base
+    runs-on: ubuntu-latest
+    steps:
+      - name: Installer les outils PostgreSQL (pg_dump)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Exporter toute la base de données
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "Secret SUPABASE_DB_URL manquant — voir le commentaire en haut de ce fichier pour l'ajouter."
+            exit 1
+          fi
+          pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges | gzip > backup.sql.gz
+          echo "Taille du fichier de sauvegarde :"
+          ls -lh backup.sql.gz
+
+      - name: Uploader la sauvegarde sur Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          DATE_TAG=$(date +%F)
+          aws s3 cp backup.sql.gz \
+            "s3://akorahub-releases/backups/backup-${DATE_TAG}.sql.gz" \
+            --endpoint-url https://ecfee9b5296944ea1de770687795776a.r2.cloudflarestorage.com
+          echo "Sauvegarde déposée : backups/backup-${DATE_TAG}.sql.gz"
