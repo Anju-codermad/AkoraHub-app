@@ -133,15 +133,16 @@
   .hero-sub { font-size: 0.86rem; color: #dbe9ec; margin: 0; }
 
   .search-box { position: relative; margin-bottom: 1.6rem; }
+  .search-box svg {
+    position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%);
+    width: 17px; height: 17px; stroke: var(--text-faint); pointer-events: none;
+  }
   .search-box input {
-    width: 100%; padding: 0.7rem 0.9rem 0.7rem 2.3rem; border: 1px solid var(--border-strong);
+    width: 100%; padding: 0.7rem 0.9rem 0.7rem 2.5rem; border: 1px solid var(--border-strong);
     border-radius: 8px; font-size: 1rem; background: var(--surface); color: var(--text);
   }
   .search-box input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .search-box::before {
-    content: "🔍"; position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%);
-    font-size: 0.9rem; opacity: 0.5;
-  }
+  .search-box input:focus + svg { stroke: var(--accent-strong); }
 
   .category { margin-bottom: 1.8rem; }
   .category h2 {
@@ -222,6 +223,10 @@
 <div class="page">
   <div class="search-box reveal">
     <input type="text" id="search" placeholder="Rechercher un produit…" />
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
   </div>
 
   <div id="content" class="state">Chargement du catalogue…</div>
@@ -425,11 +430,13 @@
     }
 
     // Pré-remplit et filtre depuis un lien "catégorie" venu de l'accueil
-    // (index.html?cat=... -> catalogue.html?cat=...), sinon affiche tout.
-    const cat = new URLSearchParams(window.location.search).get("cat");
-    if (cat) {
-      document.getElementById("search").value = cat;
-      applyFilter(cat);
+    // (index.html?cat=...) ou depuis la barre de recherche de l'accueil
+    // (index.html?q=...), sinon affiche tout.
+    const params = new URLSearchParams(window.location.search);
+    const presetTerm = params.get("cat") || params.get("q");
+    if (presetTerm) {
+      document.getElementById("search").value = presetTerm;
+      applyFilter(presetTerm);
     } else {
       render(allProducts);
     }

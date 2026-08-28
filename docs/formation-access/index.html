@@ -160,6 +160,23 @@
   .about { color: var(--text-muted); font-size: 0.92rem; margin: 0 0 0.9rem; }
   .about a { color: var(--accent-strong); font-weight: 600; }
 
+  /* ---------- Barre de recherche (accueil) ---------- */
+  .home-search { position: relative; margin: 0 0 2.2rem; }
+  .home-search svg {
+    position: absolute; left: 0.95rem; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; stroke: var(--text-faint); pointer-events: none;
+  }
+  .home-search input {
+    width: 100%; padding: 0.85rem 1rem 0.85rem 2.7rem; border: 1px solid var(--border-strong);
+    border-radius: 10px; font-size: 0.96rem; font-family: inherit; background: var(--surface);
+    color: var(--text); box-shadow: 0 1px 2px rgba(28,36,32,0.04);
+  }
+  .home-search input::placeholder { color: var(--text-faint); }
+  .home-search input:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .home-search input:focus + svg { stroke: var(--accent-strong); }
+
   /* ---------- Categories ---------- */
   .category-section { margin-bottom: 2.2rem; }
   .chips { display: flex; gap: 0.6rem; overflow-x: auto; padding-bottom: 0.2rem; scrollbar-width: none; }
@@ -326,6 +343,14 @@
       Fondée en 2020, Akora Fanadiovana conçoit et distribue des produits d'entretien, d'hygiène et de désinfection pour particuliers, entreprises et institutions à Madagascar. <a href="a-propos.html">En savoir plus</a>
     </p>
   </div>
+
+  <form class="home-search reveal" id="home-search-form" role="search">
+    <input type="search" id="home-search" name="q" placeholder="Rechercher un produit, une matière première…" aria-label="Rechercher un produit" />
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+  </form>
 
   <div class="category-section hidden" id="category-section">
     <div class="section-head">
@@ -520,6 +545,15 @@
       document.getElementById("featured-section").classList.remove("hidden");
     }
   })();
+</script>
+<script>
+  // Barre de recherche de l'accueil (28/08, demande explicite) : redirige
+  // vers le catalogue avec le terme recherché, qui applique le filtre.
+  document.getElementById("home-search-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = document.getElementById("home-search").value.trim();
+    window.location.href = q ? `catalogue.html?q=${encodeURIComponent(q)}` : "catalogue.html";
+  });
 </script>
 <script>
   // Point ouvert/maintenant (25/08, demande explicite) : calculé en
