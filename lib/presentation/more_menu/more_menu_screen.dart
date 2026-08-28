@@ -517,12 +517,65 @@ class _MenuTile extends StatelessWidget {
 }
 
 /// Affiche `ClientHome` telle quelle (même session admin, pas de vrai
-/// changement de compte) avec un bouton "Retour Admin" flottant en
-/// permanence par-dessus — nécessaire car l'onglet Accueil de
-/// `ClientHome` n'a pas d'AppBar/flèche retour (voir client_home.dart),
-/// donc rien n'indiquerait autrement comment revenir à l'Admin.
+/// changement de compte) avec un sélecteur de vue flottant en permanence
+/// par-dessus — nécessaire car l'onglet Accueil de `ClientHome` n'a pas
+/// d'AppBar/flèche retour (voir client_home.dart), donc rien n'indiquerait
+/// autrement comment revenir à l'Admin.
+///
+/// Le sélecteur (28/08, demande explicite) reprend l'esprit du menu de
+/// bascule entre profils de Facebook : une pastille avec la vue courante,
+/// qui ouvre une petite carte listant "Vue Client"/"Vue Admin" (icône +
+/// libellé + sous-titre, vue active surlignée) plutôt qu'un simple bouton
+/// "Retour".
 class _ClientPreviewWrapper extends StatelessWidget {
   const _ClientPreviewWrapper();
+
+  Future<void> _openSwitcher(BuildContext context, RenderBox button) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final topLeft = button.localToGlobal(Offset(0, button.size.height + 6), ancestor: overlay);
+    final topRight = button.localToGlobal(Offset(button.size.width, button.size.height + 6), ancestor: overlay);
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        topLeft.dx,
+        topLeft.dy,
+        overlay.size.width - topRight.dx,
+        0,
+      ),
+      color: Colors.white,
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      constraints: const BoxConstraints(minWidth: 230),
+      items: [
+        PopupMenuItem<String>(
+          value: 'client',
+          padding: EdgeInsets.zero,
+          child: _SwitcherRow(
+            icon: Icons.storefront_outlined,
+            iconBg: const Color(0xFF1478A4),
+            label: 'Vue Client',
+            subtitle: 'Vous êtes ici',
+            selected: true,
+          ),
+        ),
+        const PopupMenuDivider(height: 1),
+        PopupMenuItem<String>(
+          value: 'admin',
+          padding: EdgeInsets.zero,
+          child: _SwitcherRow(
+            icon: Icons.admin_panel_settings_outlined,
+            iconBg: Colors.black87,
+            label: 'Vue Admin',
+            subtitle: 'Retourner à la gestion',
+            selected: false,
+          ),
+        ),
+      ],
+    );
+    if (selected == 'admin' && context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -533,28 +586,36 @@ class _ClientPreviewWrapper extends StatelessWidget {
           top: 8,
           right: 12,
           child: SafeArea(
-            child: Material(
-              color: Colors.black87,
-              borderRadius: BorderRadius.circular(20),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => Navigator.of(context).pop(),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.arrow_back, size: 16, color: Colors.white),
-                      SizedBox(width: 6),
-                      Text(
-                        'Retour Admin',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+            child: Builder(
+              builder: (buttonContext) => Material(
+                color: Colors.white,
+                elevation: 3,
+                borderRadius: BorderRadius.circular(24),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(24),
+                  onTap: () => _openSwitcher(
+                    context,
+                    buttonContext.findRenderObject() as RenderBox,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 6, right: 10, top: 6, bottom: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 11,
+                          backgroundColor: Color(0xFF1478A4),
+                          child: Icon(Icons.storefront_outlined, size: 13, color: Colors.white),
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 6),
+                        Text(
+                          'Vue Client',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
+                        ),
+                        SizedBox(width: 2),
+                        Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.black54),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -562,6 +623,46 @@ class _ClientPreviewWrapper extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SwitcherRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconBg;
+  final String label;
+  final String subtitle;
+  final bool selected;
+
+  const _SwitcherRow({
+    required this.icon,
+    required this.iconBg,
+    required this.label,
+    required this.subtitle,
+    required this.selected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: selected ? const Color(0xFFF0F2F5) : Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          CircleAvatar(radius: 16, backgroundColor: iconBg, child: Icon(icon, size: 16, color: Colors.white)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87)),
+                Text(subtitle, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
