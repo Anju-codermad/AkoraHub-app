@@ -65,6 +65,7 @@
     display: none; background: none; border: none; cursor: pointer;
     padding: 0.3rem; font-size: 1.4rem; line-height: 1; color: var(--text);
   }
+  .site-nav-toggle svg { width: 22px; height: 22px; display: block; }
   @media (max-width: 899px) {
     .site-nav-toggle { display: block; }
     .site-nav-links {
@@ -152,10 +153,11 @@
 
   .search-box { position: relative; margin-bottom: 0.9rem; }
   .search-box input { padding-left: 2.2rem; }
-  .search-box::before {
-    content: "🔍"; position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%);
-    font-size: 0.9rem; opacity: 0.5;
+  .search-box svg {
+    position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px; stroke: var(--text-faint); pointer-events: none;
   }
+  .search-box input:focus + svg { stroke: var(--accent-strong); }
 
   .material-list { max-height: 340px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
   .material-row {
@@ -242,7 +244,7 @@
       Groupe Akora
     </a>
     <button class="site-nav-toggle" aria-label="Menu"
-      onclick="document.querySelector('.site-nav-links').classList.toggle('open')">☰</button>
+      onclick="document.querySelector('.site-nav-links').classList.toggle('open')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
     <div class="site-nav-links">
       <a href="index.html">Accueil</a>
       <a href="catalogue.html">Catalogue</a>
@@ -288,6 +290,10 @@
         <p class="hint" style="margin:0 0 0.8rem;">L'accès débloque la fiche produit ET la fiche technique complète (nom chimique, EPI, dosages, incompatibilités…) de chaque matière première.</p>
         <div class="search-box">
           <input type="text" id="search" placeholder="Rechercher une matière première…" />
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
         </div>
         <div id="material-list" class="material-list"></div>
       </div>

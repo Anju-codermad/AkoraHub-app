@@ -75,11 +75,12 @@
   .site-nav-links a:hover { color: var(--accent-strong); }
   /* Menu déroulant sur petit/moyen écran (25/08) : en dessous de 900px,
      les liens passaient en ligne à côté du logo et devenaient illisibles
-     — remplacés par un bouton ☰ qui déroule les liens sous la barre. */
+     — remplacés par un bouton (icône ≡) qui déroule les liens sous la barre. */
   .site-nav-toggle {
     display: none; background: none; border: none; cursor: pointer;
     padding: 0.3rem; font-size: 1.4rem; line-height: 1; color: var(--text);
   }
+  .site-nav-toggle svg { width: 22px; height: 22px; display: block; }
   @media (max-width: 899px) {
     .site-nav-toggle { display: block; }
     .site-nav-links {
@@ -287,7 +288,7 @@
       Groupe Akora
     </a>
     <button class="site-nav-toggle" aria-label="Menu"
-      onclick="document.querySelector('.site-nav-links').classList.toggle('open')">☰</button>
+      onclick="document.querySelector('.site-nav-links').classList.toggle('open')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
     <div class="site-nav-links">
       <a href="index.html">Accueil</a>
       <a href="catalogue.html">Catalogue</a>
