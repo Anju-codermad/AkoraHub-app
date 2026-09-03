@@ -26,7 +26,7 @@ import 'wall/wall_tab.dart';
 /// `profiles`. Voir PROJECT_CONTEXT.md Phase 20.
 ///
 /// Depuis le 04/08, toutes les fonctions transverses (Paramètres,
-/// Parrainage, Assistance, Scanner, Mes achats, Communauté & Formation,
+/// Assistance, Scanner, Mes achats, Communauté & Formation,
 /// Favoris) sont regroupées dans le menu latéral `ProfileMenuDrawer`
 /// (icône ☰ dans la barre du haut) plutôt que sur cette page — celle-ci
 /// se concentre sur l'essentiel visuel : couverture/identité,
@@ -958,7 +958,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   /// affiché dans Paramètres → Compte. Déconnexion retirée d'ici,
   /// désormais uniquement dans Paramètres.
   ///
-  /// Lot 6 (04/08) : Scanner, Assistance, Paramètres, Parrainage, "Mes
+  /// Lot 6 (04/08) : Scanner, Assistance, Paramètres, "Mes
   /// achats" et "Communauté & Formation" sont sortis d'ici vers le menu
   /// latéral (`ProfileMenuDrawer`, icône ☰ dans la barre du haut) — la
   /// page Profil se concentre désormais sur l'essentiel visuel :

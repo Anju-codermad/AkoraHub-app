@@ -11,7 +11,6 @@ import 'loyalty/loyalty_screen.dart';
 import 'my_contact_qr_screen.dart';
 import 'my_reviews_screen.dart';
 import 'recurring_orders/recurring_orders_screen.dart';
-import 'referral_screen.dart';
 import 'settings/settings_screen.dart';
 import 'usual_cart_screen.dart';
 
@@ -96,11 +95,6 @@ class _ProfileMenuDrawerState extends State<ProfileMenuDrawer> {
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Paramètres'),
               onTap: () => _open(const SettingsScreen()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.card_giftcard_outlined),
-              title: const Text('Parrainage'),
-              onTap: () => _open(const ReferralScreen()),
             ),
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),
