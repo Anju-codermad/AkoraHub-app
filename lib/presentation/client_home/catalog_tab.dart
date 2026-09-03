@@ -1635,7 +1635,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               children: [
                 _SocialLinkButton(
                   label: 'Notre site',
-                  url: 'https://akorahub-app.pages.dev',
+                  url: 'https://groupe-akora.com',
                   avatarImage: const AssetImage('assets/images/brand_logo.jpg'),
                 ),
                 _SocialLinkButton(

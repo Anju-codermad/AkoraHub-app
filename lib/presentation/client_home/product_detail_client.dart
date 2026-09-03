@@ -275,7 +275,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
               // téléchargement (voir docs/formation-access/produit.html
               // et core/deeplink/deep_link_service.dart).
               final link =
-                  'https://akorahub-app.pages.dev/produit.html?id=${p['id']}';
+                  'https://groupe-akora.com/produit.html?id=${p['id']}';
               SharePlus.instance.share(ShareParams(
                 text: '${p['name'] ?? 'Ce produit'} — '
                     '${_currency.format(priceDetail)}$unitSuffix sur AkoraHub\n$link',
