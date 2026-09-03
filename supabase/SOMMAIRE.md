@@ -218,3 +218,9 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 174 | `phase174_patch_random_products_exclude_recent.sql` | éviter les doublons entre "Pour vous" |
 | 175 | `phase175_patch_variant_stock_alerts.sql` | alertes de stock étendues aux variantes |
 | 176 | `phase176_patch_rotate_webhook_secret_v2.sql` | rotation du WEBHOOK_SECRET (2e fois) |
+| 187 | `phase187_patch_fix_formation_price_tampering.sql` | CORRECTIF CRITIQUE — falsification du prix des achats Formation (matières premières et cours) |
+
+⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
+le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
+187 ci-dessus (constaté le 03/09/2026 depuis la conversation du site web,
+hors scope de cette conversation pour les documenter rétroactivement).
