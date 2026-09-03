@@ -1052,3 +1052,6 @@
 
 ## 2026-09-03 16:04 UTC — Claude
 - Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`96a3648`)
+
+## 2026-09-03 20:05 UTC — Claude
+- Corrige la falsification du prix des achats Formation (phase187) (`fd4004f`)
