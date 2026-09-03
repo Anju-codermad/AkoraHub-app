@@ -1049,3 +1049,6 @@
 
 ## 2026-09-03 15:27 UTC — Claude
 - Documente la séparation du site web dans son propre dépôt (rapport) (`795d11e`)
+
+## 2026-09-03 16:04 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`96a3648`)
