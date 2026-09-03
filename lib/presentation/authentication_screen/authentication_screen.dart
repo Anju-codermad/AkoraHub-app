@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../core/supabase/auth_helpers.dart';
+import '../../theme/app_theme.dart';
 import './mfa_challenge_screen.dart';
 import './recent_accounts_store.dart';
 import './widgets/app_logo_widget.dart';
@@ -539,9 +540,9 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
                 // Welcome text
                 Text(
-                  _currentTranslations['welcome_back']!,
+                  '${_currentTranslations['welcome_back']!} 👋',
                   style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -562,12 +563,10 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 // "difficile à trouver parce qu'il est en bas") : un nouveau
                 // client doit le voir dès l'ouverture de l'écran, sans faire
                 // défiler tout le formulaire de connexion.
-                OutlinedButton(
+                _GradientPillButton(
                   onPressed: _handleRegister,
-                  child: Text(
-                    _currentTranslations['register']!,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  icon: Icons.person_add_alt_1,
+                  label: _currentTranslations['register']!,
                 ),
 
                 SizedBox(height: 3.h),
@@ -579,6 +578,14 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 if (_recentAccounts.isNotEmpty && !_showManualForm) ...[
                   ..._recentAccounts.map((account) => Card(
                         margin: EdgeInsets.only(bottom: 1.5.h),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color:
+                                theme.colorScheme.outline.withValues(alpha: 0.3),
+                          ),
+                        ),
                         child: ListTile(
                           leading: CircleAvatar(
                             backgroundImage: account.avatarUrl != null
@@ -609,9 +616,15 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                           onTap: () => _pickRecentAccount(account),
                         ),
                       )),
-                  OutlinedButton(
+                  OutlinedButton.icon(
                     onPressed: () => setState(() => _showManualForm = true),
-                    child: const Text('Utiliser un autre compte'),
+                    icon: const Icon(Icons.swap_horiz, size: 18),
+                    label: const Text('Utiliser un autre compte'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
                   ),
                   SizedBox(height: 3.h),
                 ] else ...[
@@ -712,6 +725,9 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                   onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 2.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                   ),
                   child: _isLoading
                       ? SizedBox(
@@ -724,7 +740,14 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                             ),
                           ),
                         )
-                      : Text(_currentTranslations['login_button']!),
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.lock_outline, size: 18),
+                            SizedBox(width: 2.w),
+                            Text(_currentTranslations['login_button']!),
+                          ],
+                        ),
                 ),
 
                 SizedBox(height: 3.h),
@@ -738,6 +761,69 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 SizedBox(height: 2.h),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bouton pilule en dégradé (vert -> marine), style "tech startup premium"
+/// utilisé pour l'appel à l'action principal (créer un compte).
+class _GradientPillButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String label;
+
+  const _GradientPillButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onPressed,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppTheme.primaryLight, AppTheme.secondaryLight],
+            ),
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryLight.withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.symmetric(vertical: 2.h, horizontal: 4.w),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: Colors.white,
+                child: Icon(icon, size: 14, color: AppTheme.primaryLight),
+              ),
+              SizedBox(width: 3.w),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              const Spacer(),
+              const Icon(Icons.chevron_right, color: Colors.white, size: 20),
+            ],
           ),
         ),
       ),

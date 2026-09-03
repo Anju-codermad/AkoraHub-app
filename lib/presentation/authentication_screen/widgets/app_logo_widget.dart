@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
-/// App logo widget with brand recognition
+import '../../../theme/app_theme.dart';
+
+/// App logo widget with brand recognition — tuile dégradée façon
+/// "tech startup premium" autour de l'icône, plutôt qu'une icône seule.
 class AppLogoWidget extends StatelessWidget {
   const AppLogoWidget({super.key});
 
@@ -12,28 +15,55 @@ class AppLogoWidget extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Image.asset(
-            'assets/images/app_icon.png',
-            width: 25.w,
-            height: 25.w,
+        Container(
+          width: 27.w,
+          height: 27.w,
+          padding: EdgeInsets.all(2.5.w),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppTheme.primaryLight, AppTheme.secondaryLight],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryLight.withValues(alpha: 0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.asset(
+              'assets/images/app_icon.png',
+              fit: BoxFit.cover,
+            ),
           ),
         ),
-        SizedBox(height: 2.h),
-        Text(
-          'AkoraHub',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.primary,
+        SizedBox(height: 2.5.h),
+        ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [AppTheme.primaryLight, AppTheme.secondaryLight],
+          ).createShader(bounds),
+          child: Text(
+            'AkoraHub',
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -0.5,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
         SizedBox(height: 0.5.h),
         Text(
-          'Plateforme professionnelle',
-          style: theme.textTheme.bodyMedium?.copyWith(
+          'PLATEFORME PROFESSIONNELLE',
+          style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 1.6,
+            fontWeight: FontWeight.w600,
           ),
           textAlign: TextAlign.center,
         ),
