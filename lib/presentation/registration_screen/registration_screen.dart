@@ -11,7 +11,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/client_types.dart';
 import '../../core/notifications/push_notification_service.dart';
-import '../../core/services/referral_repo.dart';
 import '../../core/supabase/supabase_config.dart';
 import './email_otp_verification_screen.dart';
 
@@ -47,7 +46,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _referralCodeController = TextEditingController();
   bool _showPassword = false;
   DateTime? _birthDate;
   bool _acceptedTerms = false;
@@ -75,7 +73,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _referralCodeController.dispose();
     _privacyPolicyRecognizer.dispose();
     super.dispose();
   }
@@ -208,19 +205,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
-    // Résolution du code de parrainage (optionnel) avant la création du
-    // compte — un code saisi mais invalide bloque l'inscription plutôt
-    // que d'être ignoré silencieusement.
-    String? referredBy;
-    final referralCode = _referralCodeController.text.trim();
-    if (referralCode.isNotEmpty) {
-      referredBy = await ReferralRepo.resolveCode(referralCode);
-      if (referredBy == null) {
-        _showError('Code de parrainage invalide.');
-        return;
-      }
-    }
-
     setState(() => _isLoading = true);
 
     try {
@@ -249,7 +233,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             : _phoneController.text.trim(),
         'birth_date': _birthDate?.toIso8601String().split('T').first,
         'gender': _gender,
-        if (referredBy != null) 'referred_by': referredBy,
       };
 
       if (!mounted) return;
@@ -673,16 +656,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               },
             ),
             SizedBox(height: 2.h),
-
-            TextFormField(
-              controller: _referralCodeController,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                labelText: 'Code de parrainage (optionnel)',
-                hintText: 'ex: A1B2C3',
-              ),
-            ),
-            SizedBox(height: 1.h),
 
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
