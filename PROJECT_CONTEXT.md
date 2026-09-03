@@ -8762,3 +8762,44 @@ n'apparaît QUE s'il y a une commande active.
   (Reçue / En préparation / Expédiée), remplie selon le statut actuel.
 - **`_orderStatusLabel`** : libellé français du statut affiché à côté
   du numéro de commande.
+
+## Site web déplacé dans son propre dépôt GitHub (03/09/2026)
+
+Nouveau domaine acheté (`groupe-akora.com`, via Cloudflare Registrar,
+~10,46 $/an). À l'occasion de cette migration, décision de séparer
+aussi le code : le site (`docs/formation-access/`, `functions/`)
+partageait ce dépôt avec l'application Flutter depuis le début, ce qui
+mélangeait deux historiques git et deux surfaces de code sans lien
+technique direct (HTML/JS statique vs Dart).
+
+- Nouveau dépôt : **`Anju-codermad/groupe-akora-site`**, contenu du
+  site déplacé dans un dossier `site/` (renommé depuis
+  `docs/formation-access`, nom jugé confus car hérité d'une ancienne
+  convention Netlify/GitHub Pages qui n'a plus de sens ici).
+  `functions/` (Cloudflare Pages Functions) reste à la racine de ce
+  nouveau dépôt.
+- Projet Cloudflare Pages renommé `akorahub-app` → `groupe-akora-site`
+  et reconnecté au nouveau dépôt (même projet, donc `groupe-akora.com`
+  n'a jamais été détaché/redétaché — pas de coupure). Build output
+  directory et build command mis à jour pour pointer vers `site/`.
+  Ancienne adresse `akorahub-app.pages.dev` perdue (remplacée par
+  `groupe-akora-site.pages.dev`), assumé comme acceptable (custom
+  domain inchangé).
+- `docs/formation-access/` et `functions/` supprimés de CE dépôt une
+  fois le nouveau déploiement vérifié fonctionnel (recherche,
+  catalogue, produits testés sur `groupe-akora.com`).
+- **Ce qui ne change pas** : les deux dépôts partagent la même base
+  Supabase — produits, demandes Formation/Académie, demandes de devis
+  (`website_leads`) continuent de se refléter automatiquement des deux
+  côtés sans aucun code à synchroniser. Seules les règles d'AFFICHAGE
+  dupliquées (voir `SITE_APP_SYNC.md`, mis à jour dans les deux dépôts)
+  demandent une vigilance manuelle, comme avant la séparation.
+- Marque affichée passée à "Groupe Akora" (logo, titres, pied de page)
+  sur le site, "Akora Fanadiovana" gardé partout où c'est une référence
+  légale/factuelle actuelle (JSON-LD, mentions légales, copyright,
+  titulaire Mvola) — changement de statut juridique réel prévu par la
+  propriétaire l'an prochain, pas encore fait. Détail complet dans le
+  `content.md` du nouveau dépôt `groupe-akora-site`.
+- Voir `content.md` de CE dépôt pour un résumé pointant vers le nouveau
+  dépôt — il ne contient plus l'historique complet depuis la
+  séparation.
