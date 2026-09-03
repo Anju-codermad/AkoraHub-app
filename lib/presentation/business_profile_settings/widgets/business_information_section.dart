@@ -43,15 +43,6 @@ class _BusinessInformationSectionState
     {"code": "ar", "name": "العربية", "flag": "🇸🇦"},
   ];
 
-  final List<Map<String, String>> _categories = [
-    {"id": "soap_manufacturing", "name": "Soap Manufacturing"},
-    {"id": "cleaning_products", "name": "Cleaning Products"},
-    {"id": "hygiene", "name": "Hygiene Products"},
-    {"id": "cosmetics", "name": "Cosmetics"},
-    {"id": "training", "name": "Training Services"},
-    {"id": "exhibitions", "name": "Exhibitions & Events"},
-    {"id": "real_estate", "name": "Real Estate"},
-  ];
 
   bool _isUploadingLogo = false;
 
@@ -405,45 +396,6 @@ class _BusinessInformationSectionState
             },
           ),
 
-          SizedBox(height: 2.h),
-
-          // Business Category
-          Text(
-            'Business Category',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: 1.h),
-          DropdownButtonFormField<String>(
-            initialValue: _categories.any((c) =>
-                    c["id"] == widget.businessData["category"] as String)
-                ? widget.businessData["category"] as String
-                : null,
-            hint: const Text('Select a category'),
-            decoration: InputDecoration(
-              prefixIcon: Padding(
-                padding: EdgeInsets.all(3.w),
-                child: CustomIconWidget(
-                  iconName: 'category',
-                  color: theme.colorScheme.onSurfaceVariant,
-                  size: 20,
-                ),
-              ),
-            ),
-            items: _categories.map((category) {
-              return DropdownMenuItem(
-                value: category["id"],
-                child: Text(category["name"]!),
-              );
-            }).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                widget.businessData["category"] = value;
-                widget.onChanged();
-              }
-            },
-          ),
         ],
       ),
     );
