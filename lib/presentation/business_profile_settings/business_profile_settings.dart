@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -184,27 +187,109 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
     }
   }
 
+  /// Génère un vrai PDF récapitulatif du profil (nom, description,
+  /// contact, adresse, horaires) à partir des données actuellement à
+  /// l'écran — remplace l'ancien bouton qui simulait juste un délai de
+  /// 2s sans rien produire (28/08, demande explicite).
   Future<void> _exportProfile() async {
     setState(() => _isLoading = true);
 
-    // Simulate PDF generation
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final companyName =
+          (_businessData['companyName'] as Map)['fr'] as String? ?? '';
+      final description =
+          (_businessData['description'] as Map)['fr'] as String? ?? '';
+      final phone = _businessData['phone'] as String? ?? '';
+      final email = _businessData['email'] as String? ?? '';
+      final website = _businessData['website'] as String? ?? '';
+      final social = _businessData['socialMedia'] as Map;
+      final address = _businessData['address'] as Map;
+      final hours = _businessData['operatingHours'] as Map;
 
-    if (mounted) {
-      setState(() => _isLoading = false);
+      String addressLine = [
+        address['street'],
+        address['city'],
+        address['postalCode'],
+        address['country'],
+      ].where((p) => p != null && p.toString().trim().isNotEmpty).join(', ');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Business profile exported successfully'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'View',
-            textColor: Theme.of(context).colorScheme.tertiary,
-            onPressed: () {},
+      const dayLabels = {
+        'monday': 'Lundi',
+        'tuesday': 'Mardi',
+        'wednesday': 'Mercredi',
+        'thursday': 'Jeudi',
+        'friday': 'Vendredi',
+        'saturday': 'Samedi',
+        'sunday': 'Dimanche',
+      };
+
+      final doc = pw.Document();
+      doc.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (context) => pw.Padding(
+            padding: const pw.EdgeInsets.all(32),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  companyName.isEmpty ? 'Profil entreprise' : companyName,
+                  style: pw.TextStyle(
+                      fontSize: 22, fontWeight: pw.FontWeight.bold),
+                ),
+                pw.SizedBox(height: 4),
+                if (description.isNotEmpty)
+                  pw.Text(description, style: const pw.TextStyle(fontSize: 11)),
+                pw.SizedBox(height: 20),
+                pw.Text('Contact',
+                    style: pw.TextStyle(
+                        fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 6),
+                if (phone.isNotEmpty) pw.Text('Téléphone : $phone'),
+                if (email.isNotEmpty) pw.Text('E-mail : $email'),
+                if (website.isNotEmpty) pw.Text('Site web : $website'),
+                if ((social['facebook'] as String?)?.isNotEmpty == true)
+                  pw.Text('Facebook : ${social['facebook']}'),
+                if ((social['whatsapp'] as String?)?.isNotEmpty == true)
+                  pw.Text('WhatsApp : ${social['whatsapp']}'),
+                if (addressLine.isNotEmpty) ...[
+                  pw.SizedBox(height: 6),
+                  pw.Text('Adresse : $addressLine'),
+                ],
+                pw.SizedBox(height: 20),
+                pw.Text('Horaires d\'ouverture',
+                    style: pw.TextStyle(
+                        fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 6),
+                ...dayLabels.entries.map((entry) {
+                  final dayData = hours[entry.key] as Map;
+                  final isClosed = dayData['closed'] as bool;
+                  return pw.Text(
+                    '${entry.value} : ${isClosed ? 'Fermé' : '${dayData['open']} - ${dayData['close']}'}',
+                  );
+                }),
+              ],
+            ),
           ),
         ),
       );
+
+      await Printing.layoutPdf(onLayout: (format) async => doc.save());
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Erreur lors de la génération du PDF.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
