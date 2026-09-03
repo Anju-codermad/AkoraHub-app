@@ -219,9 +219,14 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
                   SizedBox(height: 3.h),
                   RecentActivityFeedWidget(
                     lastUpdated: _lastUpdated,
-                    onActivityTap: (activityId) {
+                    onActivityTap: (activityId, activityType) {
                       HapticFeedback.selectionClick();
-                      // Navigate to activity detail
+                      if (activityType == 'order') {
+                        Navigator.pushNamed(context, '/order-management-real');
+                      } else if (activityType == 'customer') {
+                        Navigator.pushNamed(
+                            context, '/customer-management-real');
+                      }
                     },
                   ),
                   SizedBox(height: 10.h),

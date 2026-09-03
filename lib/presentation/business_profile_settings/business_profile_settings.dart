@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_export.dart';
 import '../../core/chat/chat_bubble_settings_repo.dart';
@@ -207,6 +208,43 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
     }
   }
 
+  /// Coordonnées à contacter en cas de besoin d'aide sur l'app admin —
+  /// utile pour un futur membre du staff, pas pour la propriétaire
+  /// elle-même (28/08, demande explicite, remplace un menu "Help &
+  /// Support" qui ne faisait rien).
+  void _showHelpSupport() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Aide et support'),
+        content: const Text(
+          'Besoin d\'aide pour utiliser l\'espace admin ? Contactez :',
+        ),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.email_outlined),
+            label: const Text('akorafanadiovana@gmail.com'),
+            onPressed: () {
+              Navigator.pop(context);
+              launchUrl(Uri.parse('mailto:akorafanadiovana@gmail.com'));
+            },
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: const Text('WhatsApp'),
+            onPressed: () {
+              Navigator.pop(context);
+              launchUrl(
+                Uri.parse('https://wa.me/261340874696'),
+                mode: LaunchMode.externalApplication,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<bool> _onWillPop() async {
     if (!_hasUnsavedChanges) return true;
 
@@ -286,7 +324,7 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                 if (value == 'export') {
                   _exportProfile();
                 } else if (value == 'help') {
-                  // Navigate to help
+                  _showHelpSupport();
                 }
               },
               itemBuilder: (context) => [

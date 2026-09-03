@@ -8,7 +8,7 @@ import '../../../core/supabase/supabase_config.dart';
 /// Affiche les dernières commandes et inscriptions réelles (Supabase).
 class RecentActivityFeedWidget extends StatefulWidget {
   final DateTime lastUpdated;
-  final Function(String activityId) onActivityTap;
+  final Function(String activityId, String activityType) onActivityTap;
 
   const RecentActivityFeedWidget({
     super.key,
@@ -202,7 +202,7 @@ class _RecentActivityFeedWidgetState extends State<RecentActivityFeedWidget> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => widget.onActivityTap(id),
+        onTap: () => widget.onActivityTap(id, type),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 1.h),
