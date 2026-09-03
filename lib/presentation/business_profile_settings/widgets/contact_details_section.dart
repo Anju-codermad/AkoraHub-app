@@ -457,9 +457,30 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
                             color: theme.colorScheme.error,
                           ),
                         )
-                      : Text(
-                          '${dayData["open"]} - ${dayData["close"]}',
-                          style: theme.textTheme.bodyMedium,
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildTimeChip(
+                              context,
+                              time: dayData["open"] as String,
+                              onPicked: (value) {
+                                setState(() => dayData["open"] = value);
+                                widget.onChanged();
+                              },
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text('-', style: theme.textTheme.bodyMedium),
+                            ),
+                            _buildTimeChip(
+                              context,
+                              time: dayData["close"] as String,
+                              onPicked: (value) {
+                                setState(() => dayData["close"] = value);
+                                widget.onChanged();
+                              },
+                            ),
+                          ],
                         ),
                 ),
                 Switch(
@@ -473,6 +494,44 @@ class _ContactDetailsSectionState extends State<ContactDetailsSection> {
             ),
           );
         }),
+      ),
+    );
+  }
+
+  /// Chip d'heure cliquable — ouvre un sélecteur d'heure natif et renvoie
+  /// la nouvelle valeur au format "HH:mm" (le même que celui déjà stocké
+  /// dans `operatingHours`, voir business_profile_settings.dart).
+  Widget _buildTimeChip(
+    BuildContext context, {
+    required String time,
+    required ValueChanged<String> onPicked,
+  }) {
+    final theme = Theme.of(context);
+    final parts = time.split(':');
+    final initial = TimeOfDay(
+      hour: parts.isNotEmpty ? int.tryParse(parts[0]) ?? 8 : 8,
+      minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
+    );
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: () async {
+        final picked = await showTimePicker(
+          context: context,
+          initialTime: initial,
+        );
+        if (picked == null) return;
+        final hh = picked.hour.toString().padLeft(2, '0');
+        final mm = picked.minute.toString().padLeft(2, '0');
+        onPicked('$hh:$mm');
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(time, style: theme.textTheme.bodyMedium),
       ),
     );
   }

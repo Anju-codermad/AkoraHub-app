@@ -185,39 +185,6 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
     }
   }
 
-  Future<void> _handleLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Déconnexion'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    if (SupabaseConfig.isConfigured) {
-      await SupabaseConfig.client.auth.signOut();
-    }
-
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/authentication-screen',
-      (route) => false,
-    );
-  }
-
   Future<void> _exportProfile() async {
     setState(() => _isLoading = true);
 
@@ -322,8 +289,6 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                   _exportProfile();
                 } else if (value == 'help') {
                   // Navigate to help
-                } else if (value == 'logout') {
-                  _handleLogout();
                 }
               },
               itemBuilder: (context) => [
@@ -352,23 +317,6 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                       ),
                       SizedBox(width: 3.w),
                       const Text('Help & Support'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'logout',
-                  child: Row(
-                    children: [
-                      CustomIconWidget(
-                        iconName: 'logout',
-                        color: theme.colorScheme.error,
-                        size: 20,
-                      ),
-                      SizedBox(width: 3.w),
-                      Text(
-                        'Déconnexion',
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
                     ],
                   ),
                 ),
