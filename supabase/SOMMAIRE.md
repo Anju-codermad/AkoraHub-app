@@ -5,6 +5,27 @@ Index de tous les scripts SQL du projet, dans l'ordre chronologique réel
 deviner. **Aucun fichier n'a été renommé** — les noms restent identiques
 à ceux déjà exécutés sur la base de données.
 
+## ⚠️ Règle depuis le 03/09/2026 : un seul endroit pour le SQL
+
+Le site web vit maintenant dans un dépôt séparé
+(`Anju-codermad/groupe-akora-site`), mais **partage la même base
+Supabase** que cette application. Pour éviter que deux migrations
+écrites séparément (une par dépôt) n'entrent en conflit sur la même
+base :
+
+- **Toute nouvelle migration SQL, y compris celles proposées depuis la
+  conversation/le dépôt du site, doit être ajoutée ICI**
+  (`AkoraHub-app/supabase/`), avec le prochain numéro de phase
+  disponible, avant d'être exécutée dans Supabase.
+- Le dépôt `groupe-akora-site` ne doit **pas** avoir son propre dossier
+  `supabase/` avec des migrations concurrentes — si une session Claude
+  y en crée un par erreur, le fichier doit être déplacé ici (avec un
+  numéro de phase) avant exécution, puis supprimé de l'autre dépôt.
+- Concrètement pour la propriétaire : avant d'exécuter un script SQL
+  proposé par la conversation du site dans l'éditeur Supabase, faites-le
+  d'abord relire par la conversation de l'app (celle-ci) pour
+  attribution du numéro de phase et vérification de conflit.
+
 ⚠️ Quelques numéros sont utilisés par plusieurs fichiers (4, 5, 6, 8, 9) —
 c'est un doublon historique, pas une erreur : dans ce sommaire ils sont
 listés l'un après l'autre, dans l'ordre où ils ont réellement été créés.

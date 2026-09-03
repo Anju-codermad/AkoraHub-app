@@ -59,3 +59,13 @@ Les données elles-mêmes (produits, prix, stock, photos, catégories,
 avis, dosages Académie...) viennent en direct de Supabase des deux
 côtés — ajouter/modifier un produit dans l'Admin se reflète
 automatiquement sur le site ET l'app, sans toucher au code.
+
+## ⚠️ SQL / migrations Supabase : un seul endroit, pas deux
+
+Les deux dépôts partagent la MÊME base Supabase. Toutes les migrations
+SQL doivent vivre dans **`AkoraHub-app/supabase/`** (numérotées par
+phase, voir `supabase/SOMMAIRE.md` dans ce dépôt) — jamais dans un
+dossier `supabase/` du dépôt `groupe-akora-site`. Si une migration est
+nécessaire pour une fonctionnalité du site, la faire passer par la
+conversation/le dépôt de l'app d'abord pour éviter un conflit avec une
+autre migration en cours.
