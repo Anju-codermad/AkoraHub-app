@@ -82,7 +82,7 @@ export async function handleProduitOg(context) {
     ? effectivePrice.toLocaleString("fr-FR") + " Ar" + (unitLabel ? `/${unitLabel}` : "")
     : "";
   const description = price ? `${price} — Commandez sur AkoraHub.` : "Commandez sur AkoraHub.";
-  const image = product.image_url || variant?.image_url || "https://akorahub-app.pages.dev/logo.jpg";
+  const image = product.image_url || variant?.image_url || "https://groupe-akora.com/logo.jpg";
 
   const tags = `
     <meta property="og:type" content="product" />
