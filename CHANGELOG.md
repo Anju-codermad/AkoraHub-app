@@ -1094,3 +1094,6 @@
 
 ## 2026-09-04 14:03 UTC — Claude
 - Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`572ac7d`)
+
+## 2026-09-04 14:44 UTC — Claude
+- fix(catalogue): icône eau pour Akor'Eau + commentaires piliers à jour (`0620572`)
