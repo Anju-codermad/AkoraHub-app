@@ -513,6 +513,26 @@ class _ProductManagementRealState
     final removedExistingIds = <String>{};
     bool isSaving = false;
 
+    // Piliers SUPPLÉMENTAIRES (04/09/2026, demande explicite : "Je veux
+    // qu'il s'affiche dans les deux piliers") — en plus du pilier
+    // principal ci-dessus (`selectedUnitId`), qui reste seul à déterminer
+    // la catégorie/fiche Académie liée. Voir
+    // supabase/phase202_schema_multi_pilier_produits.sql.
+    final selectedExtraUnitIds = <String>{};
+    if (isEditing) {
+      try {
+        final result = await SupabaseConfig.client
+            .from('product_extra_business_units')
+            .select('business_unit_id')
+            .eq('product_id', product['id']);
+        selectedExtraUnitIds.addAll(List<Map<String, dynamic>>.from(result)
+            .map((r) => r['business_unit_id'] as String));
+      } catch (_) {
+        // Table pas encore créée (migration phase202 non exécutée) : on
+        // continue sans bloquer l'édition du produit.
+      }
+    }
+
     // Brouillon/Publié (09/08, demande explicite : les nouveaux produits
     // ne doivent pas apparaître côté client tant que la photo n'est pas
     // prête) — réutilise `products.visibility`, qui existait déjà en base
@@ -815,7 +835,7 @@ class _ProductManagementRealState
                   );
                 }),
                 const SizedBox(height: 12),
-                const Text('Pilier d\'entreprise'),
+                const Text('Pilier d\'entreprise (principal)'),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 8,
@@ -827,6 +847,33 @@ class _ProductManagementRealState
                         setDialogState(() {
                           selectedUnitId = u['id'];
                           selectedCategoryName = null;
+                          // Un pilier ne peut pas être à la fois principal
+                          // et supplémentaire pour le même produit.
+                          selectedExtraUnitIds.remove(u['id']);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                const Text('Afficher aussi dans (optionnel)'),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  children: _businessUnits
+                      .where((u) => u['id'] != selectedUnitId)
+                      .map((u) {
+                    final selected = selectedExtraUnitIds.contains(u['id']);
+                    return FilterChip(
+                      label: Text(u['name']),
+                      selected: selected,
+                      onSelected: (v) {
+                        setDialogState(() {
+                          if (v) {
+                            selectedExtraUnitIds.add(u['id']);
+                          } else {
+                            selectedExtraUnitIds.remove(u['id']);
+                          }
                         });
                       },
                     );
@@ -1229,6 +1276,31 @@ class _ProductManagementRealState
                         .select()
                         .single();
                     productId = inserted['id'] as String;
+                  }
+
+                  // Piliers supplémentaires : on réécrit la liste au
+                  // complet (comme la galerie photo plus bas) — plus
+                  // simple qu'un diff vu le petit nombre de piliers.
+                  try {
+                    await SupabaseConfig.client
+                        .from('product_extra_business_units')
+                        .delete()
+                        .eq('product_id', productId);
+                    if (selectedExtraUnitIds.isNotEmpty) {
+                      await SupabaseConfig.client
+                          .from('product_extra_business_units')
+                          .insert([
+                        for (final unitId in selectedExtraUnitIds)
+                          {
+                            'product_id': productId,
+                            'business_unit_id': unitId,
+                          },
+                      ]);
+                    }
+                  } catch (_) {
+                    // Table pas encore créée (migration phase202 non
+                    // exécutée) : le produit lui-même est déjà enregistré,
+                    // on continue sans bloquer sur les piliers supplémentaires.
                   }
 
                   // La galerie photo est gérée dans un try/catch séparé :

@@ -232,7 +232,8 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 198 | `phase198_patch_resync_usages_sulfate_aluminium.sql` | corrige le décalage products.use_cases vs fiche Académie constaté après la phase 197 (trigger phase159 ne resynchronise qu'à la création) |
 | 199 | `phase199_patch_resync_usages_akoreau.sql` | même correctif que la phase 198, étendu à tous les produits du pilier Akor'Eau |
 | 200 | `phase200_patch_renomme_enrichit_sulfate_aluminium.sql` | renomme "Sulfate d'aluminium (Alun)" en "... (Sulfate d'alumine)" pour la findabilité + CAS 10043-01-3 + synonyme anglais |
-| 201 | `phase201_ajout_hypochlorite_calcium_akoreau.sql` | fiche dédiée "Hypochlorite de calcium — grade traitement de l'eau" pour Akor'Eau (solution temporaire en attendant le multi-pilier, voir SOMMAIRE plus bas) |
+| 201 | `phase201_ajout_hypochlorite_calcium_akoreau.sql` | SUPERSÉDÉE par la phase 202 — ne pas exécuter (fiche dédiée devenue inutile, voir phase 202) |
+| 202 | `phase202_schema_multi_pilier_produits.sql` | un produit peut appartenir à plusieurs piliers (table `product_extra_business_units`) + relie Hypochlorite de calcium 70% à Akor'Eau en plus d'Akora Pro |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
@@ -302,25 +303,31 @@ migrations (phase10, phase42) sont volontairement laissées telles
 quelles — ce sont des journaux/scripts déjà exécutés qui documentent
 l'historique réel, pas du contenu visible par les utilisateurs.
 
-## ⚠️ Limite connue (04/09/2026) : un produit ne peut avoir qu'un seul pilier
+## ✅ Résolu (04/09/2026, phase 202) : un produit peut avoir plusieurs piliers
 
-`products.business_unit_id` et `products.category` sont des colonnes
-uniques (pas des listes) — un produit ne peut aujourd'hui appartenir
-qu'à UN SEUL pilier/catégorie à la fois. Ça a posé problème plusieurs
-fois pour des produits chimiques qui servent à la fois à Akora Pro
-(usage général) et à Akor'Eau (traitement de l'eau) : STPP, Charbon
-actif (GAC), Hypochlorite de calcium (phase 201).
+`products.business_unit_id` et `products.category` restent des
+colonnes uniques (le pilier PRINCIPAL d'un produit, qui détermine sa
+catégorie et sa fiche Académie liée) — mais un produit peut désormais
+aussi être rattaché à des piliers SUPPLÉMENTAIRES, sans dupliquer sa
+fiche. Posé problème plusieurs fois avant cette phase pour des
+produits chimiques utiles à la fois à Akora Pro (usage général) et à
+Akor'Eau (traitement de l'eau) : STPP, Charbon actif (GAC),
+Hypochlorite de calcium.
 
-Solution actuelle (temporaire) : une fiche technique séparée par
-pilier/usage pour ces produits (deux `raw_materials`/`products`
-distincts pour le même produit chimique) — fonctionne, mais oblige à
-maintenir stock/prix séparément sur les deux fiches pour un même
-produit physique.
+Solution : table additive `product_extra_business_units` (product_id,
+business_unit_id), en plus de `business_unit_id` — pas à la place.
+Un produit apparaît dans le catalogue client sous son pilier principal
+ET tous ses piliers supplémentaires (union, pas de duplication de
+fiche/stock/prix). Écran admin : nouvelle rangée de puces
+"Afficher aussi dans (optionnel)" sous le choix du pilier principal
+(sélection multiple), dans `product_management_real.dart`. Catalogue
+client (`product_catalog_tab.dart`) : la requête paginée et les
+listes de catégories/usages disponibles tiennent compte des piliers
+supplémentaires via `_belongsToSelectedUnit`.
 
-Solution cible envisagée (pas encore décidée/lancée au moment
-d'écrire cette note) : ajouter une table de liaison produit ↔ pilier
-en plus (pas à la place) de `business_unit_id`, pour qu'un produit
-puisse être rattaché à plusieurs piliers sans dupliquer sa fiche —
-nécessite un changement de schéma ET une adaptation de l'écran admin
-(sélection multiple de piliers) et du catalogue client (filtrage). Si
-ce chantier est lancé, documenter la décision et son état ici.
+Les fiches séparées créées avant cette phase (STPP, GAC — phase 195 ;
+Hypochlorite de calcium — phase 201, supersédée) restent au catalogue
+comme produits à part entière ; rien ne les force à fusionner avec
+l'original. Pour un nouveau cas similaire, préférer désormais le
+multi-pilier (cocher le pilier supplémentaire sur le produit existant)
+plutôt qu'une fiche dupliquée.

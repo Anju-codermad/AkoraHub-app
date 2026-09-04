@@ -72,6 +72,23 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   Timer? _searchDebounce;
   List<Map<String, dynamic>> _allProductsForReference = [];
   final _scrollController = ScrollController();
+
+  // Piliers SUPPLÉMENTAIRES d'un produit, en plus de son pilier
+  // principal (`business_unit_id`) — 04/09/2026, demande explicite
+  // ("Je veux qu'il s'affiche dans les deux piliers"). Voir
+  // supabase/phase202_schema_multi_pilier_produits.sql. Table petite,
+  // chargée entièrement une fois : product_id -> {business_unit_id...}.
+  Map<String, Set<String>> _extraUnitsByProductId = {};
+
+  /// Un produit appartient au pilier sélectionné si c'est son pilier
+  /// principal OU un de ses piliers supplémentaires. `null` = pas de
+  /// filtre pilier, tout correspond.
+  bool _belongsToSelectedUnit(Map<String, dynamic> p) {
+    if (_selectedUnitId == null) return true;
+    if (p['business_unit_id'] == _selectedUnitId) return true;
+    return _extraUnitsByProductId[p['id']]?.contains(_selectedUnitId) ??
+        false;
+  }
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
@@ -206,7 +223,20 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
         .select('*, product_variants(price_detail, formats(name))')
         .eq('visibility', true);
     if (_selectedUnitId != null) {
-      query = query.eq('business_unit_id', _selectedUnitId!);
+      // Inclut aussi les produits dont ce pilier n'est qu'un pilier
+      // supplémentaire (voir _extraUnitsByProductId) — sinon un produit
+      // rattaché en plus à ce pilier n'apparaîtrait que sous son pilier
+      // principal.
+      final extraIds = _extraUnitsByProductId.entries
+          .where((e) => e.value.contains(_selectedUnitId))
+          .map((e) => e.key)
+          .toList();
+      if (extraIds.isEmpty) {
+        query = query.eq('business_unit_id', _selectedUnitId!);
+      } else {
+        query = query.or(
+            'business_unit_id.eq.${_selectedUnitId!},id.in.(${extraIds.join(',')})');
+      }
     }
     if (_selectedCategory != 'toutes') {
       query = query.eq('category', _selectedCategory);
@@ -305,13 +335,28 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
       _hasMore = true;
     });
     try {
+      // _fetchProductsPage(0) tourne en parallèle sans encore connaître
+      // _extraUnitsByProductId (peuplé seulement après ce Future.wait) —
+      // sans conséquence ici puisque _selectedUnitId démarre toujours à
+      // null (pas de filtre pilier au premier chargement de l'écran).
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client.from('business_units').select().eq('active', true),
+        SupabaseConfig.client
+            .from('product_extra_business_units')
+            .select('product_id, business_unit_id'),
         _fetchProductsPage(0),
       ]);
-      final productsPage = List<Map<String, dynamic>>.from(results[1] as List);
+      final extraRows = List<Map<String, dynamic>>.from(results[1] as List);
+      final extraMap = <String, Set<String>>{};
+      for (final row in extraRows) {
+        extraMap
+            .putIfAbsent(row['product_id'] as String, () => {})
+            .add(row['business_unit_id'] as String);
+      }
+      final productsPage = List<Map<String, dynamic>>.from(results[2] as List);
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
+        _extraUnitsByProductId = extraMap;
         _products = productsPage;
         _hasMore = productsPage.length == _pageSize;
         _isLoading = false;
@@ -456,10 +501,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     // Basé sur le catalogue complet (_allProductsForReference), pas sur
     // _products qui n'est plus qu'une page — sinon les puces
     // apparaîtraient/disparaîtraient au fil du scroll infini.
-    final relevant = _selectedUnitId == null
-        ? _allProductsForReference
-        : _allProductsForReference
-            .where((p) => p['business_unit_id'] == _selectedUnitId);
+    final relevant = _allProductsForReference.where(_belongsToSelectedUnit);
     // Catégories désactivées par l'Admin — via le cache partagé plutôt
     // qu'une requête dédiée à chaque ouverture du catalogue.
     final inactiveCategoryNames = ref
@@ -492,10 +534,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   /// catégories d'un même pilier, ex. "Nettoyage" peut concerner
   /// Carrelage & Sols ET Cuisine & Vaisselle).
   List<String> get _usages {
-    final relevant = _selectedUnitId == null
-        ? _allProductsForReference
-        : _allProductsForReference
-            .where((p) => p['business_unit_id'] == _selectedUnitId);
+    final relevant = _allProductsForReference.where(_belongsToSelectedUnit);
     final usages = <String>{
       for (final p in relevant)
         ...List<String>.from(p['use_cases'] ?? const []),
@@ -551,8 +590,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
 
   List<Map<String, dynamic>> get _filteredProducts {
     return _products.where((p) {
-      final matchesUnit =
-          _selectedUnitId == null || p['business_unit_id'] == _selectedUnitId;
+      final matchesUnit = _belongsToSelectedUnit(p);
       final matchesCategory = _selectedCategory == 'toutes' ||
           p['category'] == _selectedCategory;
       final matchesUsage = _selectedUsage == 'toutes' ||
