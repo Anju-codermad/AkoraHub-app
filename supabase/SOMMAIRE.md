@@ -234,6 +234,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 200 | `phase200_patch_renomme_enrichit_sulfate_aluminium.sql` | renomme "Sulfate d'aluminium (Alun)" en "... (Sulfate d'alumine)" pour la findabilité + CAS 10043-01-3 + synonyme anglais |
 | 201 | `phase201_ajout_hypochlorite_calcium_akoreau.sql` | SUPERSÉDÉE par la phase 202 — ne pas exécuter (fiche dédiée devenue inutile, voir phase 202) |
 | 202 | `phase202_schema_multi_pilier_produits.sql` | un produit peut appartenir à plusieurs piliers (table `product_extra_business_units`) + relie Hypochlorite de calcium 70% à Akor'Eau en plus d'Akora Pro |
+| 203 | `phase203_ajout_pilier_akora_nutrilab.sql` | nouveau pilier "Akora NutriLab" (matières premières agroalimentaire : produits chimiques / ingrédients) — pas encore de catégories/produits |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
@@ -331,3 +332,14 @@ comme produits à part entière ; rien ne les force à fusionner avec
 l'original. Pour un nouveau cas similaire, préférer désormais le
 multi-pilier (cocher le pilier supplémentaire sur le produit existant)
 plutôt qu'une fiche dupliquée.
+
+## 🆕 04/09/2026 (phase 203) : nouveau pilier "Akora NutriLab"
+
+Décision de la propriétaire : lancement d'un pilier dédié aux matières
+premières (produits chimiques / ingrédients alimentaires) pour les
+professionnels de l'agroalimentaire — technique/B2B, distinct
+d'Akora Pro (généraliste). Un futur pilier "Akora Food" est prévu
+séparément pour le produit fini agroalimentaire grand public (même
+logique que Akora Paints/Akora Coatings). Phase 203 : crée
+uniquement le pilier (`business_units`, slug `akora-nutrilab`), sans
+catégories ni produits pour l'instant.
