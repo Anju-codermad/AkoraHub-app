@@ -1142,3 +1142,6 @@
 
 ## 2026-09-04 21:16 UTC — Claude
 - Rattache les produits agroalimentaire existants à Akora NutriLab (`58c767d`)
+
+## 2026-09-04 21:19 UTC — Claude
+- Corrige 2 liens manqués vers Akora NutriLab (phase205) (`42c5eed`)
