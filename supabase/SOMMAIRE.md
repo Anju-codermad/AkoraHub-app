@@ -227,6 +227,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 193 | `phase193_patch_categories_akora_paints.sql` | 7 catégories pour le pilier Akora Paints (MURO, FAÇAD, FERRO, LUSSO, PRIMO, TOITU, LASUR) |
 | 194 | `phase194_patch_slug_akora_paints.sql` | retire "arca" du slug du pilier Akora Paints (arca-paints → akora-paints) |
 | 195 | `phase195_ajout_produits_akoreau_lot2.sql` | complète Akor'Eau : déplace "Chaux eteinte" (oubliée en phase189) + 3 nouveaux produits (GAC, STPP grade eau, Polyacrylamide) |
+| 196 | `phase196_patch_bascule_produits_akoreau.sql` | bascule vers le pilier Akor'Eau les 6 produits de la phase190, restés sous Akora Pro (phase190 exécutée après la phase191) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
