@@ -1151,3 +1151,6 @@
 
 ## 2026-09-04 21:40 UTC — Claude
 - Lie 103 additifs alimentaires (numéro E) à Akora NutriLab (`a40b65b`)
+
+## 2026-09-04 21:51 UTC — Claude
+- Retire Ethanol du lien Akora NutriLab (précaution) (`8208981`)
