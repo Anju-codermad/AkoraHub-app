@@ -225,6 +225,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 191 | `phase191_patch_akoreau_devient_pilier.sql` | Akor'Eau passe de catégorie (pilier Akora Pro) à pilier à part entière |
 | 192 | `phase192_patch_traitement_eau_vers_akoreau.sql` | déplace "Traitement de l'eau & Piscine" (pilier Akora Protect) vers le pilier Akor'Eau |
 | 193 | `phase193_patch_categories_akora_paints.sql` | 7 catégories pour le pilier Akora Paints (MURO, FAÇAD, FERRO, LUSSO, PRIMO, TOITU, LASUR) |
+| 194 | `phase194_patch_slug_akora_paints.sql` | retire "arca" du slug du pilier Akora Paints (arca-paints → akora-paints) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
@@ -269,3 +270,27 @@ partagées (comme `business_units.name`) par une migration déjà en place
 côté site. À garder à l'esprit pour la suite : préférer `slug` (stable)
 plutôt que `name` (affichage, peut changer) dans tout futur script SQL
 qui référence un pilier.
+
+## ⚠️ Correctif 04/09/2026 : retrait du nom de marque "Arca" (slug arca-paints)
+
+Demande explicite de la propriétaire : ne pas garder le nom de marque
+"Arca" dans le projet (pilier "ARCA PAINTS" déjà renommé "Akora Paints"
+en affichage, mais son slug technique était resté `arca-paints`).
+
+Au moment d'écrire la Phase 194 (qui renomme ce slug en
+`akora-paints`), la Phase 193 — tout juste ajoutée par la conversation
+du site pour créer 7 catégories peinture — cherchait justement le
+pilier via `bu.slug = 'arca-paints'`. Exactement le même piège que le
+renommage "Akora Fanadiovana" → "Akora Pro" ci-dessus : si la Phase 194
+avait été exécutée avant la Phase 193, cette dernière n'aurait rien
+inséré. **Corrigé avant exécution cette fois** : la Phase 193 a été
+réécrite pour chercher le pilier par `bu.name = 'Akora Paints'` (stable
+à ce moment précis) au lieu du slug — les Phases 193 et 194 peuvent
+donc s'exécuter dans n'importe quel ordre l'une par rapport à l'autre.
+
+Nettoyage effectué côté code Flutter dans le même mouvement (hors SQL) :
+retrait de "ARCA" du texte visible sur l'accueil client et du README.
+Les mentions "ARCA PAINTS" dans `PROJECT_CONTEXT.md` et les anciennes
+migrations (phase10, phase42) sont volontairement laissées telles
+quelles — ce sont des journaux/scripts déjà exécutés qui documentent
+l'historique réel, pas du contenu visible par les utilisateurs.

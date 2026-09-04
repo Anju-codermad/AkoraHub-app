@@ -1,7 +1,13 @@
 -- ============================================================
 -- AkoraHub - Patch Phase 193 : 7 catégories pour le pilier "Akora
--- Paints" (slug arca-paints), qui n'en avait aucune depuis son
--- lancement — demande explicite de la propriétaire le 04/09/2026.
+-- Paints", qui n'en avait aucune depuis son lancement — demande
+-- explicite de la propriétaire le 04/09/2026.
+--
+-- CORRECTIF 04/09/2026 : le lookup utilise bu.name = 'Akora Paints'
+-- plutôt que bu.slug = 'arca-paints' — ce slug hérité du nom "Arca"
+-- (marque non retenue) va être changé par la Phase 194, indépendamment
+-- de cette phase-ci ; utiliser le nom évite tout problème d'ordre
+-- d'exécution entre les deux scripts.
 --
 -- 5 catégories demandées (avec leur code produit interne, gardé en
 -- commentaire ici mais pas stocké : la table `categories` n'a qu'un
@@ -39,17 +45,16 @@ cross join (values
   ('Peinture Toiture (Tôles & Bacs Acier)'),
   ('Lasure & Vernis Bois')
 ) as c(name)
-where bu.slug = 'arca-paints'
+where bu.name = 'Akora Paints'
 on conflict (business_unit_id, name) do nothing;
 
--- Garde-fou : prévenir si le pilier Akora Paints (slug arca-paints)
--- n'a pas été trouvé.
+-- Garde-fou : prévenir si le pilier Akora Paints n'a pas été trouvé.
 do $$
 begin
   if not exists (
-    select 1 from public.business_units where slug = 'arca-paints'
+    select 1 from public.business_units where name = 'Akora Paints'
   ) then
-    raise notice 'Aucun pilier avec le slug ''arca-paints'' trouvé — les 7 catégories n''ont pas été insérées. Vérifier le slug exact du pilier Akora Paints.';
+    raise notice 'Aucun pilier nommé ''Akora Paints'' trouvé — les 7 catégories n''ont pas été insérées. Vérifier le nom exact du pilier.';
   end if;
 end $$;
 
@@ -57,5 +62,5 @@ end $$;
 select bu.name as pilier, cat.name as categorie
 from public.categories cat
 join public.business_units bu on bu.id = cat.business_unit_id
-where bu.slug = 'arca-paints'
+where bu.name = 'Akora Paints'
 order by cat.name;
