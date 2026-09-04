@@ -237,6 +237,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 203 | `phase203_ajout_pilier_akora_nutrilab.sql` | nouveau pilier "Akora NutriLab" (matières premières agroalimentaire : produits chimiques / ingrédients) — pas encore de catégories/produits |
 | 204 | `phase204_patch_categories_akora_nutrilab.sql` | 7 catégories pour le pilier Akora NutriLab (Épaississants/gélifiants/stabilisants, Édulcorants, Additifs alimentaires, Colorants alimentaires, Arômes & parfums alimentaires, Émulsifiants, Ingrédients nutritionnels) |
 | 205 | `phase205_patch_rattache_produits_akora_nutrilab.sql` | rattache ~28 produits existants (Akora Pro) au pilier Akora NutriLab avec leur catégorie, + lien supplémentaire pour ~17 produits polyvalents qui restent sous Akora Pro |
+| 206 | `phase206_patch_corrige_liens_nutrilab_manquants.sql` | corrige 2 liens manqués par la phase 205 (noms exacts : "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" et "Sorbate de potassium (E202)") |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
