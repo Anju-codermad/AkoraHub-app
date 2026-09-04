@@ -17,7 +17,7 @@ import 'raw_material_detail_client.dart';
 ///
 /// Point d'accès unique, indépendant des piliers "Produits" (voir
 /// profile_tab.dart) — regroupe les matières premières de tous les
-/// piliers (Akora Pro, Peinture Pro, Akora Protect...) au même endroit,
+/// piliers (Akora Pro, Akora Coatings, Akora Protect...) au même endroit,
 /// plutôt que d'accrocher cette base à un pilier "Produits" détourné de
 /// son rôle (décision du 01/08, voir PROJECT_CONTEXT.md).
 class FormationCatalogScreen extends StatefulWidget {

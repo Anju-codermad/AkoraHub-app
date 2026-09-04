@@ -5,8 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'category_management.dart';
 
-/// Gestion des piliers d'entreprise (Akora Fanadiovana, ARCA PAINTS,
-/// AkoraFormation, et tout pilier futur). Réservé au staff (RLS côté serveur).
+/// Gestion des piliers d'entreprise (Akora Pro, Akora Home, Akora Protect,
+/// Akora Soins, Akora Coatings, Akora Paints, AkoraFormation, Akor'Eau, et
+/// tout pilier futur — noms modifiables ici même, voir _showEditDialog).
+/// Réservé au staff (RLS côté serveur).
 class BusinessUnitsManagement extends StatefulWidget {
   const BusinessUnitsManagement({super.key});
 
@@ -91,7 +93,7 @@ class _BusinessUnitsManagementState extends State<BusinessUnitsManagement> {
           autofocus: true,
           decoration: const InputDecoration(
             labelText: 'Nom du pilier',
-            hintText: 'ex: Akora Fanadiovana',
+            hintText: 'ex: Akora Pro',
           ),
         ),
         actions: [

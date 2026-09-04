@@ -44,12 +44,13 @@ const List<String> kProductUsageSuggestions = [
 /// Usages suggérés PAR CATÉGORIE (05/08) — la liste générique ci-dessus
 /// vise les matières premières industrielles, mais ne colle pas à un
 /// produit fini comme "Gel Sol Universel" (catégorie "Carrelage & Sols").
-/// Couvre les 10 catégories du pilier "Akora Fanadiovana" (celui avec les
-/// vrais produits déjà vendus — voir supabase/phase6_patch_categories.sql
-/// et phase42_patch_produits_categories.sql pour la liste exacte des noms
-/// de catégorie, qui doivent matcher exactement les clés ci-dessous).
-/// Les catégories des piliers pas encore activés (Matières Premières,
-/// Anti-Nuisibles, Peinture, Akora Soins) ne sont pas couvertes : elles
+/// Couvre les 10 catégories du pilier "Akora Home" (slug akora-fanadiovana,
+/// renommé depuis "Akora Fanadiovana" le 04/09/2026 — celui avec les vrais
+/// produits déjà vendus — voir supabase/phase6_patch_categories.sql et
+/// phase42_patch_produits_categories.sql pour la liste exacte des noms de
+/// catégorie, qui doivent matcher exactement les clés ci-dessous).
+/// Les catégories des autres piliers (Akora Pro, Akora Protect, Akora
+/// Coatings, Akora Paints, Akor'Eau...) ne sont pas couvertes : elles
 /// retombent sur `kProductUsageSuggestions` (voir usage dans
 /// `_showProductDialog`).
 const Map<String, List<String>> kProductUsageSuggestionsByCategory = {

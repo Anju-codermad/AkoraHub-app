@@ -25,7 +25,7 @@ final Map<String, String> kClientTypeLabels = {
   for (final option in kClientTypeOptions) option['value']!: option['label']!,
 };
 
-/// Catégories de produits (`products.category`, pilier Akora Fanadiovana —
+/// Catégories de produits (`products.category`, pilier Akora Home —
 /// voir `kProductUsageSuggestionsByCategory` dans product_management_real.dart
 /// pour la liste exacte des 10 noms) mises en avant pour chaque secteur
 /// (13/08, demande explicite : "pondération par secteur" sur la section

@@ -399,6 +399,9 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
       return Icons.format_paint;
     }
     if (slug.contains('formation')) return Icons.school;
+    if (slug.contains('eau') || slug.contains('water')) {
+      return Icons.water_drop_outlined;
+    }
     if (slug.contains('chimie') ||
         slug.contains('chimique') ||
         slug.contains('chemical')) {
@@ -425,6 +428,9 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     }
     if (name.contains('carrelage') || name.contains('sol')) {
       return Icons.grid_view_outlined;
+    }
+    if (name.contains('eau') || name.contains('piscine')) {
+      return Icons.water_drop_outlined;
     }
     if (name.contains('insecticide') ||
         name.contains('nuisible') ||
