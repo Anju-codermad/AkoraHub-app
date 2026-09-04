@@ -239,6 +239,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 205 | `phase205_patch_rattache_produits_akora_nutrilab.sql` | rattache ~28 produits existants (Akora Pro) au pilier Akora NutriLab avec leur catégorie, + lien supplémentaire pour ~17 produits polyvalents qui restent sous Akora Pro |
 | 206 | `phase206_patch_corrige_liens_nutrilab_manquants.sql` | corrige 2 liens manqués par la phase 205 (noms exacts : "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" et "Sorbate de potassium (E202)") |
 | 207 | `phase207_patch_retire_produit_technique_nutrilab.sql` | retire "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" à tort lié à NutriLab en phase 206 (nom non-alimentaire) + audit anti-confusion technique/alimentaire |
+| 208 | `phase208_patch_lien_additifs_e_numeros_nutrilab.sql` | ajoute `product_extra_business_units.category` (schéma) + lie ~103 additifs numérotés E (colorants, édulcorants, émulsifiants, épaississants, additifs) à Akora NutriLab avec leur catégorie dédiée, sans toucher à leur catégorie Akora Pro |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
@@ -365,3 +366,24 @@ exact en base avant de lier/basculer — plusieurs matières premières
 existent en plusieurs grades (technique/industriel vs alimentaire)
 sous des noms proches, et confondre les deux serait trompeur pour un
 client agroalimentaire (risque de non-conformité).
+
+**Phase 208** : audit complet du catalogue (toutes recherches
+croisées confondues) — aucune autre confusion technique/alimentaire
+trouvée sous NutriLab, mais 103 produits avec un vrai numéro E
+(additif alimentaire reconnu UE) identifiés hors NutriLab, non
+détectés par les diagnostics précédents (pas de mot "alimentaire"
+dans leur nom). Liés à NutriLab avec leur propre catégorie
+(nouvelle colonne `product_extra_business_units.category`), sans
+toucher à leur `products.category` sous Akora Pro.
+
+**⚠️ Point à vérifier côté app** : cette nouvelle colonne
+`category` sur `product_extra_business_units` stocke correctement le
+classement NutriLab de ces 103 produits liés, mais l'affichage
+groupé par catégorie sous NutriLab pour un produit LIÉ (pas
+basculé/pas pilier principal) dépend du code Flutter du catalogue
+(`product_catalog_tab.dart`), hors du périmètre `supabase/` de ce
+patch. Si ces produits n'apparaissent pas rangés dans leurs
+catégories une fois la phase 208 exécutée, il faudra adapter la
+requête/le regroupement du catalogue pour lire aussi
+`product_extra_business_units.category` quand le produit est affiché
+via un pilier supplémentaire.
