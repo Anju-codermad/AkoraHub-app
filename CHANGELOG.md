@@ -1097,3 +1097,6 @@
 
 ## 2026-09-04 14:44 UTC — Claude
 - fix(catalogue): icône eau pour Akor'Eau + commentaires piliers à jour (`0620572`)
+
+## 2026-09-04 14:47 UTC — Claude
+- Merge claude/akoreau-devient-pilier : phases 191 et 192 (`7231a1c`)
