@@ -1145,3 +1145,6 @@
 
 ## 2026-09-04 21:19 UTC — Claude
 - Corrige 2 liens manqués vers Akora NutriLab (phase205) (`42c5eed`)
+
+## 2026-09-04 21:22 UTC — Claude
+- Retire un produit technique/industriel à tort lié à Akora NutriLab (`d530bd9`)
