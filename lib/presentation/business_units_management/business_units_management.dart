@@ -19,6 +19,7 @@ class _BusinessUnitsManagementState extends State<BusinessUnitsManagement> {
   List<Map<String, dynamic>> _units = [];
   bool _isLoading = true;
   String? _error;
+  bool _isGridView = false;
 
   @override
   void initState() {
@@ -149,7 +150,28 @@ class _BusinessUnitsManagementState extends State<BusinessUnitsManagement> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Piliers d\'entreprise')),
+      appBar: AppBar(
+        title: const Text('Piliers d\'entreprise'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.view_list_outlined),
+            tooltip: 'Vue liste',
+            color: _isGridView
+                ? theme.colorScheme.outline
+                : theme.colorScheme.primary,
+            onPressed: () => setState(() => _isGridView = false),
+          ),
+          IconButton(
+            icon: const Icon(Icons.grid_view_outlined),
+            tooltip: 'Vue grille',
+            color: _isGridView
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline,
+            onPressed: () => setState(() => _isGridView = true),
+          ),
+          SizedBox(width: 2.w),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showEditDialog(),
         icon: const Icon(Icons.add),
@@ -189,63 +211,144 @@ class _BusinessUnitsManagementState extends State<BusinessUnitsManagement> {
                             ),
                           ],
                         )
-                      : ListView.separated(
-                          padding: EdgeInsets.all(4.w),
-                          itemCount: _units.length,
-                          separatorBuilder: (_, __) => SizedBox(height: 1.h),
-                          itemBuilder: (context, index) {
-                            final unit = _units[index];
-                            final active = unit['active'] as bool? ?? true;
-                            return Card(
-                              child: ListTile(
-                                title: Text(unit['name'] ?? ''),
-                                subtitle: Text(unit['slug'] ?? ''),
-                                leading: CircleAvatar(
-                                  backgroundColor: active
-                                      ? theme.colorScheme.primaryContainer
-                                      : theme.colorScheme.surfaceContainerHighest,
-                                  child: Icon(
-                                    Icons.business,
-                                    color: active
-                                        ? theme.colorScheme.onPrimaryContainer
-                                        : theme.colorScheme.outline,
-                                  ),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                          Icons.category_outlined),
-                                      tooltip: 'Gérer les catégories',
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              CategoryManagement(
-                                            businessUnitId: unit['id'],
-                                            businessUnitName:
-                                                unit['name'] ?? '',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Switch(
-                                      value: active,
-                                      onChanged: (_) => _toggleActive(unit),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined),
-                                      onPressed: () =>
-                                          _showEditDialog(unit: unit),
-                                    ),
-                                  ],
-                                ),
+                      : _isGridView
+                          ? GridView.builder(
+                              padding: EdgeInsets.all(4.w),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 3.w,
+                                crossAxisSpacing: 3.w,
+                                childAspectRatio: 0.85,
                               ),
-                            );
-                          },
-                        ),
+                              itemCount: _units.length,
+                              itemBuilder: (context, index) =>
+                                  _buildUnitGridCard(theme, _units[index]),
+                            )
+                          : ListView.separated(
+                              padding: EdgeInsets.all(4.w),
+                              itemCount: _units.length,
+                              separatorBuilder: (_, __) =>
+                                  SizedBox(height: 1.h),
+                              itemBuilder: (context, index) =>
+                                  _buildUnitListTile(theme, _units[index]),
+                            ),
                 ),
+    );
+  }
+
+  Widget _buildUnitListTile(ThemeData theme, Map<String, dynamic> unit) {
+    final active = unit['active'] as bool? ?? true;
+    return Card(
+      child: ListTile(
+        title: Text(unit['name'] ?? ''),
+        subtitle: Text(unit['slug'] ?? ''),
+        leading: CircleAvatar(
+          backgroundColor: active
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surfaceContainerHighest,
+          child: Icon(
+            Icons.business,
+            color: active
+                ? theme.colorScheme.onPrimaryContainer
+                : theme.colorScheme.outline,
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.category_outlined),
+              tooltip: 'Gérer les catégories',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryManagement(
+                    businessUnitId: unit['id'],
+                    businessUnitName: unit['name'] ?? '',
+                  ),
+                ),
+              ),
+            ),
+            Switch(
+              value: active,
+              onChanged: (_) => _toggleActive(unit),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _showEditDialog(unit: unit),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnitGridCard(ThemeData theme, Map<String, dynamic> unit) {
+    final active = unit['active'] as bool? ?? true;
+    return Card(
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CategoryManagement(
+              businessUnitId: unit['id'],
+              businessUnitName: unit['name'] ?? '',
+            ),
+          ),
+        ),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.all(3.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 6.w,
+                backgroundColor: active
+                    ? theme.colorScheme.primaryContainer
+                    : theme.colorScheme.surfaceContainerHighest,
+                child: Icon(
+                  Icons.business,
+                  color: active
+                      ? theme.colorScheme.onPrimaryContainer
+                      : theme.colorScheme.outline,
+                ),
+              ),
+              SizedBox(height: 1.5.h),
+              Text(
+                unit['name'] ?? '',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall,
+              ),
+              Text(
+                unit['slug'] ?? '',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline),
+              ),
+              const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Switch(
+                    value: active,
+                    onChanged: (_) => _toggleActive(unit),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _showEditDialog(unit: unit),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
