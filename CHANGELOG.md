@@ -1139,3 +1139,6 @@
 
 ## 2026-09-04 21:07 UTC — Claude
 - Ajoute 7 catégories au pilier Akora NutriLab (`2919464`)
+
+## 2026-09-04 21:16 UTC — Claude
+- Rattache les produits agroalimentaire existants à Akora NutriLab (`58c767d`)
