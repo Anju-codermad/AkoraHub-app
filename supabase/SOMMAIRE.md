@@ -220,6 +220,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 176 | `phase176_patch_rotate_webhook_secret_v2.sql` | rotation du WEBHOOK_SECRET (2e fois) |
 | 187 | `phase187_patch_fix_formation_price_tampering.sql` | CORRECTIF CRITIQUE — falsification du prix des achats Formation (matières premières et cours) |
 | 188 | `phase188_patch_categorie_akoreau.sql` | nouvelle catégorie "Akor'Eau" (traitement de l'eau) |
+| 189 | `phase189_patch_move_produits_eau_vers_akoreau.sql` | déplace 3 produits 100% eau (Alun, Polymères floculants, TCCA) vers "Akor'Eau" |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
