@@ -235,6 +235,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 201 | `phase201_ajout_hypochlorite_calcium_akoreau.sql` | SUPERSÉDÉE par la phase 202 — ne pas exécuter (fiche dédiée devenue inutile, voir phase 202) |
 | 202 | `phase202_schema_multi_pilier_produits.sql` | un produit peut appartenir à plusieurs piliers (table `product_extra_business_units`) + relie Hypochlorite de calcium 70% à Akor'Eau en plus d'Akora Pro |
 | 203 | `phase203_ajout_pilier_akora_nutrilab.sql` | nouveau pilier "Akora NutriLab" (matières premières agroalimentaire : produits chimiques / ingrédients) — pas encore de catégories/produits |
+| 204 | `phase204_patch_categories_akora_nutrilab.sql` | 7 catégories pour le pilier Akora NutriLab (Épaississants/gélifiants/stabilisants, Édulcorants, Additifs alimentaires, Colorants alimentaires, Arômes & parfums alimentaires, Émulsifiants, Ingrédients nutritionnels) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
@@ -342,4 +343,6 @@ d'Akora Pro (généraliste). Un futur pilier "Akora Food" est prévu
 séparément pour le produit fini agroalimentaire grand public (même
 logique que Akora Paints/Akora Coatings). Phase 203 : crée
 uniquement le pilier (`business_units`, slug `akora-nutrilab`), sans
-catégories ni produits pour l'instant.
+catégories ni produits pour l'instant. Phase 204 : ajoute ses 7
+premières catégories ("Ingrédients alimentaires & solutions
+nutritionnelles").
