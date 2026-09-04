@@ -238,6 +238,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 204 | `phase204_patch_categories_akora_nutrilab.sql` | 7 catégories pour le pilier Akora NutriLab (Épaississants/gélifiants/stabilisants, Édulcorants, Additifs alimentaires, Colorants alimentaires, Arômes & parfums alimentaires, Émulsifiants, Ingrédients nutritionnels) |
 | 205 | `phase205_patch_rattache_produits_akora_nutrilab.sql` | rattache ~28 produits existants (Akora Pro) au pilier Akora NutriLab avec leur catégorie, + lien supplémentaire pour ~17 produits polyvalents qui restent sous Akora Pro |
 | 206 | `phase206_patch_corrige_liens_nutrilab_manquants.sql` | corrige 2 liens manqués par la phase 205 (noms exacts : "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" et "Sorbate de potassium (E202)") |
+| 207 | `phase207_patch_retire_produit_technique_nutrilab.sql` | retire "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" à tort lié à NutriLab en phase 206 (nom non-alimentaire) + audit anti-confusion technique/alimentaire |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
@@ -353,3 +354,14 @@ les ingrédients dédiés (nom "alimentaire"/numéro E), lien
 supplémentaire (`product_extra_business_units`) pour les produits
 chimiques polyvalents dont l'agroalimentaire n'est qu'un usage parmi
 d'autres.
+
+**⚠️ Leçon (phase 206→207)** : en corrigeant un nom de produit
+introuvable ("Acide phosphorique" générique), la phase 206 a lié par
+erreur "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" à
+NutriLab — un produit explicitement NON alimentaire. Corrigé en
+phase 207. Pour tout futur rattachement de produit chimique à
+NutriLab (ou tout pilier "alimentaire"), toujours vérifier le nom
+exact en base avant de lier/basculer — plusieurs matières premières
+existent en plusieurs grades (technique/industriel vs alimentaire)
+sous des noms proches, et confondre les deux serait trompeur pour un
+client agroalimentaire (risque de non-conformité).
