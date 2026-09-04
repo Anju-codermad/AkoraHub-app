@@ -2,7 +2,7 @@
 
 Application mobile Flutter + Supabase pour Akora Fanadiovana (fabrication et
 distribution de produits d'hygiène/nettoyage à Madagascar), incluant les
-pôles ARCA PAINTS et AkoraFormation.
+pôles Akora Paints et AkoraFormation.
 
 ## 📋 Prérequis
 

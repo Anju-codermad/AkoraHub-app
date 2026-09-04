@@ -105,7 +105,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     ),
     _PromoSlide(
       title: 'Un compte,\ntrois activités',
-      subtitle: 'Hygiène, peinture (ARCA) et formation, au même endroit',
+      subtitle: 'Hygiène, peinture et formation, au même endroit',
       icon: Icons.grid_view_rounded,
     ),
   ];
