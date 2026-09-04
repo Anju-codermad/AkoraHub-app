@@ -240,6 +240,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 206 | `phase206_patch_corrige_liens_nutrilab_manquants.sql` | corrige 2 liens manqués par la phase 205 (noms exacts : "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" et "Sorbate de potassium (E202)") |
 | 207 | `phase207_patch_retire_produit_technique_nutrilab.sql` | retire "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" à tort lié à NutriLab en phase 206 (nom non-alimentaire) + audit anti-confusion technique/alimentaire |
 | 208 | `phase208_patch_lien_additifs_e_numeros_nutrilab.sql` | ajoute `product_extra_business_units.category` (schéma) + lie ~103 additifs numérotés E (colorants, édulcorants, émulsifiants, épaississants, additifs) à Akora NutriLab avec leur catégorie dédiée, sans toucher à leur catégorie Akora Pro |
+| 209 | `phase209_patch_retire_ethanol_nutrilab.sql` | retire "Ethanol (alcool ethylique)" du lien NutriLab (aucune référence alimentaire dédiée confirmée — précaution anti-confusion) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
