@@ -230,6 +230,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 196 | `phase196_patch_bascule_produits_akoreau.sql` | bascule vers le pilier Akor'Eau les 6 produits de la phase190, restés sous Akora Pro (phase190 exécutée après la phase191) |
 | 197 | `phase197_patch_enrichit_fiche_sulfate_aluminium.sql` | enrichit la fiche "Sulfate d'aluminium (Alun)" : 6 nouveaux domaines d'usage (eaux industrielles, papier, textile, pigments, agriculture, bâtiment) |
 | 198 | `phase198_patch_resync_usages_sulfate_aluminium.sql` | corrige le décalage products.use_cases vs fiche Académie constaté après la phase 197 (trigger phase159 ne resynchronise qu'à la création) |
+| 199 | `phase199_patch_resync_usages_akoreau.sql` | même correctif que la phase 198, étendu à tous les produits du pilier Akor'Eau |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
