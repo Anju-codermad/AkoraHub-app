@@ -231,6 +231,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 197 | `phase197_patch_enrichit_fiche_sulfate_aluminium.sql` | enrichit la fiche "Sulfate d'aluminium (Alun)" : 6 nouveaux domaines d'usage (eaux industrielles, papier, textile, pigments, agriculture, bâtiment) |
 | 198 | `phase198_patch_resync_usages_sulfate_aluminium.sql` | corrige le décalage products.use_cases vs fiche Académie constaté après la phase 197 (trigger phase159 ne resynchronise qu'à la création) |
 | 199 | `phase199_patch_resync_usages_akoreau.sql` | même correctif que la phase 198, étendu à tous les produits du pilier Akor'Eau |
+| 200 | `phase200_patch_renomme_enrichit_sulfate_aluminium.sql` | renomme "Sulfate d'aluminium (Alun)" en "... (Sulfate d'alumine)" pour la findabilité + CAS 10043-01-3 + synonyme anglais |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
