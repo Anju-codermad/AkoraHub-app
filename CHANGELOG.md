@@ -1148,3 +1148,6 @@
 
 ## 2026-09-04 21:22 UTC — Claude
 - Retire un produit technique/industriel à tort lié à Akora NutriLab (`d530bd9`)
+
+## 2026-09-04 21:40 UTC — Claude
+- Lie 103 additifs alimentaires (numéro E) à Akora NutriLab (`a40b65b`)
