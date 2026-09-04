@@ -224,6 +224,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 190 | `phase190_ajout_produits_traitement_eau.sql` | 6 nouveaux produits "Akor'Eau" (chlorure/sulfate ferrique, PAC, SHMP, bisulfate de sodium, résine échangeuse de cations) |
 | 191 | `phase191_patch_akoreau_devient_pilier.sql` | Akor'Eau passe de catégorie (pilier Akora Pro) à pilier à part entière |
 | 192 | `phase192_patch_traitement_eau_vers_akoreau.sql` | déplace "Traitement de l'eau & Piscine" (pilier Akora Protect) vers le pilier Akor'Eau |
+| 193 | `phase193_patch_categories_akora_paints.sql` | 7 catégories pour le pilier Akora Paints (MURO, FAÇAD, FERRO, LUSSO, PRIMO, TOITU, LASUR) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
