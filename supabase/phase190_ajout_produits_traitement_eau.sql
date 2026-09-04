@@ -17,6 +17,13 @@
 -- À exécuter une seule fois : Supabase Dashboard -> SQL Editor -> New query
 -- Script idempotent (on conflict do nothing sur raw_materials,
 -- on conflict do update sur l'academie par matiere_premiere_id).
+--
+-- CORRECTIF 04/09/2026 : le pilier historiquement nommé "Akora
+-- Fanadiovana" a été renommé "Akora Pro" (rebranding "Groupe Akora"
+-- fait en parallèle côté site web) — le lookup ci-dessous utilise
+-- désormais bu.slug = 'matieres-premieres' (identifiant stable, non
+-- affecté par un renommage du libellé) au lieu de bu.name. Cette
+-- version corrigée n'a encore jamais été exécutée avec succès.
 -- ============================================================
 
 do $$
@@ -26,10 +33,10 @@ declare
   v_academie_id uuid;
 begin
   select id into v_business_unit_id
-    from public.business_units where name ilike 'Akora Fanadiovana';
+    from public.business_units where slug = 'matieres-premieres';
 
   if v_business_unit_id is null then
-    raise exception 'Aucun pilier "Akora Fanadiovana" trouvé — arrêt.';
+    raise exception 'Aucun pilier avec le slug "matieres-premieres" trouvé — arrêt.';
   end if;
 
   -- ============================================================

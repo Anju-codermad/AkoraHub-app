@@ -227,3 +227,42 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
 187 ci-dessus (constaté le 03/09/2026 depuis la conversation du site web,
 hors scope de cette conversation pour les documenter rétroactivement).
+
+## ⚠️ Correctif 04/09/2026 : renommage du pilier "Akora Fanadiovana" → "Akora Pro"
+
+Le pilier `business_units` historiquement nommé **"Akora Fanadiovana"**
+(slug `matieres-premieres`) a été renommé **"Akora Pro"** — probablement
+par la conversation du site web dans le cadre du rebranding "Groupe Akora"
+(voir la règle de coordination SQL ci-dessus). Ce renommage a eu lieu
+**pendant** l'exécution des phases 188-190, qui cherchaient le pilier par
+son ancien nom (`where bu.name ilike 'Akora Fanadiovana'`) :
+
+- **Phase 188** a rapporté "Success. No rows returned" mais **n'a inséré
+  aucune ligne** (la catégorie "Akor'Eau" n'a jamais été créée).
+- **Phase 189** a rapporté "Success. No rows returned" mais **n'a rien
+  déplacé** (le garde-fou `if v_business_unit_id is null then ... return`
+  s'est déclenché silencieusement).
+- **Phase 190** a échoué explicitement : `ERROR: P0001: Aucun pilier
+  "Akora Fanadiovana" trouvé — arrêt.`
+
+Diagnostic confirmé par requête (les 3 produits eau existants —
+"Sulfate d'aluminium (Alun)", "Polymeres floculants", "TCCA
+(Trichloroisocyanurate)" — appartiennent bien au pilier "Akora Pro",
+pas à "Akora Home" malgré la ressemblance trompeuse de son slug
+`akora-fanadiovana`).
+
+**Correction appliquée directement dans les 3 fichiers** (pas de nouveau
+numéro de phase, puisqu'aucun n'avait réellement été appliqué avec
+succès) : le lookup utilise désormais `bu.slug = 'matieres-premieres'`
+(identifiant stable, non affecté par un renommage du libellé) au lieu de
+`bu.name ilike 'Akora Fanadiovana'`. **Les 3 scripts doivent être
+ré-exécutés dans l'ordre (188 → 189 → 190)** dans le SQL Editor Supabase —
+ils sont idempotents, une éventuelle ré-exécution partielle antérieure
+(aucune ici) ne poserait pas de problème.
+
+Leçon pour la règle de coordination ci-dessus : elle couvrait les
+nouvelles migrations, mais pas les renommages de données de référence
+partagées (comme `business_units.name`) par une migration déjà en place
+côté site. À garder à l'esprit pour la suite : préférer `slug` (stable)
+plutôt que `name` (affichage, peut changer) dans tout futur script SQL
+qui référence un pilier.

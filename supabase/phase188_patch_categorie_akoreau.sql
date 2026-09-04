@@ -7,21 +7,28 @@
 -- pilier — juste une catégorie de plus dans le même catalogue.
 -- À exécuter une seule fois : Supabase Dashboard -> SQL Editor -> New query
 -- Script idempotent (on conflict do nothing).
+--
+-- CORRECTIF 04/09/2026 : le pilier "Akora Fanadiovana" a été renommé
+-- "Akora Pro" (rebranding "Groupe Akora" fait en parallèle côté site
+-- web) — le lookup ci-dessous utilise désormais bu.slug =
+-- 'matieres-premieres' (identifiant stable) au lieu de bu.name. La
+-- première exécution (nom obsolète) a rapporté "Success" mais n'a en
+-- réalité inséré aucune ligne — à ré-exécuter avec ce correctif.
 -- ============================================================
 
 insert into public.categories (business_unit_id, name)
 select bu.id, 'Akor''Eau'
 from public.business_units bu
-where bu.name ilike 'Akora Fanadiovana'
+where bu.slug = 'matieres-premieres'
 on conflict (business_unit_id, name) do nothing;
 
--- Garde-fou : prévenir si aucun pilier "Akora Fanadiovana" n'a été trouvé.
+-- Garde-fou : prévenir si aucun pilier avec ce slug n'a été trouvé.
 do $$
 begin
   if not exists (
-    select 1 from public.business_units where name ilike 'Akora Fanadiovana'
+    select 1 from public.business_units where slug = 'matieres-premieres'
   ) then
-    raise notice 'Aucun pilier nommé "Akora Fanadiovana" trouvé — la catégorie "Akor''Eau" n''a pas été insérée. Vérifie le nom exact du pilier dans la table business_units.';
+    raise notice 'Aucun pilier avec le slug "matieres-premieres" trouvé — la catégorie "Akor''Eau" n''a pas été insérée. Vérifie le slug exact du pilier dans la table business_units.';
   end if;
 end $$;
 

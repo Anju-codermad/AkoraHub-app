@@ -21,6 +21,14 @@
 -- donc être mises à jour explicitement ici pour rester cohérentes.
 -- À exécuter une seule fois : Supabase Dashboard -> SQL Editor -> New query
 -- Script idempotent (les UPDATE sont sans effet si déjà appliqués).
+--
+-- CORRECTIF 04/09/2026 : le pilier "Akora Fanadiovana" a été renommé
+-- "Akora Pro" (rebranding "Groupe Akora" fait en parallèle côté site
+-- web) — le lookup ci-dessous utilise désormais bu.slug =
+-- 'matieres-premieres' (identifiant stable) au lieu de bu.name. La
+-- première exécution (nom obsolète) a rapporté "Success" mais n'a en
+-- réalité rien déplacé (sortie anticipée du garde-fou) — à
+-- ré-exécuter avec ce correctif.
 -- ============================================================
 
 do $$
@@ -33,10 +41,10 @@ declare
   ];
 begin
   select id into v_business_unit_id
-    from public.business_units where name ilike 'Akora Fanadiovana';
+    from public.business_units where slug = 'matieres-premieres';
 
   if v_business_unit_id is null then
-    raise notice 'Aucun pilier "Akora Fanadiovana" trouvé — rien déplacé.';
+    raise notice 'Aucun pilier avec le slug "matieres-premieres" trouvé — rien déplacé.';
     return;
   end if;
 
