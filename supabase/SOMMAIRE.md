@@ -242,7 +242,8 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 208 | `phase208_patch_lien_additifs_e_numeros_nutrilab.sql` | ajoute `product_extra_business_units.category` (schéma) + lie ~103 additifs numérotés E (colorants, édulcorants, émulsifiants, épaississants, additifs) à Akora NutriLab avec leur catégorie dédiée, sans toucher à leur catégorie Akora Pro |
 | 209 | `phase209_patch_retire_ethanol_nutrilab.sql` | retire "Ethanol (alcool ethylique)" du lien NutriLab (aucune référence alimentaire dédiée confirmée — précaution anti-confusion) |
 | 210 | `phase210_publie_produits_akoreau.sql` | publie (visibility=true) les 12 produits Akor'Eau restés en brouillon, après relecture du tableau danger/dosage/EPI (renumérotée de 203, collision avec la série NutriLab ci-dessus) |
-| 211 | `phase211_consolide_charbon_actif_stpp_akoreau.sql` | relie "Charbon actif (vrac)" et "Tripolyphosphate de sodium STPP (E451)" (Akora Pro) à Akor'Eau via le multi-pilier + supprime les fiches dupliquées de la phase195 (GAC, STPP grade eau) |
+| 211 | `phase211_consolide_charbon_actif_stpp_akoreau.sql` | relie "Charbon actif (vrac)" (jamais rattaché à un produit réel, voir phase212) et "Tripolyphosphate de sodium STPP (E451)" (Akora Pro) à Akor'Eau via le multi-pilier + supprime les fiches dupliquées de la phase195 (GAC, STPP grade eau) |
+| 212 | `phase212_categories_akoreau.sql` | 7 catégories thématiques pour Akor'Eau (Coagulants, Floculants, Désinfection, Correction du pH, Anti-tartre, Adoucissement, Filtration) + relie "Charbon Actif Granulaire (GAC) – Filtration Eau" (créé indépendamment sous Akora Pro) à Akor'Eau |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
