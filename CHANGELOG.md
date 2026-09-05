@@ -1172,3 +1172,6 @@
 
 ## 2026-09-05 06:17 UTC — Claude
 - Ajoute la table website_service_requests (demandes de service du site) (`820c5eb`)
+
+## 2026-09-05 07:23 UTC — Claude
+- Complète website_service_requests pour le formulaire Diagnostic eau (`633b0ea`)
