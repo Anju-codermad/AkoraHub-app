@@ -24,13 +24,25 @@ const operatorMap: Record<string, string> = {
   airtel_money: "AIRTEL_MONEY",
 };
 
+// Appelée directement par le navigateur (panier.html) — sans ces
+// en-têtes, le navigateur bloque la requête au stade du preflight CORS
+// avant même qu'elle n'atteigne cette fonction.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: "Non authentifié" }),
-        { status: 401, headers: { "Content-Type": "application/json" } },
+        { status: 401, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
       );
     }
 
@@ -44,7 +56,7 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "Session invalide" }),
-        { status: 401, headers: { "Content-Type": "application/json" } },
+        { status: 401, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
       );
     }
 
@@ -52,7 +64,7 @@ Deno.serve(async (req) => {
     if (!orderId || typeof orderId !== "string") {
       return new Response(
         JSON.stringify({ error: "orderId requis" }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
       );
     }
 
@@ -73,7 +85,7 @@ Deno.serve(async (req) => {
     if (orderError || !order || order.customer_id !== user.id) {
       return new Response(
         JSON.stringify({ error: "Commande introuvable" }),
-        { status: 404, headers: { "Content-Type": "application/json" } },
+        { status: 404, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
       );
     }
 
@@ -83,7 +95,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           error: "Ce mode de paiement n'est pas pris en charge par FiveOne Pay",
         }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
       );
     }
 
@@ -102,7 +114,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           error: "Ce mode de paiement n'est pas configuré pour FiveOne Pay",
         }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
       );
     }
 
@@ -141,7 +153,7 @@ Deno.serve(async (req) => {
       );
       return new Response(
         JSON.stringify({ error: "Impossible de créer le paiement." }),
-        { status: 502, headers: { "Content-Type": "application/json" } },
+        { status: 502, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
       );
     }
 
@@ -155,13 +167,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ paymentLink: fiveonepayData.payment_url }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
     );
   } catch (e) {
     console.error(e);
     return new Response(
       JSON.stringify({ error: String(e) }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
     );
   }
 });

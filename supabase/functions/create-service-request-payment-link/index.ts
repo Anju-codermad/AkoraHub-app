@@ -37,14 +37,29 @@ const fiveonepayOperatorMap: Record<string, string> = {
   airtel_money: "AIRTEL_MONEY",
 };
 
+// Appelée directement par le navigateur (services.html) — sans ces
+// en-têtes, le navigateur bloque la requête au stade du preflight CORS
+// avant même qu'elle n'atteigne cette fonction (aucune invocation
+// visible dans les logs Supabase, symptôme qui a permis de trouver ce
+// bug : "Impossible de démarrer le paiement" côté client, silencieux
+// côté serveur).
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json(401, { error: "Non authentifié" });
