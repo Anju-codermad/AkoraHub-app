@@ -214,7 +214,7 @@ class _FullMoreMenu extends StatelessWidget {
           _MenuTile(
             icon: Icons.contact_page_outlined,
             label: 'Demandes du site web',
-            subtitle: 'Contacts laissés via "Demander un devis" sur le site',
+            subtitle: 'Devis et diagnostics eau demandés depuis le site',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(

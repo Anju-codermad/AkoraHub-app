@@ -501,6 +501,50 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "website_leads") {
+      // Nouveau contact laissé via "Demander un devis / être rappelé" sur
+      // le site web (voir supabase/phase186_patch_website_leads.sql et
+      // supabase/phase216_patch_notif_demandes_site_web.sql) — notifie
+      // toute l'équipe (Admin/Commercial), même principe que les demandes
+      // de service natives de l'apk.
+      category = "commande";
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Nouvelle demande du site web";
+      body = `${record.name ?? "Un visiteur"} — ${
+        String(record.message ?? "").slice(0, 80) || "demande de devis"
+      }`;
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
+    } else if (payload.table === "website_service_requests") {
+      // Nouvelle demande structurée depuis le site web, propre à un
+      // service précis (ex. diagnostic qualité de l'eau — voir
+      // supabase/phase214_patch_website_service_requests.sql et
+      // supabase/phase216_patch_notif_demandes_site_web.sql). Notifie
+      // Admin/Commercial/Services, même destinataires que les demandes de
+      // service natives de l'apk (`service_requests`).
+      category = "commande";
+      const serviceLabels: Record<string, string> = {
+        "diagnostic-eau": "Diagnostic qualité de l'eau",
+      };
+      const serviceLabel = serviceLabels[record.service_slug as string] ??
+        String(record.service_slug ?? "Service");
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial", "services"])
+        .not("fcm_token", "is", null);
+      title = "Nouvelle demande de service (site web)";
+      body = `${serviceLabel} — ${record.name ?? "Un visiteur"}`;
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "formation_purchases") {
       // Nouvelle demande d'achat d'accès à une fiche Formation (matière
       // première) — voir supabase/phase58_patch_formation_purchases_staff_notification.sql.
