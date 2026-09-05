@@ -77,8 +77,14 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   // principal (`business_unit_id`) — 04/09/2026, demande explicite
   // ("Je veux qu'il s'affiche dans les deux piliers"). Voir
   // supabase/phase202_schema_multi_pilier_produits.sql. Table petite,
-  // chargée entièrement une fois : product_id -> {business_unit_id...}.
-  Map<String, Set<String>> _extraUnitsByProductId = {};
+  // chargée entièrement une fois : product_id -> {business_unit_id ->
+  // catégorie spécifique à CE pilier, ou null si pas de catégorie
+  // dédiée pour ce lien (colonne `category`, ajoutée par la phase208
+  // côté site pour Akora NutriLab — ex. un additif classé "Conservateurs
+  // & Antioxydants" sous Akora Pro doit apparaître sous "Additifs
+  // alimentaires" une fois affiché via son pilier supplémentaire
+  // NutriLab, sans changer sa catégorie principale).
+  Map<String, Map<String, String?>> _extraLinksByProductId = {};
 
   /// Un produit appartient au pilier sélectionné si c'est son pilier
   /// principal OU un de ses piliers supplémentaires. `null` = pas de
@@ -86,8 +92,22 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   bool _belongsToSelectedUnit(Map<String, dynamic> p) {
     if (_selectedUnitId == null) return true;
     if (p['business_unit_id'] == _selectedUnitId) return true;
-    return _extraUnitsByProductId[p['id']]?.contains(_selectedUnitId) ??
+    return _extraLinksByProductId[p['id']]?.containsKey(_selectedUnitId) ??
         false;
+  }
+
+  /// Catégorie à afficher/filtrer pour ce produit dans le CONTEXTE du
+  /// pilier actuellement sélectionné — sa catégorie principale
+  /// (`products.category`) si affiché sous son pilier principal (ou
+  /// aucun pilier choisi), sinon la catégorie propre au lien
+  /// supplémentaire si elle existe, sinon repli sur la catégorie
+  /// principale (lien sans catégorie dédiée, ex. Akor'Eau).
+  String? _effectiveCategory(Map<String, dynamic> p) {
+    if (_selectedUnitId == null || p['business_unit_id'] == _selectedUnitId) {
+      return p['category'] as String?;
+    }
+    return _extraLinksByProductId[p['id']]?[_selectedUnitId] ??
+        p['category'] as String?;
   }
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
@@ -222,24 +242,42 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
         .from('products')
         .select('*, product_variants(price_detail, formats(name))')
         .eq('visibility', true);
+    // Produits reliés au pilier sélectionné via un pilier supplémentaire
+    // (voir _extraLinksByProductId) — sinon un produit rattaché en plus
+    // à ce pilier n'apparaîtrait que sous son pilier principal.
+    final extraIdsForUnit = _selectedUnitId == null
+        ? const <String>[]
+        : _extraLinksByProductId.entries
+            .where((e) => e.value.containsKey(_selectedUnitId))
+            .map((e) => e.key)
+            .toList();
     if (_selectedUnitId != null) {
-      // Inclut aussi les produits dont ce pilier n'est qu'un pilier
-      // supplémentaire (voir _extraUnitsByProductId) — sinon un produit
-      // rattaché en plus à ce pilier n'apparaîtrait que sous son pilier
-      // principal.
-      final extraIds = _extraUnitsByProductId.entries
-          .where((e) => e.value.contains(_selectedUnitId))
-          .map((e) => e.key)
-          .toList();
-      if (extraIds.isEmpty) {
+      if (extraIdsForUnit.isEmpty) {
         query = query.eq('business_unit_id', _selectedUnitId!);
       } else {
         query = query.or(
-            'business_unit_id.eq.${_selectedUnitId!},id.in.(${extraIds.join(',')})');
+            'business_unit_id.eq.${_selectedUnitId!},id.in.(${extraIdsForUnit.join(',')})');
       }
     }
     if (_selectedCategory != 'toutes') {
-      query = query.eq('category', _selectedCategory);
+      // Un produit lié via un pilier supplémentaire peut avoir une
+      // catégorie propre à ce lien (product_extra_business_units.category,
+      // phase208 — ex. "Additifs alimentaires" sous Akora NutriLab, alors
+      // que products.category reste "Conservateurs & Antioxydants" côté
+      // Akora Pro). On les inclut par id plutôt que par un simple
+      // .eq('category', ...) qui ne verrait que la catégorie principale.
+      final overrideIds = _selectedUnitId == null
+          ? const <String>[]
+          : _extraLinksByProductId.entries
+              .where((e) => e.value[_selectedUnitId] == _selectedCategory)
+              .map((e) => e.key)
+              .toList();
+      if (overrideIds.isEmpty) {
+        query = query.eq('category', _selectedCategory);
+      } else {
+        query = query.or(
+            'category.eq.$_selectedCategory,id.in.(${overrideIds.join(',')})');
+      }
     }
     if (_selectedUsage != 'toutes') {
       query = query.contains('use_cases', [_selectedUsage]);
@@ -251,6 +289,35 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
         .order('name')
         .range(page * _pageSize, page * _pageSize + _pageSize - 1);
     return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Charge la table `product_extra_business_units` en entier (petite
+  /// table) — product_id -> {business_unit_id -> catégorie dédiée à ce
+  /// lien, ou null}. La colonne `category` (phase208) est optionnelle :
+  /// si absente (ancienne base pas encore migrée), on retombe sur la
+  /// version sans catégorie plutôt que de faire échouer tout le
+  /// chargement du catalogue.
+  Future<Map<String, Map<String, String?>>> _fetchExtraBusinessUnitLinks() async {
+    List<Map<String, dynamic>> rows;
+    try {
+      rows = List<Map<String, dynamic>>.from(await SupabaseConfig.client
+          .from('product_extra_business_units')
+          .select('product_id, business_unit_id, category'));
+    } catch (_) {
+      try {
+        rows = List<Map<String, dynamic>>.from(await SupabaseConfig.client
+            .from('product_extra_business_units')
+            .select('product_id, business_unit_id'));
+      } catch (_) {
+        return {};
+      }
+    }
+    final map = <String, Map<String, String?>>{};
+    for (final row in rows) {
+      map.putIfAbsent(row['product_id'] as String, () => {})[
+          row['business_unit_id'] as String] = row['category'] as String?;
+    }
+    return map;
   }
 
   /// Relance la page 0 avec les filtres actuels (changement de pilier,
@@ -336,27 +403,18 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     });
     try {
       // _fetchProductsPage(0) tourne en parallèle sans encore connaître
-      // _extraUnitsByProductId (peuplé seulement après ce Future.wait) —
+      // _extraLinksByProductId (peuplé seulement après ce Future.wait) —
       // sans conséquence ici puisque _selectedUnitId démarre toujours à
       // null (pas de filtre pilier au premier chargement de l'écran).
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client.from('business_units').select().eq('active', true),
-        SupabaseConfig.client
-            .from('product_extra_business_units')
-            .select('product_id, business_unit_id'),
+        _fetchExtraBusinessUnitLinks(),
         _fetchProductsPage(0),
       ]);
-      final extraRows = List<Map<String, dynamic>>.from(results[1] as List);
-      final extraMap = <String, Set<String>>{};
-      for (final row in extraRows) {
-        extraMap
-            .putIfAbsent(row['product_id'] as String, () => {})
-            .add(row['business_unit_id'] as String);
-      }
       final productsPage = List<Map<String, dynamic>>.from(results[2] as List);
       setState(() {
         _businessUnits = List<Map<String, dynamic>>.from(results[0] as List);
-        _extraUnitsByProductId = extraMap;
+        _extraLinksByProductId = results[1] as Map<String, Map<String, String?>>;
         _products = productsPage;
         _hasMore = productsPage.length == _pageSize;
         _isLoading = false;
@@ -510,7 +568,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
         .map((c) => c['name'] as String)
         .toSet();
     final cats = relevant
-        .map((p) => (p['category'] ?? '').toString())
+        .map((p) => _effectiveCategory(p) ?? '')
         .where((c) => c.isNotEmpty && !inactiveCategoryNames.contains(c))
         .toSet()
         .toList();
@@ -592,7 +650,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     return _products.where((p) {
       final matchesUnit = _belongsToSelectedUnit(p);
       final matchesCategory = _selectedCategory == 'toutes' ||
-          p['category'] == _selectedCategory;
+          _effectiveCategory(p) == _selectedCategory;
       final matchesUsage = _selectedUsage == 'toutes' ||
           List<String>.from(p['use_cases'] ?? const [])
               .contains(_selectedUsage);
