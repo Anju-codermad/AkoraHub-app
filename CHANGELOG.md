@@ -1181,3 +1181,6 @@
 
 ## 2026-09-05 12:10 UTC — Claude
 - Autorise un client à relire sa propre demande de service réclamée (`d194244`)
+
+## 2026-09-05 16:30 UTC — Claude
+- chore: redéclenche le build Codemagic (vérification manuelle demandée) (`476fb03`)
