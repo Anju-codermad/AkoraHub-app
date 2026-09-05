@@ -1169,3 +1169,6 @@
 
 ## 2026-09-05 05:01 UTC — Claude
 - Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`c4918ab`)
+
+## 2026-09-05 06:17 UTC — Claude
+- Ajoute la table website_service_requests (demandes de service du site) (`820c5eb`)
