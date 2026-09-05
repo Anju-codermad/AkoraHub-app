@@ -234,6 +234,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 200 | `phase200_patch_renomme_enrichit_sulfate_aluminium.sql` | renomme "Sulfate d'aluminium (Alun)" en "... (Sulfate d'alumine)" pour la findabilité + CAS 10043-01-3 + synonyme anglais |
 | 201 | `phase201_ajout_hypochlorite_calcium_akoreau.sql` | SUPERSÉDÉE par la phase 202 — ne pas exécuter (fiche dédiée devenue inutile, voir phase 202) |
 | 202 | `phase202_schema_multi_pilier_produits.sql` | un produit peut appartenir à plusieurs piliers (table `product_extra_business_units`) + relie Hypochlorite de calcium 70% à Akor'Eau en plus d'Akora Pro |
+| 203 | `phase203_publie_produits_akoreau.sql` | publie (visibility=true) les 12 produits Akor'Eau restés en brouillon, après relecture du tableau danger/dosage/EPI |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
