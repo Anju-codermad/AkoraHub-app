@@ -234,7 +234,14 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 200 | `phase200_patch_renomme_enrichit_sulfate_aluminium.sql` | renomme "Sulfate d'aluminium (Alun)" en "... (Sulfate d'alumine)" pour la findabilité + CAS 10043-01-3 + synonyme anglais |
 | 201 | `phase201_ajout_hypochlorite_calcium_akoreau.sql` | SUPERSÉDÉE par la phase 202 — ne pas exécuter (fiche dédiée devenue inutile, voir phase 202) |
 | 202 | `phase202_schema_multi_pilier_produits.sql` | un produit peut appartenir à plusieurs piliers (table `product_extra_business_units`) + relie Hypochlorite de calcium 70% à Akor'Eau en plus d'Akora Pro |
-| 203 | `phase203_publie_produits_akoreau.sql` | publie (visibility=true) les 12 produits Akor'Eau restés en brouillon, après relecture du tableau danger/dosage/EPI |
+| 203 | `phase203_ajout_pilier_akora_nutrilab.sql` | nouveau pilier "Akora NutriLab" (matières premières agroalimentaire : produits chimiques / ingrédients) — pas encore de catégories/produits |
+| 204 | `phase204_patch_categories_akora_nutrilab.sql` | 7 catégories pour le pilier Akora NutriLab (Épaississants/gélifiants/stabilisants, Édulcorants, Additifs alimentaires, Colorants alimentaires, Arômes & parfums alimentaires, Émulsifiants, Ingrédients nutritionnels) |
+| 205 | `phase205_patch_rattache_produits_akora_nutrilab.sql` | rattache ~28 produits existants (Akora Pro) au pilier Akora NutriLab avec leur catégorie, + lien supplémentaire pour ~17 produits polyvalents qui restent sous Akora Pro |
+| 206 | `phase206_patch_corrige_liens_nutrilab_manquants.sql` | corrige 2 liens manqués par la phase 205 (noms exacts : "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" et "Sorbate de potassium (E202)") |
+| 207 | `phase207_patch_retire_produit_technique_nutrilab.sql` | retire "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" à tort lié à NutriLab en phase 206 (nom non-alimentaire) + audit anti-confusion technique/alimentaire |
+| 208 | `phase208_patch_lien_additifs_e_numeros_nutrilab.sql` | ajoute `product_extra_business_units.category` (schéma) + lie ~103 additifs numérotés E (colorants, édulcorants, émulsifiants, épaississants, additifs) à Akora NutriLab avec leur catégorie dédiée, sans toucher à leur catégorie Akora Pro |
+| 209 | `phase209_patch_retire_ethanol_nutrilab.sql` | retire "Ethanol (alcool ethylique)" du lien NutriLab (aucune référence alimentaire dédiée confirmée — précaution anti-confusion) |
+| 210 | `phase210_publie_produits_akoreau.sql` | publie (visibility=true) les 12 produits Akor'Eau restés en brouillon, après relecture du tableau danger/dosage/EPI (renumérotée de 203, collision avec la série NutriLab ci-dessus) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
@@ -332,3 +339,53 @@ comme produits à part entière ; rien ne les force à fusionner avec
 l'original. Pour un nouveau cas similaire, préférer désormais le
 multi-pilier (cocher le pilier supplémentaire sur le produit existant)
 plutôt qu'une fiche dupliquée.
+
+## 🆕 04/09/2026 (phase 203) : nouveau pilier "Akora NutriLab"
+
+Décision de la propriétaire : lancement d'un pilier dédié aux matières
+premières (produits chimiques / ingrédients alimentaires) pour les
+professionnels de l'agroalimentaire — technique/B2B, distinct
+d'Akora Pro (généraliste). Un futur pilier "Akora Food" est prévu
+séparément pour le produit fini agroalimentaire grand public (même
+logique que Akora Paints/Akora Coatings). Phase 203 : crée
+uniquement le pilier (`business_units`, slug `akora-nutrilab`), sans
+catégories ni produits pour l'instant. Phase 204 : ajoute ses 7
+premières catégories ("Ingrédients alimentaires & solutions
+nutritionnelles"). Phase 205 : rattache les produits déjà au
+catalogue (sous Akora Pro) qui correspondent — bascule complète pour
+les ingrédients dédiés (nom "alimentaire"/numéro E), lien
+supplémentaire (`product_extra_business_units`) pour les produits
+chimiques polyvalents dont l'agroalimentaire n'est qu'un usage parmi
+d'autres.
+
+**⚠️ Leçon (phase 206→207)** : en corrigeant un nom de produit
+introuvable ("Acide phosphorique" générique), la phase 206 a lié par
+erreur "Acide phosphorique H₃PO₄ (Grade Technique/Industriel)" à
+NutriLab — un produit explicitement NON alimentaire. Corrigé en
+phase 207. Pour tout futur rattachement de produit chimique à
+NutriLab (ou tout pilier "alimentaire"), toujours vérifier le nom
+exact en base avant de lier/basculer — plusieurs matières premières
+existent en plusieurs grades (technique/industriel vs alimentaire)
+sous des noms proches, et confondre les deux serait trompeur pour un
+client agroalimentaire (risque de non-conformité).
+
+**Phase 208** : audit complet du catalogue (toutes recherches
+croisées confondues) — aucune autre confusion technique/alimentaire
+trouvée sous NutriLab, mais 103 produits avec un vrai numéro E
+(additif alimentaire reconnu UE) identifiés hors NutriLab, non
+détectés par les diagnostics précédents (pas de mot "alimentaire"
+dans leur nom). Liés à NutriLab avec leur propre catégorie
+(nouvelle colonne `product_extra_business_units.category`), sans
+toucher à leur `products.category` sous Akora Pro.
+
+**⚠️ Point à vérifier côté app** : cette nouvelle colonne
+`category` sur `product_extra_business_units` stocke correctement le
+classement NutriLab de ces 103 produits liés, mais l'affichage
+groupé par catégorie sous NutriLab pour un produit LIÉ (pas
+basculé/pas pilier principal) dépend du code Flutter du catalogue
+(`product_catalog_tab.dart`), hors du périmètre `supabase/` de ce
+patch. Si ces produits n'apparaissent pas rangés dans leurs
+catégories une fois la phase 208 exécutée, il faudra adapter la
+requête/le regroupement du catalogue pour lire aussi
+`product_extra_business_units.category` quand le produit est affiché
+via un pilier supplémentaire.

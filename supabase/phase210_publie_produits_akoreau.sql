@@ -1,8 +1,13 @@
 -- ============================================================
--- AkoraHub - Patch Phase 203 : publie les 12 produits Akor'Eau restés
+-- AkoraHub - Patch Phase 210 : publie les 12 produits Akor'Eau restés
 -- en brouillon depuis les phases 190/195 — demande explicite de la
 -- propriétaire le 05/09/2026, après relecture du tableau récapitulatif
 -- (danger, dosage, EPI) présenté pour ces 12 fiches.
+--
+-- Renumérotée de 203 à 210 (05/09/2026) : la conversation du site avait
+-- entretemps déjà pris les numéros 203-209 pour le pilier "Akora
+-- NutriLab" — collision de numérotation résolue en renommant ce
+-- fichier, aucun changement de contenu autrement.
 --
 -- Les 2 autres produits du pilier (Hypochlorite de calcium 70%,
 -- Sulfate d'aluminium) étaient déjà publiés — non concernés ici.
