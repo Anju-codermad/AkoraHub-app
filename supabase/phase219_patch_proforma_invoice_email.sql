@@ -23,12 +23,13 @@
 --      proforma n'est générée, le staff continue de le traiter à la
 --      main comme le formulaire le promet déjà).
 --
--- ⚠️ Avant d'exécuter ce script : remplace `<WEBHOOK_SECRET>` ci-dessous
--- par la même valeur secrète que les autres triggers (Edge Functions ->
--- send-push-notification -> Manage secrets -> WEBHOOK_SECRET). Aucun
--- nouveau secret partagé nécessaire pour ce trigger — seule l'Edge
--- Function elle-même a besoin d'un nouveau secret RESEND_API_KEY (voir
--- son fichier).
+-- ⚠️ Le secret ci-dessous (`x-webhook-secret`) a été mis à jour lors de
+-- la rotation Phase 220 (WEBHOOK_SECRET n'était plus disponible côté
+-- utilisatrice) — exécute Phase 220 EN MÊME TEMPS que ce script, après
+-- avoir mis à jour le secret côté Edge Function (Dashboard -> Edge
+-- Functions -> Secrets -> WEBHOOK_SECRET -> nouvelle valeur). Seule
+-- l'Edge Function send-proforma-invoice elle-même a besoin d'un nouveau
+-- secret propre, RESEND_API_KEY (voir son fichier).
 --
 -- À exécuter une seule fois : Supabase Dashboard -> SQL Editor -> New
 -- query. Idempotent (create if not exists / create or replace).
