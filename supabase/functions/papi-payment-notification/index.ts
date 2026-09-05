@@ -2,6 +2,14 @@
 // (notificationUrl, voir create-papi-payment-link) — endpoint public
 // appelé directement par les serveurs de Papi, jamais par l'app.
 //
+// Depuis phase217 (05/09) : une référence peut aussi correspondre à
+// l'acompte d'une demande de service du site web
+// (`website_service_requests`, voir create-service-request-payment-link)
+// plutôt qu'à une commande produit (`orders`) — la référence envoyée à
+// Papi est dans les deux cas l'uuid de la ligne elle-même, donc on essaie
+// `orders` d'abord (cas le plus fréquent), puis `website_service_requests`
+// si aucune commande ne correspond.
+//
 // Vérification d'authenticité recommandée par la doc Papi
 // (https://docs.papi.mg/fr/docs/quickstart/) : le paymentReference reçu
 // doit correspondre à la commande, ET le notificationToken doit
@@ -51,9 +59,31 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (
-      !order ||
-      !order.papi_notification_token ||
-      !timingSafeEqual(order.papi_notification_token, notificationToken)
+      order &&
+      order.papi_notification_token &&
+      timingSafeEqual(order.papi_notification_token, notificationToken)
+    ) {
+      if (paymentStatus === "PENDING") return new Response("ok", { status: 200 });
+      const newStatus = paymentStatus === "SUCCESS" ? "paye" : "echoue";
+      if (order.payment_status !== newStatus) {
+        await supabaseAdmin
+          .from("orders")
+          .update({ payment_status: newStatus })
+          .eq("id", order.id);
+      }
+      return new Response("ok", { status: 200 });
+    }
+
+    const { data: serviceRequest } = await supabaseAdmin
+      .from("website_service_requests")
+      .select("id, papi_notification_token, payment_status")
+      .eq("id", paymentReference)
+      .maybeSingle();
+
+    if (
+      !serviceRequest ||
+      !serviceRequest.papi_notification_token ||
+      !timingSafeEqual(serviceRequest.papi_notification_token, notificationToken)
     ) {
       // Ne répond jamais par une erreur ici : Papi réessaierait
       // indéfiniment un webhook en échec. On journalise seulement côté
@@ -70,11 +100,11 @@ Deno.serve(async (req) => {
     }
 
     const newStatus = paymentStatus === "SUCCESS" ? "paye" : "echoue";
-    if (order.payment_status !== newStatus) {
+    if (serviceRequest.payment_status !== newStatus) {
       await supabaseAdmin
-        .from("orders")
+        .from("website_service_requests")
         .update({ payment_status: newStatus })
-        .eq("id", order.id);
+        .eq("id", serviceRequest.id);
     }
 
     return new Response("ok", { status: 200 });

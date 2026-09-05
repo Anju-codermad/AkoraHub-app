@@ -3,6 +3,13 @@
 // endpoint public appelé directement par les serveurs de FiveOne Pay,
 // jamais par l'app.
 //
+// Depuis phase217 (05/09) : une référence peut aussi correspondre à
+// l'acompte d'une demande de service du site web
+// (`website_service_requests`, voir create-service-request-payment-link)
+// plutôt qu'à une commande produit (`orders`) — on essaie `orders`
+// d'abord (cas le plus fréquent), puis `website_service_requests` si
+// aucune commande ne correspond.
+//
 // Secret nécessaire (Supabase Dashboard -> Edge Functions -> Manage
 // secrets) :
 // - FIVEONEPAY_WEBHOOK_SECRET (whsec_..., voir tableau de bord FiveOne
@@ -104,26 +111,41 @@ Deno.serve(async (req) => {
       return new Response("ok", { status: 200 });
     }
 
+    // Un paiement EXPIRED peut repasser à SUCCESS si l'argent arrive
+    // après le délai (confirmation Mobile Money tardive) — traiter
+    // toujours payment.success comme faisant foi, y compris après un
+    // payment.expired déjà reçu pour la même commande/demande.
+    const newStatus = eventType === "payment.success" ? "paye" : "echoue";
+
     const { data: order } = await supabaseAdmin
       .from("orders")
       .select("id, payment_status")
       .eq("order_number", reference)
       .maybeSingle();
-    if (!order) {
-      console.error("Commande introuvable pour la référence", reference);
+    if (order) {
+      if (order.payment_status !== newStatus) {
+        await supabaseAdmin
+          .from("orders")
+          .update({ payment_status: newStatus })
+          .eq("id", order.id);
+      }
       return new Response("ok", { status: 200 });
     }
 
-    // Un paiement EXPIRED peut repasser à SUCCESS si l'argent arrive
-    // après le délai (confirmation Mobile Money tardive) — traiter
-    // toujours payment.success comme faisant foi, y compris après un
-    // payment.expired déjà reçu pour la même commande.
-    const newStatus = eventType === "payment.success" ? "paye" : "echoue";
-    if (order.payment_status !== newStatus) {
+    const { data: serviceRequest } = await supabaseAdmin
+      .from("website_service_requests")
+      .select("id, payment_status")
+      .eq("id", reference)
+      .maybeSingle();
+    if (!serviceRequest) {
+      console.error("Commande/demande introuvable pour la référence", reference);
+      return new Response("ok", { status: 200 });
+    }
+    if (serviceRequest.payment_status !== newStatus) {
       await supabaseAdmin
-        .from("orders")
+        .from("website_service_requests")
         .update({ payment_status: newStatus })
-        .eq("id", order.id);
+        .eq("id", serviceRequest.id);
     }
 
     return new Response("ok", { status: 200 });
