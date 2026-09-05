@@ -245,6 +245,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 211 | `phase211_consolide_charbon_actif_stpp_akoreau.sql` | relie "Charbon actif (vrac)" (jamais rattaché à un produit réel, voir phase212) et "Tripolyphosphate de sodium STPP (E451)" (Akora Pro) à Akor'Eau via le multi-pilier + supprime les fiches dupliquées de la phase195 (GAC, STPP grade eau) |
 | 212 | `phase212_categories_akoreau.sql` | 7 catégories thématiques pour Akor'Eau (Coagulants, Floculants, Désinfection, Correction du pH, Anti-tartre, Adoucissement, Filtration) + relie "Charbon Actif Granulaire (GAC) – Filtration Eau" (créé indépendamment sous Akora Pro) à Akor'Eau |
 | 213 | `phase213_ajout_produits_akoreau_lot3.sql` | 11 nouveaux produits Akor'Eau (Chlorure/Aluminate d'aluminium/sodium, SDIC, Acide cyanurique, Permanganate de potassium — nouvelle catégorie Oxydation, 4 médias filtrants, résine anions, sel régénérant) + relie PHMB/BCDMH/DDAC/Sulfate de cuivre (existants) |
+| 214 | `phase214_patch_website_service_requests.sql` | nouvelle table `website_service_requests` (demandes structurées depuis le site, anonyme, `service_slug` réutilisable) — premier cas d'usage : formulaire "Diagnostic qualité de l'eau" |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
