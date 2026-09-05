@@ -1178,3 +1178,6 @@
 
 ## 2026-09-05 11:29 UTC — Claude
 - Sécurise la tarification du diagnostic eau + paiement réel de l'acompte (`030d585`)
+
+## 2026-09-05 12:10 UTC — Claude
+- Autorise un client à relire sa propre demande de service réclamée (`d194244`)
