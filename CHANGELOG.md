@@ -1154,3 +1154,6 @@
 
 ## 2026-09-04 21:51 UTC — Claude
 - Retire Ethanol du lien Akora NutriLab (précaution) (`8208981`)
+
+## 2026-09-05 04:16 UTC — Claude
+- merge: résout la collision de numérotation phase203 avec la série NutriLab (`7ee44e4`)
