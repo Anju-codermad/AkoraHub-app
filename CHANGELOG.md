@@ -1184,3 +1184,6 @@
 
 ## 2026-09-05 16:30 UTC — Claude
 - chore: redéclenche le build Codemagic (vérification manuelle demandée) (`476fb03`)
+
+## 2026-09-05 17:38 UTC — Claude
+- Ajoute la facture proforma automatique par e-mail (diagnostic eau) (`5bc813a`)
