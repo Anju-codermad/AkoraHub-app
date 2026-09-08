@@ -1205,3 +1205,6 @@
 
 ## 2026-09-08 15:50 UTC — Anju-codermad
 - Catégorise les 16 produits liés à NutriSource sans catégorie (#6) (`5cc8ed2`)
+
+## 2026-09-08 18:59 UTC — Anju-codermad
+- Ajoute la table site_visits pour un rapport de fréquentation détaillé (#7) (`04dd2d8`)
