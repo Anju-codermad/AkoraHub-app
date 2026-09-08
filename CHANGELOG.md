@@ -1211,3 +1211,6 @@
 
 ## 2026-09-08 19:13 UTC — Anju-codermad
 - Rattrape les visites déjà comptées dans le journal détaillé (site_visits) (#8) (`d6cbc29`)
+
+## 2026-09-08 19:19 UTC — Anju-codermad
+- Autorise la lecture de site_visits pour les comptes admin (#9) (`2232da0`)
