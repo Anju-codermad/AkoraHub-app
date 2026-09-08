@@ -1223,3 +1223,6 @@
 
 ## 2026-09-08 20:59 UTC — Anju-codermad
 - Ajoute le journal des consultations de fiche produit (#12) (`836b006`)
+
+## 2026-09-08 21:05 UTC — Anju-codermad
+- Ajoute le miroir serveur du panier pour détecter les paniers abandonnés (#13) (`ac390aa`)
