@@ -1199,3 +1199,6 @@
 
 ## 2026-09-08 15:34 UTC — Anju-codermad
 - Ajoute la branche Akora Agro : renomme NutriLab en NutriSource, crée Akora Foods (#4) (`577faf0`)
+
+## 2026-09-08 15:46 UTC — Anju-codermad
+- Corrige la catégorie de 2 produits restés sur l'ancien nom Arômes (#5) (`73e23b7`)
