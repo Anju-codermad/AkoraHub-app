@@ -1208,3 +1208,6 @@
 
 ## 2026-09-08 18:59 UTC — Anju-codermad
 - Ajoute la table site_visits pour un rapport de fréquentation détaillé (#7) (`04dd2d8`)
+
+## 2026-09-08 19:13 UTC — Anju-codermad
+- Rattrape les visites déjà comptées dans le journal détaillé (site_visits) (#8) (`d6cbc29`)
