@@ -1214,3 +1214,6 @@
 
 ## 2026-09-08 19:19 UTC — Anju-codermad
 - Autorise la lecture de site_visits pour les comptes admin (#9) (`2232da0`)
+
+## 2026-09-08 20:44 UTC — Anju-codermad
+- Relie une commande à sa session de visite (tunnel visite → commande) (#10) (`31a5200`)
