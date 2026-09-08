@@ -1202,3 +1202,6 @@
 
 ## 2026-09-08 15:46 UTC — Anju-codermad
 - Corrige la catégorie de 2 produits restés sur l'ancien nom Arômes (#5) (`73e23b7`)
+
+## 2026-09-08 15:50 UTC — Anju-codermad
+- Catégorise les 16 produits liés à NutriSource sans catégorie (#6) (`5cc8ed2`)
