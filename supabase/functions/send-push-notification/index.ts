@@ -545,6 +545,32 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "quote_requests") {
+      // Nouvelle demande de devis produit depuis le site web (piliers
+      // B2B/matières premières où le prix n'est pas affiché — voir
+      // supabase/phase234_schema_quote_requests.sql). Contrairement à
+      // website_leads/website_service_requests, le client est connecté
+      // (customer_id obligatoire) : on va chercher son nom dans profiles
+      // plutôt que sur des colonnes dénormalisées.
+      category = "commande";
+      const { data: customer } = await supabase
+        .from("profiles")
+        .select("full_name, company_name")
+        .eq("id", record.customer_id)
+        .maybeSingle();
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      title = "Nouvelle demande de devis";
+      const customerLabel = customer?.company_name || customer?.full_name ||
+        "Un client";
+      body = `${customerLabel} — ${String(record.product_name).slice(0, 80)}`;
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "formation_purchases") {
       // Nouvelle demande d'achat d'accès à une fiche Formation (matière
       // première) — voir supabase/phase58_patch_formation_purchases_staff_notification.sql.
