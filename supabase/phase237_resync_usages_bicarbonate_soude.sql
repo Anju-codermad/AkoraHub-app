@@ -22,7 +22,7 @@ begin
     where rm.name = 'Bicarbonate de soude';
 
   if v_academie_id is null then
-    raise exception 'Fiche Académie introuvable pour "Bicarbonate de soude" — exécuter d''abord la phase 236.';
+    raise exception 'Fiche Académie introuvable pour "Bicarbonate de sodium technique" — exécuter d''abord la phase 236.';
   end if;
 
   select array_agg(distinct u.domaine_application order by u.domaine_application)

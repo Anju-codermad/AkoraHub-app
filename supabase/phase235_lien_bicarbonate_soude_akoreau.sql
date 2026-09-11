@@ -32,13 +32,13 @@ begin
     raise exception 'Aucun pilier avec le slug "akor-eau" trouvé — arrêt.';
   end if;
 
-  select id into v_product_id from public.products where name = 'Bicarbonate de soude';
+  select id into v_product_id from public.products where name = 'Bicarbonate de sodium technique';
   if v_product_id is not null then
     insert into public.product_extra_business_units (product_id, business_unit_id, category)
     values (v_product_id, v_akoreau_id, 'Correction du pH')
     on conflict (product_id, business_unit_id) do update set category = excluded.category;
   else
-    raise notice '"Bicarbonate de soude" introuvable dans products (pas encore de fiche vendable pour ce produit) — rien relié.';
+    raise notice '"Bicarbonate de sodium technique" introuvable dans products (pas encore de fiche vendable pour ce produit) — rien relié.';
   end if;
 end $$;
 
@@ -46,4 +46,4 @@ end $$;
 -- select p.name, peb.category from public.product_extra_business_units peb
 -- join public.products p on p.id = peb.product_id
 -- where peb.business_unit_id = (select id from public.business_units where slug = 'akor-eau')
--- and p.name = 'Bicarbonate de soude';
+-- and p.name = 'Bicarbonate de sodium technique';

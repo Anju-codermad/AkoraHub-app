@@ -37,9 +37,9 @@ begin
   end if;
 
   select id into v_material_id from public.raw_materials
-    where business_unit_id = v_akora_pro_id and name = 'Bicarbonate de soude';
+    where business_unit_id = v_akora_pro_id and name = 'Bicarbonate de sodium technique';
   if v_material_id is null then
-    raise exception 'Produit "Bicarbonate de soude" introuvable dans raw_materials — arrêt.';
+    raise exception 'Produit "Bicarbonate de sodium technique" introuvable dans raw_materials — arrêt.';
   end if;
 
   insert into public.matieres_premieres_academie (
@@ -133,9 +133,9 @@ end $$;
 -- Vérification :
 -- select nom_chimique, particularite from public.matieres_premieres_academie a
 -- join public.raw_materials rm on rm.id = a.matiere_premiere_id
--- where rm.name = 'Bicarbonate de soude';
+-- where rm.name = 'Bicarbonate de sodium technique';
 -- select domaine_application, ordre from public.matieres_premieres_usages u
 -- join public.matieres_premieres_academie a on a.id = u.academie_id
 -- join public.raw_materials rm on rm.id = a.matiere_premiere_id
--- where rm.name = 'Bicarbonate de soude'
+-- where rm.name = 'Bicarbonate de sodium technique'
 -- order by u.ordre;

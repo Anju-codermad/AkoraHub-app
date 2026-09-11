@@ -17,10 +17,10 @@ begin
   select a.id into v_academie_id
     from public.matieres_premieres_academie a
     join public.raw_materials rm on rm.id = a.matiere_premiere_id
-    where rm.name = 'Bicarbonate de soude';
+    where rm.name = 'Bicarbonate de sodium technique';
 
   if v_academie_id is null then
-    raise exception 'Fiche Académie introuvable pour "Bicarbonate de soude" — exécuter d''abord la phase 236.';
+    raise exception 'Fiche Académie introuvable pour "Bicarbonate de sodium technique" — exécuter d''abord la phase 236.';
   end if;
 
   select array_agg(distinct u.domaine_application order by u.domaine_application)
@@ -36,4 +36,4 @@ begin
 end $$;
 
 -- Vérification :
--- select name, use_cases from public.products where name = 'Bicarbonate de soude';
+-- select name, use_cases from public.products where name = 'Bicarbonate de sodium technique';
