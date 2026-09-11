@@ -249,11 +249,16 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 215 | `phase215_patch_champs_diagnostic_eau.sql` | complète `website_service_requests` : jour souhaité, type de client (particulier/entreprise/organisation + NIF/STAT), forfait ou analyses à la carte, montants (total/acompte 50%), case d'acceptation des conditions |
 | 216 | `phase216_patch_notif_demandes_site_web.sql` | notification push au staff (Admin/Commercial/Services) dès qu'une ligne arrive dans `website_leads` ou `website_service_requests` — réutilise `notify_push_on_new_message()` (aucune des deux tables n'était couverte jusqu'ici) |
 | 217 | `phase217_patch_water_diagnostic_pricing.sql` | tunnel d'achat client (site web) : migre la grille de prix du diagnostic eau (tests à la carte + forfaits, jusque-là en dur dans le JS de services.html) vers `water_analysis_tests`/`water_analysis_packs`, ajoute un trigger anti-falsification (`estimated_total`/`deposit_amount` recalculés server-side, même principe que phase154) + colonnes de suivi de paiement de l'acompte (`payment_method`/`payment_status`/`papi_*`/`fiveonepay_*`) + `claimed_by` et la fonction `claim_water_diagnostic_request` pour rattacher une demande anonyme à un compte client |
+| 235 | `phase235_lien_bicarbonate_soude_akoreau.sql` | relie "Bicarbonate de soude" (grade technique, Akora Pro) à Akor'Eau, catégorie "Correction du pH" (les grades alimentaires étaient déjà reliés à Akora NutriLab depuis les phases 205/208) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
 187 ci-dessus (constaté le 03/09/2026 depuis la conversation du site web,
 hors scope de cette conversation pour les documenter rétroactivement).
+De même pour `phase218` à `phase234` (constaté le 11/09/2026, lors de
+l'ajout de la phase235) : entretemps créés par la conversation du site,
+non indexés ici, hors scope de cette conversation pour les documenter
+rétroactivement.
 
 ## ⚠️ Correctif 04/09/2026 : renommage du pilier "Akora Fanadiovana" → "Akora Pro"
 
