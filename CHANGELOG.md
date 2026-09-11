@@ -1232,3 +1232,6 @@
 
 ## 2026-09-10 15:19 UTC — Anju-codermad
 - Ajoute les demandes de devis produit (piliers B2B sans prix affiché) (`131243f`)
+
+## 2026-09-11 10:47 UTC — Claude
+- feat(supabase): relie Bicarbonate de soude technique à Akor'Eau (phase235) (`f647e65`)
