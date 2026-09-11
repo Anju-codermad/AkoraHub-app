@@ -251,6 +251,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 217 | `phase217_patch_water_diagnostic_pricing.sql` | tunnel d'achat client (site web) : migre la grille de prix du diagnostic eau (tests à la carte + forfaits, jusque-là en dur dans le JS de services.html) vers `water_analysis_tests`/`water_analysis_packs`, ajoute un trigger anti-falsification (`estimated_total`/`deposit_amount` recalculés server-side, même principe que phase154) + colonnes de suivi de paiement de l'acompte (`payment_method`/`payment_status`/`papi_*`/`fiveonepay_*`) + `claimed_by` et la fonction `claim_water_diagnostic_request` pour rattacher une demande anonyme à un compte client |
 | 235 | `phase235_lien_bicarbonate_soude_akoreau.sql` | relie "Bicarbonate de soude" (grade technique, Akora Pro) à Akor'Eau, catégorie "Correction du pH" (les grades alimentaires étaient déjà reliés à Akora NutriLab depuis les phases 205/208) |
 | 236 | `phase236_fiche_bicarbonate_soude_technique.sql` | fiche Académie complète pour "Bicarbonate de soude" (CAS, dosages détaillés eau/piscine/nettoyage/neutralisation, sans dupliquer le contenu alimentaire déjà sur les fiches E500(ii)/alimentaire) |
+| 237 | `phase237_resync_usages_bicarbonate_soude.sql` | corrige le décalage products.use_cases vs fiche Académie pour "Bicarbonate de soude", même correctif que la phase198 |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
