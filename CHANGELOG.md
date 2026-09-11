@@ -1235,3 +1235,6 @@
 
 ## 2026-09-11 10:47 UTC — Claude
 - feat(supabase): relie Bicarbonate de soude technique à Akor'Eau (phase235) (`f647e65`)
+
+## 2026-09-11 10:49 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`f862d03`)
