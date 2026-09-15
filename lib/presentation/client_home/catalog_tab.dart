@@ -89,9 +89,10 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   int _bannerIndex = 0;
   Timer? _bannerAutoplayTimer;
 
-  // Repli par défaut : utilisé tant que l'Admin n'a créé aucune bannière
-  // dans home_banners (voir supabase/phase6_patch_home_banners.sql et
-  // l'écran Admin home_banners_management.dart).
+  // Repli par défaut : utilisé tant qu'aucun produit n'est encore publié
+  // au catalogue (voir loadBanners, qui affiche sinon tous les produits
+  // publiés en carrousel — remplace l'ancienne bannière hero gérée
+  // manuellement depuis l'Admin, supprimée le 15/09/2026).
   static const List<_PromoSlide> _defaultPromoSlides = [
     _PromoSlide(
       title: 'Vos produits,\nen un clic',
@@ -175,20 +176,26 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       // son propre repli silencieux en cas d'échec.
       Future<List<_PromoSlide>> loadBanners() async {
         try {
-          final bannerRows = await SupabaseConfig.client
-              .from('home_banners')
-              .select()
-              .eq('active', true)
-              .order('sort_order');
-          final rows = List<Map<String, dynamic>>.from(bannerRows);
+          final productRows = await SupabaseConfig.client
+              .from('products')
+              .select('id, name, category, image_url, price_detail, '
+                  'product_variants(price_detail, formats(name))')
+              .eq('visibility', true)
+              .order('name');
+          final rows = List<Map<String, dynamic>>.from(productRows);
           if (rows.isEmpty) return _defaultPromoSlides;
-          return rows
-              .map((b) => _PromoSlide(
-                    title: (b['title'] ?? '').toString(),
-                    subtitle: (b['subtitle'] ?? '').toString(),
-                    imageUrl: b['image_url'] as String?,
-                  ))
-              .toList();
+          return rows.map((p) {
+            final unitLabel =
+                unitLabelFromEmbeddedVariants(p['product_variants']);
+            final unitSuffix = unitLabel != null ? '/$unitLabel' : '';
+            final price = (p['price_detail'] as num?) ?? 0;
+            return _PromoSlide(
+              title: (p['name'] ?? '').toString(),
+              subtitle: 'Dès ${_currency.format(price)}$unitSuffix',
+              imageUrl: p['image_url'] as String?,
+              product: p,
+            );
+          }).toList();
         } catch (_) {
           return _defaultPromoSlides;
         }
@@ -290,8 +297,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             ..sort((a, b) => b.value.length.compareTo(a.value.length));
 
           if (frequentProductIds.isEmpty) return [];
-          final topIds =
-              frequentProductIds.take(5).map((e) => e.key).toList();
+          final topIds = frequentProductIds.take(5).map((e) => e.key).toList();
           final productRows = await SupabaseConfig.client
               .from('products')
               .select('*, product_variants(price_detail, formats(name))')
@@ -456,14 +462,15 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
       // qui regarde — un même message stocké une seule fois en base
       // s'affiche personnalisé pour chacun, plutôt qu'un message générique
       // "à tout le monde".
-      final flashInfo = (flashInfoId != null && flashInfoId == dismissedFlashInfoId)
-          ? null
-          : (flashInfoRow?['message'] as String?)?.replaceAll(
-              '{nom}',
-              (profile?['full_name'] as String?)?.trim().isNotEmpty == true
-                  ? (profile!['full_name'] as String).trim()
-                  : 'cher client',
-            );
+      final flashInfo =
+          (flashInfoId != null && flashInfoId == dismissedFlashInfoId)
+              ? null
+              : (flashInfoRow?['message'] as String?)?.replaceAll(
+                  '{nom}',
+                  (profile?['full_name'] as String?)?.trim().isNotEmpty == true
+                      ? (profile!['full_name'] as String).trim()
+                      : 'cher client',
+                );
 
       setState(() {
         _clientName = profile?['full_name'] as String?;
@@ -481,7 +488,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         _randomProducts = randomProducts;
         _isLoading = false;
       });
-      // Les vraies bannières (chargées ci-dessus) peuvent différer en
+      // Les slides produits (chargées ci-dessus) peuvent différer en
       // nombre des 3 slides de repli affichées le temps du chargement —
       // on reprogramme le défilement auto sur la bonne longueur.
       _scheduleBannerAutoplay();
@@ -606,10 +613,9 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         : hour < 18
             ? 'Bonjour'
             : 'Bonsoir';
-    final greetingName =
-        (_clientName == null || _clientName!.trim().isEmpty)
-            ? greetingPrefix
-            : '$greetingPrefix, ${_clientName!.trim()}';
+    final greetingName = (_clientName == null || _clientName!.trim().isEmpty)
+        ? greetingPrefix
+        : '$greetingPrefix, ${_clientName!.trim()}';
 
     // Bandeau gris très clair haut / feuille blanche arrondie en bas
     // (09/08, sur maquette puis ajusté deux fois sur retours de
@@ -662,8 +668,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                               Text(
                                 greetingName,
                                 style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: onBand),
+                                    fontWeight: FontWeight.w700, color: onBand),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -988,8 +993,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     ),
                   ),
                   child: Container(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 3.w, vertical: 1.5.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 3.w, vertical: 1.5.h),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.secondaryContainer,
                       borderRadius: BorderRadius.circular(10),
@@ -1049,88 +1054,107 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   final slide = _promoSlides[index];
                   final hasImage =
                       slide.imageUrl != null && slide.imageUrl!.isNotEmpty;
+                  final slideProduct = slide.product;
                   return Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    child: Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.all(4.w),
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
                       clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        gradient: hasImage
+                      child: InkWell(
+                        onTap: slideProduct == null
                             ? null
-                            : LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  theme.colorScheme.primary,
-                                  theme.colorScheme.primary
-                                      .withValues(alpha: 0.75),
-                                ],
-                              ),
-                        image: hasImage
-                            ? DecorationImage(
-                                image: NetworkImage(slide.imageUrl!),
-                                fit: BoxFit.cover,
-                                colorFilter: ColorFilter.mode(
-                                  Colors.black.withValues(alpha: 0.45),
-                                  BlendMode.darken,
-                                ),
-                              )
-                            : null,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  slide.title,
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    color: theme.colorScheme.onPrimary,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.2,
-                                    shadows: hasImage
-                                        ? const [
-                                            Shadow(
-                                              color: Colors.black54,
-                                              blurRadius: 6,
-                                              offset: Offset(0, 1),
-                                            ),
-                                          ]
-                                        : null,
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  productDetailRoute(ProductDetailClient(
+                                      product: slideProduct)),
+                                );
+                              },
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(4.w),
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            gradient: hasImage
+                                ? null
+                                : LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      theme.colorScheme.primary,
+                                      theme.colorScheme.primary
+                                          .withValues(alpha: 0.75),
+                                    ],
                                   ),
-                                ),
-                                SizedBox(height: 0.5.h),
-                                Text(
-                                  slide.subtitle,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onPrimary
-                                        .withValues(alpha: 0.85),
-                                    shadows: hasImage
-                                        ? const [
-                                            Shadow(
-                                              color: Colors.black54,
-                                              blurRadius: 6,
-                                              offset: Offset(0, 1),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            image: hasImage
+                                ? DecorationImage(
+                                    image: NetworkImage(slide.imageUrl!),
+                                    fit: BoxFit.cover,
+                                    colorFilter: ColorFilter.mode(
+                                      Colors.black.withValues(alpha: 0.45),
+                                      BlendMode.darken,
+                                    ),
+                                  )
+                                : null,
+                            borderRadius: BorderRadius.circular(18),
                           ),
-                          if (!hasImage && slide.icon != null)
-                            Icon(
-                              slide.icon,
-                              size: 48,
-                              color: theme.colorScheme.onPrimary
-                                  .withValues(alpha: 0.85),
-                            ),
-                        ],
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      slide.title,
+                                      style:
+                                          theme.textTheme.titleLarge?.copyWith(
+                                        color: theme.colorScheme.onPrimary,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.2,
+                                        shadows: hasImage
+                                            ? const [
+                                                Shadow(
+                                                  color: Colors.black54,
+                                                  blurRadius: 6,
+                                                  offset: Offset(0, 1),
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                    ),
+                                    SizedBox(height: 0.5.h),
+                                    Text(
+                                      slide.subtitle,
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onPrimary
+                                            .withValues(alpha: 0.85),
+                                        shadows: hasImage
+                                            ? const [
+                                                Shadow(
+                                                  color: Colors.black54,
+                                                  blurRadius: 6,
+                                                  offset: Offset(0, 1),
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (!hasImage && slide.icon != null)
+                                Icon(
+                                  slide.icon,
+                                  size: 48,
+                                  color: theme.colorScheme.onPrimary
+                                      .withValues(alpha: 0.85),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -1230,8 +1254,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(4.w, 2.5.h, 4.w, 1.h),
-                child: Text('Découvrez aussi',
-                    style: theme.textTheme.titleMedium),
+                child:
+                    Text('Découvrez aussi', style: theme.textTheme.titleMedium),
               ),
             ),
             SliverToBoxAdapter(
@@ -1342,9 +1366,9 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                             color: theme.colorScheme
                                                 .surfaceContainerHighest,
                                             child: ((item.post!['image_url']
-                                                        as String?) ??
-                                                    '')
-                                                .isEmpty
+                                                            as String?) ??
+                                                        '')
+                                                    .isEmpty
                                                 ? Icon(
                                                     Icons.groups_outlined,
                                                     size: 20,
@@ -1371,22 +1395,22 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                                 children: [
                                                   Icon(Icons.groups_outlined,
                                                       size: 14,
-                                                      color: theme.colorScheme
-                                                          .primary),
+                                                      color: theme
+                                                          .colorScheme.primary),
                                                   SizedBox(width: 1.w),
                                                   Expanded(
                                                     child: Text(
                                                       PublicProfilesRepo
                                                           .displayName(item
                                                               .authorProfile),
-                                                      style: theme.textTheme
-                                                          .labelSmall
+                                                      style: theme
+                                                          .textTheme.labelSmall
                                                           ?.copyWith(
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w600),
-                                                      overflow: TextOverflow
-                                                          .ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                 ],
@@ -1400,8 +1424,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                                     : 'Nouvelle publication'
                                                         ' dans la Communauté',
                                                 maxLines: 2,
-                                                overflow:
-                                                    TextOverflow.ellipsis,
+                                                overflow: TextOverflow.ellipsis,
                                                 style:
                                                     theme.textTheme.bodySmall,
                                               ),
@@ -1422,22 +1445,20 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                             height: 16.w,
                                             color: theme.colorScheme
                                                 .surfaceContainerHighest,
-                                            child: ((item.product![
-                                                            'image_url']
-                                                        as String?) ??
-                                                    '')
-                                                .isEmpty
+                                            child: ((item.product!['image_url']
+                                                            as String?) ??
+                                                        '')
+                                                    .isEmpty
                                                 ? Icon(
-                                                    Icons
-                                                        .inventory_2_outlined,
+                                                    Icons.inventory_2_outlined,
                                                     size: 20,
                                                     color: theme
                                                         .colorScheme.outline,
                                                   )
                                                 : _productImage(
                                                     theme: theme,
-                                                    imageUrl: item.product![
-                                                        'image_url'],
+                                                    imageUrl: item
+                                                        .product!['image_url'],
                                                     enableHero: false,
                                                     tag:
                                                         'for-you-${item.product!['id']}',
@@ -1452,16 +1473,14 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                             children: [
                                               Row(
                                                 children: [
-                                                  Icon(
-                                                      Icons
-                                                          .fiber_new_outlined,
+                                                  Icon(Icons.fiber_new_outlined,
                                                       size: 14,
-                                                      color: theme.colorScheme
-                                                          .primary),
+                                                      color: theme
+                                                          .colorScheme.primary),
                                                   SizedBox(width: 1.w),
                                                   Text('Nouveau produit',
-                                                      style: theme.textTheme
-                                                          .labelSmall
+                                                      style: theme
+                                                          .textTheme.labelSmall
                                                           ?.copyWith(
                                                               fontWeight:
                                                                   FontWeight
@@ -1472,22 +1491,19 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                               Text(
                                                 item.product!['name'] ?? '',
                                                 maxLines: 2,
-                                                overflow:
-                                                    TextOverflow.ellipsis,
+                                                overflow: TextOverflow.ellipsis,
                                                 style:
                                                     theme.textTheme.bodyMedium,
                                               ),
                                               const Spacer(),
                                               Text(
-                                                _currency.format((item
-                                                            .product![
-                                                        'price_detail'] as num?) ??
+                                                _currency.format((item.product![
+                                                            'price_detail']
+                                                        as num?) ??
                                                     0),
-                                                style: theme
-                                                    .textTheme.bodySmall
+                                                style: theme.textTheme.bodySmall
                                                     ?.copyWith(
-                                                        color: theme
-                                                            .colorScheme
+                                                        color: theme.colorScheme
                                                             .primary,
                                                         fontWeight:
                                                             FontWeight.w700),
@@ -1550,8 +1566,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => AkoraFormationScreen(
-                                initialCategory: category),
+                            builder: (_) =>
+                                AkoraFormationScreen(initialCategory: category),
                           ),
                         ),
                         child: Container(
@@ -1722,9 +1738,7 @@ class _SocialLinkButton extends StatelessWidget {
                       width: 26,
                       height: 26,
                     )
-                  : (icon != null
-                      ? Icon(icon, color: Colors.white)
-                      : null),
+                  : (icon != null ? Icon(icon, color: Colors.white) : null),
             ),
             SizedBox(height: 0.5.h),
             Text(label, style: TextStyle(fontSize: 10.sp)),
@@ -1741,11 +1755,17 @@ class _PromoSlide {
   final IconData? icon;
   final String? imageUrl;
 
+  /// Fiche produit complète quand le slide représente un produit publié du
+  /// catalogue (voir `loadBanners`) — permet le tap-to-open vers sa fiche.
+  /// `null` pour les slides de repli statiques (`_defaultPromoSlides`).
+  final Map<String, dynamic>? product;
+
   const _PromoSlide(
       {required this.title,
       required this.subtitle,
       this.icon,
-      this.imageUrl});
+      this.imageUrl,
+      this.product});
 }
 
 /// Un élément du fil d'activité "Pour vous" de l'Accueil (23/07) : soit une
@@ -1848,6 +1868,7 @@ class ProductCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onQuickAdd;
   final VoidCallback onToggleFavorite;
+
   /// Un même produit peut apparaître à la fois dans la grille principale
   /// et dans "Vous recommandez souvent" (juste au-dessus) : deux `Hero`
   /// avec le même tag simultanément visibles sur le même écran cassent le
@@ -1916,8 +1937,8 @@ class ProductCard extends StatelessWidget {
                 child: Stack(
                   children: [
                     ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(20)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(20)),
                       child: Container(
                         width: double.infinity,
                         height: double.infinity,
@@ -1946,7 +1967,8 @@ class ProductCard extends StatelessWidget {
                             if (category.isNotEmpty)
                               _Tag(label: category, theme: theme),
                             if (outOfStock || lowStock) ...[
-                              if (category.isNotEmpty) const SizedBox(height: 4),
+                              if (category.isNotEmpty)
+                                const SizedBox(height: 4),
                               _StockBadge(outOfStock: outOfStock, theme: theme),
                             ],
                           ],
@@ -2002,8 +2024,7 @@ class ProductCard extends StatelessWidget {
                                   const SizedBox(width: 3),
                                   Text(
                                     'Recommander',
-                                    style: theme.textTheme.labelSmall
-                                        ?.copyWith(
+                                    style: theme.textTheme.labelSmall?.copyWith(
                                       color: theme.colorScheme.onPrimary,
                                       fontWeight: FontWeight.w600,
                                     ),

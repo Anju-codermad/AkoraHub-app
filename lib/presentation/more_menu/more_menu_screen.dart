@@ -9,7 +9,6 @@ import '../invoicing/invoicing_screen.dart';
 import '../alerts_center/alerts_center.dart';
 import '../delivery_management/delivery_management.dart';
 import '../flash_infos_management/flash_infos_management.dart';
-import '../home_banners_management/home_banners_management.dart';
 import '../notification_sounds_catalog_admin/notification_sounds_catalog_admin_screen.dart';
 import '../payment_methods_management/payment_methods_management.dart';
 import '../mobile_money_reconciliation/mobile_money_reconciliation_screen.dart';
@@ -30,7 +29,7 @@ import '../website_leads_management/website_leads_management.dart';
 /// Menu "Plus" de l'Admin — remplace l'ancien comportement où l'onglet
 /// "More" de la barre de navigation menait directement au Profil
 /// entreprise, ce qui laissait Facturation/Alertes/Piliers/Équipe/
-/// Bannières/Devis accessibles uniquement depuis le bouton "+" de
+/// Devis accessibles uniquement depuis le bouton "+" de
 /// création rapide (sémantiquement bizarre : gérer les piliers ou
 /// consulter les alertes n'est pas "créer quelque chose de nouveau").
 /// Ce menu les regroupe dans un vrai écran de navigation, organisé par
@@ -328,16 +327,6 @@ class _FullMoreMenu extends StatelessWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const StaffManagement()),
-            ),
-          ),
-          _MenuTile(
-            icon: Icons.add_photo_alternate_outlined,
-            label: 'Bannière hero — Accueil',
-            subtitle: 'Image mise en avant sur l\'accueil client',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const HomeBannersManagement()),
             ),
           ),
           _MenuTile(

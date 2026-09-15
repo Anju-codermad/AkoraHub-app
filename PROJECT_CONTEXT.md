@@ -8803,3 +8803,27 @@ technique direct (HTML/JS statique vs Dart).
 - Voir `content.md` de CE dépôt pour un résumé pointant vers le nouveau
   dépôt — il ne contient plus l'historique complet depuis la
   séparation.
+
+## Bannière hero de l'Accueil remplacée par un carrousel de produits publiés (15/09/2026)
+
+Demande explicite de la propriétaire : utiliser la liste des produits du
+catalogue pour le hero de l'accueil client, comme le fait le site,
+plutôt que des slides gérées manuellement — et supprimer l'ancien
+système.
+
+- **`catalog_tab.dart`** : `loadBanners()` charge désormais tous les
+  produits publiés (`products` où `visibility = true`, triés par nom,
+  avec `image_url`/`price_detail`/`product_variants` pour le prix et
+  l'unité) au lieu de la table `home_banners`. Chaque slide affiche le
+  nom et le prix (« Dès {prix}/{unité} »), reste cliquable vers la
+  fiche produit (`ProductDetailClient`) via un `InkWell` ajouté sur le
+  slide — auparavant les slides n'étaient pas cliquables du tout. Repli
+  inchangé sur les 3 slides statiques par défaut si aucun produit n'est
+  encore publié.
+- **Ancien système entièrement supprimé** : écran Admin
+  `home_banners_management.dart` supprimé, entrée "Bannière hero —
+  Accueil" retirée du menu "Plus", route `homeBannersManagement`
+  retirée de `app_routes.dart`. La table `home_banners` elle-même (et
+  son bucket Storage `home-banners`) reste en base — plus utilisée par
+  le code, à supprimer plus tard si souhaité, aucune donnée cliente n'en
+  dépend.
