@@ -8827,3 +8827,53 @@ système.
   son bucket Storage `home-banners`) reste en base — plus utilisée par
   le code, à supprimer plus tard si souhaité, aucune donnée cliente n'en
   dépend.
+
+## Préparation publication Play Store, reprise (16/09/2026)
+
+Demande de la propriétaire, checklist reprise (voir section dédiée du
+01/08 et mises à jour du 05/08). Premier point traité, à sa demande :
+mise à jour de `docs/privacy-policy.html`, qui datait du 5 août et ne
+reflétait plus plusieurs fonctionnalités ajoutées depuis. Écarts trouvés
+en vérifiant le code réel (pas seulement relu à l'œil) :
+
+- **Preuve de paiement** (upload photo depuis `payment_screen.dart`,
+  `ImagePicker`) : jamais mentionnée nulle part — ajoutée en 1.4
+  (nouvelle sous-section "Paiement").
+- **Appareil photo** et **microphone** : permissions déclarées dans
+  `AndroidManifest.xml` (`CAMERA`, `RECORD_AUDIO`) mais absentes du
+  tableau 1.5 — ajoutées avec leurs 2 usages réels (scanner code-barres/
+  QR via `mobile_scanner`, appels vidéo/audio via `agora_rtc_engine`,
+  confirmé dans `calls/call_screen.dart`).
+- **Bluetooth** (`BLUETOOTH`/`BLUETOOTH_CONNECT` dans le manifeste, sans
+  dépendance Bluetooth dédiée au pubspec) : identifié comme tiré
+  implicitement par le SDK Agora (routage audio vers casque/oreillette
+  pendant un appel) — ajouté avec une précision qu'aucune donnée n'est
+  collectée via cette autorisation.
+- **Appels audio/vidéo** : Agora était déjà listé comme sous-traitant
+  (4.1) mais la fonctionnalité elle-même n'apparaissait nulle part en
+  section 1 — ajoutée en 1.3.
+- **Prestataires de paiement réels** : le tableau 4.1 ne citait que les
+  opérateurs mobile money (Mvola/Orange/Airtel) alors que les paiements
+  en ligne passent par deux plateformes intermédiaires,
+  `PapiPaymentRepo`/`FiveOnePayPaymentRepo` (Papi.mg, FiveOne Pay,
+  appelées via des Edge Functions Supabase) — ajoutées comme sous-
+  traitants distincts, avec la précision de ce qui leur est transmis
+  (téléphone + montant, jamais les codes secrets).
+
+Date de mise à jour affichée passée au 16 septembre 2026.
+
+⚠️ **Redéploiement requis** pour que la version en ligne
+(`https://groupe-akora.com/privacy-policy.html`, servie depuis le dépôt
+séparé `groupe-akora-site` depuis la migration du 03/09) reflète ce
+correctif — ce dépôt-ci ne contrôle plus le déploiement du site depuis
+cette date ; `docs/privacy-policy.html` dans CE dépôt sert uniquement de
+copie de référence/historique. **Action requise de la propriétaire (ou
+de la session du site)** : reporter ces mêmes changements dans le
+fichier équivalent du dépôt `groupe-akora-site` et redéployer.
+
+Reste de la checklist Play Store (inchangé depuis le 01/08, à traiter
+ensuite) : feature graphic 1024×500, captures d'écran réelles,
+description courte/longue, questionnaire de classification du contenu,
+formulaire "Sécurité des données" (peut maintenant s'appuyer sur cette
+politique à jour), compte de test pour la review, et surtout la création
+du compte développeur Google Play par la propriétaire elle-même.

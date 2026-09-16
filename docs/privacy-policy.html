@@ -30,7 +30,7 @@
 <body>
 
 <h1>Politique de confidentialité — AkoraHub</h1>
-<p class="maj">Dernière mise à jour : 5 août 2026</p>
+<p class="maj">Dernière mise à jour : 16 septembre 2026</p>
 
 <p>
 Cette politique décrit quelles données l'application <strong>AkoraHub</strong> collecte,
@@ -59,13 +59,27 @@ pourquoi, et comment elles sont traitées. AkoraHub est éditée par
 
 <h3>1.3 Messagerie et interactions</h3>
 <ul>
-  <li>Messages échangés avec notre équipe commerciale via la messagerie intégrée</li>
+  <li>Messages échangés avec notre équipe commerciale via la messagerie intégrée, y compris
+      les pièces jointes que vous envoyez (photos, documents)</li>
+  <li>Appels audio ou vidéo passés depuis la messagerie de l'app : le flux en direct n'est ni
+      reçu ni enregistré par nos serveurs (voir 4.1, prestataire Agora) ; nous conservons
+      uniquement l'historique de l'appel (qui a appelé qui, quand, durée)</li>
   <li>Publications, photos et interactions sur le mur social de l'application, si vous
       choisissez d'y participer</li>
   <li>Produits ajoutés à vos favoris</li>
 </ul>
 
-<h3>1.4 Autorisations de l'appareil</h3>
+<h3>1.4 Paiement</h3>
+<ul>
+  <li>Preuve de paiement (photo d'un reçu ou d'une confirmation mobile money) lorsque vous
+      choisissez de régler une commande par ce moyen et de l'envoyer manuellement à notre
+      équipe pour validation</li>
+  <li>Lorsque vous payez via un lien de paiement en ligne (Papi.mg ou FiveOne Pay), votre
+      numéro de téléphone et le montant de la commande sont transmis à ce prestataire pour
+      initier la transaction — voir 4.1</li>
+</ul>
+
+<h3>1.5 Autorisations de l'appareil</h3>
 <table>
   <tr><th>Autorisation</th><th>Pourquoi</th></tr>
   <tr>
@@ -76,9 +90,25 @@ pourquoi, et comment elles sont traitées. AkoraHub est éditée par
   </tr>
   <tr>
     <td>Accès aux photos / galerie</td>
-    <td>Vous permettre de choisir une photo de profil, ou (pour notre équipe) d'ajouter des
-        photos de produits au catalogue. Aucune photo n'est consultée par nous en dehors de
-        celle que vous choisissez explicitement d'envoyer.</td>
+    <td>Vous permettre de choisir une photo de profil, d'envoyer une preuve de paiement, une
+        pièce jointe dans la messagerie, ou (pour notre équipe) d'ajouter des photos de
+        produits au catalogue. Aucune photo n'est consultée par nous en dehors de celle que
+        vous choisissez explicitement d'envoyer.</td>
+  </tr>
+  <tr>
+    <td>Appareil photo</td>
+    <td>Scanner le code-barres ou le QR code d'un produit (lecture instantanée, aucune image
+        enregistrée), ou activer votre caméra lors d'un appel vidéo dans la messagerie.</td>
+  </tr>
+  <tr>
+    <td>Microphone</td>
+    <td>Transmettre votre voix lors d'un appel audio ou vidéo dans la messagerie. Utilisé
+        uniquement pendant un appel en cours.</td>
+  </tr>
+  <tr>
+    <td>Bluetooth</td>
+    <td>Permettre de router le son d'un appel vers un casque ou une oreillette Bluetooth,
+        si vous en utilisez un. Aucune donnée n'est collectée via cette autorisation.</td>
   </tr>
 </table>
 
@@ -130,9 +160,17 @@ données strictement pour notre compte et ne les réutilisent jamais à leurs pr
         la durée de l'appel</td>
   </tr>
   <tr>
+    <td><strong>Papi.mg, FiveOne Pay</strong></td>
+    <td>Plateformes de paiement en ligne qui génèrent le lien de paiement mobile money lorsque
+        vous choisissez de payer une commande en ligne — nous leur transmettons uniquement
+        votre numéro de téléphone et le montant à payer ; nous ne voyons ni ne stockons jamais
+        vos codes secrets ou identifiants de paiement</td>
+  </tr>
+  <tr>
     <td><strong>Mvola, Orange Money, Airtel Money</strong></td>
-    <td>Traitement du paiement mobile money lorsque vous choisissez ce mode de paiement — nous
-        ne voyons ni ne stockons jamais vos codes secrets ou identifiants de paiement</td>
+    <td>Opérateurs mobile money qui traitent la transaction elle-même, que ce soit via
+        Papi.mg/FiveOne Pay ou lorsque vous réglez directement et nous envoyez une preuve de
+        paiement manuellement</td>
   </tr>
 </table>
 
