@@ -256,6 +256,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 239 | `phase239_resync_usages_bicarbonate_soude_v2.sql` | corrige à nouveau le décalage products.use_cases après les 2 nouveaux usages ajoutés en phase238, même correctif que la phase237 |
 | 240 | `phase240_recree_bicarbonate_soude_technique.sql` | recrée "Bicarbonate de sodium technique" dans raw_materials/products — sa fiche d'origine "Bicarbonate de soude" avait été supprimée en phase88 (07/08) car alors jugée à tort doublon du grade alimentaire E500(ii) ; à exécuter EN PREMIER, avant les phases 235/236 |
 | 241 | `phase241_ajout_bouchon_push_pull_packaging.sql` | ajoute "Bouchon push-pull" (catégorie "Accessoires d'emballage") au pilier Akora Packaging (phase233, créé par la conversation du site, catégories vides jusqu'ici) — brouillon (visibility=false), à compléter depuis l'Admin (prix, photo, stock) |
+| 242 | `phase242_sous_categories_akora_packaging.sql` | ajoute 6 catégories supplémentaires au pilier Akora Packaging (Bouchons & fermetures, Pompes & vaporisateurs, Flacons & bouteilles, Pots & bocaux, Sacs & sachets, Rubans & adhésifs) — s'ajoutent aux 9 existantes (phase233), pour mieux répartir les futurs produits que la catégorie générique "Accessoires d'emballage" |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
