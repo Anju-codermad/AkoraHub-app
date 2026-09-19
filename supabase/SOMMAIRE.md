@@ -255,6 +255,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 238 | `phase238_correction_dosage_et_nouveaux_usages_bicarbonate_soude.sql` | corrige le dosage piscine (TAC) de la fiche "Bicarbonate de sodium technique" (150 g/m³ de la phase236 était erroné d'un facteur ~10 ; recoupement avec la règle professionnelle piscine et le calcul stœchiométrique confirme 15-18 g/m³) et ajoute 2 usages (détergents industriels, agriculture) |
 | 239 | `phase239_resync_usages_bicarbonate_soude_v2.sql` | corrige à nouveau le décalage products.use_cases après les 2 nouveaux usages ajoutés en phase238, même correctif que la phase237 |
 | 240 | `phase240_recree_bicarbonate_soude_technique.sql` | recrée "Bicarbonate de sodium technique" dans raw_materials/products — sa fiche d'origine "Bicarbonate de soude" avait été supprimée en phase88 (07/08) car alors jugée à tort doublon du grade alimentaire E500(ii) ; à exécuter EN PREMIER, avant les phases 235/236 |
+| 241 | `phase241_ajout_bouchon_push_pull_packaging.sql` | ajoute "Bouchon push-pull" (catégorie "Accessoires d'emballage") au pilier Akora Packaging (phase233, créé par la conversation du site, catégories vides jusqu'ici) — brouillon (visibility=false), à compléter depuis l'Admin (prix, photo, stock) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
