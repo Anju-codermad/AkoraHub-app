@@ -6,13 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/offline/connectivity_provider.dart';
 import '../../core/offline/offline_order_queue.dart';
-import '../../core/payment/fiveonepay_payment_repo.dart';
 import '../../core/payment/mobile_money_withdrawal_fee.dart';
-import '../../core/payment/papi_payment_repo.dart';
 import '../../core/payment/payment_method_selector.dart';
 import '../../core/payment/payment_method_settings_repo.dart';
 import '../../core/payment/payment_methods.dart';
@@ -26,12 +23,14 @@ import '../../core/supabase/supabase_config.dart';
 /// relit le panier lui-même via `cartProvider` (état global, pas besoin
 /// de le faire transiter en paramètre).
 ///
-/// ⚠️ Aucune donnée bancaire sensible n'est saisie ici : Papi gère le
-/// paiement en ligne sur sa propre page externe, et le mode manuel ne
-/// demande qu'une référence de transaction + une photo facultative — la
-/// "sécurité" de cette page est donc surtout une question de présentation
-/// rassurante (cadenas, bandeau, logos officiels), pas une nouvelle
-/// protection technique.
+/// ⚠️ Aucune donnée bancaire sensible n'est saisie ici : tous les modes
+/// sont manuels (le client transfère lui-même, référence de transaction +
+/// photo facultative) — Papi.mg/FiveOne Pay (paiement en ligne
+/// automatique) retirés le 20/09/2026, demande explicite de la
+/// propriétaire, en attendant une intégration directe avec les
+/// opérateurs Mobile Money. La "sécurité" de cette page est donc surtout
+/// une question de présentation rassurante (cadenas, bandeau, logos
+/// officiels), pas une nouvelle protection technique.
 class PaymentScreen extends ConsumerStatefulWidget {
   final double subtotal;
   final double? deliveryFee;
@@ -64,27 +63,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   final _paymentReferenceController = TextEditingController();
   File? _paymentProofFile;
 
-  // Quel fournisseur (Papi ou FiveOne Pay) traite chaque opérateur
-  // Mobile Money — réglage Admin, voir
-  // supabase/phase59_patch_fiveonepay_payment.sql. Le client ne voit
-  // jamais cette distinction, seulement "paiement automatique en ligne".
-  Map<PaymentMethod, String> _providers = {};
-
-  // Réglage Admin (voir payment_methods_management.dart) : secours
-  // d'urgence (ex: Papi indisponible) — quand activé, force TOUS les
-  // clients en manuel pour Mvola/Orange Money/Airtel Money, sans leur
-  // laisser le choix. Cas normal (false) : les deux options coexistent,
-  // voir `_payAutomatically` ci-dessous.
-  bool _manualFallback = false;
-
-  /// Choix du client (pas de l'Admin) entre paiement automatique (Papi)
-  /// et manuel (référence + preuve), pour les méthodes qui supportent les
-  /// deux.
-  bool _payAutomatically = true;
-
-  bool get _showManualPaymentFields =>
-      _paymentMethod.instructions != null &&
-      (!_paymentMethod.isPapiCapable || _manualFallback || !_payAutomatically);
+  bool get _showManualPaymentFields => _paymentMethod.instructions != null;
 
   @override
   void initState() {
@@ -107,14 +86,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   Future<void> _loadAvailablePaymentMethods() async {
     final available = await PaymentMethodSettingsRepo.fetchEnabled();
-    final manualFallback =
-        await PaymentMethodSettingsRepo.isManualFallbackEnabled();
-    final providers = await PaymentMethodSettingsRepo.fetchProviders();
     if (!mounted) return;
     setState(() {
       _availableMethods = available;
-      _manualFallback = manualFallback;
-      _providers = providers;
       if (!available.contains(_paymentMethod) && available.isNotEmpty) {
         _paymentMethod = available.first;
       }
@@ -155,9 +129,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     final total = widget.subtotal + (widget.deliveryFee ?? 0);
     final online = await isCurrentlyOnline();
-    final usesOnlinePayment =
-        _paymentMethod.isPapiCapable && !_manualFallback && _payAutomatically;
-    final onlineProvider = _providers[_paymentMethod] ?? 'papi';
 
     // Hors-ligne : mise en file d'attente locale (voir OfflineOrderQueue,
     // même mécanisme que pour les devis).
@@ -215,7 +186,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final orderNumber = _generateNumber('CMD');
 
       String? proofPath;
-      if (!usesOnlinePayment && _paymentProofFile != null) {
+      if (_paymentProofFile != null) {
         try {
           proofPath = '$userId/$orderNumber.jpg';
           await SupabaseConfig.client.storage
@@ -242,10 +213,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             'longitude': widget.deliveryLon,
             'delivery_address': widget.deliveryAddress,
             'payment_method': _paymentMethod.id,
-            'payment_reference': (!usesOnlinePayment &&
-                    _paymentReferenceController.text.trim().isNotEmpty)
-                ? _paymentReferenceController.text.trim()
-                : null,
+            'payment_reference':
+                _paymentReferenceController.text.trim().isNotEmpty
+                    ? _paymentReferenceController.text.trim()
+                    : null,
             'payment_proof_path': proofPath,
           })
           .select()
@@ -264,42 +235,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 .toList(),
           );
 
-      // Paiement en ligne automatique via Papi ou FiveOne Pay, selon le
-      // fournisseur configuré côté Admin pour cet opérateur (voir
-      // supabase/phase59_patch_fiveonepay_payment.sql) : la commande
-      // existe déjà (payment_status reste "en_attente" tant que le
-      // fournisseur n'a pas confirmé par webhook) — on récupère un lien
-      // de paiement et on l'ouvre dans le navigateur. Un échec ici
-      // n'annule pas la commande.
-      var onlinePaymentFailed = false;
-      if (usesOnlinePayment) {
-        try {
-          final paymentLink = onlineProvider == 'fiveonepay'
-              ? await FiveOnePayPaymentRepo.createPaymentLink(
-                  order['id'] as String)
-              : await PapiPaymentRepo.createPaymentLink(order['id'] as String);
-          final uri = Uri.parse(paymentLink);
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } catch (_) {
-          onlinePaymentFailed = true;
-        }
-      }
-
       ref.read(cartProvider.notifier).clear();
 
       if (!mounted) return;
       Navigator.pop(context, {
-        'message': onlinePaymentFailed
-            ? 'Commande créée, mais le paiement en ligne n\'a pas pu '
-                'démarrer. Réessayez depuis le suivi de commande.'
-            : usesOnlinePayment
-                ? 'Commande créée ! Finalisez le paiement dans la page '
-                    'qui vient de s\'ouvrir.'
-                : _showManualPaymentFields
-                    ? 'Commande passée avec succès ! Nous vérifions votre '
-                        'paiement sous 24h ouvrées et vous notifierons dès '
-                        'confirmation.'
-                    : 'Commande passée avec succès !',
+        'message': _showManualPaymentFields
+            ? 'Commande passée avec succès ! Nous vérifions votre '
+                'paiement sous 24h ouvrées et vous notifierons dès '
+                'confirmation.'
+            : 'Commande passée avec succès !',
       });
     } catch (e) {
       if (!mounted) return;
@@ -408,72 +352,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             selected: _paymentMethod,
             onSelected: (method) => setState(() => _paymentMethod = method),
           ),
-          if (_paymentMethod.isPapiCapable && !_manualFallback) ...[
-            SizedBox(height: 1.h),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  avatar: const Icon(Icons.bolt_outlined, size: 18),
-                  label: const Text('Paiement automatique en ligne'),
-                  selected: _payAutomatically,
-                  onSelected: (_) => setState(() => _payAutomatically = true),
-                ),
-                ChoiceChip(
-                  avatar: const Icon(Icons.edit_note_outlined, size: 18),
-                  label: const Text('Paiement manuel (référence)'),
-                  selected: !_payAutomatically,
-                  onSelected: (_) =>
-                      setState(() => _payAutomatically = false),
-                ),
-              ],
-            ),
-            if (_payAutomatically)
-              Container(
-                margin: EdgeInsets.only(top: 1.h),
-                padding: EdgeInsets.all(3.w),
-                decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.lock_outline,
-                            size: 18, color: theme.colorScheme.primary),
-                        SizedBox(width: 2.w),
-                        Expanded(
-                          child: Text(
-                            'Vous serez redirigé vers une page de paiement '
-                            'sécurisée après validation de la commande. '
-                            'Montant demandé : ${_currency.format(total)} '
-                            '(produits + livraison), sans frais supplémentaire.',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_paymentMethod == PaymentMethod.mvola ||
-                        _paymentMethod == PaymentMethod.orangeMoney) ...[
-                      SizedBox(height: 0.8.h),
-                      Text(
-                        'Frais de retrait ${_paymentMethod.label} estimés pour ce montant : '
-                        '~${_currency.format(MobileMoneyWithdrawalFee.estimate(total))} '
-                        '(à titre indicatif, dépend du montant total '
-                        'retiré en une fois).',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-          ],
           if (_showManualPaymentFields) ...[
             Container(
               margin: EdgeInsets.only(top: 1.h),
@@ -595,7 +473,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           SizedBox(height: 1.h),
           Center(
             child: Text(
-              '🔒 Paiement chiffré · Opérateurs officiels Papi, Mvola, Orange Money, Airtel Money',
+              '🔒 Paiement vérifié manuellement par notre équipe · Mvola, Orange Money, Airtel Money, virement bancaire',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

@@ -7,12 +7,12 @@ import '../../core/supabase/supabase_config.dart';
 
 /// Rapprochement manuel des paiements Mobile Money confirmés par SMS.
 ///
-/// Contexte (25/08) : les API marchandes Papi.mg/FiveOne Pay confirment
-/// automatiquement les paiements en ligne, mais leurs tarifs restent
-/// élevés pour tout le volume. En complément, un téléphone Android dédié
-/// (SIM marchande + appli SMS-vers-webhook) relaie chaque SMS de
-/// confirmation Mvola/Orange Money/Airtel Money vers la fonction Edge
-/// `mobile-money-sms-webhook`, qui tente un rapprochement automatique
+/// Contexte (25/08, mis à jour 20/09 après le retrait de Papi.mg/FiveOne
+/// Pay) : tous les paiements Mvola/Orange Money/Airtel Money sont
+/// désormais manuels (le client transfère lui-même). Un téléphone
+/// Android dédié (SIM marchande + appli SMS-vers-webhook) relaie chaque
+/// SMS de confirmation vers la fonction Edge `mobile-money-sms-webhook`,
+/// qui tente un rapprochement automatique avec la commande correspondante
 /// (voir supabase/phase180_patch_mobile_money_sms_reconciliation.sql).
 /// Cet écran ne montre que les SMS que l'automatisation n'a PAS réussi à
 /// rapprocher seule (montant ambigu entre plusieurs commandes, ou

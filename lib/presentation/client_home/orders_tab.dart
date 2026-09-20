@@ -609,8 +609,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (paymentStatus == 'en_attente' &&
-                            !paymentMethod.isPapiCapable) ...[
+                        if (paymentStatus == 'en_attente') ...[
                           const SizedBox(width: 4),
                           Text(
                             '· vérification sous 24h ouvrées',

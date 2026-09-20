@@ -8877,3 +8877,62 @@ description courte/longue, questionnaire de classification du contenu,
 formulaire "Sécurité des données" (peut maintenant s'appuyer sur cette
 politique à jour), compte de test pour la review, et surtout la création
 du compte développeur Google Play par la propriétaire elle-même.
+
+## Retrait de Papi.mg / FiveOne Pay (paiement en ligne automatique) (20/09/2026)
+
+Décision explicite de la propriétaire : retirer les deux plateformes de
+paiement en ligne (Papi.mg, FiveOne Pay) maintenant, sans attendre
+l'intégration directe avec les 3 opérateurs Mobile Money (Orange, Mvola,
+Airtel) déjà en préparation de son côté (comptes API en cours
+d'obtention). En attendant cette intégration directe, tous les paiements
+Mobile Money/virement redeviennent **entièrement manuels** (le client
+transfère lui-même, indique une référence, joint une preuve
+facultative — flux déjà existant, désormais seul chemin disponible).
+
+**Côté app (Dart) :**
+- `payment_screen.dart` : retire tout le choix "paiement automatique en
+  ligne vs manuel" (ChoiceChip, redirection vers un lien Papi/FiveOne
+  Pay via `launchUrl`) — le flux manuel (référence + preuve) s'affiche
+  désormais systématiquement pour tout mode autre que "paiement à la
+  livraison".
+- `payment_methods.dart` : supprime `isPapiCapable` (n'a plus de sens,
+  plus aucun mode n'est "capable Papi").
+- `payment_method_settings_repo.dart` : supprime `fetchProviders`/
+  `setProvider`/`isManualFallbackEnabled`/`setManualFallbackEnabled`
+  (routage Papi vs FiveOne Pay et secours manuel — obsolètes). Garde
+  `fetchEnabled`/`setEnabled` (activer/désactiver un mode reste utile).
+- `payment_methods_management.dart` (Admin) : réécrit entièrement —
+  une seule liste des 5 modes de paiement avec interrupteur
+  actif/inactif, au lieu des 3 sections "Papi.mg"/"FiveOne Pay"/
+  "Manuel" + le réglage "Secours manuel Mobile Money".
+- `mobile_money_reconciliation_screen.dart` : **conservé tel quel**
+  (fonctionnellement indépendant de Papi/FiveOne Pay — le rapprochement
+  SMS fonctionne pour n'importe quelle commande `payment_status =
+  'en_attente'`, qu'elle vienne d'un paiement en ligne ou manuel) ;
+  commentaire d'en-tête mis à jour pour refléter que c'est maintenant le
+  seul mécanisme de confirmation semi-automatique.
+- `orders_tab.dart` : condition d'affichage "vérification sous 24h
+  ouvrées" simplifiée (`!paymentMethod.isPapiCapable` retiré, s'affiche
+  désormais pour toute commande en attente).
+- Fichiers supprimés : `core/payment/papi_payment_repo.dart`,
+  `core/payment/fiveonepay_payment_repo.dart`.
+
+**Ce qui n'a volontairement PAS été touché :** les Edge Functions
+Supabase `create-papi-payment-link`/`create-fiveonepay-payment-link`
+(si déployées) restent en place côté serveur — plus jamais appelées par
+l'app, mais leur suppression n'a pas été demandée et n'est pas
+nécessaire (aucun risque à les laisser dormantes).
+
+**Politique de confidentialité** (`docs/privacy-policy.html`) mise à
+jour en cohérence : retire Papi.mg/FiveOne Pay de la section 1.4
+(Paiement) et du tableau des sous-traitants (4.1), ne laisse que les 3
+opérateurs mobile money en paiement manuel. ⚠️ Comme pour la mise à
+jour du 16/09, ce fichier n'est qu'une copie de référence — la vraie
+page en ligne est contrôlée par le dépôt `groupe-akora-site`, à
+synchroniser séparément.
+
+**Prochaine étape** (pas encore faite) : quand la propriétaire aura les
+accès API directs Orange/Mvola/Airtel, brancher cette intégration dans
+`payment_screen.dart` à la place du flux manuel (ou en complément,
+selon ce qu'elle demandera à ce moment-là) et mettre à jour la politique
+de confidentialité en conséquence.
