@@ -448,9 +448,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title: const Text('Messagerie'),
         actions: [
           IconButton(
-            icon: Icon(_mode == 'ia'
-                ? Icons.support_agent_outlined
-                : Icons.smart_toy_outlined),
+            icon: _mode == 'ia'
+                ? const Icon(Icons.support_agent_outlined)
+                : ClipOval(
+                    child: Image.asset(
+                      'assets/images/akora_ai_logo.png',
+                      width: 24,
+                      height: 24,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
             tooltip: _mode == 'ia'
                 ? 'Parler à une vraie personne'
                 : 'Revenir à l\'assistant IA',
@@ -566,10 +573,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(Icons.smart_toy_outlined,
-                                                  size: 12,
-                                                  color: theme.colorScheme
-                                                      .onSurfaceVariant),
+                                              ClipOval(
+                                                child: Image.asset(
+                                                  'assets/images/akora_ai_logo.png',
+                                                  width: 12,
+                                                  height: 12,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
                                               const SizedBox(width: 4),
                                               Text(
                                                 'Akora AI',

@@ -1658,8 +1658,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   label: 'Akora AI',
                   url:
                       'https://anju-codermad-akora-fb-assistant.julioandrinirina95.workers.dev/',
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  icon: Icons.smart_toy_outlined,
+                  avatarImage:
+                      const AssetImage('assets/images/akora_ai_logo.png'),
                 ),
                 _SocialLinkButton(
                   label: 'WhatsApp',
@@ -1706,7 +1706,6 @@ class _SocialLinkButton extends StatelessWidget {
   final String url;
   final Color? backgroundColor;
   final ImageProvider? avatarImage;
-  final IconData? icon;
   final String? svgPath;
 
   const _SocialLinkButton({
@@ -1714,7 +1713,6 @@ class _SocialLinkButton extends StatelessWidget {
     required this.url,
     this.backgroundColor,
     this.avatarImage,
-    this.icon,
     this.svgPath,
   });
 
@@ -1738,7 +1736,7 @@ class _SocialLinkButton extends StatelessWidget {
                       width: 26,
                       height: 26,
                     )
-                  : (icon != null ? Icon(icon, color: Colors.white) : null),
+                  : null,
             ),
             SizedBox(height: 0.5.h),
             Text(label, style: TextStyle(fontSize: 10.sp)),

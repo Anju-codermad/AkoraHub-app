@@ -386,10 +386,14 @@ class _AdminConversationThreadState
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.smart_toy_outlined,
-                                          size: 12,
-                                          color: theme
-                                              .colorScheme.onSurfaceVariant),
+                                      ClipOval(
+                                        child: Image.asset(
+                                          'assets/images/akora_ai_logo.png',
+                                          width: 12,
+                                          height: 12,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         'Akora AI',
