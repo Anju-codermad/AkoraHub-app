@@ -121,14 +121,29 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
-  final List<Color> _unitColors = const [
-    Color(0xFF085041), // vert de marque
-    Color(0xFF3E7C59), // sauge
-    Color(0xFFB8863B), // ocre
-    Color(0xFF8C5A3C), // terracotta
-    Color(0xFF3D5A6C), // ardoise
-    Color(0xFF6B4C6B), // prune
-  ];
+  /// Couleur par pilier alignée sur "Nos univers" du site (groupe-akora.com,
+  /// 20/09/2026, demande explicite) — remplace l'ancienne palette cyclique
+  /// (par position dans la liste, sans lien avec le pilier réel).
+  static const Map<String, Color> _unitColorByName = {
+    "akor'eau": Color(0xFF1CA9A0),
+    'akora academy': Color(0xFF16234F),
+    'akora coatings': Color(0xFF7E3F98),
+    'akora foods': Color(0xFFEE9421),
+    'akora home': Color(0xFFE07B1F),
+    'akora lab': Color(0xFF667080),
+    'akora nutrisource': Color(0xFF2F8F5B),
+    'akora packaging': Color(0xFF117A75),
+    'akora paints': Color(0xFF2B7FCE),
+    'akora pro': Color(0xFFBD3B34),
+    'akora protect': Color(0xFF43A047),
+    'akora soins': Color(0xFFD1356B),
+  };
+  static const Color _unitColorFallback = Color(0xFF085041); // vert de marque
+
+  Color _colorForUnit(Map<String, dynamic> unit) {
+    final name = (unit['name'] ?? '').toString().trim().toLowerCase();
+    return _unitColorByName[name] ?? _unitColorFallback;
+  }
 
   @override
   void initState() {
@@ -494,7 +509,30 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     }
   }
 
+  /// Icône par pilier alignée sur "Nos univers" du site (20/09/2026) —
+  /// matchée par nom exact en priorité (fiable, ces 12 piliers sont connus),
+  /// avec repli par mot-clé de slug pour tout pilier futur pas encore
+  /// listé ici.
+  static const Map<String, IconData> _unitIconByName = {
+    "akor'eau": Icons.water_drop_outlined,
+    'akora academy': Icons.school_outlined,
+    'akora coatings': Icons.shopping_bag_outlined,
+    'akora foods': Icons.restaurant_outlined,
+    'akora home': Icons.home_outlined,
+    'akora lab': Icons.biotech_outlined,
+    'akora nutrisource': Icons.eco_outlined,
+    'akora packaging': Icons.inventory_2_outlined,
+    'akora paints': Icons.format_paint,
+    'akora pro': Icons.science_outlined,
+    'akora protect': Icons.shield_outlined,
+    'akora soins': Icons.spa_outlined,
+  };
+
   IconData _iconForUnit(Map<String, dynamic> unit) {
+    final name = (unit['name'] ?? '').toString().trim().toLowerCase();
+    final byName = _unitIconByName[name];
+    if (byName != null) return byName;
+
     final slug = (unit['slug'] ?? '').toString();
     // Peinture vérifié en premier : "matieres-premieres-peinture" contient
     // aussi "premieres" mais doit avoir l'icône pinceau, pas fiole.
@@ -834,7 +872,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
                   itemBuilder: (context, index) {
                     final unit = _businessUnits[index];
                     final selected = _selectedUnitId == unit['id'];
-                    final color = _unitColors[index % _unitColors.length];
+                    final color = _colorForUnit(unit);
                     return Padding(
                       padding: EdgeInsets.only(right: 4.w),
                       child: InkWell(
