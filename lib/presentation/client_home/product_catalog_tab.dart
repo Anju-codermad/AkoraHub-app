@@ -124,19 +124,21 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   /// Couleur par pilier alignée sur "Nos univers" du site (groupe-akora.com,
   /// 20/09/2026, demande explicite) — remplace l'ancienne palette cyclique
   /// (par position dans la liste, sans lien avec le pilier réel).
+  // Valeurs exactes reprises de site/assets/pillar-icons.js (PILLAR_COLORS,
+  // conversation du site, 20/09/2026) — plus des approximations visuelles.
   static const Map<String, Color> _unitColorByName = {
-    "akor'eau": Color(0xFF1CA9A0),
-    'akora academy': Color(0xFF16234F),
-    'akora coatings': Color(0xFF7E3F98),
-    'akora foods': Color(0xFFEE9421),
-    'akora home': Color(0xFFE07B1F),
-    'akora lab': Color(0xFF667080),
-    'akora nutrisource': Color(0xFF2F8F5B),
-    'akora packaging': Color(0xFF117A75),
-    'akora paints': Color(0xFF2B7FCE),
-    'akora pro': Color(0xFFBD3B34),
+    "akor'eau": Color(0xFF00ACC1),
+    'akora academy': Color(0xFF283593),
+    'akora coatings': Color(0xFF7B1FA2),
+    'akora foods': Color(0xFFF9A825),
+    'akora home': Color(0xFFF57C00),
+    'akora lab': Color(0xFF546E7A),
+    'akora nutrisource': Color(0xFF2E7D32),
+    'akora packaging': Color(0xFF00897B),
+    'akora paints': Color(0xFF1E88E5),
+    'akora pro': Color(0xFFD32F2F),
     'akora protect': Color(0xFF43A047),
-    'akora soins': Color(0xFFD1356B),
+    'akora soins': Color(0xFFE91E63),
   };
   static const Color _unitColorFallback = Color(0xFF085041); // vert de marque
 
