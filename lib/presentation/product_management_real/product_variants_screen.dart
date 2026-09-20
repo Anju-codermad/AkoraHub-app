@@ -305,8 +305,15 @@ class _ProductVariantsScreenState
                 Builder(builder: (context) {
                   Future<void> pick() async {
                     try {
-                      final picked =
-                          await ImagePicker().pickImage(source: ImageSource.gallery);
+                      // Compression à l'upload (19/09, quota Supabase
+                      // dépassé — "Cached Egress") — même correctif que
+                      // product_management_real.dart.
+                      final picked = await ImagePicker().pickImage(
+                        source: ImageSource.gallery,
+                        maxWidth: 1024,
+                        maxHeight: 1024,
+                        imageQuality: 85,
+                      );
                       if (picked != null) {
                         setDialogState(() => pickedPhoto = picked);
                       }

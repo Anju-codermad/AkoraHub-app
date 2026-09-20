@@ -749,8 +749,19 @@ class _ProductManagementRealState
                           onTap: () async {
                             final remaining = 10 - totalCount;
                             try {
-                              final picked = await ImagePicker()
-                                  .pickMultiImage(limit: remaining);
+                              // Compression à l'upload (19/09, quota Supabase
+                              // dépassé — "Cached Egress" : ces photos sont
+                              // les plus vues de toute l'app, catalogue +
+                              // hero + fiches, et partaient sans aucune
+                              // limite de taille/qualité) — mêmes réglages
+                              // que business_information_section.dart pour
+                              // une photo "haut de gamme".
+                              final picked = await ImagePicker().pickMultiImage(
+                                limit: remaining,
+                                maxWidth: 1024,
+                                maxHeight: 1024,
+                                imageQuality: 85,
+                              );
                               if (picked.isEmpty) return;
                               setDialogState(() {
                                 newPhotos.addAll(

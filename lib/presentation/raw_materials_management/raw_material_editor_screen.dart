@@ -1390,8 +1390,15 @@ class _RawMaterialEditorScreenState
                         _newPhotos.length;
                     final remaining = 5 - current;
                     try {
-                      final picked =
-                          await ImagePicker().pickMultiImage(limit: remaining);
+                      // Compression à l'upload (19/09, quota Supabase
+                      // dépassé — "Cached Egress") — même correctif que
+                      // product_management_real.dart.
+                      final picked = await ImagePicker().pickMultiImage(
+                        limit: remaining,
+                        maxWidth: 1024,
+                        maxHeight: 1024,
+                        imageQuality: 85,
+                      );
                       if (picked.isEmpty) return;
                       setState(() =>
                           _newPhotos.addAll(picked.take(remaining).toList()));
