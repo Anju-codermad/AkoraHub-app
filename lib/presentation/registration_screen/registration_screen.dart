@@ -211,6 +211,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       final response = await SupabaseConfig.client.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        emailRedirectTo: 'io.supabase.akorahub://login-callback/',
         data: {
           'full_name':
               '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
