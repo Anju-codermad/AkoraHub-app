@@ -8936,3 +8936,37 @@ accès API directs Orange/Mvola/Airtel, brancher cette intégration dans
 `payment_screen.dart` à la place du flux manuel (ou en complément,
 selon ce qu'elle demandera à ce moment-là) et mettre à jour la politique
 de confidentialité en conséquence.
+
+## 3septies. Bug — lien de confirmation d'inscription cassé (localhost:3000) (21/09) ✅ FAIT côté app
+
+Un client réel a essayé de créer un compte et le lien de confirmation
+reçu par email pointait vers `localhost:3000` (inaccessible depuis son
+téléphone — page "Ce site est inaccessible" / `ERR_CONNECTION_REFUSED`,
+avec en prime `error_code=otp_expired`). **Même bug de fond que celui
+déjà découvert et corrigé le 31/07 pour "mot de passe oublié"**
+(voir section 3ter) : n'importe quel appel Supabase Auth qui ne précise
+pas explicitement son URL de redirection retombe sur le "Site URL" par
+défaut du Dashboard (`localhost:3000`, jamais changé pour ce projet).
+Le correctif de juillet n'avait été appliqué qu'au reset de mot de
+passe, pas à l'inscription elle-même.
+
+**Corrigé** : `registration_screen.dart`, l'appel
+`SupabaseConfig.client.auth.signUp(...)` a maintenant
+`emailRedirectTo: 'io.supabase.akorahub://login-callback/'` (même
+schéma que l'OAuth et le reset de mot de passe, déjà géré par
+`GlobalAuthListener` + l'intent-filter Android / URL scheme iOS
+existants).
+
+**⚠️ Reste à faire côté Dashboard Supabase (toujours pas fait, déjà
+signalé le 31/07)** : Authentication → URL Configuration →
+- changer le "Site URL" (actuellement `localhost:3000`) pour une valeur
+  réelle,
+- s'assurer que `io.supabase.akorahub://login-callback/` est bien dans
+  la liste blanche "Redirect URLs" (sinon Supabase ignore silencieusement
+  le `emailRedirectTo`/`redirectTo` fourni par le code et retombe quand
+  même sur le Site URL par défaut).
+
+**Le même bug existe côté site** (`groupe-akora-site`, signalé par
+l'utilisatrice le 21/09) — à corriger dans cette conversation-là, et le
+réglage Dashboard ci-dessus est **partagé** entre l'app et le site
+(même projet Supabase) : le corriger une fois débloque les deux.
