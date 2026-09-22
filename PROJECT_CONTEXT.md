@@ -9056,17 +9056,37 @@ converti en `ConsumerWidget` pour lire le provider — badge "rupture de
 stock"/"stock bas") et `product_detail_client.dart` (blocage du bouton
 "Ajouter au panier").
 
-**⚠️ Point soulevé par l'utilisatrice en cours de route, PAS ENCORE
-implémenté** : elle a aussi demandé la synchronisation dans l'AUTRE
-sens (ComptivA → AkoraHub) — que le stock saisi/modifié dans ComptivA
-remonte automatiquement dans `products.stock_quantity` d'AkoraHub, via
-le même lien produit. Contrairement au volet A (simple trigger
-Postgres qui POST vers l'extérieur), ce sens nécessite une vraie
-**Edge Function côté AkoraHub** qui REÇOIT les appels de ComptivA
-(nouveau dossier `supabase/functions/receive-comptiva-stock-update/`
-ou équivalent, avec authentification par secret partagé, même
-principe que `mobile-money-sms-webhook`). Pas commencé — en attente de
-clarification avec l'utilisatrice sur la portée exacte avant de
-construire ce morceau (question posée : est-ce que l'interrupteur B
-reste pertinent si ce sens est ajouté, puisque le chiffre deviendrait
-à nouveau fiable côté AkoraHub une fois alimenté par ComptivA).
+**C) ComptivA → AkoraHub (fait, ce dépôt)** — sens inverse, demandé en
+cours de route : le stock modifié dans ComptivA doit remonter
+automatiquement dans AkoraHub. Nouvelle Edge Function
+`supabase/functions/receive-comptiva-stock-update/index.ts` (même
+mécanisme que `mobile-money-sms-webhook` : `Deno.serve`, secret
+`COMPTIVA_INBOUND_SECRET` vérifié via l'en-tête
+`x-akorahub-webhook-secret`, `service_role` pour bypasser RLS). Reçoit
+`{ akorahub_product_id, stock_quantity }` et met à jour
+`products.stock_quantity` en conséquence. **Reste à faire côté
+Dashboard** : configurer le secret `COMPTIVA_INBOUND_SECRET` (valeur
+donnée séparément en chat, jamais commitée) dans Supabase Dashboard →
+Edge Functions → `receive-comptiva-stock-update` → Manage secrets.
+Côté ComptivA (message de relais) : un déclencheur qui POST vers cette
+fonction à chaque mouvement de stock d'un produit lié.
+
+**Décision sur l'interrupteur "Stock géré par ComptivA" (volet B)** :
+reste un réglage **manuel**, pas de bascule automatique — une fois que
+la synchro C tourne et que l'utilisatrice fait confiance au chiffre
+remonté, elle peut simplement désactiver l'interrupteur elle-même
+depuis Admin → Profil entreprise pour qu'AkoraHub recommence à
+bloquer/afficher la rupture de stock normalement. Volontairement
+simple (pas de logique de bascule auto à maintenir).
+
+**Chantier séparé, pas commencé, discuté mais pas prioritaire** :
+l'utilisatrice a aussi une ambition plus large pour ComptivA — en
+faire un logiciel générique réutilisable par "toutes différentes
+entreprises", pas seulement Akora. ComptivA a déjà le multi-entreprise
+au niveau compte (table `companies`, cloisonnement par `owner_id`+RLS)
+— ce qui manque, c'est une hiérarchie catalogue optionnelle
+(divisions/catégories/variantes "libres", pas des colonnes fixes comme
+les 4 axes d'AkoraHub) à l'intérieur d'une entreprise. Explicitement
+mis de côté pour l'instant au profit du lien concret avec AkoraHub
+(A+B+C ci-dessus) — l'utilisatrice a choisi "Chantier 1 d'abord" à la
+question posée. Reprendre ce sujet si elle relance la discussion.
