@@ -157,6 +157,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             'items': cart
                 .map((item) => {
                       'product_id': item.productId,
+                      'variant_id': item.variantId,
                       'product_name': item.name,
                       'quantity': item.quantity,
                       'unit_price': item.unitPrice,
@@ -227,6 +228,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 .map((item) => {
                       'order_id': order['id'],
                       'product_id': item.productId,
+                      'variant_id': item.variantId,
                       'product_name': item.name,
                       'quantity': item.quantity,
                       'unit_price': item.unitPrice,

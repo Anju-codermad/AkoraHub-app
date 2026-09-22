@@ -449,7 +449,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                         onPressed: () => ref
                             .read(cartProvider.notifier)
                             .updateQuantity(
-                                item.productId, item.quantity - 1),
+                                item.cartKey, item.quantity - 1),
                       ),
                       Text('${item.quantity}'),
                       IconButton(
@@ -457,7 +457,7 @@ class _CartTabState extends ConsumerState<CartTab> {
                         onPressed: () => ref
                             .read(cartProvider.notifier)
                             .updateQuantity(
-                                item.productId, item.quantity + 1),
+                                item.cartKey, item.quantity + 1),
                       ),
                     ],
                   ),

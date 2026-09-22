@@ -705,7 +705,8 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                         ].join(' - ');
 
                         ref.read(cartProvider.notifier).addItem(CartItem(
-                              productId: variant?['id'] ?? p['id'],
+                              productId: p['id'],
+                              variantId: variant?['id'],
                               name: label,
                               priceDetail: priceDetail,
                               priceGros: priceGros,
