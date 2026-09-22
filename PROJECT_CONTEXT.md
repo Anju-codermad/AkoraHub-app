@@ -8970,3 +8970,39 @@ signalé le 31/07)** : Authentication → URL Configuration →
 l'utilisatrice le 21/09) — à corriger dans cette conversation-là, et le
 réglage Dashboard ci-dessus est **partagé** entre l'app et le site
 (même projet Supabase) : le corriger une fois débloque les deux.
+
+## 3octies. Galerie photo produit + variante + axe Couleur (21/09) ✅ FAIT
+
+Deux demandes liées, faites en observant le "Bouchon push-pull" (3
+photos ajoutées dans l'Admin, mais une seule visible côté client) :
+
+**1) Bug — la photo de variante masquait toute la galerie du produit.**
+`product_detail_client.dart` chargeait déjà correctement les photos de
+`product_images` (table dédiée, jusqu'à 10 par produit, PageView avec
+indicateurs de page) — ce n'était pas cassé pour un produit sans
+variante. Mais dès qu'une variante avait sa propre photo
+(`product_variants.image_url`, ex. Eau de Javel 9°/12°/18°), la logique
+remplaçait ENTIÈREMENT la galerie par cette seule photo au lieu de
+l'ajouter aux autres. Corrigé : les deux sources sont maintenant
+combinées (photo de variante en premier si elle existe, puis le reste
+de la galerie du produit, sans doublon).
+
+**2) Nouvel axe de variante "Couleur"** (`phase244_ajout_axe_couleur_
+variantes.sql`) — même modèle exact que Format/Parfum/Concentration
+(phase183) : table `colors`, `product_variants.color_id` (nullable),
+contrainte d'unicité étendue. Ajouté dans :
+- `lib/core/reference_data/reference_table_cache.dart` :
+  `colorsCacheProvider` (même cache 6h que les 3 autres axes) ;
+- `product_variants_screen.dart` (Admin) : dropdown "Couleur
+  (optionnel)" + bouton "+" pour en créer une nouvelle à la volée,
+  affichée dans le libellé de chaque variante ;
+- `product_detail_client.dart` (client) : sélecteur "Couleur" (affiché
+  seulement si le produit a des variantes de couleur pour le
+  format/parfum/concentration déjà choisis), cascades de
+  réinitialisation cohérentes avec les 3 axes existants, nom de couleur
+  ajouté au libellé du panier.
+
+**⚠️ Reste à faire côté Dashboard** : exécuter
+`phase244_ajout_axe_couleur_variantes.sql`, puis dans l'Admin →
+Bouchon push-pull → Variantes, créer une variante par couleur
+disponible (avec sa propre photo si souhaité).

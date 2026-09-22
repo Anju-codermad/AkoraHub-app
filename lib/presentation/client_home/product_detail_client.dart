@@ -35,6 +35,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
   String? _selectedFormatId;
   String? _selectedParfumId;
   String? _selectedConcentrationId;
+  String? _selectedColorId;
   List<String> _photos = [];
   int _photoIndex = 0;
   final _currency =
@@ -124,7 +125,8 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     try {
       final data = await SupabaseConfig.client
           .from('product_variants')
-          .select('*, formats(name), parfums(name), concentrations(name)')
+          .select(
+              '*, formats(name), parfums(name), concentrations(name), colors(name)')
           .eq('product_id', widget.product['id']);
       final variants = List<Map<String, dynamic>>.from(data);
       setState(() {
@@ -134,6 +136,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
           _selectedFormatId = defaultVariant['format_id'];
           _selectedParfumId = defaultVariant['parfum_id'];
           _selectedConcentrationId = defaultVariant['concentration_id'];
+          _selectedColorId = defaultVariant['color_id'];
         }
         _isLoadingVariants = false;
       });
@@ -212,7 +215,33 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     return list;
   }
 
+  // Axe Couleur (21/09) : pour les produits déclinés en plusieurs couleurs
+  // (ex. Bouchon push-pull) — même modèle que _availableConcentrations.
+  List<Map<String, dynamic>> get _availableColors {
+    final seen = <String>{};
+    final list = <Map<String, dynamic>>[];
+    for (final v in _variants) {
+      if (v['format_id'] != _selectedFormatId) continue;
+      if (v['parfum_id'] != _selectedParfumId) continue;
+      if (v['concentration_id'] != _selectedConcentrationId) continue;
+      final id = v['color_id'] as String?;
+      if (id != null && seen.add(id)) {
+        list.add({'id': id, 'name': v['colors']?['name'] ?? ''});
+      }
+    }
+    return list;
+  }
+
   Map<String, dynamic>? get _selectedVariant {
+    for (final v in _variants) {
+      if (v['format_id'] == _selectedFormatId &&
+          v['parfum_id'] == _selectedParfumId &&
+          v['concentration_id'] == _selectedConcentrationId &&
+          v['color_id'] == _selectedColorId) {
+        return v;
+      }
+    }
+    // Replis successifs, du plus proche au plus large.
     for (final v in _variants) {
       if (v['format_id'] == _selectedFormatId &&
           v['parfum_id'] == _selectedParfumId &&
@@ -220,7 +249,6 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
         return v;
       }
     }
-    // Replis successifs, du plus proche au plus large.
     for (final v in _variants) {
       if (v['format_id'] == _selectedFormatId &&
           v['parfum_id'] == _selectedParfumId) {
@@ -310,19 +338,25 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Builder(builder: (context) {
-                // Photo propre à la variante sélectionnée (25/08, ex. Eau
-                // de Javel 9°/12°/18° — étiquette différente par degré)
-                // prioritaire sur tout le reste ; sinon `_photos` (table
-                // product_images) ; sinon repli sur la couverture unique
-                // `image_url` ; sinon icône.
+                // Toutes les photos du produit (table product_images), plus
+                // la photo propre à la variante sélectionnée si elle en a
+                // une (25/08, ex. Eau de Javel 9°/12°/18° — étiquette
+                // différente par degré) — affichées ENSEMBLE (21/09,
+                // demande explicite : la photo de variante ne doit plus
+                // remplacer/masquer les autres photos du produit), la photo
+                // de variante passant en premier. Repli sur la couverture
+                // unique `image_url` si `product_images` est vide ; sinon
+                // icône.
                 final variantPhoto = variant?['image_url'] as String?;
-                final photos = (variantPhoto?.isNotEmpty == true)
-                    ? [variantPhoto!]
-                    : (_photos.isNotEmpty
-                        ? _photos
-                        : ((p['image_url'] as String?)?.isNotEmpty == true
-                            ? [p['image_url'] as String]
-                            : <String>[]));
+                final galleryPhotos = _photos.isNotEmpty
+                    ? _photos
+                    : ((p['image_url'] as String?)?.isNotEmpty == true
+                        ? [p['image_url'] as String]
+                        : <String>[]);
+                final photos = <String>[
+                  if (variantPhoto?.isNotEmpty == true) variantPhoto!,
+                  ...galleryPhotos.where((url) => url != variantPhoto),
+                ];
                 if (photos.isEmpty) {
                   return Container(
                     height: 20.h,
@@ -469,7 +503,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                       .toList(),
                   onChanged: (v) => setState(() {
                     _selectedFormatId = v;
-                    // Réinitialise parfum/concentration si le choix
+                    // Réinitialise parfum/concentration/couleur si le choix
                     // précédent n'est plus valide pour ce format.
                     final validParfums = _availableParfums.map((e) => e['id']);
                     if (!validParfums.contains(_selectedParfumId)) {
@@ -484,6 +518,12 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                           _availableConcentrations.isNotEmpty
                               ? _availableConcentrations.first['id']
                               : null;
+                    }
+                    final validColors = _availableColors.map((e) => e['id']);
+                    if (!validColors.contains(_selectedColorId)) {
+                      _selectedColorId = _availableColors.isNotEmpty
+                          ? _availableColors.first['id']
+                          : null;
                     }
                   }),
                 ),
@@ -511,6 +551,12 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                                 ? _availableConcentrations.first['id']
                                 : null;
                       }
+                      final validColors = _availableColors.map((e) => e['id']);
+                      if (!validColors.contains(_selectedColorId)) {
+                        _selectedColorId = _availableColors.isNotEmpty
+                            ? _availableColors.first['id']
+                            : null;
+                      }
                     }),
                   ),
                 ],
@@ -527,8 +573,31 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                               child: Text(f['name']),
                             ))
                         .toList(),
-                    onChanged: (v) =>
-                        setState(() => _selectedConcentrationId = v),
+                    onChanged: (v) => setState(() {
+                      _selectedConcentrationId = v;
+                      final validColors = _availableColors.map((e) => e['id']);
+                      if (!validColors.contains(_selectedColorId)) {
+                        _selectedColorId = _availableColors.isNotEmpty
+                            ? _availableColors.first['id']
+                            : null;
+                      }
+                    }),
+                  ),
+                ],
+                if (_availableColors.isNotEmpty) ...[
+                  SizedBox(height: 1.5.h),
+                  Text('Couleur', style: theme.textTheme.titleSmall),
+                  SizedBox(height: 0.5.h),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedColorId,
+                    decoration: const InputDecoration(isDense: true),
+                    items: _availableColors
+                        .map((f) => DropdownMenuItem(
+                              value: f['id'] as String,
+                              child: Text(f['name']),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedColorId = v),
                   ),
                 ],
                 SizedBox(height: 2.h),
@@ -612,11 +681,13 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                         final parfumName = variant?['parfums']?['name'];
                         final concentrationName =
                             variant?['concentrations']?['name'];
+                        final colorName = variant?['colors']?['name'];
                         final label = [
                           p['name'] ?? '',
                           if (formatName != null) formatName,
                           if (parfumName != null) parfumName,
                           if (concentrationName != null) concentrationName,
+                          if (colorName != null) colorName,
                         ].join(' - ');
 
                         ref.read(cartProvider.notifier).addItem(CartItem(

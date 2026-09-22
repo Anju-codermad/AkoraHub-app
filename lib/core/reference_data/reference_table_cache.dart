@@ -80,6 +80,11 @@ final concentrationsCacheProvider =
   (ref) => ReferenceTableCache('concentrations', 'concentrations'),
 );
 
+final colorsCacheProvider =
+    StateNotifierProvider<ReferenceTableCache, List<Map<String, dynamic>>>(
+  (ref) => ReferenceTableCache('colors', 'colors'),
+);
+
 final categoriesCacheProvider =
     StateNotifierProvider<ReferenceTableCache, List<Map<String, dynamic>>>(
   (ref) => ReferenceTableCache('categories', 'categories'),

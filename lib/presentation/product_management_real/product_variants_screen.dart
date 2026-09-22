@@ -44,12 +44,14 @@ class _ProductVariantsScreenState
       final results = await Future.wait<dynamic>([
         SupabaseConfig.client
             .from('product_variants')
-            .select('*, formats(name), parfums(name), concentrations(name)')
+            .select(
+                '*, formats(name), parfums(name), concentrations(name), colors(name)')
             .eq('product_id', widget.product['id'])
             .order('created_at'),
         ref.read(formatsCacheProvider.notifier).refresh(),
         ref.read(parfumsCacheProvider.notifier).refresh(),
         ref.read(concentrationsCacheProvider.notifier).refresh(),
+        ref.read(colorsCacheProvider.notifier).refresh(),
       ]);
       setState(() {
         _variants = List<Map<String, dynamic>>.from(results[0]);
@@ -101,6 +103,7 @@ class _ProductVariantsScreenState
       final notifier = switch (table) {
         'formats' => ref.read(formatsCacheProvider.notifier),
         'parfums' => ref.read(parfumsCacheProvider.notifier),
+        'colors' => ref.read(colorsCacheProvider.notifier),
         _ => ref.read(concentrationsCacheProvider.notifier),
       };
       await notifier.refresh(force: true);
@@ -143,6 +146,7 @@ class _ProductVariantsScreenState
     String? selectedFormatId = variant?['format_id'];
     String? selectedParfumId = variant?['parfum_id'];
     String? selectedConcentrationId = variant?['concentration_id'];
+    String? selectedColorId = variant?['color_id'];
     final priceDetailCtrl = TextEditingController(
         text: (variant?['price_detail'] ?? '').toString());
     final priceGrosCtrl =
@@ -293,6 +297,43 @@ class _ProductVariantsScreenState
                             'concentrations', 'Concentration');
                         if (id != null) {
                           setDialogState(() => selectedConcentrationId = id);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                // Axe Couleur (21/09) : pour les produits déclinés en
+                // plusieurs couleurs (ex. Bouchon push-pull) — même modèle
+                // que Format/Parfum/Concentration.
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: selectedColorId,
+                        decoration:
+                            const InputDecoration(labelText: 'Couleur (optionnel)'),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('Aucune'),
+                          ),
+                          ...ref.read(colorsCacheProvider).map((c) =>
+                              DropdownMenuItem(
+                                value: c['id'] as String,
+                                child: Text(c['name']),
+                              )),
+                        ],
+                        onChanged: (v) =>
+                            setDialogState(() => selectedColorId = v),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      tooltip: 'Ajouter une couleur',
+                      onPressed: () async {
+                        final id = await _addNewReference('colors', 'Couleur');
+                        if (id != null) {
+                          setDialogState(() => selectedColorId = id);
                         }
                       },
                     ),
@@ -480,6 +521,7 @@ class _ProductVariantsScreenState
                   'format_id': selectedFormatId,
                   'parfum_id': selectedParfumId,
                   'concentration_id': selectedConcentrationId,
+                  'color_id': selectedColorId,
                   'price_detail': double.tryParse(priceDetailCtrl.text) ?? 0,
                   'price_gros': double.tryParse(priceGrosCtrl.text) ?? 0,
                   'gros_threshold_qty':
@@ -506,7 +548,7 @@ class _ProductVariantsScreenState
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                         content: Text(
-                            'Erreur (cette combinaison Format+Parfum+Concentration existe peut-être déjà).')),
+                            'Erreur (cette combinaison Format+Parfum+Concentration+Couleur existe peut-être déjà).')),
                   );
                 }
               },
@@ -568,6 +610,7 @@ class _ProductVariantsScreenState
                     final formatName = v['formats']?['name'] ?? '';
                     final parfumName = v['parfums']?['name'];
                     final concentrationName = v['concentrations']?['name'];
+                    final colorName = v['colors']?['name'];
                     final imageUrl = v['image_url'] as String?;
                     return Card(
                       child: ListTile(
@@ -583,7 +626,7 @@ class _ProductVariantsScreenState
                               )
                             : null,
                         title: Text(
-                          [formatName, parfumName, concentrationName]
+                          [formatName, parfumName, concentrationName, colorName]
                               .where((s) => s != null && s.isNotEmpty)
                               .join(' · '),
                         ),
