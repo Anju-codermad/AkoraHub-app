@@ -261,6 +261,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 244 | `phase244_ajout_axe_couleur_variantes.sql` | ajoute un 4ème axe de variante "Couleur" (table `colors` + `product_variants.color_id`), même modèle que Format/Parfum/Concentration (phase183) — demandé pour le Bouchon push-pull (plusieurs couleurs) |
 | 245 | `phase245_patch_sync_stock_comptiva.sql` | trigger (`net.http_post`, même mécanisme que phase78) qui notifie ComptivA (projet Supabase séparé) à chaque commande livrée, avec les lignes regroupées par produit — ComptivA décide seul si un produit correspondant est lié |
 | 246 | `phase246_patch_stock_managed_externally.sql` | ajoute `company_settings.stock_managed_externally` (même modèle que `floating_chat_bubble_enabled`, phase68) + colonne exposée via la vue `app_feature_flags` — interrupteur global qui coupe le suivi de stock côté AkoraHub (le vrai stock est géré dans ComptivA) |
+| 247 | `phase247_patch_fix_variant_price_tampering.sql` | corrige `enforce_order_item_price` (phase154) qui ignorait `order_items.variant_id` et recalculait toujours le prix à partir du produit de base — utilise maintenant le prix de la variante quand elle est renseignée, avec repli sur le produit sinon |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne

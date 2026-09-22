@@ -9079,6 +9079,43 @@ depuis Admin → Profil entreprise pour qu'AkoraHub recommence à
 bloquer/afficher la rupture de stock normalement. Volontairement
 simple (pas de logique de bascule auto à maintenir).
 
+**Deux bugs trouvés en vérifiant tout le pipeline stock (22/09,
+demande explicite "vérifier l'organisation de stock, si c'est bon ou
+pas") :**
+
+1. **`CartItem.productId` recevait l'ID de la variante au lieu du
+   produit** (`product_detail_client.dart`, bouton "Ajouter au
+   panier" depuis la fiche détail, seul endroit concerné — les 7
+   autres call sites de `addItem` utilisent déjà `product['id']`
+   directement). `order_items.product_id` (FK vers `products`)
+   recevait donc une référence invalide pour tout produit à variantes
+   — commande cassée à l'enregistrement, et de toute façon aucune
+   synchro ComptivA possible sans le bon ID produit. **Corrigé** :
+   `CartItem` a maintenant `productId` (toujours le vrai produit) +
+   `variantId` (optionnel) séparés ; `CartNotifier` utilise
+   `cartKey` (`variantId ?? productId`) pour dédupliquer/mettre à jour
+   les lignes du panier ; `order_items.variant_id` (colonne déjà
+   existante depuis phase4, jamais réellement alimentée jusqu'ici) est
+   maintenant bien renseigné par `payment_screen.dart`. Fichiers
+   touchés : `cart_provider.dart`, `product_detail_client.dart`,
+   `cart_tab.dart`, `payment_screen.dart`.
+   ⚠️ Le "Bouchon push-pull" n'ayant pas encore de variantes de
+   couleur créées au moment de la découverte, ce bug ne bloquait pas
+   le test en cours — mais aurait mordu dès l'ajout des couleurs.
+
+2. **`enforce_order_item_price` (trigger anti-fraude prix, phase154)
+   ignorait complètement `variant_id`** — recalculait toujours le
+   prix server-side à partir de `products.price_detail`/`price_gros`,
+   jamais depuis `product_variants.price_detail`/`price_gros`. Pour
+   tout produit dont une variante a un prix différent du produit de
+   base (ex. "Sac 25 kg" plus cher que l'unité), le client se serait
+   vu facturer le mauvais prix — perte de revenu potentielle,
+   indépendante du sujet stock mais trouvée dans la même vérification.
+   **Corrigé** (`phase247_patch_fix_variant_price_tampering.sql`) :
+   utilise le prix de la variante quand `variant_id` est renseigné
+   (avec repli sur le produit si le prix de la variante est à 0/non
+   défini), comportement inchangé sinon.
+
 **Chantier séparé, pas commencé, discuté mais pas prioritaire** :
 l'utilisatrice a aussi une ambition plus large pour ComptivA — en
 faire un logiciel générique réutilisable par "toutes différentes
