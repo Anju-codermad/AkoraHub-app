@@ -12,6 +12,7 @@ import '../../core/chat/unread_support_messages.dart';
 import '../../core/constants/client_types.dart';
 import '../../core/localization/app_translations.dart';
 import '../../core/navigation/product_detail_route.dart';
+import '../../core/products/stock_settings_repo.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../core/utils/price_unit.dart';
@@ -1859,7 +1860,7 @@ Widget _productImage({
 /// Fiche produit (image, prix, nom, favori, ajout rapide) — rendue
 /// publique (04/08) pour être réutilisée par `product_catalog_tab.dart`
 /// sans dupliquer ce widget.
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerWidget {
   final Map<String, dynamic> product;
   final NumberFormat currency;
   final bool isFavorite;
@@ -1892,14 +1893,20 @@ class ProductCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final category = (product['category'] ?? '').toString();
     final imageUrl = (product['image_url'] as String?) ?? '';
+    // Stock géré par ComptivA (22/09) : si activé, plus aucun badge
+    // "rupture de stock"/"stock bas" — voir StockSettingsRepo.
+    final stockManagedExternally =
+        ref.watch(stockManagedExternallyProvider).value ?? false;
     final stockQty = (product['stock_quantity'] as num?)?.toDouble();
     final stockThreshold = (product['low_stock_threshold'] as num?)?.toDouble();
-    final outOfStock = stockQty != null && stockQty <= 0;
-    final lowStock = !outOfStock &&
+    final outOfStock =
+        !stockManagedExternally && stockQty != null && stockQty <= 0;
+    final lowStock = !stockManagedExternally &&
+        !outOfStock &&
         stockQty != null &&
         stockThreshold != null &&
         stockQty <= stockThreshold;

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -1639,6 +1640,17 @@ class _ProductManagementRealState
                                                           product: p),
                                                 ),
                                               );
+                                            } else if (value ==
+                                                'copier_lien') {
+                                              final link =
+                                                  'https://groupe-akora.com/produit.html?id=${p['id']}';
+                                              Clipboard.setData(
+                                                  ClipboardData(text: link));
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                    'Lien produit copié — à coller dans ComptivA pour le lier.'),
+                                              ));
                                             } else if (value == 'supprimer') {
                                               _deleteProduct(p);
                                             }
@@ -1661,6 +1673,19 @@ class _ProductManagementRealState
                                                     size: 18),
                                                 SizedBox(width: 8),
                                                 Text('Lots & QR code'),
+                                              ]),
+                                            ),
+                                            // Lien copiable à coller dans ComptivA (22/09)
+                                            // pour lier ce produit et synchroniser son
+                                            // stock — voir
+                                            // supabase/phase245_patch_sync_stock_comptiva.sql.
+                                            const PopupMenuItem(
+                                              value: 'copier_lien',
+                                              child: Row(children: [
+                                                Icon(Icons.link, size: 18),
+                                                SizedBox(width: 8),
+                                                Text(
+                                                    'Copier le lien produit (ComptivA)'),
                                               ]),
                                             ),
                                             const PopupMenuDivider(),

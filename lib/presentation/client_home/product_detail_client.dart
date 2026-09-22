@@ -6,6 +6,7 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/formation/formation_repo.dart';
 import '../../core/notifications/product_stock_alert_repo.dart';
+import '../../core/products/stock_settings_repo.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -46,12 +47,24 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
   Map<String, dynamic>? _academieSummary;
   bool _hasFormationAccess = false;
 
+  // Stock géré par ComptivA (22/09) — voir StockSettingsRepo : si activé,
+  // `outOfStock` reste toujours false plus bas, quel que soit
+  // `products.stock_quantity` (plus fiable côté AkoraHub une fois ce
+  // réglage activé).
+  bool _stockManagedExternally = false;
+
   @override
   void initState() {
     super.initState();
     _loadVariants();
     _loadPhotos();
     _loadAcademieLink();
+    _loadStockSetting();
+  }
+
+  Future<void> _loadStockSetting() async {
+    final managed = await StockSettingsRepo.isManagedExternally();
+    if (mounted) setState(() => _stockManagedExternally = managed);
   }
 
   /// Résumé sécurité gratuit + statut d'accès Formation, pour la section
@@ -288,7 +301,8 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
     // Même convention que ProductCard (catalog_tab.dart) pour la rupture
     // de stock (06/08, "M'alerter quand disponible").
     final stockQty = (p['stock_quantity'] as num?)?.toDouble();
-    final outOfStock = stockQty != null && stockQty <= 0;
+    final outOfStock =
+        !_stockManagedExternally && stockQty != null && stockQty <= 0;
 
     return Scaffold(
       appBar: AppBar(

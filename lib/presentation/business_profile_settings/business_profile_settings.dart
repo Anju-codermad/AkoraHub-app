@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_export.dart';
 import '../../core/chat/chat_bubble_settings_repo.dart';
+import '../../core/products/stock_settings_repo.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_icon_widget.dart';
 import './widgets/business_information_section.dart';
@@ -36,6 +37,7 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
   bool _isLoading = false;
   bool _hasUnsavedChanges = false;
   bool _bubbleEnabledGlobally = true;
+  bool _stockManagedExternally = false;
 
   // Données réelles de l'entreprise, chargées depuis Supabase
   // (structure conservée pour compatibilité avec les widgets existants).
@@ -97,6 +99,7 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
     super.initState();
     _loadFromSupabase();
     _loadBubbleSetting();
+    _loadStockSetting();
   }
 
   Future<void> _loadBubbleSetting() async {
@@ -114,6 +117,25 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _bubbleEnabledGlobally = !enabled);
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de modifier ce réglage.')));
+    }
+  }
+
+  Future<void> _loadStockSetting() async {
+    final managed = await StockSettingsRepo.isManagedExternally();
+    if (mounted) setState(() => _stockManagedExternally = managed);
+  }
+
+  /// Écriture immédiate, même principe que `_toggleBubbleGlobally` —
+  /// voir supabase/phase246_patch_stock_managed_externally.sql.
+  Future<void> _toggleStockManagedExternally(bool managed) async {
+    setState(() => _stockManagedExternally = managed);
+    try {
+      await StockSettingsRepo.setManagedExternally(managed);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _stockManagedExternally = !managed);
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Impossible de modifier ce réglage.')));
     }
@@ -543,6 +565,23 @@ class _BusinessProfileSettingsState extends State<BusinessProfileSettings> {
                           'Autoriser la bulle de chat sur l\'espace client (tous les clients)'),
                       value: _bubbleEnabledGlobally,
                       onChanged: _toggleBubbleGlobally,
+                    ),
+                  ),
+
+                  SizedBox(height: 1.h),
+
+                  // Stock géré par ComptivA (22/09) : coupe le suivi de
+                  // stock côté AkoraHub — plus de blocage de commande ni
+                  // de badge "rupture de stock"/"stock bas", le vrai
+                  // suivi se fait désormais dans ComptivA.
+                  Card(
+                    child: SwitchListTile(
+                      secondary: const Icon(Icons.inventory_2_outlined),
+                      title: const Text('Stock géré par ComptivA'),
+                      subtitle: const Text(
+                          'Désactive le suivi de stock dans AkoraHub (plus de blocage de commande ni de badge "rupture de stock") — le stock réel est géré dans ComptivA'),
+                      value: _stockManagedExternally,
+                      onChanged: _toggleStockManagedExternally,
                     ),
                   ),
 

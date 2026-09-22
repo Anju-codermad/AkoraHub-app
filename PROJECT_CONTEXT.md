@@ -9006,3 +9006,67 @@ contrainte d'unicité étendue. Ajouté dans :
 `phase244_ajout_axe_couleur_variantes.sql`, puis dans l'Admin →
 Bouchon push-pull → Variantes, créer une variante par couleur
 disponible (avec sa propre photo si souhaité).
+
+## 3nonies. Intégration ComptivA — stock (22/09, EN COURS)
+
+Contexte complet : voir la conversation avec l'utilisatrice du 22/09.
+ComptivA (logiciel de comptabilité, `Anju-codermad/comptiva`, projet
+Supabase **séparé** `jxehggyclclssshorphd`, sa propre conversation
+Claude) va gérer le vrai suivi de stock. Deux volets distincts,
+discutés puis affinés en direct avec l'utilisatrice :
+
+**A) AkoraHub → ComptivA (fait, ce dépôt)** — notifie ComptivA à
+chaque vente :
+- `phase245_patch_sync_stock_comptiva.sql` : trigger (`net.http_post`,
+  même mécanisme fire-and-forget que les triggers de notification
+  push existants, phase78) qui se déclenche quand une commande passe
+  au statut `livree`. Regroupe les lignes par produit
+  (`akorahub_product_id`, `product_name`, `quantity`) et poste vers
+  `https://jxehggyclclssshorphd.supabase.co/functions/v1/receive-
+  akorahub-sale` — **Edge Function qui doit encore être créée côté
+  ComptivA**, voir le message de relais donné à l'utilisatrice.
+  ⚠️ Avant d'exécuter ce script : remplacer `<COMPTIVA_WEBHOOK_SECRET>`
+  par la vraie valeur (générée, donnée séparément en chat, jamais
+  commitée) — la même valeur doit être configurée côté ComptivA.
+- **Lien produit AkoraHub ↔ ComptivA** : pas de nouvelle table de
+  correspondance côté AkoraHub — c'est ComptivA qui stocke
+  `akorahub_product_id` sur son propre produit (l'app n'a besoin de
+  rien savoir sur ce qui est lié). Bouton "Copier le lien produit
+  (ComptivA)" ajouté dans le menu ⋮ de chaque produit
+  (`product_management_real.dart`) — copie
+  `https://groupe-akora.com/produit.html?id={product_id}` (même format
+  que le lien de partage client existant, `product_detail_client.dart`)
+  dans le presse-papier, à coller dans ComptivA (bouton "Lier à un
+  produit AkoraHub" — à créer côté ComptivA).
+
+**B) Interrupteur "Stock géré par ComptivA" (fait, ce dépôt)** —
+demande explicite : puisque le stock est aussi saisi dans ComptivA,
+l'app ne doit plus se fier à `products.stock_quantity` pour bloquer
+une commande ou afficher "rupture de stock"/"stock bas".
+`phase246_patch_stock_managed_externally.sql` : même modèle exact que
+`floating_chat_bubble_enabled` (phase68) — colonne à part de `data`
+sur `company_settings`, exposée en lecture via la vue
+`app_feature_flags`. `StockSettingsRepo`
+(`lib/core/products/stock_settings_repo.dart`) + provider Riverpod
+`stockManagedExternallyProvider` (cache mémoire, pas de TTL). Interrupteur
+visible dans Admin → Profil entreprise (juste sous "Bulle de chat
+flottante"). Gate les 2 seuls endroits qui utilisaient
+`stock_quantity` côté client : `catalog_tab.dart` (`ProductCard`,
+converti en `ConsumerWidget` pour lire le provider — badge "rupture de
+stock"/"stock bas") et `product_detail_client.dart` (blocage du bouton
+"Ajouter au panier").
+
+**⚠️ Point soulevé par l'utilisatrice en cours de route, PAS ENCORE
+implémenté** : elle a aussi demandé la synchronisation dans l'AUTRE
+sens (ComptivA → AkoraHub) — que le stock saisi/modifié dans ComptivA
+remonte automatiquement dans `products.stock_quantity` d'AkoraHub, via
+le même lien produit. Contrairement au volet A (simple trigger
+Postgres qui POST vers l'extérieur), ce sens nécessite une vraie
+**Edge Function côté AkoraHub** qui REÇOIT les appels de ComptivA
+(nouveau dossier `supabase/functions/receive-comptiva-stock-update/`
+ou équivalent, avec authentification par secret partagé, même
+principe que `mobile-money-sms-webhook`). Pas commencé — en attente de
+clarification avec l'utilisatrice sur la portée exacte avant de
+construire ce morceau (question posée : est-ce que l'interrupteur B
+reste pertinent si ce sens est ajouté, puisque le chiffre deviendrait
+à nouveau fiable côté AkoraHub une fois alimenté par ComptivA).

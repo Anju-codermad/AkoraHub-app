@@ -259,6 +259,8 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 242 | `phase242_sous_categories_akora_packaging.sql` | ajoute 6 catégories supplémentaires au pilier Akora Packaging (Bouchons & fermetures, Pompes & vaporisateurs, Flacons & bouteilles, Pots & bocaux, Sacs & sachets, Rubans & adhésifs) — s'ajoutent aux 9 existantes (phase233), pour mieux répartir les futurs produits que la catégorie générique "Accessoires d'emballage" |
 | 243 | `phase243_ajout_flacons_pet_packaging.sql` | ajoute 7 flacons/bidons PET (250ml, 400ml, 500ml, 750ml, 1L, 5L, 20L) au pilier Akora Packaging, catégorie "Flacons & bouteilles" (phase242) — brouillons (visibility=false), à compléter depuis l'Admin (prix, photo, stock) |
 | 244 | `phase244_ajout_axe_couleur_variantes.sql` | ajoute un 4ème axe de variante "Couleur" (table `colors` + `product_variants.color_id`), même modèle que Format/Parfum/Concentration (phase183) — demandé pour le Bouchon push-pull (plusieurs couleurs) |
+| 245 | `phase245_patch_sync_stock_comptiva.sql` | trigger (`net.http_post`, même mécanisme que phase78) qui notifie ComptivA (projet Supabase séparé) à chaque commande livrée, avec les lignes regroupées par produit — ComptivA décide seul si un produit correspondant est lié |
+| 246 | `phase246_patch_stock_managed_externally.sql` | ajoute `company_settings.stock_managed_externally` (même modèle que `floating_chat_bubble_enabled`, phase68) + colonne exposée via la vue `app_feature_flags` — interrupteur global qui coupe le suivi de stock côté AkoraHub (le vrai stock est géré dans ComptivA) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne
