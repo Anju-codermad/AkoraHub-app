@@ -1316,3 +1316,6 @@
 
 ## 2026-09-23 16:48 UTC — Claude
 - fix(supabase): la suppression de compte échouait pour tout client ayant commandé (`a750830`)
+
+## 2026-09-23 16:50 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`9cbf4e4`)
