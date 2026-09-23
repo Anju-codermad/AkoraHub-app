@@ -125,7 +125,10 @@ Deno.serve(async (req) => {
       return json(400, { error: "Numéro de téléphone Airtel Money invalide" });
     }
 
-    const airtelTransactionId = crypto.randomUUID();
+    // Sans tirets : Airtel a rejeté un premier test avec un UUID standard
+    // ("ID de transaction est invalide", statut TF) — même contrainte
+    // alphanumérique que pour "reference".
+    const airtelTransactionId = crypto.randomUUID().replace(/-/g, "");
     const accessToken = await getAirtelAccessToken();
 
     const paymentRes = await fetch(`${AIRTEL_BASE_URL}/merchant/v1/payments/`, {
@@ -138,7 +141,11 @@ Deno.serve(async (req) => {
         "Authorization": `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
-        reference: order.order_number,
+        // Airtel exige une référence purement alphanumérique (rejette les
+        // tirets de "CMD-202609-1234567") — order.order_number reste
+        // inchangé dans notre base, seule la valeur envoyée à Airtel est
+        // nettoyée.
+        reference: order.order_number.replace(/[^a-zA-Z0-9]/g, ""),
         subscriber: { country: "MG", currency: "MGA", msisdn },
         transaction: {
           amount: order.total_amount,
