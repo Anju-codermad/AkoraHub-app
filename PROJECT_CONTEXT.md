@@ -9127,3 +9127,25 @@ les 4 axes d'AkoraHub) à l'intérieur d'une entreprise. Explicitement
 mis de côté pour l'instant au profit du lien concret avec AkoraHub
 (A+B+C ci-dessus) — l'utilisatrice a choisi "Chantier 1 d'abord" à la
 question posée. Reprendre ce sujet si elle relance la discussion.
+
+## Bug — suppression de compte cassée pour les clients ayant commandé (23/09) ✅ FAIT
+
+Découvert en préparant le champ "URL de suppression de compte" du
+formulaire Google Play "Sécurité des données". La fonction Edge
+`delete-account` (30/07) supprime `profiles`, en comptant sur les
+`on delete cascade` des tables liées pour tout nettoyer — mais
+`public.orders.customer_id` référençait `profiles(id)` **sans**
+clause `on delete` (donc `no action` par défaut, contrairement à
+`recurring_orders` et à quasiment toutes les autres tables liées au
+client). Concrètement : tout client ayant déjà passé au moins une
+commande obtenait une erreur de contrainte de clé étrangère en
+essayant de supprimer son compte, au lieu d'une vraie suppression.
+
+**Corrigé** (`phase248_patch_fix_delete_account_orders_fk.sql`) :
+`orders.customer_id` passe en `on delete set null` — pas `cascade`,
+volontairement, pour rester cohérent avec la politique de
+confidentialité qui promet déjà de conserver l'historique de
+facturation pour des raisons comptables/légales même après
+suppression du compte. La commande reste donc en base (anonymisée,
+plus reliée à aucun profil), seul le lien vers le compte supprimé
+est retiré.
