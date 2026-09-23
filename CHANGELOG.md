@@ -1310,3 +1310,6 @@
 
 ## 2026-09-23 00:06 UTC — Anju-codermad
 - Ajouter le paiement Airtel Money direct (push USSD, API Collection) (#16) (`1c48d0f`)
+
+## 2026-09-23 05:51 UTC — Anju-codermad
+- Corriger le format reference/transaction.id pour l'API Collection Airtel (#17) (`d0cf59a`)
