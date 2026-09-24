@@ -263,6 +263,7 @@ plusieurs fichiers pour une seule et même phase (pas un doublon).
 | 246 | `phase246_patch_stock_managed_externally.sql` | ajoute `company_settings.stock_managed_externally` (même modèle que `floating_chat_bubble_enabled`, phase68) + colonne exposée via la vue `app_feature_flags` — interrupteur global qui coupe le suivi de stock côté AkoraHub (le vrai stock est géré dans ComptivA) |
 | 247 | `phase247_patch_fix_variant_price_tampering.sql` | corrige `enforce_order_item_price` (phase154) qui ignorait `order_items.variant_id` et recalculait toujours le prix à partir du produit de base — utilise maintenant le prix de la variante quand elle est renseignée, avec repli sur le produit sinon |
 | 248 | `phase248_patch_fix_delete_account_orders_fk.sql` | corrige `orders.customer_id` (référençait `profiles(id)` sans clause `on delete`) qui faisait échouer `delete-account` pour tout client ayant déjà une commande — passe en `on delete set null` (commande conservée pour la compta, juste détachée du compte supprimé) |
+| 249 | `phase249_patch_staff_start_conversation.sql` | la policy INSERT de `conversations` (phase8) ne permettait qu'au client de créer sa propre conversation — ajoute `or public.current_role_is_staff()` pour que le staff puisse démarrer une conversation avec un client qui n'a jamais écrit en premier (bouton "Envoyer un message" sur la fiche client 360°) |
 
 ⚠️ Sommaire incomplet : les fichiers `phase177` à `phase186` existent déjà dans
 le dossier mais n'étaient pas encore listés ici avant l'ajout de la ligne

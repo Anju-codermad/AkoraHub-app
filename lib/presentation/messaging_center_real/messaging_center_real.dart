@@ -145,7 +145,7 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => _AdminConversationThread(
+                                    builder: (_) => AdminConversationThread(
                                       conversationId: c['id'],
                                       customerName: name,
                                       customerId: c['customer_id'],
@@ -162,24 +162,29 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
   }
 }
 
-class _AdminConversationThread extends ConsumerStatefulWidget {
+/// Fil de conversation admin ↔ client — extrait de la liste "Messagerie"
+/// (nom public) pour être réutilisable depuis la fiche client 360°
+/// (`customer_360_screen.dart`), qui permet de démarrer/reprendre une
+/// conversation directement depuis le profil du client.
+class AdminConversationThread extends ConsumerStatefulWidget {
   final String conversationId;
   final String customerName;
   final String customerId;
 
-  const _AdminConversationThread({
+  const AdminConversationThread({
+    super.key,
     required this.conversationId,
     required this.customerName,
     required this.customerId,
   });
 
   @override
-  ConsumerState<_AdminConversationThread> createState() =>
+  ConsumerState<AdminConversationThread> createState() =>
       _AdminConversationThreadState();
 }
 
 class _AdminConversationThreadState
-    extends ConsumerState<_AdminConversationThread> {
+    extends ConsumerState<AdminConversationThread> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   List<Map<String, dynamic>> _messages = [];

@@ -5,6 +5,7 @@ import 'package:sizer/sizer.dart';
 import '../../core/constants/client_types.dart';
 import '../../core/loyalty/loyalty_tiers.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../messaging_center_real/messaging_center_real.dart';
 
 /// Fiche client 360° (CRM, Lot 1/5, 02/08) — regroupe pour un client
 /// donné ce qui était jusqu'ici éparpillé entre plusieurs écrans admin :
@@ -53,6 +54,7 @@ class _Customer360ScreenState extends State<Customer360Screen> {
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _addresses = [];
   List<Map<String, dynamic>> _notes = [];
+  Map<String, dynamic>? _conversation;
   List<Map<String, dynamic>> _messages = [];
   List<Map<String, dynamic>> _benefits = [];
   List<Map<String, dynamic>> _reportsFiled = [];
@@ -268,6 +270,7 @@ class _Customer360ScreenState extends State<Customer360Screen> {
         _productNames = productNames;
         _notes = notes;
         _staffNames = staffNames;
+        _conversation = conversation;
         _messages = messages;
         _benefits = benefits;
         _reportsFiled = List<Map<String, dynamic>>.from(results[11]);
@@ -372,6 +375,47 @@ class _Customer360ScreenState extends State<Customer360Screen> {
     final sum = _reviews.fold<num>(
         0, (s, r) => s + ((r['rating'] as num?) ?? 0));
     return sum / _reviews.length;
+  }
+
+  /// Ouvre le fil de conversation avec ce client — le crée d'abord s'il
+  /// n'en existe pas encore (un client peut n'avoir jamais écrit au
+  /// staff, mais le staff doit pouvoir prendre l'initiative de lui
+  /// écrire en premier depuis sa fiche).
+  Future<void> _openConversation() async {
+    final profile = _profile;
+    if (profile == null) return;
+
+    var conversation = _conversation;
+    if (conversation == null) {
+      try {
+        conversation = await SupabaseConfig.client
+            .from('conversations')
+            .insert({'customer_id': widget.customerId})
+            .select()
+            .single();
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Impossible de démarrer la conversation.')));
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _conversation = conversation);
+    }
+
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminConversationThread(
+          conversationId: conversation!['id'],
+          customerName:
+              profile['company_name'] ?? profile['full_name'] ?? 'Client',
+          customerId: widget.customerId,
+        ),
+      ),
+    );
+    _load();
   }
 
   Future<void> _toggleVip(bool value) async {
@@ -479,7 +523,16 @@ class _Customer360ScreenState extends State<Customer360Screen> {
     final timeline = _timeline;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Fiche client')),
+      appBar: AppBar(
+        title: const Text('Fiche client'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.chat_outlined),
+            tooltip: 'Envoyer un message',
+            onPressed: profile == null ? null : _openConversation,
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null || profile == null

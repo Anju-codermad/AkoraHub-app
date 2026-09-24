@@ -9149,3 +9149,28 @@ facturation pour des raisons comptables/légales même après
 suppression du compte. La commande reste donc en base (anonymisée,
 plus reliée à aucun profil), seul le lien vers le compte supprimé
 est retiré.
+
+## Bouton "Envoyer un message" sur la fiche client 360° (24/09) ✅ FAIT
+
+Demande explicite en regardant l'écran Admin "Clients" : pouvoir
+écrire à un client directement depuis sa fiche, sans passer par
+l'écran "Messagerie" séparé (qui ne liste que les conversations déjà
+existantes, aucun moyen d'en démarrer une nouvelle).
+
+- `messaging_center_real.dart` : le fil de conversation
+  (`_AdminConversationThread`) était une classe privée au fichier —
+  renommée `AdminConversationThread` (publique) pour être réutilisable
+  depuis un autre écran.
+- `customer_360_screen.dart` : nouveau bouton (icône messagerie) dans
+  l'AppBar de la fiche client. `_openConversation()` réutilise la
+  conversation existante du client si `_load()` en a trouvé une
+  (déjà chargée pour la chronologie d'activité), sinon en crée une
+  nouvelle avant d'ouvrir le fil.
+- **Bug RLS découvert au passage** (`phase249_patch_staff_start_conversation.sql`) :
+  la policy INSERT de `conversations` (phase8, jamais retouchée depuis)
+  n'autorisait que `auth.uid() = customer_id` — donc uniquement le
+  client pouvait créer sa propre ligne. Le staff pouvait déjà tout lire
+  et répondre dans une conversation existante (policies SELECT/UPDATE
+  correctes), mais aucune policy ne permettait de PARTIR d'une
+  conversation qui n'existait pas encore. Corrigé en ajoutant
+  `or public.current_role_is_staff()`.
