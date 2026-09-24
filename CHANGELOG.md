@@ -1322,3 +1322,6 @@
 
 ## 2026-09-23 20:20 UTC — Claude
 - fix(android): retire FOREGROUND_SERVICE_MEDIA_PROJECTION (héritée d'Agora, inutilisée) (`2029095`)
+
+## 2026-09-24 14:25 UTC — Claude
+- feat(admin): bouton pour envoyer un message directement depuis la fiche client (`1b8a7cb`)
