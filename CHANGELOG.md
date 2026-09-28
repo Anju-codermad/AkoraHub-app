@@ -1328,3 +1328,6 @@
 
 ## 2026-09-28 01:29 UTC — Anju-codermad
 - Distinguer paiement en ligne (Airtel Money) et paiement manuel côté staff (#18) (`d1cc1e9`)
+
+## 2026-09-28 16:10 UTC — Claude
+- fix(admin): élargit la limite de caractères du flash info (200 -> 500) (`5c0a386`)
