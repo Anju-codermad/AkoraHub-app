@@ -1325,3 +1325,6 @@
 
 ## 2026-09-24 14:25 UTC — Claude
 - feat(admin): bouton pour envoyer un message directement depuis la fiche client (`1b8a7cb`)
+
+## 2026-09-28 01:29 UTC — Anju-codermad
+- Distinguer paiement en ligne (Airtel Money) et paiement manuel côté staff (#18) (`d1cc1e9`)
