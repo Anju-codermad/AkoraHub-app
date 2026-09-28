@@ -1331,3 +1331,6 @@
 
 ## 2026-09-28 16:10 UTC — Claude
 - fix(admin): élargit la limite de caractères du flash info (200 -> 500) (`5c0a386`)
+
+## 2026-09-28 18:24 UTC — Claude
+- fix(admin): retire toute limite de caractères sur le flash info (`e059b43`)
