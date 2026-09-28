@@ -161,9 +161,20 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
         : null;
     bool isUpdatingPosition = false;
 
-    final isManualPayment =
+    // Un paiement "en ligne" (Airtel Money, seul canal automatique depuis
+    // le retrait de Papi.mg/FiveOne Pay) se confirme tout seul via le
+    // webhook airtel-payment-notification — le staff n'a rien à valider,
+    // contrairement à un paiement manuel (référence + preuve envoyées par
+    // le client). airtel_transaction_id n'est renseigné QUE si le client a
+    // choisi "Payer en ligne maintenant" (voir create-airtel-payment-request),
+    // c'est donc le seul signal fiable — payment_method seul ne suffit pas
+    // puisqu'un même moyen (ex. airtel_money) peut être payé en ligne ou
+    // manuellement selon le choix du client.
+    final isOnlinePayment = order['airtel_transaction_id'] != null;
+    final requiresPaymentBeforeShipping =
         (order['payment_method'] ?? 'paiement_livraison') !=
             'paiement_livraison';
+    final isManualPayment = requiresPaymentBeforeShipping && !isOnlinePayment;
 
     final result = await showDialog<Map<String, String>>(
       context: context,
@@ -172,7 +183,8 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
           final theme = Theme.of(context);
           final isPaymentConfirmed =
               selectedPayment == 'paye' || selectedPayment == 'facture_30j';
-          final statusLocked = isManualPayment && !isPaymentConfirmed;
+          final statusLocked =
+              requiresPaymentBeforeShipping && !isPaymentConfirmed;
 
           return AlertDialog(
             title: Text('Commande ${order['order_number']}'),
@@ -181,7 +193,35 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (statusLocked)
+                  if (statusLocked && isOnlinePayment)
+                    Container(
+                      margin: EdgeInsets.only(bottom: 1.h),
+                      padding: EdgeInsets.all(2.w),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer
+                            .withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.hourglass_top_rounded,
+                              size: 18, color: theme.colorScheme.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                                'En attente de confirmation automatique '
+                                '(Airtel Money) — rien à faire ici, la '
+                                'commande se débloquera toute seule dès '
+                                'réception du paiement.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (statusLocked)
                     Container(
                       margin: EdgeInsets.only(bottom: 1.h),
                       padding: EdgeInsets.all(2.w),
@@ -270,7 +310,10 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                     Padding(
                       padding: EdgeInsets.only(bottom: 0.5.h),
                       child: Text(
-                        'Débloqué une fois le paiement confirmé ci-dessus.',
+                        isOnlinePayment
+                            ? 'Se débloquera automatiquement dès la '
+                                'confirmation du paiement en ligne.'
+                            : 'Débloqué une fois le paiement confirmé ci-dessus.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -443,11 +486,16 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   // vérifier" reste filtré ici, côté client (voir commentaire plus haut).
   List<Map<String, dynamic>> get _filteredOrders {
     if (!_onlyPaymentToVerify) return _orders;
+    // Une commande payée en ligne (Airtel Money) n'a rien à "vérifier" par
+    // le staff — elle se confirme toute seule via le webhook — donc elle
+    // est exclue de ce filtre même tant que payment_status n'est pas
+    // encore 'paye' (voir isOnlinePayment dans _updateStatus).
     return _orders
         .where((o) =>
             (o['payment_method'] ?? 'paiement_livraison') !=
                 'paiement_livraison' &&
-            (o['payment_status'] ?? 'en_attente') != 'paye')
+            (o['payment_status'] ?? 'en_attente') != 'paye' &&
+            o['airtel_transaction_id'] == null)
         .toList();
   }
 
