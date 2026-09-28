@@ -149,8 +149,8 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                 SizedBox(height: 2.h),
                 TextFormField(
                   controller: controller,
-                  maxLines: 3,
-                  maxLength: 200,
+                  maxLines: 6,
+                  maxLength: 500,
                   decoration: const InputDecoration(
                     labelText: 'Message',
                     hintText: 'Ex : Promo -10% sur les insecticides '
