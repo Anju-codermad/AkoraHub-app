@@ -10,8 +10,11 @@ import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
+import '../../core/chat/message_actions_sheet.dart';
+import '../../core/chat/pinned_message_banner.dart';
 import '../../core/chat/presence_helper.dart';
 import '../../core/chat/read_receipt.dart';
+import '../../core/chat/starred_messages_screen.dart';
 import '../../core/chat/typing_dots.dart';
 import '../../core/chat/typing_presence.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -31,6 +34,12 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
   Map<String, int> _unreadCounts = {};
   bool _isLoading = true;
   String? _error;
+
+  /// Filtres de la liste (29/09) : 'all' | 'unread' | 'attachment' |
+  /// 'request' — voir `_buildFilterChips`.
+  String _filter = 'all';
+  Set<String> _attachmentConvIds = {};
+  Set<String> _requestConvIds = {};
 
   @override
   void initState() {
@@ -75,9 +84,36 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
         // utilisable.
       }
 
+      // Filtres "Avec pièce jointe" / "Demandes" (29/09) : même principe
+      // que les badges non lus, un aller-retour groupé par filtre plutôt
+      // qu'une requête par conversation.
+      Set<String> attachmentConvIds = {};
+      try {
+        final rows = await SupabaseConfig.client
+            .from('messages')
+            .select('conversation_id')
+            .not('attachment_type', 'is', null);
+        attachmentConvIds = List<Map<String, dynamic>>.from(rows)
+            .map((r) => r['conversation_id'] as String)
+            .toSet();
+      } catch (_) {}
+
+      Set<String> requestConvIds = {};
+      try {
+        final rows = await SupabaseConfig.client
+            .from('messages')
+            .select('conversation_id')
+            .eq('is_request', true);
+        requestConvIds = List<Map<String, dynamic>>.from(rows)
+            .map((r) => r['conversation_id'] as String)
+            .toSet();
+      } catch (_) {}
+
       setState(() {
         _conversations = List<Map<String, dynamic>>.from(data);
         _unreadCounts = unread;
+        _attachmentConvIds = attachmentConvIds;
+        _requestConvIds = requestConvIds;
         _isLoading = false;
       });
     } catch (e) {
@@ -88,34 +124,95 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
     }
   }
 
+  Widget _buildFilterChips(ThemeData theme) {
+    final options = const [
+      ('all', 'Toutes'),
+      ('unread', 'Non lues'),
+      ('attachment', 'Pièce jointe'),
+      ('request', 'Demandes'),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final option in options)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(option.$2),
+                  selected: _filter == option.$1,
+                  onSelected: (_) => setState(() => _filter = option.$1),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final filtered = _conversations.where((c) {
+      final id = c['id'] as String;
+      switch (_filter) {
+        case 'unread':
+          return (_unreadCounts[id] ?? 0) > 0;
+        case 'attachment':
+          return _attachmentConvIds.contains(id);
+        case 'request':
+          return _requestConvIds.contains(id);
+        default:
+          return true;
+      }
+    }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Messagerie')),
+      appBar: AppBar(
+        title: const Text('Messagerie'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.star_border),
+            tooltip: 'Messages enregistrés',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const StarredMessagesScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
-              : RefreshIndicator(
+              : Column(
+                  children: [
+                    if (_conversations.isNotEmpty) _buildFilterChips(theme),
+                    Expanded(
+                      child: RefreshIndicator(
                   onRefresh: _loadConversations,
-                  child: _conversations.isEmpty
+                  child: filtered.isEmpty
                       ? ListView(
-                          children: const [
+                          children: [
                             Padding(
-                              padding: EdgeInsets.all(32),
+                              padding: const EdgeInsets.all(32),
                               child: Center(
                                   child: Text(
-                                      'Aucune conversation pour le moment.')),
+                                      _conversations.isEmpty
+                                          ? 'Aucune conversation pour le moment.'
+                                          : 'Aucune conversation ne correspond à ce filtre.')),
                             ),
                           ],
                         )
                       : ListView.separated(
-                          itemCount: _conversations.length,
+                          itemCount: filtered.length,
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (context, index) {
-                            final c = _conversations[index];
+                            final c = filtered[index];
                             final profile = c['profiles'];
                             final name = profile != null
                                 ? (profile['company_name'] ??
@@ -163,6 +260,9 @@ class _MessagingCenterRealState extends State<MessagingCenterReal> {
                           },
                         ),
                 ),
+                    ),
+                  ],
+                ),
     );
   }
 }
@@ -205,6 +305,19 @@ class _AdminConversationThreadState
   Timer? _presenceTimer;
   String? _customerLastSeenAt;
 
+  /// Recherche dans l'historique (29/09) — filtrage local sur `content`.
+  bool _searchMode = false;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  /// Clé par message (29/09), pour scroller jusqu'à un résultat de
+  /// recherche ou jusqu'au message épinglé.
+  final Map<String, GlobalKey> _messageKeys = {};
+
+  /// Messages enregistrés par CE membre du staff (29/09). Voir
+  /// `starred_messages` (phase251).
+  Set<String> _starredIds = {};
+
   String? get _myId =>
       SupabaseConfig.isConfigured ? SupabaseConfig.client.auth.currentUser?.id : null;
 
@@ -227,10 +340,95 @@ class _AdminConversationThreadState
     });
     PresenceHelper.touch();
     _refreshCustomerPresence();
+    _loadStarredIds();
     _presenceTimer = Timer.periodic(const Duration(seconds: 25), (_) {
       PresenceHelper.touch();
       _refreshCustomerPresence();
     });
+  }
+
+  Future<void> _loadStarredIds() async {
+    final myId = _myId;
+    if (myId == null) return;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('starred_messages')
+          .select('message_id')
+          .eq('user_id', myId)
+          .eq('conversation_id', widget.conversationId);
+      if (mounted) {
+        setState(() {
+          _starredIds = List<Map<String, dynamic>>.from(rows)
+              .map((r) => r['message_id'] as String)
+              .toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// Épingle/désépingle un message (29/09) — un seul message épinglé à la
+  /// fois par conversation.
+  Future<void> _togglePin(Map<String, dynamic> message) async {
+    final isPinned = message['pinned'] == true;
+    try {
+      if (!isPinned) {
+        await SupabaseConfig.client
+            .from('messages')
+            .update({'pinned': false, 'pinned_at': null})
+            .eq('conversation_id', widget.conversationId)
+            .eq('pinned', true);
+      }
+      await SupabaseConfig.client.from('messages').update({
+        'pinned': !isPinned,
+        'pinned_at': isPinned ? null : DateTime.now().toIso8601String(),
+      }).eq('id', message['id']);
+      await _loadMessages();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  Future<void> _toggleStar(Map<String, dynamic> message) async {
+    final myId = _myId;
+    if (myId == null) return;
+    final messageId = message['id'] as String;
+    final isStarred = _starredIds.contains(messageId);
+    try {
+      if (isStarred) {
+        await SupabaseConfig.client
+            .from('starred_messages')
+            .delete()
+            .eq('user_id', myId)
+            .eq('message_id', messageId);
+        if (mounted) setState(() => _starredIds.remove(messageId));
+      } else {
+        await SupabaseConfig.client.from('starred_messages').insert({
+          'user_id': myId,
+          'message_id': messageId,
+          'conversation_id': widget.conversationId,
+        });
+        if (mounted) setState(() => _starredIds.add(messageId));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  void _scrollToMessage(String messageId) {
+    final ctx = _messageKeys[messageId]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 300),
+        alignment: 0.5,
+      );
+    }
   }
 
   Future<void> _refreshCustomerPresence() async {
@@ -251,6 +449,7 @@ class _AdminConversationThreadState
     _typing?.dispose();
     _presenceTimer?.cancel();
     _controller.dispose();
+    _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -380,6 +579,57 @@ class _AdminConversationThreadState
     }
   }
 
+  Widget _buildSearchResults(
+      ThemeData theme, List<Map<String, dynamic>> results) {
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 220),
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: results.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                _searchQuery.isEmpty
+                    ? 'Tapez pour rechercher dans cette conversation.'
+                    : 'Aucun résultat.',
+                style: theme.textTheme.bodySmall,
+              ),
+            )
+          : ListView.builder(
+              shrinkWrap: true,
+              itemCount: results.length,
+              itemBuilder: (context, index) {
+                final m = results[index];
+                final createdAt = m['created_at'] != null
+                    ? DateTime.tryParse(m['created_at'])
+                    : null;
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.search, size: 18),
+                  title: Text(
+                    m['content'] as String? ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: createdAt != null
+                      ? Text(_dateFormat.format(createdAt.toLocal()))
+                      : null,
+                  onTap: () {
+                    final messageId = m['id'] as String;
+                    setState(() {
+                      _searchMode = false;
+                      _searchController.clear();
+                      _searchQuery = '';
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollToMessage(messageId);
+                    });
+                  },
+                );
+              },
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -403,7 +653,53 @@ class _AdminConversationThreadState
               ),
           ],
         ),
+        bottom: _searchMode
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(56),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher dans la conversation...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      isDense: true,
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                  ),
+                ),
+              )
+            : null,
         actions: [
+          IconButton(
+            icon: Icon(_searchMode ? Icons.close : Icons.search),
+            tooltip: _searchMode ? 'Fermer la recherche' : 'Rechercher',
+            onPressed: () {
+              setState(() {
+                _searchMode = !_searchMode;
+                if (!_searchMode) {
+                  _searchController.clear();
+                  _searchQuery = '';
+                }
+              });
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.star_border),
+            tooltip: 'Messages enregistrés',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const StarredMessagesScreen(),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.call_outlined),
             tooltip: 'Appel audio',
@@ -418,8 +714,31 @@ class _AdminConversationThreadState
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : Builder(builder: (context) {
+              Map<String, dynamic>? pinnedMessage;
+              for (final m in _messages) {
+                if (m['pinned'] == true) {
+                  pinnedMessage = m;
+                  break;
+                }
+              }
+              final searchResults = _searchQuery.isEmpty
+                  ? <Map<String, dynamic>>[]
+                  : _messages
+                      .where((m) => (m['content'] as String? ?? '')
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase()))
+                      .toList();
+              return Column(
               children: [
+                if (pinnedMessage != null)
+                  PinnedMessageBanner(
+                    content: pinnedMessage['content'] as String? ?? '',
+                    onTap: () =>
+                        _scrollToMessage(pinnedMessage!['id'] as String),
+                    onUnpin: () => _togglePin(pinnedMessage!),
+                  ),
+                if (_searchMode) _buildSearchResults(theme, searchResults),
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
@@ -430,11 +749,23 @@ class _AdminConversationThreadState
                       final isMine = m['sender_id'] == _myId;
                       final isAi = m['sender_role'] == 'ai';
                       final isRequest = m['is_request'] == true;
+                      final messageId = m['id'] as String;
+                      final messageKey = _messageKeys.putIfAbsent(
+                          messageId, () => GlobalKey());
                       return Align(
+                        key: messageKey,
                         alignment: isMine
                             ? Alignment.centerRight
                             : Alignment.centerLeft,
-                        child: Container(
+                        child: GestureDetector(
+                          onLongPress: () => showMessageActionsSheet(
+                            context,
+                            isPinned: m['pinned'] == true,
+                            isStarred: _starredIds.contains(messageId),
+                            onTogglePin: () => _togglePin(m),
+                            onToggleStar: () => _toggleStar(m),
+                          ),
+                          child: Container(
                           margin: EdgeInsets.symmetric(
                               vertical: bubbleStyle.bubbleSpacing / 2),
                           padding: bubbleStyle.bubblePadding,
@@ -576,6 +907,7 @@ class _AdminConversationThreadState
                             ],
                           ),
                         ),
+                        ),
                       );
                     },
                   ),
@@ -610,7 +942,8 @@ class _AdminConversationThreadState
                   ),
                 ),
               ],
-            ),
+            );
+            }),
     );
   }
 }

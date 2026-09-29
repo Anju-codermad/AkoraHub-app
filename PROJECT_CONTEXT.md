@@ -9222,3 +9222,51 @@ Suite de la liste (réactions, répondre à un message, recherche dans la
 conversation, aperçu de liens, barre de progression upload...) pas
 encore commencée — voir le message de session où la liste complète a
 été donnée à l'utilisatrice pour le prochain lot à traiter.
+
+## Messagerie — Recherche & organisation (29/09) ✅ FAIT
+
+Deuxième tranche de la même liste : "PUIS CECI / Recherche &
+organisation" (4 points) — recherche dans une conversation, message
+épinglé, messages enregistrés (favoris cross-conversations), filtres
+de la liste de conversations côté staff.
+
+- `phase251_patch_search_pin_star_filter.sql` : ajoute
+  `messages.pinned`/`pinned_at` (un seul message épinglé par
+  conversation à la fois) et la table `starred_messages` (favoris par
+  utilisateur, RLS stricte — chacun ne voit que ses propres lignes).
+  Aucune nouvelle policy nécessaire sur `messages.pinned*` :
+  `messages_update_own_or_staff` (phase8) couvre déjà toute colonne, et
+  `protect_message_content` (phase155) ne les protège pas.
+- `core/chat/message_actions_sheet.dart` (nouveau) : menu (bottom
+  sheet) au clic long sur une bulle — épingler/désépingler,
+  enregistrer/retirer des favoris. Partagé client/staff.
+- `core/chat/pinned_message_banner.dart` (nouveau) : bandeau du message
+  épinglé, affiché en haut du fil (sous l'AppBar), tap → scroll vers le
+  message (via `GlobalKey` + `Scrollable.ensureVisible`, seule méthode
+  fiable pour cibler un item dans une liste à hauteurs variables sans
+  extents connus).
+- `core/chat/starred_messages_screen.dart` (nouveau) : écran "Messages
+  enregistrés", liste cross-conversations des messages favoris de
+  l'utilisateur courant (jointure `starred_messages` → `messages`) —
+  même écran pour le client et pour le staff, la RLS fait le tri.
+- `chat_screen.dart` (client) : icône recherche dans l'AppBar (ouvre un
+  champ dans le `bottom` de l'AppBar) filtrant localement sur
+  `content`, résultats dans un panneau déroulant sous l'AppBar (tap →
+  ferme la recherche + scroll vers le message) ; icône "Messages
+  enregistrés" ; bandeau de message épinglé au-dessus de la liste ;
+  clic long sur une bulle → menu d'actions.
+- `messaging_center_real.dart` : mêmes ajouts côté
+  `AdminConversationThread` (staff) — recherche, épingler, enregistrer.
+  Sur `MessagingCenterReal` (liste des conversations) : chips de filtre
+  ("Toutes"/"Non lues"/"Pièce jointe"/"Demandes", agrégées par
+  conversation comme pour les badges non lus) + icône "Messages
+  enregistrés" dans l'AppBar.
+
+⚠️ **Non vérifié par compilation locale** (toujours pas de SDK Flutter
+dans cet environnement) — relu en détail, équilibre des
+accolades/parenthèses vérifié par script sur les 2 fichiers modifiés/
+touchés. Restructuration plus profonde que la tranche précédente
+(insertion d'un `GestureDetector` + `GlobalKey` par bulle, et d'un
+`Builder`/`Column` autour de la zone de messages côté staff pour
+accueillir bandeau épinglé + résultats de recherche) — à surveiller de
+près sur le premier build CI après ce commit.

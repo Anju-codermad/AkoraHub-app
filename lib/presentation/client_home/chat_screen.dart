@@ -11,8 +11,11 @@ import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
+import '../../core/chat/message_actions_sheet.dart';
+import '../../core/chat/pinned_message_banner.dart';
 import '../../core/chat/presence_helper.dart';
 import '../../core/chat/read_receipt.dart';
+import '../../core/chat/starred_messages_screen.dart';
 import '../../core/chat/typing_dots.dart';
 import '../../core/chat/typing_presence.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -76,6 +79,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Timer? _presenceTimer;
   String? _staffLastSeenAt;
 
+  /// Recherche dans l'historique (29/09) — filtrage local sur `content`,
+  /// aucun appel réseau supplémentaire.
+  bool _searchMode = false;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  /// Clé par message (29/09) — permet de scroller jusqu'à un message
+  /// précis (résultat de recherche, ou message épinglé) via
+  /// `Scrollable.ensureVisible`, seule façon fiable de cibler un item
+  /// dans une `ListView` à hauteurs variables sans extents connus.
+  final Map<String, GlobalKey> _messageKeys = {};
+
+  /// Messages enregistrés par CE client (29/09) — ids seulement, pour
+  /// savoir quelle icône afficher dans le menu d'actions. Voir
+  /// `starred_messages` (phase251).
+  Set<String> _starredIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -104,8 +124,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _presenceTimer?.cancel();
     _conversationSub?.cancel();
     _textController.dispose();
+    _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToMessage(String messageId) {
+    final ctx = _messageKeys[messageId]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 300),
+        alignment: 0.5,
+      );
+    }
   }
 
   void _scrollToLatest() {
@@ -203,6 +235,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
 
       await _markIncomingAsRead(conversationId);
+      await _loadStarredIds(conversationId);
 
       // Présence (29/09) : signale que le client est actif maintenant,
       // répété toutes les 25s tant que l'écran reste ouvert, et récupère
@@ -240,6 +273,80 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } catch (_) {
       // Non bloquant : la conversation reste utilisable même si le
       // marquage échoue.
+    }
+  }
+
+  Future<void> _loadStarredIds(String conversationId) async {
+    try {
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+      if (userId == null) return;
+      final rows = await SupabaseConfig.client
+          .from('starred_messages')
+          .select('message_id')
+          .eq('user_id', userId)
+          .eq('conversation_id', conversationId);
+      if (mounted) {
+        setState(() {
+          _starredIds = List<Map<String, dynamic>>.from(rows)
+              .map((r) => r['message_id'] as String)
+              .toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// Épingle/désépingle un message (29/09) — un seul message épinglé à
+  /// la fois par conversation : on désépingle d'abord l'éventuel autre
+  /// message épinglé avant d'épingler le nouveau.
+  Future<void> _togglePin(Map<String, dynamic> message) async {
+    if (_conversationId == null) return;
+    final isPinned = message['pinned'] == true;
+    try {
+      if (!isPinned) {
+        await SupabaseConfig.client
+            .from('messages')
+            .update({'pinned': false, 'pinned_at': null})
+            .eq('conversation_id', _conversationId as Object)
+            .eq('pinned', true);
+      }
+      await SupabaseConfig.client.from('messages').update({
+        'pinned': !isPinned,
+        'pinned_at': isPinned ? null : DateTime.now().toIso8601String(),
+      }).eq('id', message['id']);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  Future<void> _toggleStar(Map<String, dynamic> message) async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null || _conversationId == null) return;
+    final messageId = message['id'] as String;
+    final isStarred = _starredIds.contains(messageId);
+    try {
+      if (isStarred) {
+        await SupabaseConfig.client
+            .from('starred_messages')
+            .delete()
+            .eq('user_id', userId)
+            .eq('message_id', messageId);
+        if (mounted) setState(() => _starredIds.remove(messageId));
+      } else {
+        await SupabaseConfig.client.from('starred_messages').insert({
+          'user_id': userId,
+          'message_id': messageId,
+          'conversation_id': _conversationId,
+        });
+        if (mounted) setState(() => _starredIds.add(messageId));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
     }
   }
 
@@ -481,6 +588,57 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  Widget _buildSearchResults(
+      ThemeData theme, List<Map<String, dynamic>> results) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: 30.h),
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: results.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                _searchQuery.isEmpty
+                    ? 'Tapez pour rechercher dans cette conversation.'
+                    : 'Aucun résultat.',
+                style: theme.textTheme.bodySmall,
+              ),
+            )
+          : ListView.builder(
+              shrinkWrap: true,
+              itemCount: results.length,
+              itemBuilder: (context, index) {
+                final m = results[index];
+                final createdAt = m['created_at'] != null
+                    ? DateTime.tryParse(m['created_at'])
+                    : null;
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.search, size: 18),
+                  title: Text(
+                    m['content'] as String? ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: createdAt != null
+                      ? Text(_dateFormat.format(createdAt.toLocal()))
+                      : null,
+                  onTap: () {
+                    final messageId = m['id'] as String;
+                    setState(() {
+                      _searchMode = false;
+                      _searchController.clear();
+                      _searchQuery = '';
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollToMessage(messageId);
+                    });
+                  },
+                );
+              },
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -504,7 +662,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
           ],
         ),
+        bottom: _searchMode
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(56),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher dans la conversation...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      isDense: true,
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                  ),
+                ),
+              )
+            : null,
         actions: [
+          IconButton(
+            icon: Icon(_searchMode ? Icons.close : Icons.search),
+            tooltip: _searchMode ? 'Fermer la recherche' : 'Rechercher',
+            onPressed: () {
+              setState(() {
+                _searchMode = !_searchMode;
+                if (!_searchMode) {
+                  _searchController.clear();
+                  _searchQuery = '';
+                }
+              });
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.star_border),
+            tooltip: 'Messages enregistrés',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const StarredMessagesScreen(),
+              ),
+            ),
+          ),
           IconButton(
             icon: _mode == 'ia'
                 ? const Icon(Icons.support_agent_outlined)
@@ -560,8 +764,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           if (_conversationId != null) {
                             _markIncomingAsRead(_conversationId!);
                           }
+                          Map<String, dynamic>? pinnedMessage;
+                          for (final m in messages) {
+                            if (m['pinned'] == true) {
+                              pinnedMessage = m;
+                              break;
+                            }
+                          }
+                          final searchResults = _searchQuery.isEmpty
+                              ? <Map<String, dynamic>>[]
+                              : messages
+                                  .where((m) =>
+                                      (m['content'] as String? ?? '')
+                                          .toLowerCase()
+                                          .contains(_searchQuery.toLowerCase()))
+                                  .toList();
+                          Widget messageArea;
                           if (messages.isEmpty) {
-                            return Center(
+                            messageArea = Center(
                               child: Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 8.w),
                                 child: Text(
@@ -575,8 +795,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 ),
                               ),
                             );
-                          }
-                          return ListView.builder(
+                          } else {
+                          messageArea = ListView.builder(
                             controller: _scrollController,
                             reverse: true,
                             padding: EdgeInsets.all(4.w),
@@ -604,12 +824,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   : null;
                               final isLastOfGroup = nextMsg == null ||
                                   nextMsg['sender_role'] != m['sender_role'];
+                              final messageId = m['id'] as String;
+                              final messageKey = _messageKeys.putIfAbsent(
+                                  messageId, () => GlobalKey());
 
                               return Align(
+                                key: messageKey,
                                 alignment: isClient
                                     ? Alignment.centerRight
                                     : Alignment.centerLeft,
-                                child: Container(
+                                child: GestureDetector(
+                                  onLongPress: () => showMessageActionsSheet(
+                                    context,
+                                    isPinned: m['pinned'] == true,
+                                    isStarred: _starredIds.contains(messageId),
+                                    onTogglePin: () => _togglePin(m),
+                                    onToggleStar: () => _toggleStar(m),
+                                  ),
+                                  child: Container(
                                   margin: EdgeInsets.only(
                                       bottom: bubbleStyle.bubbleSpacing),
                                   padding: bubbleStyle.bubblePadding,
@@ -766,8 +998,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     ],
                                   ),
                                 ),
+                                ),
                               );
                             },
+                          );
+                          }
+                          return Column(
+                            children: [
+                              if (pinnedMessage != null)
+                                PinnedMessageBanner(
+                                  content: pinnedMessage['content']
+                                          as String? ??
+                                      '',
+                                  onTap: () => _scrollToMessage(
+                                      pinnedMessage!['id'] as String),
+                                  onUnpin: () => _togglePin(pinnedMessage!),
+                                ),
+                              if (_searchMode)
+                                _buildSearchResults(theme, searchResults),
+                              Expanded(child: messageArea),
+                            ],
                           );
                         },
                           ),
