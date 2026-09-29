@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
@@ -12,9 +13,11 @@ import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
 import '../../core/chat/message_actions_sheet.dart';
+import '../../core/chat/message_reactions_bar.dart';
 import '../../core/chat/pinned_message_banner.dart';
 import '../../core/chat/presence_helper.dart';
 import '../../core/chat/read_receipt.dart';
+import '../../core/chat/reply_preview.dart';
 import '../../core/chat/starred_messages_screen.dart';
 import '../../core/chat/typing_dots.dart';
 import '../../core/chat/typing_presence.dart';
@@ -96,6 +99,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// `starred_messages` (phase251).
   Set<String> _starredIds = {};
 
+  /// Réactions emoji (29/09), groupées par message — voir
+  /// `message_reactions` (phase252).
+  Stream<List<Map<String, dynamic>>>? _reactionsStream;
+  StreamSubscription<List<Map<String, dynamic>>>? _reactionsSub;
+  Map<String, List<Map<String, dynamic>>> _reactionsByMessage = {};
+
+  /// Message auquel le client est en train de répondre (29/09) — affiché
+  /// au-dessus du composer tant que non annulé/envoyé.
+  Map<String, dynamic>? _replyTarget;
+
+  /// Messages supprimés "pour moi" uniquement (29/09) — masqués côté
+  /// affichage, sans toucher au message pour l'autre partie. Voir
+  /// `message_hidden_for` (phase252).
+  Set<String> _hiddenIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -123,6 +141,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _typing?.dispose();
     _presenceTimer?.cancel();
     _conversationSub?.cancel();
+    _reactionsSub?.cancel();
     _textController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
@@ -219,12 +238,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _conversationStream = SupabaseConfig.client
             .from('conversations')
             .stream(primaryKey: ['id']).eq('id', conversationId);
+        _reactionsStream = SupabaseConfig.client
+            .from('message_reactions')
+            .stream(primaryKey: ['id'])
+            .eq('conversation_id', conversationId);
         _isLoading = false;
       });
       _conversationSub = _conversationStream!.listen((rows) {
         if (!mounted || rows.isEmpty) return;
         final mode = rows.first['mode'] as String? ?? 'ia';
         if (mode != _mode) setState(() => _mode = mode);
+      });
+      _reactionsSub = _reactionsStream!.listen((rows) {
+        if (!mounted) return;
+        final grouped = <String, List<Map<String, dynamic>>>{};
+        for (final r in rows) {
+          final mid = r['message_id'] as String;
+          grouped.putIfAbsent(mid, () => []).add(r);
+        }
+        setState(() => _reactionsByMessage = grouped);
       });
       _typing = TypingPresence(
         topic: 'conversation:$conversationId',
@@ -236,6 +268,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       await _markIncomingAsRead(conversationId);
       await _loadStarredIds(conversationId);
+      await _loadHiddenIds();
 
       // Présence (29/09) : signale que le client est actif maintenant,
       // répété toutes les 25s tant que l'écran reste ouvert, et récupère
@@ -348,6 +381,168 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         const SnackBar(content: Text('Action impossible. Réessayez.')),
       );
     }
+  }
+
+  Future<void> _loadHiddenIds() async {
+    try {
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+      if (userId == null) return;
+      final rows = await SupabaseConfig.client
+          .from('message_hidden_for')
+          .select('message_id')
+          .eq('user_id', userId);
+      if (mounted) {
+        setState(() {
+          _hiddenIds = List<Map<String, dynamic>>.from(rows)
+              .map((r) => r['message_id'] as String)
+              .toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  String? _myReactionFor(String messageId) {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    final list = _reactionsByMessage[messageId];
+    if (list == null || userId == null) return null;
+    for (final r in list) {
+      if (r['user_id'] == userId) return r['emoji'] as String?;
+    }
+    return null;
+  }
+
+  /// Une seule réaction par utilisateur et par message (29/09) — retaper
+  /// le même emoji la retire, en taper un autre la remplace.
+  Future<void> _toggleReaction(Map<String, dynamic> message, String emoji) async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null || _conversationId == null) return;
+    final messageId = message['id'] as String;
+    final current = _myReactionFor(messageId);
+    try {
+      if (current == emoji) {
+        await SupabaseConfig.client
+            .from('message_reactions')
+            .delete()
+            .eq('message_id', messageId)
+            .eq('user_id', userId);
+      } else {
+        await SupabaseConfig.client.from('message_reactions').upsert({
+          'message_id': messageId,
+          'conversation_id': _conversationId,
+          'user_id': userId,
+          'emoji': emoji,
+        }, onConflict: 'message_id,user_id');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  void _setReplyTarget(Map<String, dynamic> message) {
+    setState(() => _replyTarget = message);
+  }
+
+  void _cancelReply() {
+    setState(() => _replyTarget = null);
+  }
+
+  void _copyMessageText(Map<String, dynamic> message) {
+    final text = message['content'] as String?;
+    if (text == null || text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Texte copié.')),
+    );
+  }
+
+  Future<void> _editMessage(Map<String, dynamic> message) async {
+    final controller =
+        TextEditingController(text: message['content'] as String? ?? '');
+    final newText = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Modifier le message'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 1,
+          maxLines: 5,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (newText == null || newText.isEmpty || newText == message['content']) {
+      return;
+    }
+    try {
+      await SupabaseConfig.client.from('messages').update({
+        'content': newText,
+        'edited_at': DateTime.now().toIso8601String(),
+      }).eq('id', message['id']);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  Future<void> _deleteForMe(Map<String, dynamic> message) async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+    final messageId = message['id'] as String;
+    try {
+      await SupabaseConfig.client.from('message_hidden_for').insert({
+        'user_id': userId,
+        'message_id': messageId,
+      });
+      if (mounted) setState(() => _hiddenIds.add(messageId));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  Future<void> _deleteForEveryone(Map<String, dynamic> message) async {
+    try {
+      await SupabaseConfig.client.from('messages').update({
+        'content': null,
+        'attachment_url': null,
+        'attachment_type': null,
+        'attachment_name': null,
+        'attachment_duration_ms': null,
+        'deleted_at': DateTime.now().toIso8601String(),
+      }).eq('id', message['id']);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  Map<String, dynamic>? _findMessageById(
+      List<Map<String, dynamic>> messages, String? id) {
+    if (id == null) return null;
+    for (final m in messages) {
+      if (m['id'] == id) return m;
+    }
+    return null;
   }
 
   Future<void> _refreshStaffPresence() async {
@@ -480,12 +675,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     setState(() => _isRequestMode = false);
 
     try {
+      final replyToId = _replyTarget?['id'];
       await SupabaseConfig.client.from('messages').insert({
         'conversation_id': _conversationId,
         'sender_id': userId,
         'sender_role': 'client',
         'content': text,
         'is_request': wasRequest,
+        'reply_to_message_id': replyToId,
         'read_by_client': true,
         'read_by_staff': false,
       });
@@ -496,7 +693,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // On ne vide le champ qu'une fois l'envoi confirmé — sinon, en cas
       // d'échec, le client perdait son message tapé et devait tout
       // retaper à chaque tentative.
-      if (mounted) _textController.clear();
+      if (mounted) {
+        _textController.clear();
+        setState(() => _replyTarget = null);
+      }
     } catch (e) {
       // Log technique pour diagnostiquer une éventuelle récidive (RLS,
       // migration manquante...) — jamais montré au client.
@@ -538,6 +738,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         'attachment_type': upload.type,
         'attachment_name': upload.name,
         'attachment_duration_ms': upload.durationMs,
+        'reply_to_message_id': _replyTarget?['id'],
         'read_by_client': true,
         'read_by_staff': false,
       });
@@ -545,6 +746,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           .from('conversations')
           .update({'last_message_at': DateTime.now().toIso8601String()}).eq(
               'id', _conversationId as Object);
+      if (mounted) setState(() => _replyTarget = null);
     } catch (e) {
       debugPrint('Échec envoi pièce jointe chat : $e');
       if (!mounted) return;
@@ -764,8 +966,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           if (_conversationId != null) {
                             _markIncomingAsRead(_conversationId!);
                           }
+                          final visibleMessages = messages
+                              .where((m) => !_hiddenIds.contains(m['id']))
+                              .toList();
                           Map<String, dynamic>? pinnedMessage;
-                          for (final m in messages) {
+                          for (final m in visibleMessages) {
                             if (m['pinned'] == true) {
                               pinnedMessage = m;
                               break;
@@ -773,14 +978,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           }
                           final searchResults = _searchQuery.isEmpty
                               ? <Map<String, dynamic>>[]
-                              : messages
+                              : visibleMessages
                                   .where((m) =>
                                       (m['content'] as String? ?? '')
                                           .toLowerCase()
                                           .contains(_searchQuery.toLowerCase()))
                                   .toList();
                           Widget messageArea;
-                          if (messages.isEmpty) {
+                          if (visibleMessages.isEmpty) {
                             messageArea = Center(
                               child: Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 8.w),
@@ -800,18 +1005,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             controller: _scrollController,
                             reverse: true,
                             padding: EdgeInsets.all(4.w),
-                            itemCount: messages.length,
+                            itemCount: visibleMessages.length,
                             itemBuilder: (context, index) {
                               // reverse: true ancre la liste en bas de
                               // l'écran (comme WhatsApp/Messenger) au lieu
                               // de laisser les messages "flotter" en haut
                               // avec un grand vide en dessous quand il y en
                               // a peu — index 0 = message le plus récent.
-                              final msgIndex = messages.length - 1 - index;
-                              final m = messages[msgIndex];
+                              final msgIndex =
+                                  visibleMessages.length - 1 - index;
+                              final m = visibleMessages[msgIndex];
                               final isClient = m['sender_role'] == 'client';
                               final isAi = m['sender_role'] == 'ai';
                               final isRequest = m['is_request'] == true;
+                              final isDeleted = m['deleted_at'] != null;
                               final createdAt =
                                   DateTime.tryParse(m['created_at'] ?? '');
 
@@ -819,14 +1026,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               // bulle d'une série consécutive du même
                               // expéditeur — évite de répéter l'heure sur
                               // chaque message envoyé coup sur coup.
-                              final nextMsg = msgIndex + 1 < messages.length
-                                  ? messages[msgIndex + 1]
-                                  : null;
+                              final nextMsg =
+                                  msgIndex + 1 < visibleMessages.length
+                                      ? visibleMessages[msgIndex + 1]
+                                      : null;
                               final isLastOfGroup = nextMsg == null ||
                                   nextMsg['sender_role'] != m['sender_role'];
                               final messageId = m['id'] as String;
                               final messageKey = _messageKeys.putIfAbsent(
                                   messageId, () => GlobalKey());
+                              final replyTo = _findMessageById(
+                                  messages, m['reply_to_message_id'] as String?);
 
                               return Align(
                                 key: messageKey,
@@ -838,8 +1048,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     context,
                                     isPinned: m['pinned'] == true,
                                     isStarred: _starredIds.contains(messageId),
+                                    myReaction: _myReactionFor(messageId),
+                                    onReact: (emoji) =>
+                                        _toggleReaction(m, emoji),
                                     onTogglePin: () => _togglePin(m),
                                     onToggleStar: () => _toggleStar(m),
+                                    onReply: () => _setReplyTarget(m),
+                                    onCopy: () => _copyMessageText(m),
+                                    onDeleteForMe: () => _deleteForMe(m),
+                                    onEdit: (isClient &&
+                                            !isDeleted &&
+                                            (m['content'] as String?)
+                                                    ?.isNotEmpty ==
+                                                true)
+                                        ? () => _editMessage(m)
+                                        : null,
+                                    onDeleteForEveryone:
+                                        (isClient && !isDeleted)
+                                            ? () => _deleteForEveryone(m)
+                                            : null,
                                   ),
                                   child: Container(
                                   margin: EdgeInsets.only(
@@ -859,6 +1086,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if (replyTo != null)
+                                        QuotedMessagePreview(
+                                          senderLabel: replyTo[
+                                                      'sender_role'] ==
+                                                  'client'
+                                              ? 'Vous'
+                                              : (replyTo['sender_role'] ==
+                                                      'ai'
+                                                  ? 'Akora AI'
+                                                  : 'Équipe'),
+                                          snippet:
+                                              (replyTo['content'] as String?)
+                                                          ?.isNotEmpty ==
+                                                      true
+                                                  ? replyTo['content']
+                                                      as String
+                                                  : 'Pièce jointe',
+                                          foregroundColor: isClient
+                                              ? theme.colorScheme.onPrimary
+                                              : theme.colorScheme.onSurface,
+                                          onTap: () => _scrollToMessage(
+                                              replyTo['id'] as String),
+                                        ),
                                       if (isAi)
                                         Padding(
                                           padding: const EdgeInsets.only(
@@ -914,7 +1164,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                     .shrinkWrap,
                                           ),
                                         ),
-                                      if (m['attachment_type'] != null)
+                                      if (!isDeleted &&
+                                          m['attachment_type'] != null)
                                         ChatAttachmentBubble(
                                           path: m['attachment_url'],
                                           type: m['attachment_type'],
@@ -925,7 +1176,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                               ? theme.colorScheme.onPrimary
                                               : theme.colorScheme.onSurface,
                                         ),
-                                      if ((m['content'] as String?)
+                                      if (isDeleted)
+                                        Text(
+                                          'Message supprimé',
+                                          style: TextStyle(
+                                            fontSize: bubbleStyle.fontSize,
+                                            fontStyle: FontStyle.italic,
+                                            color: (isClient
+                                                    ? theme.colorScheme
+                                                        .onPrimary
+                                                    : theme.colorScheme
+                                                        .onSurface)
+                                                .withValues(alpha: 0.65),
+                                          ),
+                                        )
+                                      else if ((m['content'] as String?)
                                               ?.isNotEmpty ==
                                           true)
                                         Text(
@@ -937,6 +1202,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                 : theme.colorScheme.onSurface,
                                           ),
                                         ),
+                                      if (!isDeleted)
+                                        MessageReactionsBar(
+                                          reactions:
+                                              _reactionsByMessage[messageId] ??
+                                                  const [],
+                                          myUserId: SupabaseConfig
+                                              .client.auth.currentUser?.id,
+                                          onTapEmoji: (emoji) =>
+                                              _toggleReaction(m, emoji),
+                                        ),
                                       if (createdAt != null && isLastOfGroup)
                                         Padding(
                                           padding:
@@ -945,8 +1220,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Text(
-                                                _dateFormat.format(
-                                                    createdAt.toLocal()),
+                                                m['edited_at'] != null &&
+                                                        !isDeleted
+                                                    ? '${_dateFormat.format(createdAt.toLocal())} · modifié'
+                                                    : _dateFormat.format(
+                                                        createdAt.toLocal()),
                                                 style: theme
                                                     .textTheme.labelSmall
                                                     ?.copyWith(
@@ -978,7 +1256,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           ),
                                         ),
                                       if (isClient &&
-                                          msgIndex == messages.length - 1 &&
+                                          msgIndex ==
+                                              visibleMessages.length - 1 &&
                                           m['read_by_staff'] == true &&
                                           m['read_by_staff_at'] != null)
                                         Padding(
@@ -1095,29 +1374,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               : 'Écrire un message...',
                           onSendText: _send,
                           onSendAttachment: _sendAttachment,
-                          topBar: Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: 6, left: 4),
-                            child: FilterChip(
-                              label: const Text('Envoyer comme demande'),
-                              avatar: Icon(
-                                Icons.request_page_outlined,
-                                size: 16,
-                                color: _isRequestMode
-                                    ? theme.colorScheme.onPrimary
-                                    : theme.colorScheme.outline,
+                          topBar: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_replyTarget != null)
+                                ReplyPreviewBar(
+                                  senderLabel:
+                                      _replyTarget!['sender_role'] ==
+                                              'client'
+                                          ? 'Vous'
+                                          : (_replyTarget!['sender_role'] ==
+                                                  'ai'
+                                              ? 'Akora AI'
+                                              : 'Équipe'),
+                                  snippet: (_replyTarget!['content']
+                                                  as String?)
+                                              ?.isNotEmpty ==
+                                          true
+                                      ? _replyTarget!['content'] as String
+                                      : 'Pièce jointe',
+                                  onCancel: _cancelReply,
+                                ),
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    bottom: 6, left: 4),
+                                child: FilterChip(
+                                  label: const Text('Envoyer comme demande'),
+                                  avatar: Icon(
+                                    Icons.request_page_outlined,
+                                    size: 16,
+                                    color: _isRequestMode
+                                        ? theme.colorScheme.onPrimary
+                                        : theme.colorScheme.outline,
+                                  ),
+                                  selected: _isRequestMode,
+                                  onSelected: (v) =>
+                                      setState(() => _isRequestMode = v),
+                                  selectedColor: theme.colorScheme.primary,
+                                  labelStyle: TextStyle(
+                                    color: _isRequestMode
+                                        ? theme.colorScheme.onPrimary
+                                        : null,
+                                    fontSize: 11,
+                                  ),
+                                ),
                               ),
-                              selected: _isRequestMode,
-                              onSelected: (v) =>
-                                  setState(() => _isRequestMode = v),
-                              selectedColor: theme.colorScheme.primary,
-                              labelStyle: TextStyle(
-                                color: _isRequestMode
-                                    ? theme.colorScheme.onPrimary
-                                    : null,
-                                fontSize: 11,
-                              ),
-                            ),
+                            ],
                           ),
                         ),
                       ),

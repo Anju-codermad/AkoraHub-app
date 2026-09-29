@@ -9270,3 +9270,65 @@ touchés. Restructuration plus profonde que la tranche précédente
 `Builder`/`Column` autour de la zone de messages côté staff pour
 accueillir bandeau épinglé + résultats de recherche) — à surveiller de
 près sur le premier build CI après ce commit.
+
+## Messagerie — Interactions sur les messages (29/09) ✅ FAIT
+
+Troisième tranche : "PUIS CECI / Interactions sur les messages"
+(items 5 à 10) — réagir avec un emoji, répondre (citation), transférer,
+modifier, supprimer (pour soi / pour tout le monde), copier.
+
+- `phase252_patch_reactions_reply_forward_edit_delete.sql` :
+  - `messages.reply_to_message_id`/`forwarded`/`edited_at`/`deleted_at`.
+  - Table `message_reactions` (une réaction par utilisateur et par
+    message — retaper le même emoji la retire, en taper un autre la
+    remplace), Realtime activé.
+  - Table `message_hidden_for` ("supprimer pour moi" — masque
+    uniquement pour l'utilisateur, sans toucher au message).
+  - **Assouplit `protect_message_content`** (phase155, anti-falsification
+    du 10/08) : jusqu'ici AUCUN non-staff ne pouvait modifier `content`,
+    même sur son propre message — bloquant pour "Modifier"/"Supprimer
+    pour tout le monde". Le trigger autorise désormais l'AUTEUR
+    D'ORIGINE (`old.sender_id = auth.uid()`, même un client) à modifier
+    `content`/`edited_at`/`deleted_at` de SON PROPRE message ; la
+    protection contre la falsification du message d'un tiers (ex : un
+    client qui modifierait un message du staff) reste intacte, tout
+    comme le verrou sur sender_id/sender_role/is_request/
+    conversation_id/created_at.
+- `core/chat/message_reactions_bar.dart` (nouveau) : barre de réactions
+  groupées sous une bulle (emoji + compteur) — tap bascule SA PROPRE
+  réaction sur cet emoji.
+- `core/chat/reply_preview.dart` (nouveau) : `ReplyPreviewBar`
+  (au-dessus du composer, fermable) + `QuotedMessagePreview` (citation
+  en haut d'une bulle qui répond à un message, tap → scroll vers
+  l'original).
+- `core/chat/conversation_picker_screen.dart` (nouveau, staff
+  uniquement) : sélecteur de conversation pour "Transférer" — un client
+  n'a qu'une seule conversation avec l'équipe, transférer n'a de sens
+  que côté staff (entre deux clients différents).
+- `core/chat/message_actions_sheet.dart` (réécrit) : le menu au clic
+  long s'enrichit — ligne d'emojis rapides (👍❤️😂😮😢🙏) en tête, puis
+  Répondre / Copier / Transférer (staff) / Modifier (si son propre
+  message texte) / Épingler / Enregistrer / Supprimer pour moi /
+  Supprimer pour tout le monde (si son propre message). Chaque action
+  optionnelle nulle masque l'entrée correspondante.
+- `chat_screen.dart` (client) et `messaging_center_real.dart`
+  (`AdminConversationThread`, staff) : mêmes ajouts des deux côtés —
+  réactions (flux Realtime dédié côté client, rechargé après action
+  côté staff comme le reste de cet écran), citation en réponse (lookup
+  local dans la liste déjà chargée, pas de requête réseau
+  supplémentaire), placeholder "Message supprimé" en italique,
+  label "· modifié" si `edited_at`, badge "Transféré" (staff), liste
+  filtrée pour exclure les messages masqués "pour moi"
+  (`message_hidden_for`). Côté staff en plus : "Transférer" ouvre
+  `ConversationPickerScreen` et insère une copie du message
+  (`forwarded: true`) dans la conversation choisie.
+
+⚠️ **Non vérifié par compilation locale** (toujours pas de SDK Flutter
+dans cet environnement) — relu intégralement les 2 fichiers modifiés
+après édition (pas seulement les diffs), équilibre des
+accolades/parenthèses vérifié par script. Tranche la plus dense de la
+série (6 fonctionnalités, 3 nouvelles tables, trigger de sécurité
+modifié) — surveiller de très près le premier build CI, et vérifier en
+particulier que l'assouplissement du trigger `protect_message_content`
+n'a pas de régression (un client ne doit TOUJOURS PAS pouvoir modifier
+un message qui n'est pas le sien).

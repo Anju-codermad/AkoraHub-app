@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -10,10 +11,13 @@ import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
+import '../../core/chat/conversation_picker_screen.dart';
 import '../../core/chat/message_actions_sheet.dart';
+import '../../core/chat/message_reactions_bar.dart';
 import '../../core/chat/pinned_message_banner.dart';
 import '../../core/chat/presence_helper.dart';
 import '../../core/chat/read_receipt.dart';
+import '../../core/chat/reply_preview.dart';
 import '../../core/chat/starred_messages_screen.dart';
 import '../../core/chat/typing_dots.dart';
 import '../../core/chat/typing_presence.dart';
@@ -318,6 +322,19 @@ class _AdminConversationThreadState
   /// `starred_messages` (phase251).
   Set<String> _starredIds = {};
 
+  /// Réactions emoji (29/09), groupées par message — voir
+  /// `message_reactions` (phase252). Pas de flux temps réel ici (cet
+  /// écran n'en a pas non plus pour les messages) : rechargé après
+  /// chaque action.
+  Map<String, List<Map<String, dynamic>>> _reactionsByMessage = {};
+
+  /// Message auquel ce membre du staff est en train de répondre (29/09).
+  Map<String, dynamic>? _replyTarget;
+
+  /// Messages supprimés "pour moi" uniquement (29/09), voir
+  /// `message_hidden_for` (phase252).
+  Set<String> _hiddenIds = {};
+
   String? get _myId =>
       SupabaseConfig.isConfigured ? SupabaseConfig.client.auth.currentUser?.id : null;
 
@@ -341,10 +358,231 @@ class _AdminConversationThreadState
     PresenceHelper.touch();
     _refreshCustomerPresence();
     _loadStarredIds();
+    _loadReactions();
+    _loadHiddenIds();
     _presenceTimer = Timer.periodic(const Duration(seconds: 25), (_) {
       PresenceHelper.touch();
       _refreshCustomerPresence();
     });
+  }
+
+  Future<void> _loadReactions() async {
+    try {
+      final rows = await SupabaseConfig.client
+          .from('message_reactions')
+          .select()
+          .eq('conversation_id', widget.conversationId);
+      final grouped = <String, List<Map<String, dynamic>>>{};
+      for (final r in List<Map<String, dynamic>>.from(rows)) {
+        final mid = r['message_id'] as String;
+        grouped.putIfAbsent(mid, () => []).add(r);
+      }
+      if (mounted) setState(() => _reactionsByMessage = grouped);
+    } catch (_) {}
+  }
+
+  Future<void> _loadHiddenIds() async {
+    final myId = _myId;
+    if (myId == null) return;
+    try {
+      final rows = await SupabaseConfig.client
+          .from('message_hidden_for')
+          .select('message_id')
+          .eq('user_id', myId);
+      if (mounted) {
+        setState(() {
+          _hiddenIds = List<Map<String, dynamic>>.from(rows)
+              .map((r) => r['message_id'] as String)
+              .toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  String? _myReactionFor(String messageId) {
+    final myId = _myId;
+    final list = _reactionsByMessage[messageId];
+    if (list == null || myId == null) return null;
+    for (final r in list) {
+      if (r['user_id'] == myId) return r['emoji'] as String?;
+    }
+    return null;
+  }
+
+  Future<void> _toggleReaction(Map<String, dynamic> message, String emoji) async {
+    final myId = _myId;
+    if (myId == null) return;
+    final messageId = message['id'] as String;
+    final current = _myReactionFor(messageId);
+    try {
+      if (current == emoji) {
+        await SupabaseConfig.client
+            .from('message_reactions')
+            .delete()
+            .eq('message_id', messageId)
+            .eq('user_id', myId);
+      } else {
+        await SupabaseConfig.client.from('message_reactions').upsert({
+          'message_id': messageId,
+          'conversation_id': widget.conversationId,
+          'user_id': myId,
+          'emoji': emoji,
+        }, onConflict: 'message_id,user_id');
+      }
+      await _loadReactions();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  void _setReplyTarget(Map<String, dynamic> message) {
+    setState(() => _replyTarget = message);
+  }
+
+  void _cancelReply() {
+    setState(() => _replyTarget = null);
+  }
+
+  void _copyMessageText(Map<String, dynamic> message) {
+    final text = message['content'] as String?;
+    if (text == null || text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Texte copié.')),
+    );
+  }
+
+  Future<void> _editMessage(Map<String, dynamic> message) async {
+    final controller =
+        TextEditingController(text: message['content'] as String? ?? '');
+    final newText = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Modifier le message'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 1,
+          maxLines: 5,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (newText == null || newText.isEmpty || newText == message['content']) {
+      return;
+    }
+    try {
+      await SupabaseConfig.client.from('messages').update({
+        'content': newText,
+        'edited_at': DateTime.now().toIso8601String(),
+      }).eq('id', message['id']);
+      await _loadMessages();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  Future<void> _deleteForMe(Map<String, dynamic> message) async {
+    final myId = _myId;
+    if (myId == null) return;
+    final messageId = message['id'] as String;
+    try {
+      await SupabaseConfig.client.from('message_hidden_for').insert({
+        'user_id': myId,
+        'message_id': messageId,
+      });
+      if (mounted) setState(() => _hiddenIds.add(messageId));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  Future<void> _deleteForEveryone(Map<String, dynamic> message) async {
+    try {
+      await SupabaseConfig.client.from('messages').update({
+        'content': null,
+        'attachment_url': null,
+        'attachment_type': null,
+        'attachment_name': null,
+        'attachment_duration_ms': null,
+        'deleted_at': DateTime.now().toIso8601String(),
+      }).eq('id', message['id']);
+      await _loadMessages();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action impossible. Réessayez.')),
+      );
+    }
+  }
+
+  Future<void> _forwardMessage(Map<String, dynamic> message) async {
+    final myId = _myId;
+    if (myId == null) return;
+    final targetConversationId = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConversationPickerScreen(
+          excludeConversationId: widget.conversationId,
+        ),
+      ),
+    );
+    if (targetConversationId == null || !mounted) return;
+    try {
+      await SupabaseConfig.client.from('messages').insert({
+        'conversation_id': targetConversationId,
+        'sender_id': myId,
+        'sender_role': 'staff',
+        'content': message['content'],
+        'attachment_url': message['attachment_url'],
+        'attachment_type': message['attachment_type'],
+        'attachment_name': message['attachment_name'],
+        'attachment_duration_ms': message['attachment_duration_ms'],
+        'forwarded': true,
+        'read_by_staff': true,
+      });
+      await SupabaseConfig.client
+          .from('conversations')
+          .update({'last_message_at': DateTime.now().toIso8601String()})
+          .eq('id', targetConversationId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message transféré.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Échec du transfert. Réessayez.')),
+      );
+    }
+  }
+
+  Map<String, dynamic>? _findMessageById(
+      List<Map<String, dynamic>> messages, String? id) {
+    if (id == null) return null;
+    for (final m in messages) {
+      if (m['id'] == id) return m;
+    }
+    return null;
   }
 
   Future<void> _loadStarredIds() async {
@@ -534,8 +772,10 @@ class _AdminConversationThreadState
         'sender_id': _myId,
         'sender_role': 'staff',
         'content': text,
+        'reply_to_message_id': _replyTarget?['id'],
         'read_by_staff': true,
       });
+      if (mounted) setState(() => _replyTarget = null);
       await _loadMessages();
     } catch (_) {
       if (!mounted) return;
@@ -567,8 +807,10 @@ class _AdminConversationThreadState
         'attachment_type': upload.type,
         'attachment_name': upload.name,
         'attachment_duration_ms': upload.durationMs,
+        'reply_to_message_id': _replyTarget?['id'],
         'read_by_staff': true,
       });
+      if (mounted) setState(() => _replyTarget = null);
       await _loadMessages();
     } catch (_) {
       if (!mounted) return;
@@ -715,8 +957,11 @@ class _AdminConversationThreadState
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Builder(builder: (context) {
+              final visibleMessages = _messages
+                  .where((m) => !_hiddenIds.contains(m['id']))
+                  .toList();
               Map<String, dynamic>? pinnedMessage;
-              for (final m in _messages) {
+              for (final m in visibleMessages) {
                 if (m['pinned'] == true) {
                   pinnedMessage = m;
                   break;
@@ -724,7 +969,7 @@ class _AdminConversationThreadState
               }
               final searchResults = _searchQuery.isEmpty
                   ? <Map<String, dynamic>>[]
-                  : _messages
+                  : visibleMessages
                       .where((m) => (m['content'] as String? ?? '')
                           .toLowerCase()
                           .contains(_searchQuery.toLowerCase()))
@@ -743,15 +988,18 @@ class _AdminConversationThreadState
                   child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(12),
-                    itemCount: _messages.length,
+                    itemCount: visibleMessages.length,
                     itemBuilder: (context, index) {
-                      final m = _messages[index];
+                      final m = visibleMessages[index];
                       final isMine = m['sender_id'] == _myId;
                       final isAi = m['sender_role'] == 'ai';
                       final isRequest = m['is_request'] == true;
+                      final isDeleted = m['deleted_at'] != null;
                       final messageId = m['id'] as String;
                       final messageKey = _messageKeys.putIfAbsent(
                           messageId, () => GlobalKey());
+                      final replyTo = _findMessageById(
+                          _messages, m['reply_to_message_id'] as String?);
                       return Align(
                         key: messageKey,
                         alignment: isMine
@@ -762,8 +1010,25 @@ class _AdminConversationThreadState
                             context,
                             isPinned: m['pinned'] == true,
                             isStarred: _starredIds.contains(messageId),
+                            myReaction: _myReactionFor(messageId),
+                            onReact: (emoji) => _toggleReaction(m, emoji),
                             onTogglePin: () => _togglePin(m),
                             onToggleStar: () => _toggleStar(m),
+                            onReply: () => _setReplyTarget(m),
+                            onCopy: () => _copyMessageText(m),
+                            onDeleteForMe: () => _deleteForMe(m),
+                            onForward: !isDeleted
+                                ? () => _forwardMessage(m)
+                                : null,
+                            onEdit: (isMine &&
+                                    !isDeleted &&
+                                    (m['content'] as String?)?.isNotEmpty ==
+                                        true)
+                                ? () => _editMessage(m)
+                                : null,
+                            onDeleteForEveryone: (isMine && !isDeleted)
+                                ? () => _deleteForEveryone(m)
+                                : null,
                           ),
                           child: Container(
                           margin: EdgeInsets.symmetric(
@@ -782,6 +1047,40 @@ class _AdminConversationThreadState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if (replyTo != null)
+                                QuotedMessagePreview(
+                                  senderLabel: replyTo['sender_role'] ==
+                                          'client'
+                                      ? widget.customerName
+                                      : (replyTo['sender_role'] == 'ai'
+                                          ? 'Akora AI'
+                                          : 'Équipe'),
+                                  snippet: (replyTo['content'] as String?)
+                                              ?.isNotEmpty ==
+                                          true
+                                      ? replyTo['content'] as String
+                                      : 'Pièce jointe',
+                                  foregroundColor: isMine
+                                      ? theme.colorScheme.onPrimary
+                                      : theme.colorScheme.onSurface,
+                                  onTap: () => _scrollToMessage(
+                                      replyTo['id'] as String),
+                                ),
+                              if (m['forwarded'] == true)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    'Transféré',
+                                    style: theme.textTheme.labelSmall
+                                        ?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: (isMine
+                                              ? theme.colorScheme.onPrimary
+                                              : theme.colorScheme.onSurface)
+                                          .withValues(alpha: 0.65),
+                                    ),
+                                  ),
+                                ),
                               if (isAi)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 4),
@@ -831,7 +1130,7 @@ class _AdminConversationThreadState
                                         MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
-                              if (m['attachment_type'] != null)
+                              if (!isDeleted && m['attachment_type'] != null)
                                 ChatAttachmentBubble(
                                   path: m['attachment_url'],
                                   type: m['attachment_type'],
@@ -841,7 +1140,20 @@ class _AdminConversationThreadState
                                       ? theme.colorScheme.onPrimary
                                       : theme.colorScheme.onSurface,
                                 ),
-                              if ((m['content'] as String?)?.isNotEmpty ==
+                              if (isDeleted)
+                                Text(
+                                  'Message supprimé',
+                                  style: TextStyle(
+                                    fontSize: bubbleStyle.fontSize,
+                                    fontStyle: FontStyle.italic,
+                                    color: (isMine
+                                            ? theme.colorScheme.onPrimary
+                                            : theme.colorScheme.onSurface)
+                                        .withValues(alpha: 0.65),
+                                  ),
+                                )
+                              else if ((m['content'] as String?)
+                                      ?.isNotEmpty ==
                                   true)
                                 Text(
                                   m['content'],
@@ -852,6 +1164,15 @@ class _AdminConversationThreadState
                                         : theme.colorScheme.onSurface,
                                   ),
                                 ),
+                              if (!isDeleted)
+                                MessageReactionsBar(
+                                  reactions:
+                                      _reactionsByMessage[messageId] ??
+                                          const [],
+                                  myUserId: _myId,
+                                  onTapEmoji: (emoji) =>
+                                      _toggleReaction(m, emoji),
+                                ),
                               if (m['created_at'] != null)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 4),
@@ -859,9 +1180,12 @@ class _AdminConversationThreadState
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        _dateFormat.format(
-                                            DateTime.parse(m['created_at'])
-                                                .toLocal()),
+                                        m['edited_at'] != null && !isDeleted
+                                            ? '${_dateFormat.format(DateTime.parse(m['created_at']).toLocal())} · modifié'
+                                            : _dateFormat.format(
+                                                DateTime.parse(
+                                                        m['created_at'])
+                                                    .toLocal()),
                                         style: theme.textTheme.labelSmall
                                             ?.copyWith(
                                           color: (isMine
@@ -889,7 +1213,7 @@ class _AdminConversationThreadState
                                   ),
                                 ),
                               if (isMine &&
-                                  index == _messages.length - 1 &&
+                                  index == visibleMessages.length - 1 &&
                                   m['read_by_client'] == true &&
                                   m['read_by_client_at'] != null)
                                 Padding(
@@ -938,6 +1262,24 @@ class _AdminConversationThreadState
                       hintText: 'Répondre...',
                       onSendText: _isSending ? () {} : _sendMessage,
                       onSendAttachment: _sendAttachment,
+                      topBar: _replyTarget != null
+                          ? ReplyPreviewBar(
+                              senderLabel:
+                                  _replyTarget!['sender_role'] == 'client'
+                                      ? widget.customerName
+                                      : (_replyTarget!['sender_role'] ==
+                                              'ai'
+                                          ? 'Akora AI'
+                                          : 'Équipe'),
+                              snippet: (_replyTarget!['content']
+                                              as String?)
+                                          ?.isNotEmpty ==
+                                      true
+                                  ? _replyTarget!['content'] as String
+                                  : 'Pièce jointe',
+                              onCancel: _cancelReply,
+                            )
+                          : null,
                     ),
                   ),
                 ),
