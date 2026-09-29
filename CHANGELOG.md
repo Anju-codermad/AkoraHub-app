@@ -1343,3 +1343,6 @@
 
 ## 2026-09-29 14:07 UTC — Claude
 - feat(chat): réactions, répondre, transférer, modifier, supprimer, copier (`d19da53`)
+
+## 2026-09-29 14:18 UTC — Claude
+- feat(chat): médias enrichis (vitesse, forme d'onde, caméra, multi-sélection, aperçu de lien) (`69cf88e`)
