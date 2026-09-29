@@ -1337,3 +1337,6 @@
 
 ## 2026-09-29 13:36 UTC — Claude
 - feat(chat): accusés de lecture, présence en ligne et indicateur de frappe staff (`7d64fe2`)
+
+## 2026-09-29 13:47 UTC — Claude
+- feat(chat): recherche, message épinglé, favoris et filtres de conversation (`a2279c2`)
