@@ -1334,3 +1334,6 @@
 
 ## 2026-09-28 18:24 UTC — Claude
 - fix(admin): retire toute limite de caractères sur le flash info (`e059b43`)
+
+## 2026-09-29 13:36 UTC — Claude
+- feat(chat): accusés de lecture, présence en ligne et indicateur de frappe staff (`7d64fe2`)
