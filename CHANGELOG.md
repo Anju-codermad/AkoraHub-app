@@ -1340,3 +1340,6 @@
 
 ## 2026-09-29 13:47 UTC — Claude
 - feat(chat): recherche, message épinglé, favoris et filtres de conversation (`a2279c2`)
+
+## 2026-09-29 14:07 UTC — Claude
+- feat(chat): réactions, répondre, transférer, modifier, supprimer, copier (`d19da53`)
