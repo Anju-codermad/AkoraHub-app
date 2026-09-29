@@ -9174,3 +9174,51 @@ existantes, aucun moyen d'en démarrer une nouvelle).
   correctes), mais aucune policy ne permettait de PARTIR d'une
   conversation qui n'existait pas encore. Corrigé en ajoutant
   `or public.current_role_is_staff()`.
+
+## Messagerie — accusés de lecture, présence, "en train d'écrire" côté staff (29/09) ✅ FAIT
+
+Première tranche d'une longue liste de suggestions d'amélioration de la
+messagerie (comparée à WhatsApp/Messenger/Telegram, demandée
+explicitement) : "Statut de lecture & présence" (4 points).
+
+Audit préalable du code existant (agent Explore) : les booléens
+`read_by_client`/`read_by_staff` existaient déjà (phase8) mais sans
+horodatage, l'indicateur "en train d'écrire" (`typing_presence.dart`,
+Realtime Broadcast éphémère) n'était branché QUE côté client
+(`chat_screen.dart`), jamais côté staff (`messaging_center_real.dart`),
+et rien ne suivait la présence/dernière activité d'un utilisateur.
+
+- `phase250_patch_read_receipts_presence.sql` : ajoute
+  `messages.read_by_staff_at`/`read_by_client_at` et
+  `profiles.last_seen_at` (+ exposé dans `public_profiles`).
+- `core/chat/read_receipt.dart` (nouveau) : coches ✓ (envoyé) / ✓✓ (lu,
+  en bleu) façon WhatsApp — widget partagé client/staff.
+- `core/chat/presence_helper.dart` (nouveau) : "En ligne"
+  (`last_seen_at` < 45s) / "Vu(e) à HH:MM" / "Vu(e) le J/M à HH:MM" —
+  **approximé par polling léger** (`profiles.last_seen_at` mis à jour
+  toutes les 25s tant qu'un écran de chat est ouvert), pas par Presence
+  Realtime (API jamais utilisée ailleurs dans ce projet à ce jour,
+  écartée pour ne pas introduire un risque de compilation non
+  vérifiable dans cet environnement — voir note ci-dessous).
+- `chat_screen.dart` (client) : coches + "Vu à HH:MM" sur ses propres
+  messages ; présence de l'équipe (staff le plus récemment actif) en
+  sous-titre de l'AppBar ; marque désormais aussi les messages reçus
+  comme lus EN CONTINU tant que l'écran reste ouvert (pas seulement à
+  l'ouverture) — sinon les coches resteraient bloquées à "envoyé" côté
+  staff pendant toute la durée de la conversation.
+- `messaging_center_real.dart` (`AdminConversationThread`, staff) :
+  mêmes coches/"Vu à" pour ses propres messages ; présence du client
+  précis de cette conversation en sous-titre ; **indicateur "en train
+  d'écrire" enfin branché côté staff** (même topic Realtime que le
+  client, `conversation:<id>`, donc les deux se voient mutuellement).
+
+⚠️ **Non vérifié par compilation locale** (pas de SDK Flutter dans cet
+environnement) — seulement relu en détail + vérifié l'équilibre des
+accolades/parenthèses. À surveiller sur le premier build CI après ce
+commit ; si `flutter build` échoue, corriger avant de considérer cette
+tranche terminée.
+
+Suite de la liste (réactions, répondre à un message, recherche dans la
+conversation, aperçu de liens, barre de progression upload...) pas
+encore commencée — voir le message de session où la liste complète a
+été donnée à l'utilisatrice pour le prochain lot à traiter.

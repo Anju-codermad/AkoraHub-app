@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,10 @@ import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
+import '../../core/chat/presence_helper.dart';
+import '../../core/chat/read_receipt.dart';
+import '../../core/chat/typing_dots.dart';
+import '../../core/chat/typing_presence.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../calls/call_screen.dart';
 
@@ -187,9 +192,18 @@ class _AdminConversationThreadState
     extends ConsumerState<AdminConversationThread> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  final _dateFormat = DateFormat('HH:mm');
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
+
+  /// "En train d'écrire" + présence (29/09) — même topic que côté client
+  /// (`chat_screen.dart`), dérivé de l'id de conversation, pour qu'ils se
+  /// voient mutuellement.
+  TypingPresence? _typing;
+  bool _remoteIsTyping = false;
+  Timer? _presenceTimer;
+  String? _customerLastSeenAt;
 
   String? get _myId =>
       SupabaseConfig.isConfigured ? SupabaseConfig.client.auth.currentUser?.id : null;
@@ -198,10 +212,44 @@ class _AdminConversationThreadState
   void initState() {
     super.initState();
     _loadMessages();
+    final myId = _myId;
+    if (myId != null) {
+      _typing = TypingPresence(
+        topic: 'conversation:${widget.conversationId}',
+        selfId: myId,
+        onRemoteTypingChanged: (isTyping) {
+          if (mounted) setState(() => _remoteIsTyping = isTyping);
+        },
+      );
+    }
+    _controller.addListener(() {
+      if (_controller.text.trim().isNotEmpty) _typing?.notifyTyping();
+    });
+    PresenceHelper.touch();
+    _refreshCustomerPresence();
+    _presenceTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      PresenceHelper.touch();
+      _refreshCustomerPresence();
+    });
+  }
+
+  Future<void> _refreshCustomerPresence() async {
+    try {
+      final row = await SupabaseConfig.client
+          .from('profiles')
+          .select('last_seen_at')
+          .eq('id', widget.customerId)
+          .maybeSingle();
+      if (mounted) {
+        setState(() => _customerLastSeenAt = row?['last_seen_at'] as String?);
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _typing?.dispose();
+    _presenceTimer?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -259,7 +307,10 @@ class _AdminConversationThreadState
       try {
         await SupabaseConfig.client
             .from('messages')
-            .update({'read_by_staff': true})
+            .update({
+              'read_by_staff': true,
+              'read_by_staff_at': DateTime.now().toIso8601String(),
+            })
             .eq('conversation_id', widget.conversationId)
             .eq('sender_role', 'client')
             .eq('read_by_staff', false);
@@ -336,7 +387,22 @@ class _AdminConversationThreadState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.customerName),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.customerName),
+            if (PresenceHelper.label(_customerLastSeenAt).isNotEmpty)
+              Text(
+                PresenceHelper.label(_customerLastSeenAt),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: PresenceHelper.isOnline(_customerLastSeenAt)
+                      ? Colors.lightGreenAccent.shade400
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.call_outlined),
@@ -455,6 +521,58 @@ class _AdminConversationThreadState
                                         : theme.colorScheme.onSurface,
                                   ),
                                 ),
+                              if (m['created_at'] != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _dateFormat.format(
+                                            DateTime.parse(m['created_at'])
+                                                .toLocal()),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: (isMine
+                                                  ? theme.colorScheme
+                                                      .onPrimary
+                                                  : theme.colorScheme
+                                                      .onSurfaceVariant)
+                                              .withValues(alpha: 0.75),
+                                        ),
+                                      ),
+                                      // Coches ✓/✓✓ : uniquement sur les
+                                      // messages envoyés PAR ce membre du
+                                      // staff (isMine), jamais sur ceux
+                                      // reçus du client/IA.
+                                      if (isMine) ...[
+                                        const SizedBox(width: 4),
+                                        ReadReceiptTicks(
+                                          isRead:
+                                              m['read_by_client'] == true,
+                                          color: theme.colorScheme.onPrimary
+                                              .withValues(alpha: 0.75),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              if (isMine &&
+                                  index == _messages.length - 1 &&
+                                  m['read_by_client'] == true &&
+                                  m['read_by_client_at'] != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    'Vu à ${_dateFormat.format(DateTime.parse(m['read_by_client_at']).toLocal())}',
+                                    style: theme.textTheme.labelSmall
+                                        ?.copyWith(
+                                      fontSize: 10,
+                                      color: theme.colorScheme.onPrimary
+                                          .withValues(alpha: 0.65),
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -462,6 +580,23 @@ class _AdminConversationThreadState
                     },
                   ),
                 ),
+                if (_remoteIsTyping)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child:
+                            TypingDots(color: theme.colorScheme.onSurface),
+                      ),
+                    ),
+                  ),
                 SafeArea(
                   top: false,
                   child: Padding(

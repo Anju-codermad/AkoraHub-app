@@ -11,6 +11,8 @@ import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
+import '../../core/chat/presence_helper.dart';
+import '../../core/chat/read_receipt.dart';
 import '../../core/chat/typing_dots.dart';
 import '../../core/chat/typing_presence.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -67,6 +69,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   TypingPresence? _typing;
   bool _remoteIsTyping = false;
 
+  /// Présence "En ligne" / "Vu(e) pour la dernière fois" (29/09) —
+  /// approxime la présence de "l'équipe" au sens large (pas un membre du
+  /// staff précis, une conversation n'en a pas un seul assigné) via le
+  /// membre du staff le plus récemment actif. Voir presence_helper.dart.
+  Timer? _presenceTimer;
+  String? _staffLastSeenAt;
+
   @override
   void initState() {
     super.initState();
@@ -92,6 +101,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void dispose() {
     _typing?.dispose();
+    _presenceTimer?.cancel();
     _conversationSub?.cancel();
     _textController.dispose();
     _scrollController.dispose();
@@ -192,21 +202,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         },
       );
 
-      // Marque les messages du staff et de l'IA comme lus à l'ouverture —
-      // sans quoi le badge de notification de l'Accueil (voir
-      // catalog_tab.dart, _unreadMessagesCount) ne redescendrait jamais à
-      // zéro.
-      try {
-        await SupabaseConfig.client
-            .from('messages')
-            .update({'read_by_client': true})
-            .eq('conversation_id', conversationId)
-            .inFilter('sender_role', ['staff', 'ai'])
-            .eq('read_by_client', false);
-      } catch (_) {
-        // Non bloquant : la conversation reste utilisable même si le
-        // marquage échoue.
-      }
+      await _markIncomingAsRead(conversationId);
+
+      // Présence (29/09) : signale que le client est actif maintenant,
+      // répété toutes les 25s tant que l'écran reste ouvert, et récupère
+      // en parallèle la dernière activité connue côté staff.
+      PresenceHelper.touch();
+      _refreshStaffPresence();
+      _presenceTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+        PresenceHelper.touch();
+        _refreshStaffPresence();
+      });
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -214,6 +220,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             'Messagerie indisponible pour le moment. Réessayez plus tard.';
       });
     }
+  }
+
+  /// Marque comme lus les messages du staff/IA pas encore lus — appelé à
+  /// l'ouverture de l'écran ET à chaque nouveau message reçu tant que
+  /// l'écran reste ouvert (sinon les coches ✓✓ resteraient bloquées à
+  /// "envoyé" côté staff pendant toute la durée de la conversation).
+  Future<void> _markIncomingAsRead(String conversationId) async {
+    try {
+      await SupabaseConfig.client
+          .from('messages')
+          .update({
+            'read_by_client': true,
+            'read_by_client_at': DateTime.now().toIso8601String(),
+          })
+          .eq('conversation_id', conversationId)
+          .inFilter('sender_role', ['staff', 'ai'])
+          .eq('read_by_client', false);
+    } catch (_) {
+      // Non bloquant : la conversation reste utilisable même si le
+      // marquage échoue.
+    }
+  }
+
+  Future<void> _refreshStaffPresence() async {
+    try {
+      final row = await SupabaseConfig.client
+          .from('public_profiles')
+          .select('last_seen_at')
+          .eq('is_staff', true)
+          .not('last_seen_at', 'is', null)
+          .order('last_seen_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      if (mounted) {
+        setState(() => _staffLastSeenAt = row?['last_seen_at'] as String?);
+      }
+    } catch (_) {}
   }
 
   /// Une conversation n'a pas de membre du staff assigné (voir
@@ -445,7 +488,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Messagerie'),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Messagerie'),
+            if (PresenceHelper.label(_staffLastSeenAt).isNotEmpty)
+              Text(
+                PresenceHelper.label(_staffLastSeenAt),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: PresenceHelper.isOnline(_staffLastSeenAt)
+                      ? Colors.lightGreenAccent.shade400
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: _mode == 'ia'
@@ -499,6 +557,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           }
                           final messages = snapshot.data!;
                           _handleIncomingMessages(messages.length);
+                          if (_conversationId != null) {
+                            _markIncomingAsRead(_conversationId!);
+                          }
                           if (messages.isEmpty) {
                             return Center(
                               child: Padding(
@@ -648,17 +709,57 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                         Padding(
                                           padding:
                                               const EdgeInsets.only(top: 4),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                _dateFormat.format(
+                                                    createdAt.toLocal()),
+                                                style: theme
+                                                    .textTheme.labelSmall
+                                                    ?.copyWith(
+                                                  color: (isClient
+                                                          ? theme.colorScheme
+                                                              .onPrimary
+                                                          : theme.colorScheme
+                                                              .onSurfaceVariant)
+                                                      .withValues(alpha: 0.75),
+                                                ),
+                                              ),
+                                              // Coches ✓/✓✓ (29/09) : seulement
+                                              // sur SES PROPRES messages
+                                              // envoyés (isClient ici =
+                                              // "envoyé par ce client"), jamais
+                                              // sur ceux reçus du staff/IA.
+                                              if (isClient) ...[
+                                                const SizedBox(width: 4),
+                                                ReadReceiptTicks(
+                                                  isRead:
+                                                      m['read_by_staff'] ==
+                                                          true,
+                                                  color: theme
+                                                      .colorScheme.onPrimary
+                                                      .withValues(alpha: 0.75),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      if (isClient &&
+                                          msgIndex == messages.length - 1 &&
+                                          m['read_by_staff'] == true &&
+                                          m['read_by_staff_at'] != null)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
                                           child: Text(
-                                            _dateFormat.format(
-                                                createdAt.toLocal()),
+                                            'Vu à ${_dateFormat.format(DateTime.parse(m['read_by_staff_at']).toLocal())}',
                                             style: theme.textTheme.labelSmall
                                                 ?.copyWith(
-                                              color: (isClient
-                                                      ? theme.colorScheme
-                                                          .onPrimary
-                                                      : theme.colorScheme
-                                                          .onSurfaceVariant)
-                                                  .withValues(alpha: 0.75),
+                                              fontSize: 10,
+                                              color: theme.colorScheme
+                                                  .onPrimary
+                                                  .withValues(alpha: 0.65),
                                             ),
                                           ),
                                         ),
