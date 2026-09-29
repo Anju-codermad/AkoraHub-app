@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,8 @@ import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
 import '../../core/chat/conversation_picker_screen.dart';
+import '../../core/chat/link_preview_card.dart';
+import '../../core/chat/link_preview_service.dart';
 import '../../core/chat/message_actions_sheet.dart';
 import '../../core/chat/message_reactions_bar.dart';
 import '../../core/chat/pinned_message_banner.dart';
@@ -557,6 +560,7 @@ class _AdminConversationThreadState
         'attachment_type': message['attachment_type'],
         'attachment_name': message['attachment_name'],
         'attachment_duration_ms': message['attachment_duration_ms'],
+        'attachment_waveform': message['attachment_waveform'],
         'forwarded': true,
         'read_by_staff': true,
       });
@@ -788,7 +792,7 @@ class _AdminConversationThreadState
   }
 
   Future<void> _sendAttachment(File file, String type,
-      {String? name, int? durationMs}) async {
+      {String? name, int? durationMs, List<int>? waveform}) async {
     if (_myId == null) return;
 
     try {
@@ -807,6 +811,7 @@ class _AdminConversationThreadState
         'attachment_type': upload.type,
         'attachment_name': upload.name,
         'attachment_duration_ms': upload.durationMs,
+        'attachment_waveform': waveform != null ? jsonEncode(waveform) : null,
         'reply_to_message_id': _replyTarget?['id'],
         'read_by_staff': true,
       });
@@ -1136,6 +1141,7 @@ class _AdminConversationThreadState
                                   type: m['attachment_type'],
                                   name: m['attachment_name'],
                                   durationMs: m['attachment_duration_ms'],
+                                  waveformJson: m['attachment_waveform'],
                                   foregroundColor: isMine
                                       ? theme.colorScheme.onPrimary
                                       : theme.colorScheme.onSurface,
@@ -1163,6 +1169,14 @@ class _AdminConversationThreadState
                                         ? theme.colorScheme.onPrimary
                                         : theme.colorScheme.onSurface,
                                   ),
+                                ),
+                              if (!isDeleted &&
+                                  LinkPreviewService.extractFirstUrl(
+                                          m['content'] as String?) !=
+                                      null)
+                                LinkPreviewCard(
+                                  url: LinkPreviewService.extractFirstUrl(
+                                      m['content'] as String?)!,
                                 ),
                               if (!isDeleted)
                                 MessageReactionsBar(

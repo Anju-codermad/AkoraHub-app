@@ -1,9 +1,9 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
+import 'audio_waveform_player.dart';
 import 'chat_attachment_service.dart';
 
 /// Affiche la pièce jointe d'un message (photo/vidéo/note vocale/fichier)
@@ -14,6 +14,7 @@ class ChatAttachmentBubble extends StatefulWidget {
   final String type;
   final String? name;
   final int? durationMs;
+  final String? waveformJson;
   final Color foregroundColor;
 
   const ChatAttachmentBubble({
@@ -23,6 +24,7 @@ class ChatAttachmentBubble extends StatefulWidget {
     required this.foregroundColor,
     this.name,
     this.durationMs,
+    this.waveformJson,
   });
 
   @override
@@ -32,8 +34,6 @@ class ChatAttachmentBubble extends StatefulWidget {
 class _ChatAttachmentBubbleState extends State<ChatAttachmentBubble> {
   late final Future<String> _urlFuture;
   VideoPlayerController? _videoController;
-  final _audioPlayer = AudioPlayer();
-  bool _isAudioPlaying = false;
 
   @override
   void initState() {
@@ -44,7 +44,6 @@ class _ChatAttachmentBubbleState extends State<ChatAttachmentBubble> {
   @override
   void dispose() {
     _videoController?.dispose();
-    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -69,27 +68,6 @@ class _ChatAttachmentBubbleState extends State<ChatAttachmentBubble> {
         ),
       ),
     );
-  }
-
-  Future<void> _toggleAudio(String url) async {
-    if (_isAudioPlaying) {
-      await _audioPlayer.pause();
-      if (mounted) setState(() => _isAudioPlaying = false);
-    } else {
-      await _audioPlayer.play(UrlSource(url));
-      if (mounted) setState(() => _isAudioPlaying = true);
-      _audioPlayer.onPlayerComplete.listen((_) {
-        if (mounted) setState(() => _isAudioPlaying = false);
-      });
-    }
-  }
-
-  String _formatDuration(int? ms) {
-    if (ms == null) return '';
-    final seconds = (ms / 1000).round();
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -171,24 +149,11 @@ class _ChatAttachmentBubbleState extends State<ChatAttachmentBubble> {
             );
 
           case 'audio':
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    _isAudioPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill,
-                    color: widget.foregroundColor,
-                    size: 32,
-                  ),
-                  onPressed: () => _toggleAudio(url),
-                ),
-                Text(
-                  _formatDuration(widget.durationMs),
-                  style: TextStyle(color: widget.foregroundColor),
-                ),
-              ],
+            return AudioWaveformPlayer(
+              url: url,
+              durationMs: widget.durationMs,
+              waveformJson: widget.waveformJson,
+              foregroundColor: widget.foregroundColor,
             );
 
           case 'file':

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,8 @@ import '../../core/chat/chat_attachment_bubble.dart';
 import '../../core/chat/chat_attachment_service.dart';
 import '../../core/chat/chat_bubble_style.dart';
 import '../../core/chat/chat_composer.dart';
+import '../../core/chat/link_preview_card.dart';
+import '../../core/chat/link_preview_service.dart';
 import '../../core/chat/message_actions_sheet.dart';
 import '../../core/chat/message_reactions_bar.dart';
 import '../../core/chat/pinned_message_banner.dart';
@@ -717,7 +720,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _sendAttachment(File file, String type,
-      {String? name, int? durationMs}) async {
+      {String? name, int? durationMs, List<int>? waveform}) async {
     if (_conversationId == null) return;
     final userId = SupabaseConfig.client.auth.currentUser?.id;
     if (userId == null) return;
@@ -738,6 +741,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         'attachment_type': upload.type,
         'attachment_name': upload.name,
         'attachment_duration_ms': upload.durationMs,
+        'attachment_waveform': waveform != null ? jsonEncode(waveform) : null,
         'reply_to_message_id': _replyTarget?['id'],
         'read_by_client': true,
         'read_by_staff': false,
@@ -1172,6 +1176,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           name: m['attachment_name'],
                                           durationMs:
                                               m['attachment_duration_ms'],
+                                          waveformJson:
+                                              m['attachment_waveform'],
                                           foregroundColor: isClient
                                               ? theme.colorScheme.onPrimary
                                               : theme.colorScheme.onSurface,
@@ -1201,6 +1207,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                 ? theme.colorScheme.onPrimary
                                                 : theme.colorScheme.onSurface,
                                           ),
+                                        ),
+                                      if (!isDeleted &&
+                                          LinkPreviewService.extractFirstUrl(
+                                                  m['content'] as String?) !=
+                                              null)
+                                        LinkPreviewCard(
+                                          url: LinkPreviewService
+                                              .extractFirstUrl(
+                                                  m['content'] as String?)!,
                                         ),
                                       if (!isDeleted)
                                         MessageReactionsBar(

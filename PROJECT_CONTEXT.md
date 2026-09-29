@@ -9332,3 +9332,70 @@ modifié) — surveiller de très près le premier build CI, et vérifier en
 particulier que l'assouplissement du trigger `protect_message_content`
 n'a pas de régression (un client ne doit TOUJOURS PAS pouvoir modifier
 un message qui n'est pas le sien).
+
+## Messagerie — Médias enrichis (29/09) ✅ FAIT
+
+Quatrième tranche : "PUIS CECI / Médias enrichis" (items 15 à 21) —
+vitesse de lecture, forme d'onde, caméra, sélection multiple, barre de
+progression, limite de taille, aperçu de lien.
+
+- `phase253_patch_media_enrichis.sql` : seule colonne nécessaire,
+  `messages.attachment_waveform` (JSON des échantillons d'amplitude
+  capturés PENDANT l'enregistrement — impossible à reconstituer après
+  coup sans redécoder tout le fichier audio côté client). Tout le reste
+  de cette tranche est purement client, avec des packages déjà présents
+  au pubspec (`image_picker`, `file_picker`, `audioplayers`, `record`,
+  `http`) — aucun nouveau package ajouté (risque de résolution de
+  dépendances non vérifiable sans SDK Flutter local).
+- `core/chat/audio_waveform_player.dart` (nouveau) : remplace le simple
+  play/pause des notes vocales — forme d'onde (barres) rendue à partir
+  des échantillons stockés, surlignée selon la position de lecture,
+  cliquable/glissable pour chercher (`GlobalKey` sur la zone de barres +
+  `RenderBox.globalToLocal` pour convertir la position du doigt en
+  fraction de la durée), et un bouton de vitesse (1x → 1.5x → 2x → 1x,
+  `AudioPlayer.setPlaybackRate`).
+- `core/chat/chat_composer.dart` : capture les échantillons d'amplitude
+  pendant l'enregistrement (`AudioRecorder.onAmplitudeChanged`, un
+  toutes les 150ms, dBFS ramené à 0-100), ramenés à 28 barres avant
+  l'envoi (`_downsampleWaveform`). Bottom sheet "+" enrichi : "Prendre
+  une photo" (`ImageSource.camera`, permission déjà déclarée), "Photo"
+  passe en sélection multiple (`pickMultiImage`, un message par photo
+  — le schéma n'a qu'une pièce jointe par ligne), "Fichier" idem
+  (`allowMultiple: true`). Limite de taille `kMaxAttachmentSizeBytes`
+  (25 Mo) vérifiée avant chaque upload, message clair si dépassée.
+  Barre de progression **indéterminée** (pas un pourcentage exact — le
+  SDK de stockage Supabase utilisé ici n'expose pas de callback de
+  progression réseau ; couvrir ce cas proprement aurait demandé de
+  réimplémenter l'upload en RAW HTTP via `dio` avec les bons en-têtes
+  d'authentification Supabase Storage, non vérifiable sans compilation
+  locale — décision délibérée de repli, comme pour la présence en
+  phase250) : désactive les boutons d'envoi + affiche un indicateur
+  actif tant qu'un envoi est en cours, ce qui corrige le vrai problème
+  signalé ("l'app se bloque sans AUCUN retour visuel").
+- `core/chat/link_preview_service.dart` + `link_preview_card.dart`
+  (nouveaux) : détecte la première URL d'un message, récupère les
+  balises Open Graph (`og:title`/`og:image`/`og:site_name`) par
+  expressions régulières (pas de package de parsing HTML dans ce
+  projet), cache en mémoire par URL, carte cliquable sous le message —
+  n'affiche rien si l'aperçu échoue (silencieux, jamais une erreur
+  visible).
+- `chat_attachment_bubble.dart`, `chat_screen.dart`,
+  `messaging_center_real.dart` : branchement de `waveformJson` sur
+  `ChatAttachmentBubble`, `LinkPreviewCard` sous le texte d'un message
+  contenant un lien, signature `onSendAttachment` étendue avec
+  `waveform` (transmis aussi lors d'un "Transférer" côté staff).
+
+⚠️ **Non vérifié par compilation locale.** Cette tranche a un piège Dart
+réel et documenté ici pour éviter de le refaire : **`num.clamp(...)`
+retourne `num`, pas `double`/`int`** — contrairement aux opérateurs
+`+`/`-`/`*`/`/` qui sont spécialement traités par le compilateur pour
+rester `int`/`double` quand les deux opérandes le sont. 3 endroits
+avaient ce piège (amplitude normalisée, découpage des échantillons en
+barres, fraction de recherche dans la forme d'onde) — corrigés avec
+`.toDouble()`/`.toInt()` explicites après chaque `.clamp(...)` dont le
+résultat est réutilisé comme `double`/`int` strict (paramètre typé,
+élément de `List<double>`/`List<int>`, argument de `sublist`). Relu
+intégralement après coup pour vérifier qu'aucun autre `.clamp(...)`
+n'a le même problème. À surveiller en priorité sur le build CI : une
+erreur de compilation ici serait précisément ce genre d'erreur de
+typage silencieuse à l'écriture.
