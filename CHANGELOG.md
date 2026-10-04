@@ -1346,3 +1346,6 @@
 
 ## 2026-09-29 14:18 UTC — Claude
 - feat(chat): médias enrichis (vitesse, forme d'onde, caméra, multi-sélection, aperçu de lien) (`69cf88e`)
+
+## 2026-10-04 23:54 UTC — Claude
+- feat(catalog): ajoute le pilier Akora Lab avec brouillons de matériel de labo (`1021338`)
