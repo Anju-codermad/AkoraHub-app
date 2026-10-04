@@ -9399,3 +9399,38 @@ intégralement après coup pour vérifier qu'aucun autre `.clamp(...)`
 n'a le même problème. À surveiller en priorité sur le build CI : une
 erreur de compilation ici serait précisément ce genre d'erreur de
 typage silencieuse à l'écriture.
+
+✅ Confirmé sur CI (29/09, run #701) : succès au second essai — le
+premier échec était un flake d'infrastructure GitHub Actions (NDK
+Android corrompu au téléchargement, "Archive is not a ZIP archive"),
+sans rapport avec le code. Les 4 tranches de la liste "amélioration
+messagerie" (statut de lecture & présence, recherche & organisation,
+interactions sur les messages, médias enrichis) sont maintenant toutes
+vertes en CI.
+
+## Pilier "Akora Lab" — matériel de laboratoire (04/10) ✅ FAIT
+
+Demande explicite : "Ajouter tout les brouillons de matériel de Labo
+pour Akora Lab". Constat préalable : "Akora Lab" était déjà prévu côté
+app (couleur `0xFF546E7A` + icône `Icons.biotech_outlined` dans
+`product_catalog_tab.dart`) mais AUCUNE phase SQL ne l'avait jamais
+créé en base — contrairement à Akora NutriLab (phase203) ou Akora
+Packaging (phase233). La propriétaire n'était elle-même pas sûre de
+l'état actuel ; `phase254_ajout_pilier_akora_lab.sql` est donc
+entièrement idempotent (crée le pilier seulement s'il n'existe pas,
+catégories et produits en `where not exists`/`on conflict do nothing`)
+— sans risque à exécuter même si le pilier a déjà été créé depuis
+l'Admin entre-temps.
+
+Pas de liste fournie par la propriétaire ("liste standard" demandée
+explicitement) : 7 catégories (Verrerie, Instruments de mesure, EPI,
+Consommables, Petit matériel & outillage, Mobilier & rangement,
+Stérilisation & nettoyage) et ~35 produits brouillons (`visibility =
+false`, ni prix/photo/stock — à compléter depuis l'Admin), même
+pattern que les flacons PET d'Akora Packaging (phase243).
+
+⚠️ Comme toujours, aucun accès requête Supabase en direct dans cet
+environnement — impossible de vérifier moi-même après coup que le
+script s'est exécuté sans erreur. La propriétaire doit le lancer dans
+Supabase Dashboard -> SQL Editor et vérifier le résultat (requête de
+vérification incluse en commentaire en fin de fichier).
