@@ -1355,3 +1355,6 @@
 
 ## 2026-10-05 14:03 UTC — Claude
 - feat(catalog): ajoute brouillons huiles/cires/miel sous Akora Pro (`07e004e`)
+
+## 2026-10-05 14:10 UTC — Claude
+- feat(catalog): ajoute brouillons de miels variétaux sous Akora Foods (`39c06c7`)
