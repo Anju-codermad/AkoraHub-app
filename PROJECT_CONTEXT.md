@@ -9434,3 +9434,94 @@ environnement — impossible de vérifier moi-même après coup que le
 script s'est exécuté sans erreur. La propriétaire doit le lancer dans
 Supabase Dashboard -> SQL Editor et vérifier le résultat (requête de
 vérification incluse en commentaire en fin de fichier).
+
+## Appels audio/vidéo bloqués + notification nouvelle commande manquante (05/10) ✅ FAIT (partiel)
+
+Signalement explicite (captures d'écran à l'appui) : "les appels audio,
+vidéo dans l'application... ça ne marche pas !" (bloqué sur "AkoraHub —
+Appel en cours..." indéfiniment) + "Des clients font de commande,
+envoyé de message [mais] la notification n'a pas encore fonctionné".
+
+Audit préalable (agent Explore, lecture seule) puis vérification
+directe des fichiers cités. Deux causes RÉELLES et DISTINCTES
+identifiées et corrigées côté code — une troisième cause probable
+reste hors de portée (secrets Dashboard, pas d'accès direct) :
+
+**1. Notification "nouvelle commande" au staff : n'a JAMAIS existé**
+(pas une régression — un vrai trou fonctionnel). Le seul trigger sur
+`orders` (phase39) ne se déclenche que pour un paiement MANUEL soumis
+(virement/Mvola/Orange/Airtel manuel) — paiement à la livraison ou
+paiement automatique en ligne ne notifiaient jamais personne à la
+création.
+- `phase255_patch_order_placed_staff_notification.sql` (nouveau) :
+  trigger `AFTER INSERT ON orders`, exclut les commandes déjà couvertes
+  par phase39 (`WHEN payment_reference IS NULL AND payment_proof_path
+  IS NULL`) pour ne jamais doubler la notification sur une même
+  commande.
+- `supabase/functions/send-push-notification/index.ts` : nouvelle
+  branche `orders_new` (même pattern que `orders_manual_payment_submitted`,
+  cible Admin/Commercial). **⚠️ Redéploiement de l'Edge Function requis**
+  (Dashboard -> Edge Functions -> coller le nouveau contenu -> Deploy),
+  en plus du script SQL — sans ça le trigger appelle bien la fonction
+  mais elle ignore silencieusement la table `orders_new`.
+
+**2. Appels bloqués sur "Appel en cours..." : bug réel trouvé, INDÉPENDANT
+des notifications push.** Quand l'appelé refuse (`IncomingCallScreen._decline`),
+il ne rejoint JAMAIS le canal Agora — donc côté appelant, AUCUN
+événement Agora ne se déclenche (`onUserOffline` ne peut pas se
+déclencher : personne n'a rejoint pour en partir). L'appelant restait
+donc bloqué indéfiniment, même quand tout le reste (push, Agora)
+fonctionne parfaitement. `call_invitations` n'avait jamais Realtime
+activé (choix délibéré de la phase37 : "la notification push suffit à
+détecter un appel entrant" — exact pour détecter l'appel, pas pour que
+l'APPELANT détecte un refus).
+- `phase256_patch_call_invitations_realtime.sql` (nouveau) : active
+  Realtime sur `call_invitations`.
+- `lib/presentation/calls/call_screen.dart` : écoute désormais
+  `call_invitations.status` en direct (`_watchInvitationStatus`) —
+  "Appel refusé"/"Personne n'a répondu" affiché ~1.2s puis fermeture
+  immédiate dès que l'autre partie répond, au lieu d'attendre
+  indéfiniment. + timeout de secours de 45s (`_startCallerTimeout`,
+  même durée que le timeout d'appel entrant côté `IncomingCallScreen`)
+  pour le cas où l'autre partie ne reçoit même jamais la notification
+  d'appel (push en échec) — sans ce filet, aucun mécanisme ne
+  permettait de sortir de l'écran d'appel dans ce cas-là.
+- Au passage : le commentaire de classe de `CallScreen` affirmait à
+  tort que `invitationId` était absent côté appelant — faux, vérifié
+  dans `chat_screen.dart`/`messaging_center_real.dart` (`_startCall`)
+  où l'appelant le passe bien ; commentaire corrigé. Idem
+  `incoming_call_screen.dart:13` référence une méthode
+  `CallRepo.watchIncomingCalls` qui **n'existe nulle part dans le
+  code** (confirmé par lecture complète de `call_repo.dart`, 44 lignes)
+  — commentaire obsolète d'une ancienne conception, le mécanisme réel
+  et unique est 100% push (`push_notification_service.dart`,
+  `FirebaseMessaging.onMessage` -> `_handleCallInvite`). Pas corrigé
+  (hors scope immédiat), mais à savoir si quelqu'un se fie à ce
+  commentaire plus tard.
+
+**3. Cause probable restante, hors de portée depuis cet environnement**
+(pas d'accès au Dashboard Supabase) : les notifications "nouveau
+message client" (code déjà en place, voir phase17) ne fonctionnent
+apparemment pas non plus d'après le signalement — la cause la plus
+probable est une clé secrète désynchronisée. `WEBHOOK_SECRET` a été
+rotée 3 fois (phase78, phase176, phase220) et phase220 avertit
+explicitement qu'un mauvais ordre de rotation cause des échecs
+SILENCIEUX (401, aucune erreur visible app-side). Autre possibilité :
+`FIREBASE_SERVICE_ACCOUNT` expiré/absent, ou `profiles.fcm_token`
+jamais enregistré pour les comptes Admin/Commercial (l'enregistrement
+avale silencieusement toute erreur, `push_notification_service.dart:279`).
+**La propriétaire doit vérifier ces secrets elle-même côté Dashboard**
+— pistes de vérification à lui donner : comparer le `WEBHOOK_SECRET`
+du Dashboard (Edge Functions -> send-push-notification -> Manage
+secrets) avec celui effectivement inséré dans CHAQUE trigger SQL actif
+(phase17, phase39, phase255 compris), et vérifier qu'au moins un
+compte Admin/Commercial a bien un `fcm_token` non nul en base.
+
+⚠️ Comme pour les tranches précédentes : non vérifié par compilation
+locale (pas de SDK Flutter ici) — `call_screen.dart` relu intégralement
+après édition, équilibre des accolades/parenthèses vérifié par script.
+À surveiller sur le prochain build CI. Le changement d'Edge Function
+(TypeScript/Deno) n'est pas compilé par ce build CI (workflow Android
+uniquement) — seule vérification faite : équilibre des
+accolades/parenthèses sur `index.ts`, pas une vraie vérification
+TypeScript.

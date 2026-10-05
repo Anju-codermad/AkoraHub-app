@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
@@ -7,14 +9,18 @@ import 'package:sizer/sizer.dart';
 
 import '../../core/calls/agora_token_repo.dart';
 import '../../core/calls/call_repo.dart';
+import '../../core/supabase/supabase_config.dart';
 
 /// Écran d'appel en cours (audio ou vidéo) — rejoint le canal Agora
-/// correspondant à `channelName`. `invitationId` est optionnel : présent
-/// côté appelé (pour marquer l'invitation "ended" en quittant), absent
-/// côté appelant si l'appel est lancé avant que l'invitation existe
-/// encore (ce n'est pas le cas ici, l'appelant crée toujours l'invitation
-/// avant de pousser cet écran, mais le paramètre reste nullable par
-/// simplicité d'appel).
+/// correspondant à `channelName`. `invitationId` est fourni des DEUX
+/// côtés en pratique (l'appelant le reçoit de `CallRepo.createInvitation`
+/// avant de pousser cet écran, l'appelé de la notification push) — reste
+/// nullable par simplicité d'appel, mais permet d'écouter en direct
+/// `call_invitations.status` (05/10 : détecte un refus avant que l'autre
+/// partie n'ait rejoint le canal Agora, cas où aucun événement Agora ne
+/// se déclenche jamais côté appelant) et de couper l'appel après 45s si
+/// personne ne répond du tout (évite de rester bloqué indéfiniment sur
+/// "Appel en cours...").
 class CallScreen extends StatefulWidget {
   final String channelName;
   final String callType; // 'audio' | 'video'
@@ -49,10 +55,54 @@ class _CallScreenState extends State<CallScreen> {
   bool _cameraOff = false;
   String? _error;
 
+  /// Timeout de secours (05/10) + écoute en direct de
+  /// `call_invitations.status` — voir le commentaire de classe.
+  Timer? _timeoutTimer;
+  StreamSubscription<List<Map<String, dynamic>>>? _statusSub;
+  bool _ending = false;
+
   @override
   void initState() {
     super.initState();
     _setup();
+    _watchInvitationStatus();
+  }
+
+  /// Détecte en direct un refus/appel manqué signalé par l'AUTRE partie
+  /// (05/10) — sans ça, si l'appelé refuse avant d'avoir rejoint le
+  /// canal Agora, aucun événement Agora ne prévient jamais l'appelant
+  /// (personne n'a rejoint pour en partir) : il restait bloqué sur
+  /// "Appel en cours..." indéfiniment. Nécessite Realtime activé sur
+  /// `call_invitations` (voir phase256_patch_call_invitations_realtime.sql).
+  void _watchInvitationStatus() {
+    if (widget.invitationId == null) return;
+    _statusSub = SupabaseConfig.client
+        .from('call_invitations')
+        .stream(primaryKey: ['id'])
+        .eq('id', widget.invitationId!)
+        .listen((rows) {
+      if (!mounted || rows.isEmpty || _remoteJoined) return;
+      final status = rows.first['status'] as String?;
+      if (status == 'declined') {
+        _endCall(reasonMessage: 'Appel refusé.', skipStatusUpdate: true);
+      } else if (status == 'missed') {
+        _endCall(
+            reasonMessage: 'Personne n\'a répondu.', skipStatusUpdate: true);
+      }
+    });
+  }
+
+  /// Coupe l'appel après 45s si personne n'a rejoint (05/10) — filet de
+  /// sécurité indépendant du statut de l'invitation : couvre aussi le
+  /// cas où l'autre partie n'a jamais même reçu la notification d'appel
+  /// (push en échec), donc n'a jamais pu répondre "refusé"/"manqué".
+  void _startCallerTimeout() {
+    if (widget.invitationId == null || _timeoutTimer != null) return;
+    _timeoutTimer = Timer(const Duration(seconds: 45), () {
+      if (!mounted || _remoteJoined || _ending) return;
+      CallRepo.updateStatus(widget.invitationId!, 'missed').catchError((_) {});
+      _endCall(reasonMessage: 'Personne n\'a répondu.', skipStatusUpdate: true);
+    });
   }
 
   Future<void> _setup() async {
@@ -87,9 +137,11 @@ class _CallScreenState extends State<CallScreen> {
           onJoinChannelSuccess: (connection, elapsed) {
             if (mounted) setState(() => _joined = true);
             _startRingback();
+            _startCallerTimeout();
           },
           onUserJoined: (connection, remoteUid, elapsed) {
             _stopRingback();
+            _timeoutTimer?.cancel();
             if (mounted) {
               setState(() {
                 _remoteJoined = true;
@@ -145,9 +197,21 @@ class _CallScreenState extends State<CallScreen> {
     } catch (_) {}
   }
 
-  Future<void> _endCall() async {
+  Future<void> _endCall(
+      {String? reasonMessage, bool skipStatusUpdate = false}) async {
+    if (_ending) return;
+    _ending = true;
+    _timeoutTimer?.cancel();
+    _statusSub?.cancel();
     await _stopRingback();
-    if (widget.invitationId != null) {
+    if (reasonMessage != null && mounted) {
+      // Laisse le motif s'afficher un court instant avant de fermer
+      // l'écran — sinon l'appelant ne verrait jamais "Appel refusé"/
+      // "Personne n'a répondu", juste un retour immédiat en arrière.
+      setState(() => _error = reasonMessage);
+      await Future.delayed(const Duration(milliseconds: 1200));
+    }
+    if (!skipStatusUpdate && widget.invitationId != null) {
       try {
         await CallRepo.updateStatus(widget.invitationId!, 'ended');
       } catch (_) {}
@@ -159,6 +223,8 @@ class _CallScreenState extends State<CallScreen> {
 
   @override
   void dispose() {
+    _timeoutTimer?.cancel();
+    _statusSub?.cancel();
     _ringbackPlayer.dispose();
     _engine?.leaveChannel();
     _engine?.release();

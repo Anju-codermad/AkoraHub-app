@@ -303,6 +303,27 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "orders_new") {
+      // Nouvelle commande passée par un client -> notifie toute l'équipe
+      // (Admin/Commercial). Déclenché seulement pour les commandes SANS
+      // paiement manuel à vérifier (voir
+      // supabase/phase255_patch_order_placed_staff_notification.sql) :
+      // celles-là ont déjà leur propre notification, plus actionnable
+      // ("Paiement à vérifier" ci-dessus) — évite d'en envoyer deux pour
+      // la même commande.
+      category = "commande";
+      const { data: staff } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .in("role", ["admin", "commercial"])
+        .not("fcm_token", "is", null);
+      const orderNumber = record.order_number ? ` ${record.order_number}` : "";
+      title = "Nouvelle commande";
+      body = `Une nouvelle commande${orderNumber} vient d'être passée.`;
+      for (const s of staff ?? []) {
+        await sendToProfile(serviceAccount, s, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "quotes") {
       // Le client vient d'accepter/refuser un devis -> notifie toute
       // l'équipe (Admin/Commercial), pas juste le staff qui avait répondu.
