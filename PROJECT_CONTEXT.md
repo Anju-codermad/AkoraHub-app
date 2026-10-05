@@ -9525,3 +9525,40 @@ après édition, équilibre des accolades/parenthèses vérifié par script.
 uniquement) — seule vérification faite : équilibre des
 accolades/parenthèses sur `index.ts`, pas une vraie vérification
 TypeScript.
+
+## Brouillons huiles/cires/miel — pas de nouveau pilier (05/10) ✅ FAIT
+
+Demande : "ajoutez aussi une liste de toutes les huiles dans le
+brouillon, le cire, les miel aussi... Si possible, il faut créer de
+nom de piliers (ou univers) si c'est indispensable pour ça. À quoi
+pensez-vous ?"
+
+Recherche avant d'agir (au lieu de deviner) : la catégorie "Huiles &
+Beurres Cosmétiques" existe déjà sous **Akora Pro** (slug
+`matieres-premieres` — ⚠️ PAS `akora-pro`, voir le correctif du
+04/09/2026 plus haut dans ce fichier sur le renommage "Akora
+Fanadiovana" → "Akora Pro" sans changement de slug, piège déjà
+rencontré une fois), utilisée depuis les phases 117-123 pour les
+fiches techniques Académie : 37 huiles/beurres/cires, contenu
+généré puis **explicitement vérifié par la propriétaire** à l'époque
+("contenu DeepSeek, vérifié par l'utilisatrice"). Fait notable : les
+cires y figuraient déjà (candelilla, soja, riz, acacia/mimosa,
+lanoline) — regroupées avec les huiles/beurres, PAS dans une catégorie
+séparée. Aucune trace en revanche du miel ou de tout produit de la
+ruche nulle part dans le catalogue.
+
+**Décision : pas de nouveau pilier, pas de nouvelle catégorie** —
+`phase257_ajout_huiles_cires_miel_akora_pro.sql` réutilise exactement
+la même catégorie et la même liste de 37 noms (déjà vérifiée par la
+propriétaire, donc pas une nouvelle liste inventée sans son accord),
+plus 5 produits de la ruche ajoutés dans la même logique de
+regroupement déjà choisie par la propriétaire : Cire d'abeille
+(manquait curieusement de la liste Académie malgré les 4 autres
+cires), Miel brut, Propolis, Gelée royale, Pollen d'abeille. Comme
+pour Akora Lab (phase254), brouillons (`visibility = false`),
+idempotent par nom de produit.
+
+Insertion aussi dans la table `categories` (navigation/filtre) pour
+cette catégorie, qui n'existait jusqu'ici que comme valeur libre dans
+`raw_materials.category_name` (Académie) — jamais exposée côté
+catalogue vendable avant ce script.
