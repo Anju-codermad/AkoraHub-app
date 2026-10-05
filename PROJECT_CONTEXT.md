@@ -9562,3 +9562,34 @@ Insertion aussi dans la table `categories` (navigation/filtre) pour
 cette catégorie, qui n'existait jusqu'ici que comme valeur libre dans
 `raw_materials.category_name` (Académie) — jamais exposée côté
 catalogue vendable avant ce script.
+
+## Miels variétaux — Akora Foods, pas de nouveau pilier (05/10) ✅ FAIT
+
+Suite immédiate : "Ajoutez aussi les listes complet de Miel de
+niaouli, Miel de letchis, miel de mokarana, miel polyfloral, etc...
+Est-il possible de créer un pilier pour ça ?"
+
+Recherche avant d'agir (encore une fois, au lieu de deviner) : le
+pilier **"Akora Foods"** existe déjà (phase223, 04/09) — décrit
+explicitement comme "produits alimentaires finis... destinés au grand
+public", exactement le profil d'un miel variétal vendu en pot (B2C).
+Réponse donc : **non, pas besoin de nouveau pilier.**
+
+`phase258_ajout_miels_varietaux_akora_foods.sql` : nouvelle catégorie
+"Miel" sous Akora Foods (aucune des 11 catégories existantes de la
+phase223 ne correspondait précisément), 9 brouillons de miels
+variétaux — les 4 noms cités (niaouli, letchis, mokarana, polyfloral)
++ 5 complétés pour répondre au "etc." (girofle, eucalyptus,
+ravintsara, mangue, baobab — miels variétaux malgaches courants,
+choix raisonné mais PAS confirmé par la propriétaire contrairement à
+la liste huiles/phase257 qui, elle, avait déjà son accord explicite
+depuis les phases 117-123 — à signaler clairement comme une
+proposition de départ, pas une liste vérifiée).
+
+Distinction volontaire avec le "Miel brut" de la phase257 (Akora Pro,
+catégorie Huiles & Beurres Cosmétiques) : celui-là vise un usage
+cosmétique en gros (matière première B2B pour savonnerie/cosmétique
+artisanale), alors que les miels variétaux de cette phase-ci sont des
+produits alimentaires finis destinés à la vente au détail (B2C) — noms
+différents, piliers différents, aucun chevauchement/doublon entre les
+deux scripts.
