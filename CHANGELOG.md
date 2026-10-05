@@ -1349,3 +1349,6 @@
 
 ## 2026-10-04 23:54 UTC — Claude
 - feat(catalog): ajoute le pilier Akora Lab avec brouillons de matériel de labo (`1021338`)
+
+## 2026-10-05 00:50 UTC — Claude
+- fix(calls,notifications): appels bloqués + notification nouvelle commande (`96bcbf6`)
