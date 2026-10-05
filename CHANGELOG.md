@@ -1352,3 +1352,6 @@
 
 ## 2026-10-05 00:50 UTC — Claude
 - fix(calls,notifications): appels bloqués + notification nouvelle commande (`96bcbf6`)
+
+## 2026-10-05 14:03 UTC — Claude
+- feat(catalog): ajoute brouillons huiles/cires/miel sous Akora Pro (`07e004e`)
