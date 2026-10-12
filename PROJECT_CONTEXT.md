@@ -9764,3 +9764,15 @@ d'enzymes concentrées) ET produit brouillon correspondant (products,
 visibility=false, lié par raw_material_id), chacun avec 3 usages dès
 la création (leçon de la phase261 : ne pas republier des fiches
 incomplètes).
+
+## Lien QalyPro sur l'Accueil (12/10) ✅ FAIT
+
+Demande explicite : bouton QalyPro juste après Akora AI, dans la
+rangée de liens externes de l'Accueil (`catalog_tab.dart`, même
+widget `_SocialLinkButton` que le site web/Akora AI/réseaux sociaux).
+URL (`https://qalypro-client.julioandrinirina95.workers.dev/fournisseurs`)
+et logo fournis directement par la propriétaire — logo enregistré
+dans `assets/images/qalypro_logo.png`. Changement `.dart` (contrairement
+aux phases SQL) : nécessite la prochaine build APK (CI `build-apk.yml`,
+lien R2 `akorahub-latest.apk`) ou une mise à jour Play Store pour être
+visible côté client.
