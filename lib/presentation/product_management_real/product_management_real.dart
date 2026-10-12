@@ -10,6 +10,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/reference_data/reference_table_cache.dart';
+import '../../core/storage/r2_photo_uploader.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'product_variants_screen.dart';
 import 'batch_list_screen.dart';
@@ -1323,18 +1324,19 @@ class _ProductManagementRealState
                   var photosFailed = false;
                   if (newPhotos.isNotEmpty || removedExistingIds.isNotEmpty) {
                     try {
-                      // Upload des nouvelles photos vers le bucket `products`.
+                      // Upload des nouvelles photos vers Cloudflare R2
+                      // (12/10 : remplace le bucket Supabase Storage
+                      // `products`, pour ne plus consommer le quota
+                      // "Cached Egress" — voir R2PhotoUploader).
                       final uploadedUrls = <String>[];
                       for (var i = 0; i < newPhotos.length; i++) {
                         final file = File(newPhotos[i].path);
                         final fileName =
                             '$productId/${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
-                        await SupabaseConfig.client.storage
-                            .from('products')
-                            .upload(fileName, file);
-                        uploadedUrls.add(SupabaseConfig.client.storage
-                            .from('products')
-                            .getPublicUrl(fileName));
+                        uploadedUrls.add(await R2PhotoUploader.upload(
+                          file: file,
+                          fileName: fileName,
+                        ));
                       }
 
                       // Suppression des fichiers retirés (best-effort).
@@ -1344,10 +1346,7 @@ class _ProductManagementRealState
                         }
                         try {
                           final url = photo['image_url'] as String;
-                          final path = url.split('/products/').last;
-                          await SupabaseConfig.client.storage
-                              .from('products')
-                              .remove([path]);
+                          await R2PhotoUploader.delete(url);
                         } catch (_) {}
                       }
 

@@ -9776,3 +9776,62 @@ dans `assets/images/qalypro_logo.png`. Changement `.dart` (contrairement
 aux phases SQL) : nécessite la prochaine build APK (CI `build-apk.yml`,
 lien R2 `akorahub-latest.apk`) ou une mise à jour Play Store pour être
 visible côté client.
+
+## Utilisateurs actifs dans l'Admin (12/10) ✅ FAIT
+
+Demande explicite : "Est-il possible d'afficher les actifs dans
+l'app ?" — Firebase Analytics (ajouté juste avant) ne peut pas être
+relu depuis l'app elle-même (Console ou API payante uniquement), donc
+alternative gratuite entièrement Supabase : `phase263_patch_last_active_at.sql`
+(colonne `profiles.last_active_at`) + `core/analytics/activity_tracker.dart`
+(mise à jour à chaque démarrage de l'app ET à la connexion, distinct de
+`last_seen_at`/`PresenceHelper` qui ne sert qu'au statut de la
+messagerie) + carte "Utilisateurs actifs (7j)" sur le tableau de bord
+Admin (`metrics_cards_widget.dart`), tous rôles confondus.
+
+## Préparation de la migration des photos produit vers Cloudflare R2 (12/10) 🔧 EN PRÉPARATION
+
+Contexte urgent : quota Supabase "Cached Egress" dépassé à 213%
+(5 Go gratuits/mois, 10,6 Go consommés), période de grâce jusqu'au
+14/10 — cause très probable : les photos produits (bucket Storage
+`products`), vues en boucle par tous les clients du catalogue.
+Demande explicite : préparer la migration vers Cloudflare R2 (déjà
+utilisé pour l'APK, zéro frais de sortie/egress contrairement à
+Supabase Storage).
+
+Code préparé, PAS ENCORE actif (aucune photo n'est migrée tant que la
+propriétaire n'a pas fait la configuration ci-dessous) :
+- `supabase/functions/r2-product-photo/index.ts` : upload des
+  NOUVELLES photos (URL signée temporaire PUT, réservé au staff) +
+  suppression. Remplace les appels directs à Supabase Storage dans
+  `product_management_real.dart` et `product_variants_screen.dart`
+  (via le nouveau `lib/core/storage/r2_photo_uploader.dart`).
+- `supabase/functions/migrate-product-photos-to-r2/index.ts` :
+  migration des photos DÉJÀ existantes (`product_images`,
+  `products.image_url` la couverture, `product_variants.image_url`) —
+  à appeler plusieurs fois (traite un lot à la fois, `remaining`
+  indique s'il en reste) jusqu'à `remaining: 0`, idempotent.
+
+⚠️ **Setup à faire par la propriétaire avant que ça fonctionne** (je
+ne peux pas créer de bucket R2 ni de jeton API depuis cette session) :
+1. Cloudflare Dashboard -> R2 -> créer un bucket (ex.
+   `akorahub-product-images`, distinct de `akorahub-releases` utilisé
+   pour l'APK) -> Paramètres -> Accès public -> activer le domaine
+   `r2.dev` fourni (note l'URL, ex. `https://pub-xxxx.r2.dev`).
+2. Cloudflare Dashboard -> R2 -> Gérer les jetons API -> créer un
+   jeton avec accès Lecture+Écriture limité à ce bucket (ne pas
+   réutiliser tel quel le jeton CI s'il a plus de droits que
+   nécessaire, mais ça marcherait aussi).
+3. Supabase Dashboard -> Edge Functions -> déployer les 2 fonctions
+   ci-dessus (copier/coller le contenu des fichiers) -> Secrets ->
+   ajouter `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+   `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL`.
+4. ⚠️ Le Dashboard a déjà renommé des fonctions au déploiement par le
+   passé (super-endpoint/hyper-endpoint) — vérifier le nom réellement
+   déployé et me le signaler s'il diffère de `r2-product-photo`
+   (sinon l'app ne la trouvera pas, voir `_functionName` dans
+   `r2_photo_uploader.dart`).
+5. Une fois déployé : appeler `migrate-product-photos-to-r2` (staff
+   connecté) plusieurs fois jusqu'à `remaining: 0` pour les photos
+   déjà en ligne. Les nouvelles photos passent automatiquement par R2
+   dès l'étape 3 terminée, sans action supplémentaire.

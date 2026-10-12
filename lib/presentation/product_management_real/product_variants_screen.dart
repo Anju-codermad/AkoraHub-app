@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/reference_data/reference_table_cache.dart';
+import '../../core/storage/r2_photo_uploader.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Gestion des variantes d'un produit (combinaisons Format x Parfum),
@@ -493,19 +494,18 @@ class _ProductVariantsScreenState
                 try {
                   // Upload de la photo AVANT de construire le payload (elle
                   // doit être terminée pour connaître l'URL finale à
-                  // enregistrer) — même bucket `products` que les photos du
-                  // produit lui-même, sous-dossier dédié pour ne jamais
-                  // entrer en conflit de nom de fichier.
+                  // enregistrer) — vers Cloudflare R2 (12/10, même raison
+                  // que product_management_real.dart), même bucket que les
+                  // photos du produit lui-même, sous-dossier dédié pour ne
+                  // jamais entrer en conflit de nom de fichier.
                   if (pickedPhoto != null) {
                     final file = File(pickedPhoto!.path);
                     final fileName =
                         '${widget.product['id']}/variants/${DateTime.now().millisecondsSinceEpoch}.jpg';
-                    await SupabaseConfig.client.storage
-                        .from('products')
-                        .upload(fileName, file);
-                    currentImageUrl = SupabaseConfig.client.storage
-                        .from('products')
-                        .getPublicUrl(fileName);
+                    currentImageUrl = await R2PhotoUploader.upload(
+                      file: file,
+                      fileName: fileName,
+                    );
                   }
                 } catch (_) {
                   if (!mounted) return;
