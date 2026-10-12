@@ -1638,12 +1638,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
           ),
-          // Logo (site web), Akora AI (Messenger) et réseaux sociaux
-          // (25/08, demandes explicites) — ouvrent chacun leur lien dans le
-          // navigateur/l'appli correspondante du téléphone. Icônes WhatsApp/
-          // Facebook/TikTok : mêmes tracés SVG que le footer du site web,
-          // pour rester visuellement cohérent (pas de nouvelle dépendance,
-          // flutter_svg est déjà utilisé ailleurs dans l'app).
+          // Logo (site web), Akora AI (Messenger), QalyPro et réseaux
+          // sociaux (25/08 puis 12/10, demandes explicites) — ouvrent
+          // chacun leur lien dans le navigateur/l'appli correspondante du
+          // téléphone. Icônes WhatsApp/Facebook/TikTok : mêmes tracés SVG
+          // que le footer du site web, pour rester visuellement cohérent
+          // (pas de nouvelle dépendance, flutter_svg est déjà utilisé
+          // ailleurs dans l'app).
           SliverToBoxAdapter(
             child: Wrap(
               alignment: WrapAlignment.center,
@@ -1661,6 +1662,12 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       'https://anju-codermad-akora-fb-assistant.julioandrinirina95.workers.dev/',
                   avatarImage:
                       const AssetImage('assets/images/akora_ai_logo.png'),
+                ),
+                _SocialLinkButton(
+                  label: 'QalyPro',
+                  url: 'https://qalypro-client.julioandrinirina95.workers.dev/fournisseurs',
+                  avatarImage:
+                      const AssetImage('assets/images/qalypro_logo.png'),
                 ),
                 _SocialLinkButton(
                   label: 'WhatsApp',
