@@ -1370,3 +1370,6 @@
 
 ## 2026-10-12 09:20 UTC — Claude
 - Corrige les 25 fiches produits publiées incomplètes (phase261) (`56f846e`)
+
+## 2026-10-12 12:17 UTC — Claude
+- Ajoute les enzymes de lessive (Protéase, Amylase, Lipase, Cellulase) à Akora Pro (phase262) (`94616d0`)
