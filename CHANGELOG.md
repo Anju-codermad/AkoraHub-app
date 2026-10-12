@@ -1367,3 +1367,6 @@
 
 ## 2026-10-12 09:03 UTC — Claude
 - Retire le nom du fournisseur du matériel de laboratoire (phase260) (`2d29eae`)
+
+## 2026-10-12 09:20 UTC — Claude
+- Corrige les 25 fiches produits publiées incomplètes (phase261) (`56f846e`)
