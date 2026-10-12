@@ -9642,14 +9642,18 @@ DÉTERGENTS LIQUIDES" (12 parfums).
 Demande explicite : "Dans cette document, il avait plusieurs matériel
 dans laboratoire. Prends le listes de matériels et ajouter le dans le
 brouillon aussi pour le pilier de Akora Lab." Fournis : 2 PDF
-catalogues du fournisseur MYLABO (Talatamaty, Antananarivo) —
-`CATALOGUE_MYLABO_FOURNITURES.pdf` ("FOURNITURES - VERRERIES", 84 réf.
-FV001-FV084, avec matière/dimensions/capacités réelles) et
-`CATALOGUE_MYLABO_TESTEURS.pdf` ("TESTEURS", réf. TS001+, nom de
-produit uniquement — aucune caractéristique technique dans le
-document source).
+catalogues fournisseur — un catalogue "FOURNITURES - VERRERIES" (84
+réf. FV001-FV084, avec matière/dimensions/capacités réelles) et un
+catalogue "TESTEURS" (réf. TS001+, nom de produit uniquement — aucune
+caractéristique technique dans le document source).
 
-`phase260_ajout_materiel_mylabo_akora_lab.sql` : ~140 brouillons
+⚠️ **Nom du fournisseur volontairement absent de la base et du code**
+(demande explicite de la propriétaire, 12/10) : ces produits sont
+revendus sous la marque Akora Lab, pas sous celle du fournisseur
+d'origine — ni les descriptions, ni les commentaires du script, ni le
+nom du fichier ne mentionnent ce fournisseur.
+
+`phase260_ajout_materiel_laboratoire_akora_lab.sql` : ~140 brouillons
 réels ajoutés dans les 7 catégories déjà créées par la phase254 sous
 le pilier Akora Lab (slug `akora-lab`) :
 - 34 réf. FV → **Verrerie de laboratoire** (pipettes/béchers/fioles en
@@ -9681,9 +9685,9 @@ non confirmée" dans la description, à vérifier depuis l'Admin.
 
 Complément, pas un remplacement : les ~35 brouillons génériques de la
 phase254 restent en base (supprimables depuis l'Admin si redondants
-avec les vrais produits MYLABO). Deux noms de la phase254 entraient en
-collision exacte avec des produits réels de ce catalogue ("Bec
-Bunsen", "Entonnoir en verre") — renommés légèrement côté phase260
-("Bec Bunsen (catalogue MYLABO)", "Entonnoir en verre, tige courte")
-pour ne pas être ignorés par la garde `where not exists` sur le nom
-exact.
+avec les vrais produits ajoutés ici). Deux noms de la phase254
+entraient en collision exacte avec des produits réels de ce catalogue
+("Bec Bunsen", "Entonnoir en verre") — renommés légèrement côté
+phase260 ("Bec Bunsen pour chauffe au gaz", "Entonnoir en verre, tige
+courte") pour ne pas être ignorés par la garde `where not exists` sur
+le nom exact.
