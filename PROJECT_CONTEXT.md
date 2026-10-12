@@ -9593,3 +9593,46 @@ artisanale), alors que les miels variétaux de cette phase-ci sont des
 produits alimentaires finis destinés à la vente au détail (B2C) — noms
 différents, piliers différents, aucun chevauchement/doublon entre les
 deux scripts.
+
+## Arômes, parfums détergents, résine alkyde (12/10) ✅ FAIT
+
+Demande en 2 temps : liste "ARÔMES ALIMENTAIRES" (capture d'écran
+tableur, codes fournisseur réels AR526 etc. + conditionnement) + PDF
+"AkoraHub_Fiches_Produits_Détaillées" (préparé par la propriétaire
+ailleurs — onglet "Demander à Gemini" visible dans ses captures tout
+au long de la session — contenant des fiches rédigées pour 7 des
+arômes + "Résine Alkyde"), puis mid-tour : liste "PARFUMS POUR
+DÉTERGENTS LIQUIDES" (12 parfums).
+
+`phase259_ajout_aromes_parfums_resine_alkyde.sql` :
+- **22 arômes alimentaires** (nouvelle catégorie "Arômes alimentaires"
+  sous Akora Foods — pas dans les 11 catégories de la phase223) :
+  reprend le contenu déjà rédigé du PDF pour les 7 couverts (Beurre,
+  Biscuit, Banane, Abricot, Café, Caramel Beurre Salé, Coco), complète
+  les 15 autres (Ananas, Caramel, Chocolat, Citron, Fleur d'Oranger,
+  Fraise, Fruits Rouges, Grenadine, Lait, Menthe, Orange, Pêche,
+  Pistache, Pomme, Vanille) dans le même style (note sensorielle +
+  usages plausibles, aucune caractéristique technique inventée — règle
+  explicite du PDF lui-même, reprise ici). Référence fournisseur +
+  conditionnement réel (boîte 500g / bidon 25kg) ajoutés dans chaque
+  description.
+- **12 parfums pour détergents liquides** (catégorie "Parfums &
+  Additifs" déjà existante sous Akora Pro, phase41) : Cerise, Citron,
+  Citronnelle, Fraise, Lavande, Lavender 15991, Menthe Kelix, Menthe,
+  Orange, Pêche, Pin, Pomme. Noms préfixés "Parfum ... (détergent)"
+  pour éviter toute confusion avec les arômes alimentaires homonymes
+  (Citron, Menthe, Orange, Pêche, Fraise, Pomme existent dans les deux
+  listes, piliers différents donc pas de conflit en base, mais
+  confusion possible à l'affichage sans ce préfixe). "Lavender 15991"
+  et "Menthe Kelix" gardés tels quels (noms/codes fournisseur
+  probables, pas simplifiés).
+- **Résine Alkyde** (nouvelle catégorie "Résines et polymères" sous
+  Akora Coatings) : contenu repris quasi mot pour mot du PDF ("texte
+  prêt à copier"). ⚠️ **"Akora Coatings" n'apparaît NULLE PART dans
+  l'historique SQL de ce dépôt** (seulement mentionné en passant comme
+  pilier déjà existant dans 4 commentaires d'autres phases, ex. phase191
+  "comme AkoraFormation/Akora Coatings à leur lancement") — slug deviné
+  par convention (`akora-coatings`, comme tous les autres piliers
+  `akora-X`). Garde-fou ajouté : si ce slug n'existe pas vraiment, le
+  script ne plante pas mais n'insère rien pour la résine — à vérifier
+  après exécution (le `raise notice` le dira).
