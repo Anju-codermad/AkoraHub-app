@@ -9746,3 +9746,21 @@ Un produit "Papier filtre standard lisse grande 600" sous Akora Lab
 avait aussi sa catégorie vide (ni la phase254 ni la phase260 ne
 portent ce nom précis — ajouté par ailleurs) : complétée à
 `Consommables de laboratoire`.
+
+## Enzymes de lessive pour Akora Pro (12/10) ✅ FAIT
+
+Reprise d'un point resté en suspens depuis la discussion sur les
+matières premières manquantes pour détergents liquides (acide
+chlorhydrique) : Protéase, Amylase, Lipase, Cellulase — les 4 familles
+d'enzymes standard de l'industrie du détergent (une par type de tache :
+protéique, amidon, graisse, cellulose/fibre) — étaient absentes aussi
+bien de `raw_materials` (Académie) que de `products` (catalogue).
+
+`phase262_ajout_enzymes_detergents_akora_pro.sql` : nouvelle catégorie
+"Enzymes" sous Akora Pro (pilier `matieres-premieres`), remplie des
+deux côtés — fiche Académie (raw_materials, avec note de sécurité
+générique sur la sensibilisation respiratoire/cutanée des poudres
+d'enzymes concentrées) ET produit brouillon correspondant (products,
+visibility=false, lié par raw_material_id), chacun avec 3 usages dès
+la création (leçon de la phase261 : ne pas republier des fiches
+incomplètes).
