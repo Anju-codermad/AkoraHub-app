@@ -1382,3 +1382,6 @@
 
 ## 2026-10-12 18:09 UTC — Claude
 - Ajoute Firebase Analytics (utilisateurs actifs + audiences) (`4770699`)
+
+## 2026-10-12 18:16 UTC — Claude
+- Ajoute un compteur d'utilisateurs actifs dans l'Admin (phase263) (`8641b39`)
