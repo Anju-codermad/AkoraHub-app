@@ -1376,3 +1376,6 @@
 
 ## 2026-10-12 12:37 UTC — Claude
 - Ajoute le lien QalyPro à l'Accueil, juste après Akora AI (`ace6c4b`)
+
+## 2026-10-12 12:38 UTC — Claude
+- Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`1f69618`)
