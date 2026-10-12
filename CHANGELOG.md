@@ -1373,3 +1373,6 @@
 
 ## 2026-10-12 12:17 UTC — Claude
 - Ajoute les enzymes de lessive (Protéase, Amylase, Lipase, Cellulase) à Akora Pro (phase262) (`94616d0`)
+
+## 2026-10-12 12:37 UTC — Claude
+- Ajoute le lien QalyPro à l'Accueil, juste après Akora AI (`ace6c4b`)
