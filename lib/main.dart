@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sizer/sizer.dart';
 
+import '../core/analytics/analytics_service.dart';
 import '../core/app_export.dart';
 import '../core/auth/global_auth_listener.dart';
 import '../core/deeplink/deep_link_service.dart';
@@ -93,7 +94,13 @@ class MyApp extends ConsumerWidget {
     return Sizer(builder: (context, orientation, screenType) {
       return MaterialApp(
         navigatorKey: GlobalAuthListener.navigatorKey,
-        navigatorObservers: [GlobalAuthListener.routeObserver],
+        // AnalyticsService.observer (12/10, demande explicite) : envoie un
+        // événement `screen_view` à chaque écran, base des utilisateurs
+        // actifs et des audiences Firebase — voir analytics_service.dart.
+        navigatorObservers: [
+          GlobalAuthListener.routeObserver,
+          AnalyticsService.observer,
+        ],
         title: 'AkoraHub',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../routes/app_routes.dart';
+import '../analytics/analytics_service.dart';
 import '../supabase/auth_helpers.dart';
 import '../supabase/supabase_config.dart';
 
@@ -50,7 +51,22 @@ class GlobalAuthListener {
             ?.pushNamedAndRemoveUntil(AppRoutes.resetPassword, (r) => false);
         return;
       }
+      if (data.event == AuthChangeEvent.signedOut) {
+        // Détache l'utilisateur côté Analytics (12/10, demande explicite) —
+        // sans ça Firebase continuerait d'attribuer les événements du
+        // prochain visiteur du même appareil à l'utilisateur précédent.
+        AnalyticsService.setUser(userId: null);
+        return;
+      }
       if (data.event != AuthChangeEvent.signedIn) return;
+      // Identifie l'utilisateur côté Analytics dès la connexion (12/10,
+      // demande explicite : compter des personnes, pas des appareils, et
+      // pouvoir créer des audiences par rôle) — indépendant de la
+      // navigation ci-dessous, ne doit jamais la retarder ni la bloquer.
+      final signedInUserId = data.session?.user.id;
+      if (signedInUserId != null) {
+        _trackSignedInUser(signedInUserId);
+      }
       if (!_isOnPreAuthRoute()) return;
       final route = await AuthRouting.homeRouteForCurrentUser();
       // Revérifie après l'appel réseau : si authentication_screen (encore
@@ -59,6 +75,22 @@ class GlobalAuthListener {
       if (!_isOnPreAuthRoute()) return;
       navigatorKey.currentState?.pushNamedAndRemoveUntil(route, (r) => false);
     });
+  }
+
+  static Future<void> _trackSignedInUser(String userId) async {
+    String? role;
+    try {
+      final profile = await SupabaseConfig.client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+      role = profile['role'] as String?;
+    } catch (_) {
+      // Pas grave : l'utilisateur sera quand même identifié côté
+      // Analytics, juste sans la propriété "user_role".
+    }
+    AnalyticsService.setUser(userId: userId, role: role);
   }
 }
 
