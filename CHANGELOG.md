@@ -1385,3 +1385,6 @@
 
 ## 2026-10-12 18:16 UTC — Claude
 - Ajoute un compteur d'utilisateurs actifs dans l'Admin (phase263) (`8641b39`)
+
+## 2026-10-12 18:21 UTC — Claude
+- Prépare la migration des photos produit vers Cloudflare R2 (`2310aaa`)
