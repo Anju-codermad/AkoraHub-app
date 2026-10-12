@@ -9636,3 +9636,54 @@ DÉTERGENTS LIQUIDES" (12 parfums).
   `akora-X`). Garde-fou ajouté : si ce slug n'existe pas vraiment, le
   script ne plante pas mais n'insère rien pour la résine — à vérifier
   après exécution (le `raise notice` le dira).
+
+## Matériel de laboratoire réel pour Akora Lab (12/10) ✅ FAIT
+
+Demande explicite : "Dans cette document, il avait plusieurs matériel
+dans laboratoire. Prends le listes de matériels et ajouter le dans le
+brouillon aussi pour le pilier de Akora Lab." Fournis : 2 PDF
+catalogues du fournisseur MYLABO (Talatamaty, Antananarivo) —
+`CATALOGUE_MYLABO_FOURNITURES.pdf` ("FOURNITURES - VERRERIES", 84 réf.
+FV001-FV084, avec matière/dimensions/capacités réelles) et
+`CATALOGUE_MYLABO_TESTEURS.pdf` ("TESTEURS", réf. TS001+, nom de
+produit uniquement — aucune caractéristique technique dans le
+document source).
+
+`phase260_ajout_materiel_mylabo_akora_lab.sql` : ~140 brouillons
+réels ajoutés dans les 7 catégories déjà créées par la phase254 sous
+le pilier Akora Lab (slug `akora-lab`) :
+- 34 réf. FV → **Verrerie de laboratoire** (pipettes/béchers/fioles en
+  verre, ballons, colonnes, condenseurs, etc.)
+- 13 réf. FV → **Consommables de laboratoire** (papier filtre,
+  Parafilm, microtubes, tubes à centrifuger, tips, bouchons silicone,
+  flacons échantillon...)
+- 31 réf. FV → **Petit matériel & outillage** (statifs, pinces,
+  spatules, mortier, pissette, bec Bunsen, creusets...)
+- 3 réf. FV → **Mobilier & rangement de laboratoire** (portoirs, rack
+  à pipettes)
+- 2 réf. FV → **Stérilisation & nettoyage** (goupillon, égouttoir)
+- 1 réf. FV (micropipette) + ~56 réf. TS → **Instruments de mesure**
+  (tous les testeurs/mètres : alcoomètres, pH-mètres, réfractomètres,
+  viscosimètres, thermomètres, hygromètres, testeur NPK, etc.)
+
+Règle "ne pas inventer" strictement appliquée : pour les réf. FV, la
+description reprend uniquement les caractéristiques réellement
+indiquées (matière, dimensions, capacités). Pour les réf. TS, le PDF
+source ne donnait que le nom du produit — la description reste donc
+volontairement courte, sans ajouter de plage de mesure ou de précision
+non fournie. ~9 derniers appareils TESTEURS (pages 10-12 du PDF,
+extraites en images) n'ont pas de référence fournisseur lisible avec
+certitude : ajoutés quand même (Oxymètre, bandelette 17 en 1,
+thermomètre mural bois, écouvillon test bactérie, bandelette chlore,
+pH-mètre aliment/semi-solide, GPS terrain, conductimètre sol,
+enregistreur température USB) avec une mention explicite "référence
+non confirmée" dans la description, à vérifier depuis l'Admin.
+
+Complément, pas un remplacement : les ~35 brouillons génériques de la
+phase254 restent en base (supprimables depuis l'Admin si redondants
+avec les vrais produits MYLABO). Deux noms de la phase254 entraient en
+collision exacte avec des produits réels de ce catalogue ("Bec
+Bunsen", "Entonnoir en verre") — renommés légèrement côté phase260
+("Bec Bunsen (catalogue MYLABO)", "Entonnoir en verre, tige courte")
+pour ne pas être ignorés par la garde `where not exists` sur le nom
+exact.
