@@ -9691,3 +9691,58 @@ entraient en collision exacte avec des produits réels de ce catalogue
 phase260 ("Bec Bunsen pour chauffe au gaz", "Entonnoir en verre, tige
 courte") pour ne pas être ignorés par la garde `where not exists` sur
 le nom exact.
+
+## Audit + correction des fiches produits publiées incomplètes (12/10) ✅ FAIT
+
+Demande explicite : "Ce que vous devez faire maintenant c'est de
+vérifié tout les informations de chaque produit publié dans le
+catalogue s'il avait de manque ou mauvaise information comme dans le
+liste des usages. Il faut que chaque produit à des informations
+complètes et listes des usages complet."
+
+Pas d'accès direct à la base depuis cette session : audit fait via 2
+requêtes de diagnostic que la propriétaire a lancées elle-même dans
+Supabase SQL Editor et exportées en CSV (produits **publiés**
+uniquement, visibility=true — les brouillons ne sont pas concernés,
+c'est normal qu'ils soient incomplets).
+
+Résultat : **70 produits publiés au total**, dont **25 fiches
+incomplètes** :
+- 1 sans description du tout : SLES 70% (Made in Korea) — Akora Pro,
+  Tensioactifs — avait pourtant déjà 6 usages renseignés.
+- 4 sans aucun usage : Miel de niaouli, Miel polyfloral (Akora Foods),
+  Acide citrique monohydraté E330 (Akora NutriSource), Bouchon
+  push-pull (Akora Packaging).
+- 20 avec un seul usage, souvent une phrase fourre-tout au lieu d'une
+  vraie liste (ex. Akor'Eau : coagulants, floculants, correction pH,
+  adoucissement, anti-tartre ; Akora Pro : acides & bases,
+  conservateurs, épaississants, tensioactifs CAPB/Coco Glucoside/
+  Comperlan/Decyl Glucoside ; Résine Alkyde ; Papier filtre standard
+  Akora Lab).
+
+`phase261_patch_completer_fiches_produits_publies.sql` : un UPDATE
+par produit (25 au total), chacun gardé par `where name = '...' and
+visibility = true and (use_cases manquant/trop court)` — rejouable
+sans risque d'écraser une correction déjà faite manuellement entre
+temps. Usages ajoutés = applications plausibles cohérentes avec la
+description déjà en base, rien d'inventé côté technique (même règle
+que tout le reste de la session).
+
+⚠️ **Découverte en cours de route** : le pilier "Akora Coatings"
+existe déjà réellement en base (un produit publié "Résine Alkyde" y
+figurait déjà, catégorie vide, 1 seul usage) — mais sous un slug
+différent de `akora-coatings` que la phase259 avait deviné par
+convention. C'est pourquoi le brouillon "Résine Alkyde" de la
+phase259 n'a jamais été inséré (son `where bu.slug = 'akora-coatings'`
+ne trouvait rien) : il existait déjà un produit du même nom, créé par
+ailleurs. La phase261 corrige directement ce produit existant par son
+nom (`where name = 'Résine Alkyde'`), sans dépendre du slug inconnu.
+Catégorie vide complétée à `Résines et polymères` au passage. Le vrai
+slug d'Akora Coatings reste à identifier si une future phase doit y
+ajouter un pilier/catégorie (nécessaire pour un `insert ... where
+bu.slug = ...`, pas pour un simple `update ... where name = ...`).
+
+Un produit "Papier filtre standard lisse grande 600" sous Akora Lab
+avait aussi sa catégorie vide (ni la phase254 ni la phase260 ne
+portent ce nom précis — ajouté par ailleurs) : complétée à
+`Consommables de laboratoire`.
