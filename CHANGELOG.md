@@ -1379,3 +1379,6 @@
 
 ## 2026-10-12 12:38 UTC — Claude
 - Merge remote-tracking branch 'origin/main' into claude/akorahub-project-context-9zk67o (`1f69618`)
+
+## 2026-10-12 18:09 UTC — Claude
+- Ajoute Firebase Analytics (utilisateurs actifs + audiences) (`4770699`)
