@@ -24,6 +24,7 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
   int _pendingOrdersCount = 0;
   int _clientsCount = 0;
   int _unreadMessagesCount = 0;
+  int _activeUsers7dCount = 0;
   bool _isLoading = true;
 
   @override
@@ -38,8 +39,10 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
       return;
     }
     try {
-      // Les 4 requêtes sont indépendantes — lancées en parallèle plutôt
+      // Les 5 requêtes sont indépendantes — lancées en parallèle plutôt
       // qu'à la suite pour ne pas cumuler leurs temps de réseau.
+      final sevenDaysAgo =
+          DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
       final results = await Future.wait([
         SupabaseConfig.client.from('products').select('id').count(),
         SupabaseConfig.client
@@ -60,11 +63,21 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
             .eq('sender_role', 'client')
             .eq('read_by_staff', false)
             .count(),
+        // Utilisateurs actifs sur 7 jours (12/10, demande explicite) —
+        // `last_active_at` (phase263), mise à jour à chaque ouverture de
+        // l'app (voir core/analytics/activity_tracker.dart), tous rôles
+        // confondus (clients ET staff).
+        SupabaseConfig.client
+            .from('profiles')
+            .select('id')
+            .gte('last_active_at', sevenDaysAgo)
+            .count(),
       ]);
       final products = results[0];
       final pendingOrders = results[1];
       final clients = results[2];
       final unreadMessages = results[3];
+      final activeUsers7d = results[4];
 
       if (!mounted) return;
       setState(() {
@@ -72,6 +85,7 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
         _pendingOrdersCount = pendingOrders.count;
         _clientsCount = clients.count;
         _unreadMessagesCount = unreadMessages.count;
+        _activeUsers7dCount = activeUsers7d.count;
         _isLoading = false;
       });
     } catch (_) {
@@ -107,6 +121,12 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
         'icon': 'message',
         'label': 'Messages',
         'value': _isLoading ? '—' : '$_unreadMessagesCount',
+      },
+      {
+        'type': 'active_users',
+        'icon': 'trending_up',
+        'label': 'Utilisateurs actifs (7j)',
+        'value': _isLoading ? '—' : '$_activeUsers7dCount',
       },
     ];
 

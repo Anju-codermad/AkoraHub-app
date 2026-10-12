@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../routes/app_routes.dart';
+import '../analytics/activity_tracker.dart';
 import '../analytics/analytics_service.dart';
 import '../supabase/auth_helpers.dart';
 import '../supabase/supabase_config.dart';
@@ -66,6 +67,7 @@ class GlobalAuthListener {
       final signedInUserId = data.session?.user.id;
       if (signedInUserId != null) {
         _trackSignedInUser(signedInUserId);
+        ActivityTracker.touch();
       }
       if (!_isOnPreAuthRoute()) return;
       final route = await AuthRouting.homeRouteForCurrentUser();

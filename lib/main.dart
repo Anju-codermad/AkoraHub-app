@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sizer/sizer.dart';
 
+import '../core/analytics/activity_tracker.dart';
 import '../core/analytics/analytics_service.dart';
 import '../core/app_export.dart';
 import '../core/auth/global_auth_listener.dart';
@@ -78,6 +79,13 @@ void main() async {
   // ci-dessus pour ne pas "await" : ne doit jamais retarder le premier
   // écran. Fonctionne à l'identique côté client et admin.
   UpdateChecker.checkAndPrompt();
+
+  // Utilisateurs actifs (12/10, demande explicite) : marque l'utilisateur
+  // comme actif à CHAQUE démarrage de l'app (pas seulement à la connexion
+  // — une session Supabase persistante ne redéclenche pas d'événement
+  // `signedIn` à chaque réouverture, voir global_auth_listener.dart pour
+  // ce cas-là). Sans "await", même raison que ci-dessus.
+  ActivityTracker.touch();
 
   // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
   Future.wait([
