@@ -1464,6 +1464,90 @@ class _ProductManagementRealState
   }
 
 
+  /// Migration ponctuelle des photos déjà en ligne sur Supabase Storage
+  /// vers Cloudflare R2 (12/10, demande explicite — quota "Cached Egress"
+  /// Supabase dépassé). Appelle l'Edge Function `migrate-product-photos-to-r2`
+  /// par lots jusqu'à ce qu'il n'y ait plus rien à migrer (`remaining: 0`).
+  /// Rejouable sans risque : la fonction ignore les photos déjà migrées.
+  Future<void> _migratePhotosToR2() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Migrer les photos vers R2'),
+        content: const Text(
+            'Transfère les photos produit déjà en ligne de Supabase Storage vers Cloudflare R2, pour libérer le quota Supabase. Peut prendre plusieurs minutes selon le nombre de photos. Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Lancer'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Expanded(child: Text('Migration en cours, ne quittez pas cet écran...')),
+          ],
+        ),
+      ),
+    );
+
+    var totalMigrated = 0;
+    String? errorMsg;
+    try {
+      var remaining = 1; // force au moins un passage
+      var iterations = 0;
+      while (remaining > 0 && iterations < 50) {
+        iterations++;
+        final res = await SupabaseConfig.client.functions.invoke(
+          'migrate-product-photos-to-r2',
+          body: {'limit': 20},
+        );
+        final data = res.data as Map?;
+        if (data == null || data['error'] != null) {
+          errorMsg = data?['error'] as String? ?? 'Réponse inattendue.';
+          break;
+        }
+        totalMigrated += (data['migrated'] as num?)?.toInt() ?? 0;
+        remaining = (data['remaining'] as num?)?.toInt() ?? 0;
+      }
+    } catch (e) {
+      errorMsg = e.toString();
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context); // ferme le dialogue de progression
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(errorMsg == null ? 'Migration terminée' : 'Erreur'),
+        content: Text(errorMsg ??
+            (totalMigrated == 0
+                ? 'Aucune photo à migrer — tout était déjà sur R2.'
+                : '$totalMigrated photo(s) migrée(s) vers R2.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1472,6 +1556,11 @@ class _ProductManagementRealState
       appBar: AppBar(
         title: const Text('Produits (Gros / Détail)'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_upload_outlined),
+            tooltip: 'Migrer les photos vers R2',
+            onPressed: _migratePhotosToR2,
+          ),
           IconButton(
             icon: const Icon(Icons.fact_check_outlined),
             tooltip: 'Vérifier les usages',
