@@ -1397,3 +1397,6 @@
 
 ## 2026-10-13 03:55 UTC — Claude
 - Isole la requête "Utilisateurs actifs" du reste du tableau de bord (`2f72aaf`)
+
+## 2026-10-13 07:38 UTC — Anju-codermad
+- Active le service "Formulation sur mesure" dans le catalogue de l'app (#19) (`e076b3b`)
