@@ -1394,3 +1394,6 @@
 
 ## 2026-10-13 03:26 UTC — Claude
 - Corrige l'écran noir au démarrage causé par Firebase Analytics (`f8c6806`)
+
+## 2026-10-13 03:55 UTC — Claude
+- Isole la requête "Utilisateurs actifs" du reste du tableau de bord (`2f72aaf`)
