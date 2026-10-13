@@ -1388,3 +1388,6 @@
 
 ## 2026-10-12 18:21 UTC — Claude
 - Prépare la migration des photos produit vers Cloudflare R2 (`2310aaa`)
+
+## 2026-10-13 02:58 UTC — Claude
+- Ajoute un bouton Admin pour lancer la migration photos -> R2 (`f5f6c79`)
