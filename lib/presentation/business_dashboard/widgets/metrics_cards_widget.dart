@@ -39,10 +39,13 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
       return;
     }
     try {
-      // Les 5 requêtes sont indépendantes — lancées en parallèle plutôt
-      // qu'à la suite pour ne pas cumuler leurs temps de réseau.
-      final sevenDaysAgo =
-          DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+      // Les 4 requêtes historiques — lancées en parallèle plutôt qu'à la
+      // suite pour ne pas cumuler leurs temps de réseau. Volontairement
+      // séparées de la requête "Utilisateurs actifs" ci-dessous (13/10,
+      // correctif) : avant, une seule requête en échec (ex. colonne
+      // `last_active_at` absente tant que la migration phase263 n'est pas
+      // exécutée) faisait planter tout le `Future.wait` et remettait les
+      // 5 cartes à 0 d'un coup, pas seulement celle en cause.
       final results = await Future.wait([
         SupabaseConfig.client.from('products').select('id').count(),
         SupabaseConfig.client
@@ -63,21 +66,11 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
             .eq('sender_role', 'client')
             .eq('read_by_staff', false)
             .count(),
-        // Utilisateurs actifs sur 7 jours (12/10, demande explicite) —
-        // `last_active_at` (phase263), mise à jour à chaque ouverture de
-        // l'app (voir core/analytics/activity_tracker.dart), tous rôles
-        // confondus (clients ET staff).
-        SupabaseConfig.client
-            .from('profiles')
-            .select('id')
-            .gte('last_active_at', sevenDaysAgo)
-            .count(),
       ]);
       final products = results[0];
       final pendingOrders = results[1];
       final clients = results[2];
       final unreadMessages = results[3];
-      final activeUsers7d = results[4];
 
       if (!mounted) return;
       setState(() {
@@ -85,11 +78,31 @@ class _MetricsCardsWidgetState extends State<MetricsCardsWidget> {
         _pendingOrdersCount = pendingOrders.count;
         _clientsCount = clients.count;
         _unreadMessagesCount = unreadMessages.count;
-        _activeUsers7dCount = activeUsers7d.count;
         _isLoading = false;
       });
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
+    }
+
+    // Utilisateurs actifs sur 7 jours (12/10, demande explicite) —
+    // `last_active_at` (phase263), mise à jour à chaque ouverture de
+    // l'app (voir core/analytics/activity_tracker.dart), tous rôles
+    // confondus (clients ET staff). Dans son propre try/catch : si la
+    // migration phase263 n'a pas encore été exécutée côté Supabase,
+    // cette seule carte reste à 0 au lieu de faire planter les 4 autres.
+    try {
+      final sevenDaysAgo =
+          DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+      final activeUsers7d = await SupabaseConfig.client
+          .from('profiles')
+          .select('id')
+          .gte('last_active_at', sevenDaysAgo)
+          .count();
+      if (!mounted) return;
+      setState(() => _activeUsers7dCount = activeUsers7d.count);
+    } catch (_) {
+      // Carte "Utilisateurs actifs" reste à 0 — probablement phase263
+      // pas encore exécutée. Pas d'autre conséquence.
     }
   }
 
