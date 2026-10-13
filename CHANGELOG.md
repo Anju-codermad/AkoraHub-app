@@ -1391,3 +1391,6 @@
 
 ## 2026-10-13 02:58 UTC — Claude
 - Ajoute un bouton Admin pour lancer la migration photos -> R2 (`f5f6c79`)
+
+## 2026-10-13 03:26 UTC — Claude
+- Corrige l'écran noir au démarrage causé par Firebase Analytics (`f8c6806`)
