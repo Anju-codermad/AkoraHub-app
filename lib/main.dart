@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,6 +55,23 @@ void main() async {
   // "hors-ligne" plutôt que de planter (utile pour du dev sans backend).
   await SupabaseConfig.initialize();
 
+  // Firebase (13/10, correctif) : DOIT être prêt (et "await"-é) avant le
+  // premier `runApp()`, contrairement à `PushNotificationService.initialize()`
+  // plus bas qui reste volontairement non "await" (popup de permission).
+  // Sans ce bloc, `MyApp.build()` pouvait s'exécuter avant la fin de
+  // `Firebase.initializeApp()` (appelée, elle, dans
+  // `PushNotificationService.initialize()` sans "await") et tout accès à
+  // Firebase Analytics dans `navigatorObservers` plantait l'app au tout
+  // premier écran (écran noir indéfini constaté par la propriétaire juste
+  // après l'ajout de l'Analytics). Rapide (pas d'appel réseau bloquant,
+  // pas de popup) : ne retarde pas perceptiblement le premier écran.
+  // Si google-services.json est absent, échoue en silence (l'app continue
+  // normalement, juste sans Firebase — `AnalyticsService` et
+  // `PushNotificationService` gèrent déjà ce cas).
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {}
+
   // Écoute de connexion active pour toute la durée de vie de l'app (voir
   // global_auth_listener.dart) — capte la connexion Google même si le
   // retour du navigateur a fait redémarrer l'app à froid sur le splash.
@@ -102,12 +120,13 @@ class MyApp extends ConsumerWidget {
     return Sizer(builder: (context, orientation, screenType) {
       return MaterialApp(
         navigatorKey: GlobalAuthListener.navigatorKey,
-        // AnalyticsService.observer (12/10, demande explicite) : envoie un
+        // AnalyticsService.observers (12/10, demande explicite) : envoie un
         // événement `screen_view` à chaque écran, base des utilisateurs
         // actifs et des audiences Firebase — voir analytics_service.dart.
+        // Liste vide (donc sans effet) si Firebase n'est pas disponible.
         navigatorObservers: [
           GlobalAuthListener.routeObserver,
-          AnalyticsService.observer,
+          ...AnalyticsService.observers,
         ],
         title: 'AkoraHub',
         theme: AppTheme.lightTheme,

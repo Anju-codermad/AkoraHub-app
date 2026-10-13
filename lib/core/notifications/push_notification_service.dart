@@ -47,7 +47,15 @@ class PushNotificationService {
     _initialized = true;
 
     try {
-      await Firebase.initializeApp();
+      // `Firebase.apps.isEmpty` (13/10, correctif) : `main()` appelle déjà
+      // `Firebase.initializeApp()` (await-é, avant `runApp()`) — rappeler
+      // cette méthode une 2e fois ici lève une exception "déjà initialisé"
+      // sur certaines versions de firebase_core, ce qui désactivait les
+      // notifications à tort. On ne réinitialise que si ce n'est pas déjà
+      // fait (cas où `main()` aurait échoué silencieusement).
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
     } catch (_) {
       // Firebase pas configuré (google-services.json absent) — l'app
       // continue de fonctionner normalement, juste sans notifications.

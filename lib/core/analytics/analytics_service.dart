@@ -1,4 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 
 /// Firebase Analytics — demande explicite de la propriétaire (12/10) :
 /// savoir combien de personnes utilisent l'app souvent (utilisateurs
@@ -18,17 +20,42 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 /// Analytics). Si ce n'est pas déjà le cas, les événements sont tout de
 /// même envoyés mais n'apparaîtront dans aucun tableau de bord tant que
 /// le lien n'est pas fait.
+///
+/// ⚠️ Tout ici est paresseux et défensif (13/10, correctif) : accéder à
+/// `FirebaseAnalytics.instance` avant que `Firebase.initializeApp()` ne
+/// soit terminé fait planter l'app au tout premier écran (écran noir
+/// indéfini constaté par la propriétaire juste après l'ajout de ce
+/// service — `PushNotificationService.initialize()` appelle
+/// `Firebase.initializeApp()` mais SANS "await" dans `main()`, pour ne
+/// pas retarder le premier écran ; `MyApp.build()` s'exécutait donc
+/// souvent avant que Firebase soit prêt). Plus aucun accès à
+/// `FirebaseAnalytics.instance` ne doit avoir lieu tant que
+/// `Firebase.apps` est vide.
 class AnalyticsService {
   AnalyticsService._();
 
-  static final FirebaseAnalytics instance = FirebaseAnalytics.instance;
+  static bool get _isReady => Firebase.apps.isNotEmpty;
+
+  static FirebaseAnalytics? _instance;
+  static FirebaseAnalytics? get _instanceOrNull {
+    if (!_isReady) return null;
+    return _instance ??= FirebaseAnalytics.instance;
+  }
+
+  static FirebaseAnalyticsObserver? _observer;
 
   /// À ajouter à `navigatorObservers` du `MaterialApp` — envoie
   /// automatiquement un événement `screen_view` à chaque changement
   /// d'écran, utile à la fois pour les utilisateurs actifs et pour
-  /// construire des audiences par écran visité.
-  static final FirebaseAnalyticsObserver observer =
-      FirebaseAnalyticsObserver(analytics: instance);
+  /// construire des audiences par écran visité. Liste vide (pas
+  /// d'observer) tant que Firebase n'est pas prêt — à inclure avec
+  /// l'opérateur de décomposition (`...AnalyticsService.observers`).
+  static List<NavigatorObserver> get observers {
+    final analytics = _instanceOrNull;
+    if (analytics == null) return const [];
+    _observer ??= FirebaseAnalyticsObserver(analytics: analytics);
+    return [_observer!];
+  }
 
   /// Associe les événements analytics à l'utilisateur Supabase connecté
   /// (ou les détache à la déconnexion, `userId: null`) — sans ça,
@@ -38,13 +65,16 @@ class AnalyticsService {
   /// statistiques ou créer une audience par rôle.
   ///
   /// Non bloquant et sans effet si Analytics n'est pas disponible
-  /// (google-services.json absent en build de dev, etc.) — ne doit
-  /// jamais perturber le flux de connexion/déconnexion.
+  /// (google-services.json absent en build de dev, Firebase pas encore
+  /// initialisé, etc.) — ne doit jamais perturber le flux de
+  /// connexion/déconnexion.
   static Future<void> setUser({required String? userId, String? role}) async {
+    final analytics = _instanceOrNull;
+    if (analytics == null) return;
     try {
-      await instance.setUserId(id: userId);
+      await analytics.setUserId(id: userId);
       if (role != null && role.isNotEmpty) {
-        await instance.setUserProperty(name: 'user_role', value: role);
+        await analytics.setUserProperty(name: 'user_role', value: role);
       }
     } catch (_) {}
   }
