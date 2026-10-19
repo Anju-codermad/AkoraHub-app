@@ -183,6 +183,17 @@ class _ChatComposerState extends State<ChatComposer> {
     }
   }
 
+  /// Accès rapide à la caméra depuis la barre de saisie (19/10, style
+  /// WhatsApp/Telegram) — raccourci direct vers la même action que
+  /// "Prendre une photo" dans `_pickAttachment`, sans passer par le menu.
+  Future<void> _takePhoto() async {
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (picked != null) {
+      await _sendFile(File(picked.path), 'image');
+    }
+  }
+
   Future<void> _pickAttachment() async {
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -294,12 +305,13 @@ class _ChatComposerState extends State<ChatComposer> {
             child: LinearProgressIndicator(minHeight: 2),
           ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: _isUploading ? null : _pickAttachment,
-            ),
             Expanded(
+              // Style WhatsApp/Telegram (19/10, demande explicite) : la
+              // pièce jointe (trombone) et l'appareil photo vivent DANS la
+              // pastille du champ de texte, plus de bouton "+" séparé à
+              // gauche — rapproche la mise en page de ces deux apps.
               child: TextField(
                 controller: widget.controller,
                 minLines: 1,
@@ -316,6 +328,24 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 10),
+                  suffixIconConstraints: const BoxConstraints(minWidth: 0),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.attach_file, size: 22),
+                        splashRadius: 20,
+                        tooltip: 'Joindre un fichier',
+                        onPressed: _isUploading ? null : _pickAttachment,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.camera_alt_outlined, size: 22),
+                        splashRadius: 20,
+                        tooltip: 'Prendre une photo',
+                        onPressed: _isUploading ? null : _takePhoto,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
