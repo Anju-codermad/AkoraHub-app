@@ -125,6 +125,7 @@ class _EmailOtpVerificationScreenState
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
+          settings: const RouteSettings(name: '/phone-otp-verification'),
           builder: (_) => PhoneOtpVerificationScreen(phone: phone),
         ),
       );

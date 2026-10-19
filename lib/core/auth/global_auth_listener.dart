@@ -31,6 +31,22 @@ class GlobalAuthListener {
     '/splash-screen',
     '/authentication-screen',
     '/onboarding-flow',
+    // Étapes d'inscription (19/10, correctif) : `registration_screen.dart`
+    // pousse ces écrans sans nom de route, ce qui faisait croire à
+    // `_isOnPreAuthRoute()` (via son repli `name == null`) qu'on était
+    // encore en pré-connexion pendant TOUTE l'inscription. Résultat : la
+    // vérification du code email (`EmailOtpVerificationScreen`) déclenche
+    // un événement `signedIn` global (verifyOTP établit une session), que
+    // cet écouteur captait en plus de la navigation déjà gérée localement
+    // par l'écran — deux navigations concurrentes vers des destinations
+    // différentes, l'une pouvant arracher l'utilisateur de l'écran de
+    // vérification du téléphone avant qu'il ne soit enregistré (bug
+    // remonté par une testeuse : bandeau rouge suivi d'un bandeau vert
+    // "Compte créé" au moment de saisir le code reçu par email). Nommer
+    // ces 2 écrans et les lister ici fait que cet écouteur les reconnaît
+    // comme pré-connexion et laisse l'écran gérer sa propre navigation.
+    '/email-otp-verification',
+    '/phone-otp-verification',
   };
 
   static bool _isOnPreAuthRoute() {

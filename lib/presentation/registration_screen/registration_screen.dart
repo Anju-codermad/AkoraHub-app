@@ -247,6 +247,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
+            settings: const RouteSettings(name: '/email-otp-verification'),
             builder: (_) => EmailOtpVerificationScreen(
               email: _emailController.text.trim(),
               pendingProfileUpdate: pendingProfileUpdate,
