@@ -1403,3 +1403,6 @@
 
 ## 2026-10-19 06:49 UTC — Anju-codermad
 - Ajoute un guide d'intégration Airtel Money (Akora Pay) (#20) (`b8c50c6`)
+
+## 2026-10-19 13:08 UTC — Claude
+- Rapproche le champ de message du style WhatsApp/Telegram (`72a7f8c`)
