@@ -1406,3 +1406,6 @@
 
 ## 2026-10-19 13:08 UTC — Claude
 - Rapproche le champ de message du style WhatsApp/Telegram (`72a7f8c`)
+
+## 2026-10-19 13:14 UTC — Claude
+- Corrige une navigation concurrente pendant la vérification email à l'inscription (`b63ef62`)
