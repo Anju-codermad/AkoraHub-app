@@ -1400,3 +1400,6 @@
 
 ## 2026-10-13 07:38 UTC — Anju-codermad
 - Active le service "Formulation sur mesure" dans le catalogue de l'app (#19) (`e076b3b`)
+
+## 2026-10-19 06:49 UTC — Anju-codermad
+- Ajoute un guide d'intégration Airtel Money (Akora Pay) (#20) (`b8c50c6`)
