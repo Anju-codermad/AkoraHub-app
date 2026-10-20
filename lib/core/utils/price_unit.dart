@@ -39,3 +39,28 @@ String? unitLabelFromEmbeddedVariants(dynamic variantsRaw) {
   final name = formats is Map ? formats['name'] as String? : null;
   return unitSuffixFromFormatName(name);
 }
+
+/// Liste des formats disponibles pour un produit (ex. ["1 kg", "5 kg",
+/// "25 kg"]) à partir des `product_variants` embarqués par PostgREST —
+/// même source que [unitLabelFromEmbeddedVariants], mais sans se limiter
+/// à la variante la moins chère (20/10, demande explicite : afficher les
+/// formats disponibles directement sur la fiche du catalogue, pas
+/// seulement dans le détail produit). Triés du moins cher au plus cher,
+/// dédupliqués (plusieurs variantes — parfum, couleur... — peuvent
+/// partager le même format).
+List<String> availableFormatLabels(dynamic variantsRaw) {
+  if (variantsRaw is! List || variantsRaw.isEmpty) return const [];
+  final byName = <String, num>{};
+  for (final v in variantsRaw) {
+    if (v is! Map) continue;
+    final formats = v['formats'];
+    final name = formats is Map ? formats['name'] as String? : null;
+    if (name == null || name.isEmpty) continue;
+    final price = (v['price_detail'] as num?) ?? 0;
+    final existing = byName[name];
+    if (existing == null || price < existing) byName[name] = price;
+  }
+  final entries = byName.entries.toList()
+    ..sort((a, b) => a.value.compareTo(b.value));
+  return entries.map((e) => e.key).toList();
+}

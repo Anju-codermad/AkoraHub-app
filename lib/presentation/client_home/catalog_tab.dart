@@ -1920,6 +1920,7 @@ class ProductCard extends ConsumerWidget {
     final unitLabel =
         unitLabelFromEmbeddedVariants(product['product_variants']);
     final unitSuffix = unitLabel != null ? '/$unitLabel' : '';
+    final formatLabels = availableFormatLabels(product['product_variants']);
 
     return Material(
       color: theme.colorScheme.surface,
@@ -2061,7 +2062,8 @@ class ProductCard extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
+                padding: EdgeInsets.fromLTRB(
+                    10, 2, 10, formatLabels.isEmpty ? 10 : 2),
                 child: Text(
                   product['name'] ?? '',
                   maxLines: 1,
@@ -2070,6 +2072,17 @@ class ProductCard extends ConsumerWidget {
                       ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
+              if (formatLabels.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                  child: Text(
+                    formatLabels.join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
             ],
           ),
         ),
