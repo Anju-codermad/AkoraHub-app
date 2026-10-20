@@ -1412,3 +1412,6 @@
 
 ## 2026-10-20 07:45 UTC — Claude
 - Ajoute la section Actualités (lecture news_posts, partagée avec le site web) (`38ec762`)
+
+## 2026-10-20 21:35 UTC — Claude
+- Affiche les formats disponibles sur chaque fiche produit du catalogue (`ca49a83`)
