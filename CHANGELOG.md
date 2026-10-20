@@ -1409,3 +1409,6 @@
 
 ## 2026-10-19 13:14 UTC — Claude
 - Corrige une navigation concurrente pendant la vérification email à l'inscription (`b63ef62`)
+
+## 2026-10-20 07:45 UTC — Claude
+- Ajoute la section Actualités (lecture news_posts, partagée avec le site web) (`38ec762`)
