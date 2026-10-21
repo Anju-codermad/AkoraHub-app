@@ -1415,3 +1415,6 @@
 
 ## 2026-10-20 21:35 UTC — Claude
 - Affiche les formats disponibles sur chaque fiche produit du catalogue (`ca49a83`)
+
+## 2026-10-21 02:09 UTC — Claude
+- Force les versions ML Kit/CameraX compatibles 16 Ko (conformité Play Store) (`53d0d70`)
