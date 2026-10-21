@@ -94,6 +94,30 @@ flutter {
     source '../..'
 }
 
+// Conformité Google Play "tailles de page mémoire 16 Ko" (21/10, mise à
+// jour refusée par le Play Store sinon à partir du 1er nov. 2025) :
+// `mobile_scanner` (scanner de produit) et `camera` (suivi photo) tirent
+// chacun des bibliothèques natives Google (ML Kit barcode-scanning,
+// CameraX) via leurs dépendances Android transitives, dans des versions
+// trop anciennes pour être alignées sur 16 Ko (libbarhopper_v3.so,
+// libimage_processing_util_jni.so — confirmé en inspectant le .so réel du
+// dernier build avec `readelf -lW`, align = 0x1000 au lieu de 0x4000).
+// On force ici les versions corrigées plutôt que d'attendre une mise à
+// jour majeure de ces plugins Flutter (qui risquerait de casser leur API
+// Dart) : aucun changement de code, seulement les bibliothèques natives
+// réellement embarquées dans l'APK/AAB.
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'androidx.camera') {
+            details.useVersion '1.4.2'
+        }
+        if (details.requested.group == 'com.google.mlkit' &&
+                details.requested.name == 'barcode-scanning') {
+            details.useVersion '17.3.0'
+        }
+    }
+}
+
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
     implementation "androidx.multidex:multidex:2.0.1"
