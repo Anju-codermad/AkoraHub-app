@@ -641,73 +641,89 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     // gardent une teinte sombre, indépendamment de onBand/onBandMuted
     // ci-dessus (sinon : icônes blanches invisibles sur fond blanc).
     final chipIconColor = theme.colorScheme.onSurfaceVariant;
-    // Photo du bandeau hero (26/10, demande explicite — une vraie photo,
-    // pas seulement un dégradé) : réutilise la première bannière promo
-    // déjà chargée (voir `loadBanners` dans `_loadData`), elle-même tirée
-    // d'un vrai produit publié avec photo — pas de requête supplémentaire.
-    // `null` si le catalogue est vide ou encore en chargement : le
-    // dégradé marine/vert sert alors de repli, jamais d'écran vide.
-    final heroImageUrl =
-        _promoSlides.isNotEmpty ? _promoSlides.first.imageUrl : null;
     return RefreshIndicator(
       onRefresh: _loadData,
       child: CustomScrollView(
         slivers: [
+          // --- Hero fusionné (26/10, demande explicite) : un seul grand
+          // bandeau photo, au lieu de deux bandeaux empilés (l'ancien
+          // bandeau de salutation en dégradé/photo statique PUIS le
+          // carrousel promo séparé juste en dessous) — dans l'esprit du
+          // modèle de référence fourni par l'utilisatrice (photo plein
+          // cadre, salutation + recherche superposées). Le PageView du
+          // carrousel promo sert maintenant directement de fond : un seul
+          // widget fait le travail des deux anciens blocs. Hauteur fixe
+          // (plutôt que calée sur le contenu comme avant) : nécessaire
+          // pour que `Spacer()` ci-dessous puisse pousser le titre/prix
+          // et les puces de pagination vers le bas du hero.
           SliverToBoxAdapter(
-            child: Stack(
-              children: [
-                // Photo de fond (ou dégradé de repli) — Positioned.fill
-                // prend la taille du Column ci-dessous (seul enfant non
-                // positionné du Stack), donc pas de hauteur à fixer à la
-                // main.
-                Positioned.fill(
-                  child: heroImageUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: heroImageUrl,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF0B2C64), // Marine AkoraHub
-                                  Color(0xFF085041), // Vert AkoraHub
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      : const DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF0B2C64),
-                                Color(0xFF085041),
-                              ],
-                            ),
+            child: SizedBox(
+              height: 38.h,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Fond : carrousel swipeable des bannières promo (vrais
+                  // produits publiés avec photo, voir `loadBanners` dans
+                  // `_loadData`). Remplace l'ancienne photo statique (1re
+                  // bannière uniquement) : chaque slide a maintenant sa
+                  // propre photo de fond, comme avant dans l'ancien
+                  // carrousel séparé.
+                  PageView.builder(
+                    controller: _bannerController,
+                    itemCount: _promoSlides.length,
+                    onPageChanged: (i) {
+                      setState(() => _bannerIndex = i);
+                      _scheduleBannerAutoplay();
+                    },
+                    itemBuilder: (context, index) {
+                      final slide = _promoSlides[index];
+                      final hasImage = slide.imageUrl != null &&
+                          slide.imageUrl!.isNotEmpty;
+                      final slideFallback = const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF0B2C64), // Marine AkoraHub
+                              Color(0xFF085041), // Vert AkoraHub
+                            ],
                           ),
                         ),
-                ),
-                // Assombrissement : garde le texte blanc lisible quelle
-                // que soit la photo tirée du catalogue.
-                Positioned.fill(
-                  child: DecoratedBox(
+                      );
+                      return GestureDetector(
+                        onTap: slide.product == null
+                            ? null
+                            : () => Navigator.push(
+                                  context,
+                                  productDetailRoute(ProductDetailClient(
+                                      product: slide.product!)),
+                                ),
+                        child: hasImage
+                            ? CachedNetworkImage(
+                                imageUrl: slide.imageUrl!,
+                                fit: BoxFit.cover,
+                                errorWidget: (_, __, ___) => slideFallback,
+                              )
+                            : slideFallback,
+                      );
+                    },
+                  ),
+                  // Assombrissement : garde le texte blanc lisible quelle
+                  // que soit la photo du slide affiché.
+                  const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withValues(alpha: 0.30),
-                          Colors.black.withValues(alpha: 0.58),
+                          Colors.black26,
+                          Colors.black54,
                         ],
                       ),
                     ),
                   ),
-                ),
-                Column(
+                  Column(
                 children: [
                   // --- En-tête personnalisé : avatar, salutation, localisation, notifs ---
                   Padding(
@@ -901,16 +917,75 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     ),
                   ),
 
-                  // --- Espace de respiration (09/08) : le bandeau occupe
-                  // une vraie portion de l'écran plutôt que de se limiter
-                  // pile à la hauteur de l'en-tête + recherche. Fait
-                  // partie du même Stack (photo + assombrissement) que le
-                  // reste du bandeau ci-dessus (pas de risque de
-                  // débordement).
-                  SizedBox(height: 2.h),
+                  const Spacer(),
+                  // --- Titre + prix du produit en vedette (slide actuel du
+                  // carrousel) + puces de pagination (26/10, fusion du
+                  // hero) : posés directement sur la photo (blanc +
+                  // ombre), à la place de l'ancien carrousel séparé plus
+                  // bas dans l'écran.
+                  if (_promoSlides.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.5.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _promoSlides[_bannerIndex].title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              shadows: const [
+                                Shadow(
+                                  color: Colors.black54,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 0.3.h),
+                          Text(
+                            _promoSlides[_bannerIndex].subtitle,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              shadows: const [
+                                Shadow(
+                                  color: Colors.black54,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 1.2.h),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              _promoSlides.length,
+                              (i) => AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 3),
+                                width: _bannerIndex == i ? 18 : 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: _bannerIndex == i
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -1107,153 +1182,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                 ),
               ),
             ),
-
-          // --- Bannière en carrousel ---
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 16.h,
-              child: PageView.builder(
-                controller: _bannerController,
-                itemCount: _promoSlides.length,
-                onPageChanged: (i) {
-                  setState(() => _bannerIndex = i);
-                  _scheduleBannerAutoplay();
-                },
-                itemBuilder: (context, index) {
-                  final slide = _promoSlides[index];
-                  final hasImage =
-                      slide.imageUrl != null && slide.imageUrl!.isNotEmpty;
-                  final slideProduct = slide.product;
-                  return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(18),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: slideProduct == null
-                            ? null
-                            : () {
-                                Navigator.push(
-                                  context,
-                                  productDetailRoute(ProductDetailClient(
-                                      product: slideProduct)),
-                                );
-                              },
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(4.w),
-                          clipBehavior: Clip.antiAlias,
-                          decoration: BoxDecoration(
-                            gradient: hasImage
-                                ? null
-                                : LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      theme.colorScheme.primary,
-                                      theme.colorScheme.primary
-                                          .withValues(alpha: 0.75),
-                                    ],
-                                  ),
-                            image: hasImage
-                                ? DecorationImage(
-                                    image: NetworkImage(slide.imageUrl!),
-                                    fit: BoxFit.cover,
-                                    colorFilter: ColorFilter.mode(
-                                      Colors.black.withValues(alpha: 0.45),
-                                      BlendMode.darken,
-                                    ),
-                                  )
-                                : null,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      slide.title,
-                                      style:
-                                          theme.textTheme.titleLarge?.copyWith(
-                                        color: theme.colorScheme.onPrimary,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.2,
-                                        shadows: hasImage
-                                            ? const [
-                                                Shadow(
-                                                  color: Colors.black54,
-                                                  blurRadius: 6,
-                                                  offset: Offset(0, 1),
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                    ),
-                                    SizedBox(height: 0.5.h),
-                                    Text(
-                                      slide.subtitle,
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onPrimary
-                                            .withValues(alpha: 0.85),
-                                        shadows: hasImage
-                                            ? const [
-                                                Shadow(
-                                                  color: Colors.black54,
-                                                  blurRadius: 6,
-                                                  offset: Offset(0, 1),
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (!hasImage && slide.icon != null)
-                                Icon(
-                                  slide.icon,
-                                  size: 48,
-                                  color: theme.colorScheme.onPrimary
-                                      .withValues(alpha: 0.85),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(top: 1.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  _promoSlides.length,
-                  (i) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: _bannerIndex == i ? 18 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: _bannerIndex == i
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
 
           // --- Réapprovisionnement suggéré : produits commandés dans au
           // moins 2 commandes distinctes par ce client (voir _loadData).
