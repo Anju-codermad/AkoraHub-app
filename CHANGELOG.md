@@ -1418,3 +1418,6 @@
 
 ## 2026-10-21 02:09 UTC — Claude
 - Force les versions ML Kit/CameraX compatibles 16 Ko (conformité Play Store) (`53d0d70`)
+
+## 2026-10-26 02:49 UTC — Claude
+- Rend cliquable la carte "Utilisateurs actifs" et affiche qui est en ligne (`409b17a`)
