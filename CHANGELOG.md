@@ -1424,3 +1424,6 @@
 
 ## 2026-10-26 06:54 UTC — Claude
 - Remplace le bandeau d'accueil par un dégradé "hero" aux couleurs AkoraHub (`2117525`)
+
+## 2026-10-26 07:25 UTC — Claude
+- Remplace le dégradé du bandeau hero par une vraie photo produit (`3a5010c`)
