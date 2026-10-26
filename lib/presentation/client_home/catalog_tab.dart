@@ -618,30 +618,40 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         ? greetingPrefix
         : '$greetingPrefix, ${_clientName!.trim()}';
 
-    // Bandeau gris très clair haut / feuille blanche arrondie en bas
-    // (09/08, sur maquette puis ajusté deux fois sur retours de
-    // l'utilisatrice — uniquement le style visuel, le contenu de
-    // l'Accueil reste inchangé). Fond du bandeau porté par UN SEUL
-    // `Container` qui enveloppe tout le contenu concerné (en-tête +
-    // recherche + espace de respiration) : contrairement à la version
-    // précédente (fond `Positioned.fill` séparé, plein écran, derrière
-    // tout le `CustomScrollView`), ça évite tout risque que la couleur
-    // "déborde" derrière le reste du contenu qui suit pendant le
-    // défilement (bug constaté : le vert restait visible partout,
-    // carrousel et texte "Vous recommandez souvent" compris, faute
-    // d'un fond opaque propre à chaque section).
-    final bandColor = theme.colorScheme.surfaceContainerHighest;
-    // Texte/icônes sombres sur ce bandeau clair (inversé par rapport à
-    // la version verte précédente, où ils étaient blancs).
-    final onBand = theme.colorScheme.onSurface;
-    final onBandMuted = theme.colorScheme.onSurfaceVariant;
+    // Bandeau "hero" en dégradé haut / feuille blanche arrondie en bas
+    // (26/10, demande explicite — remplace l'ancien bandeau gris uni par
+    // un dégradé aux couleurs AkoraHub, dans l'esprit d'une photo pleine
+    // largeur derrière la salutation et la recherche, validé sur
+    // maquette avant implémentation). Fond porté par UN SEUL `Container`
+    // qui enveloppe tout le contenu concerné (en-tête + recherche +
+    // espace de respiration) : évite tout risque que la couleur
+    // "déborde" derrière le reste du contenu pendant le défilement (même
+    // raison que la version précédente).
+    final onBand = Colors.white; // texte posé directement sur le dégradé
+    final onBandMuted =
+        Colors.white.withValues(alpha: 0.82); // texte secondaire idem
+    // Icônes à l'intérieur des pastilles BLANCHES (panier, commandes,
+    // messagerie, notifications, recherche) — ces pastilles restent
+    // blanches quel que soit le fond du bandeau, donc leurs icônes
+    // gardent une teinte sombre, indépendamment de onBand/onBandMuted
+    // ci-dessus (sinon : icônes blanches invisibles sur fond blanc).
+    final chipIconColor = theme.colorScheme.onSurfaceVariant;
     return RefreshIndicator(
       onRefresh: _loadData,
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
             child: Container(
-              color: bandColor,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF0B2C64), // Marine AkoraHub
+                    Color(0xFF085041), // Vert AkoraHub
+                  ],
+                ),
+              ),
               child: Column(
                 children: [
                   // --- En-tête personnalisé : avatar, salutation, localisation, notifs ---
@@ -653,11 +663,12 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           onTap: widget.onOpenProfile,
                           child: CircleAvatar(
                             radius: 22,
+                            backgroundColor: Colors.white.withValues(alpha: 0.25),
                             backgroundImage: _clientAvatarUrl != null
                                 ? NetworkImage(_clientAvatarUrl!)
                                 : null,
                             child: _clientAvatarUrl == null
-                                ? const Icon(Icons.person)
+                                ? const Icon(Icons.person, color: Colors.white)
                                 : null,
                           ),
                         ),
@@ -711,7 +722,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                     isLabelVisible: cartCount > 0,
                                     child: IconButton(
                                       icon: Icon(Icons.shopping_cart_outlined,
-                                          color: onBandMuted),
+                                          color: chipIconColor),
                                       tooltip: 'Panier',
                                       onPressed: widget.onOpenCart,
                                     ),
@@ -725,7 +736,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                   ),
                                   child: IconButton(
                                     icon: Icon(Icons.receipt_long_outlined,
-                                        color: onBandMuted),
+                                        color: chipIconColor),
                                     tooltip: 'Commandes',
                                     // Commandes a quitté la barre du bas (04/08)
                                     // pour laisser la place à l'onglet Catalogue
@@ -748,7 +759,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                     isLabelVisible: _unreadMessagesCount > 0,
                                     child: IconButton(
                                       icon: Icon(Icons.chat_bubble_outline,
-                                          color: onBandMuted),
+                                          color: chipIconColor),
                                       tooltip: 'Messagerie',
                                       onPressed: () {
                                         Navigator.push(
@@ -773,7 +784,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                     child: IconButton(
                                       icon: Icon(
                                           Icons.notifications_none_rounded,
-                                          color: onBandMuted),
+                                          color: chipIconColor),
                                       tooltip: 'Notifications',
                                       onPressed: _openNotifications,
                                     ),
@@ -819,13 +830,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                               horizontal: 4.w, vertical: 1.6.h),
                           child: Row(
                             children: [
-                              Icon(Icons.search, size: 20, color: onBandMuted),
+                              Icon(Icons.search, size: 20, color: chipIconColor),
                               SizedBox(width: 3.w),
                               Expanded(
                                 child: Text(
                                   ref.tr('search_hint'),
                                   style: theme.textTheme.bodyMedium
-                                      ?.copyWith(color: onBandMuted),
+                                      ?.copyWith(color: chipIconColor),
                                 ),
                               ),
                             ],
@@ -838,7 +849,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   // --- Espace de respiration (09/08) : le bandeau occupe
                   // une vraie portion de l'écran plutôt que de se limiter
                   // pile à la hauteur de l'en-tête + recherche. Fait
-                  // partie du même `Container` gris que le reste du
+                  // partie du même `Container` en dégradé que le reste du
                   // bandeau ci-dessus (pas de risque de débordement).
                   SizedBox(height: 2.h),
                 ],
