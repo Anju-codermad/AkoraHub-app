@@ -1430,3 +1430,6 @@
 
 ## 2026-10-26 07:41 UTC — Claude
 - Affiche chaque parfum/concentration comme sa propre carte au catalogue (`6429be2`)
+
+## 2026-10-26 10:27 UTC — Claude
+- Fusionne le bandeau de salutation et le carrousel promo en un seul hero (`3725aae`)
