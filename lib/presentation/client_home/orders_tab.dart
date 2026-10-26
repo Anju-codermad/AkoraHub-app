@@ -9,6 +9,7 @@ import '../../core/payment/payment_methods.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'archived_orders_screen.dart';
+import 'archived_quotes_screen.dart';
 import 'delivery_tracking_screen.dart';
 import 'order_detail_screen.dart';
 import 'quote_thread_client.dart';
@@ -166,6 +167,44 @@ class OrdersTab extends StatefulWidget {
 
 class _OrdersTabState extends State<OrdersTab> {
   final _ordersListKey = GlobalKey<_OrdersListState>();
+  final _quotesListKey = GlobalKey<_QuotesListState>();
+
+  Future<void> _confirmClearQuotes() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Vider l\'historique des devis'),
+        content: const Text(
+            'Tous vos devis seront masqués de cette liste. Ils restent '
+            'consultables via "Devis archivés" et ne sont jamais '
+            'supprimés. Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Vider'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client.rpc('hide_all_my_quotes');
+      _quotesListKey.currentState?.reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Historique des devis masqué.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de vider les devis.')),
+      );
+    }
+  }
 
   Future<void> _confirmClearHistory() async {
     final confirmed = await showDialog<bool>(
@@ -220,6 +259,14 @@ class _OrdersTabState extends State<OrdersTab> {
                 ).then((_) => _ordersListKey.currentState?.reload());
               } else if (value == 'clear') {
                 _confirmClearHistory();
+              } else if (value == 'archived_quotes') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ArchivedQuotesScreen()),
+                ).then((_) => _quotesListKey.currentState?.reload());
+              } else if (value == 'clear_quotes') {
+                _confirmClearQuotes();
               }
             },
             itemBuilder: (context) => const [
@@ -227,6 +274,11 @@ class _OrdersTabState extends State<OrdersTab> {
                   value: 'archived', child: Text('Commandes archivées')),
               PopupMenuItem(
                   value: 'clear', child: Text('Vider l\'historique')),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                  value: 'archived_quotes', child: Text('Devis archivés')),
+              PopupMenuItem(
+                  value: 'clear_quotes', child: Text('Vider les devis')),
             ],
           ),
         ],
@@ -247,7 +299,7 @@ class _OrdersTabState extends State<OrdersTab> {
               child: TabBarView(
                 children: [
                   _OrdersList(key: _ordersListKey),
-                  const _QuotesList(),
+                  _QuotesList(key: _quotesListKey),
                 ],
               ),
             ),
@@ -761,7 +813,7 @@ class _OrdersListState extends ConsumerState<_OrdersList> {
 }
 
 class _QuotesList extends ConsumerStatefulWidget {
-  const _QuotesList();
+  const _QuotesList({super.key});
 
   @override
   ConsumerState<_QuotesList> createState() => _QuotesListState();
@@ -802,6 +854,11 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
     _loadQuotes();
   }
 
+  /// Point d'entrée pour `_OrdersTabState` (retour de l'écran Devis
+  /// archivés, ou après "Vider les devis") — même rôle que `reload()`
+  /// dans `_OrdersListState`.
+  void reload() => _loadQuotes();
+
   Future<void> _loadQuotes() async {
     final userId = SupabaseConfig.client.auth.currentUser?.id;
     if (!SupabaseConfig.isConfigured || userId == null) {
@@ -820,6 +877,7 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
           .from('quotes')
           .select('*, quote_items(*)')
           .eq('customer_id', userId)
+          .eq('hidden_by_customer', false)
           .order('created_at', ascending: false);
       setState(() {
         _quotes = List<Map<String, dynamic>>.from(quotes);
@@ -830,6 +888,46 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
         _isLoading = false;
         _error = 'Impossible de charger vos devis.';
       });
+    }
+  }
+
+  /// Masque un devis de la liste du client (jamais une suppression —
+  /// même principe que `_hideOrder` pour les commandes, voir
+  /// phase264_patch_quote_archiving.sql).
+  Future<void> _hideQuote(Map<String, dynamic> quote) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Masquer ce devis'),
+        content: Text(
+            'Le devis ${quote['quote_number'] ?? ''} sera retiré de '
+            'cette liste. Vous pourrez le retrouver dans "Devis '
+            'archivés" (menu ⋮ en haut). Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Masquer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client.rpc('set_quote_hidden', params: {
+        'p_quote_id': quote['id'],
+        'p_hidden': true,
+      });
+      if (!mounted) return;
+      setState(() => _quotes.removeWhere((q) => q['id'] == quote['id']));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de masquer ce devis.')),
+      );
     }
   }
 
@@ -995,6 +1093,19 @@ class _QuotesListState extends ConsumerState<_QuotesList> {
                         backgroundColor:
                             _statusColor(theme, status).withValues(alpha: 0.12),
                         side: BorderSide.none,
+                      ),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, size: 18),
+                        padding: EdgeInsets.zero,
+                        onSelected: (value) {
+                          if (value == 'hide') _hideQuote(quote);
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: 'hide',
+                            child: Text('Masquer ce devis'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
