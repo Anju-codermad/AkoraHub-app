@@ -1433,3 +1433,6 @@
 
 ## 2026-10-26 10:27 UTC — Claude
 - Fusionne le bandeau de salutation et le carrousel promo en un seul hero (`3725aae`)
+
+## 2026-10-26 17:28 UTC — Claude
+- Met les photos produit en cache local (CachedNetworkImage) (`53dafaa`)
