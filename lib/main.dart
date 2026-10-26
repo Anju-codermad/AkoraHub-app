@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sizer/sizer.dart';
 
+import 'dart:async';
+
 import '../core/analytics/activity_tracker.dart';
 import '../core/analytics/analytics_service.dart';
 import '../core/app_export.dart';
 import '../core/auth/global_auth_listener.dart';
+import '../core/chat/presence_helper.dart';
 import '../core/deeplink/deep_link_service.dart';
 import '../core/notifications/push_notification_service.dart';
 import '../core/providers/theme_provider.dart';
@@ -138,7 +141,7 @@ class MyApp extends ConsumerWidget {
             data: MediaQuery.of(context).copyWith(
               textScaler: TextScaler.linear(1.0),
             ),
-            child: child!,
+            child: _GlobalPresenceHeartbeat(child: child!),
           );
         },
         // 🚨 END CRITICAL SECTION
@@ -148,4 +151,66 @@ class MyApp extends ConsumerWidget {
       );
     });
   }
+}
+
+/// Présence "en ligne" à l'échelle de toute l'app (26/10, demande
+/// explicite : savoir en temps réel qui est connecté, pas seulement qui
+/// a ouvert l'app dans les 7 derniers jours). Jusqu'ici,
+/// `PresenceHelper.touch()` ne tournait que pendant qu'un écran de chat
+/// était ouvert (29/09) — ce battement tourne pendant toute la durée de
+/// vie de l'app, mais uniquement au premier plan (s'arrête quand l'app
+/// passe en arrière-plan, pour ne pas afficher "en ligne" quelqu'un qui a
+/// juste laissé l'app ouverte sans y être). Alimente
+/// `profiles.last_seen_at`, utilisé par `ActiveUsersScreen` (tableau de
+/// bord staff) et déjà par la présence en chat.
+class _GlobalPresenceHeartbeat extends StatefulWidget {
+  final Widget child;
+  const _GlobalPresenceHeartbeat({required this.child});
+
+  @override
+  State<_GlobalPresenceHeartbeat> createState() =>
+      _GlobalPresenceHeartbeatState();
+}
+
+class _GlobalPresenceHeartbeatState extends State<_GlobalPresenceHeartbeat>
+    with WidgetsBindingObserver {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _start();
+  }
+
+  void _start() {
+    PresenceHelper.touch();
+    _timer?.cancel();
+    _timer = Timer.periodic(
+        const Duration(seconds: 30), (_) => PresenceHelper.touch());
+  }
+
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _start();
+    } else {
+      _stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

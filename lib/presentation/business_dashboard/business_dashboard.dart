@@ -6,6 +6,7 @@ import '../../core/app_export.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../widgets/custom_bottom_bar.dart';
 import '../../widgets/custom_icon_widget.dart';
+import './active_users_screen.dart';
 import './widgets/greeting_header_widget.dart';
 import './widgets/metrics_cards_widget.dart';
 import './widgets/quick_actions_grid_widget.dart';
@@ -199,6 +200,12 @@ class _BusinessDashboardState extends State<BusinessDashboard> {
                         Navigator.pushNamed(context, '/customer-management-real');
                       } else if (metricType == 'messages') {
                         Navigator.pushNamed(context, '/messaging-center');
+                      } else if (metricType == 'active_users') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ActiveUsersScreen()),
+                        );
                       }
                     },
                   ),
