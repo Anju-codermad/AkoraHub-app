@@ -1436,3 +1436,6 @@
 
 ## 2026-10-26 17:28 UTC — Claude
 - Met les photos produit en cache local (CachedNetworkImage) (`53dafaa`)
+
+## 2026-10-26 17:31 UTC — Claude
+- Ajoute le masquage des devis, comme c'était déjà possible pour les commandes (`8ec6198`)
