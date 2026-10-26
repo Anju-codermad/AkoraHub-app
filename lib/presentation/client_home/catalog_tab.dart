@@ -942,16 +942,20 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           ),
 
           // --- "Capuchon" arrondi blanc : transition visuelle entre le
-          // bandeau gris clair ci-dessus et le contenu (fond blanc
-          // standard du Scaffold) ci-dessous.
+          // hero photo ci-dessus et le contenu (fond blanc standard du
+          // Scaffold) ci-dessous. Rayon agrandi (26/10, demande
+          // explicite, sur référence visuelle) : 24 -> 40, courbe bien
+          // plus marquée sur les deux coins ; hauteur augmentée en
+          // conséquence pour que la courbe ait la place de se lire
+          // clairement (sinon coupée net par la faible hauteur).
           SliverToBoxAdapter(
             child: Container(
-              height: 3.h,
+              height: 5.h,
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
+                  topLeft: Radius.circular(40),
+                  topRight: Radius.circular(40),
                 ),
               ),
             ),
