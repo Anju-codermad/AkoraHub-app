@@ -1836,26 +1836,32 @@ Widget _productImage({
   required bool enableHero,
   required String tag,
 }) {
-  final image = Image.network(
-    imageUrl,
+  // `CachedNetworkImage` plutôt que `Image.network` (26/10, demande
+  // explicite) : sur une connexion faible, un simple échec réseau
+  // tombait dans `errorBuilder` et affichait la même icône générique
+  // qu'un produit sans aucune photo en base — impossible de distinguer
+  // les deux côté client. Une fois une photo chargée avec succès une
+  // première fois, elle reste en cache local et ne dépend plus du
+  // réseau aux réaffichages suivants (liste qui se reconstruit, retour
+  // en arrière, etc.), même si la connexion redevient mauvaise ensuite.
+  final image = CachedNetworkImage(
+    imageUrl: imageUrl,
     fit: BoxFit.cover,
-    errorBuilder: (context, error, stack) => Icon(
+    errorWidget: (context, url, error) => Icon(
       Icons.inventory_2_outlined,
       size: 36,
       color: theme.colorScheme.outline,
     ),
-    loadingBuilder: (context, child, progress) => progress == null
-        ? child
-        : Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: theme.colorScheme.outline,
-              ),
-            ),
-          ),
+    placeholder: (context, url) => Center(
+      child: SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: theme.colorScheme.outline,
+        ),
+      ),
+    ),
   );
   return enableHero ? Hero(tag: tag, child: image) : image;
 }
