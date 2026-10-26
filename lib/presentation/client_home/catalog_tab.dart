@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -636,23 +637,73 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     // gardent une teinte sombre, indépendamment de onBand/onBandMuted
     // ci-dessus (sinon : icônes blanches invisibles sur fond blanc).
     final chipIconColor = theme.colorScheme.onSurfaceVariant;
+    // Photo du bandeau hero (26/10, demande explicite — une vraie photo,
+    // pas seulement un dégradé) : réutilise la première bannière promo
+    // déjà chargée (voir `loadBanners` dans `_loadData`), elle-même tirée
+    // d'un vrai produit publié avec photo — pas de requête supplémentaire.
+    // `null` si le catalogue est vide ou encore en chargement : le
+    // dégradé marine/vert sert alors de repli, jamais d'écran vide.
+    final heroImageUrl =
+        _promoSlides.isNotEmpty ? _promoSlides.first.imageUrl : null;
     return RefreshIndicator(
       onRefresh: _loadData,
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF0B2C64), // Marine AkoraHub
-                    Color(0xFF085041), // Vert AkoraHub
-                  ],
+            child: Stack(
+              children: [
+                // Photo de fond (ou dégradé de repli) — Positioned.fill
+                // prend la taille du Column ci-dessous (seul enfant non
+                // positionné du Stack), donc pas de hauteur à fixer à la
+                // main.
+                Positioned.fill(
+                  child: heroImageUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: heroImageUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF0B2C64), // Marine AkoraHub
+                                  Color(0xFF085041), // Vert AkoraHub
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF0B2C64),
+                                Color(0xFF085041),
+                              ],
+                            ),
+                          ),
+                        ),
                 ),
-              ),
-              child: Column(
+                // Assombrissement : garde le texte blanc lisible quelle
+                // que soit la photo tirée du catalogue.
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.30),
+                          Colors.black.withValues(alpha: 0.58),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Column(
                 children: [
                   // --- En-tête personnalisé : avatar, salutation, localisation, notifs ---
                   Padding(
@@ -849,11 +900,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   // --- Espace de respiration (09/08) : le bandeau occupe
                   // une vraie portion de l'écran plutôt que de se limiter
                   // pile à la hauteur de l'en-tête + recherche. Fait
-                  // partie du même `Container` en dégradé que le reste du
-                  // bandeau ci-dessus (pas de risque de débordement).
+                  // partie du même Stack (photo + assombrissement) que le
+                  // reste du bandeau ci-dessus (pas de risque de
+                  // débordement).
                   SizedBox(height: 2.h),
                 ],
               ),
+              ],
             ),
           ),
 
