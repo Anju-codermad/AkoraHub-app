@@ -64,3 +64,106 @@ List<String> availableFormatLabels(dynamic variantsRaw) {
     ..sort((a, b) => a.value.compareTo(b.value));
   return entries.map((e) => e.key).toList();
 }
+
+/// Éclate chaque produit ayant plusieurs parfums (ou, pour l'Eau de
+/// Javel/Peroxyde, plusieurs concentrations — voir
+/// `phase179_patch_variantes_concentration_javel_peroxyde.sql`) en
+/// autant de cartes de catalogue distinctes, une par parfum/
+/// concentration (26/10, demande explicite : les variantes ne doivent
+/// plus être cachées derrière le sélecteur de la fiche produit, chaque
+/// parfum doit apparaître directement dans la grille). Un produit sans
+/// parfum/concentration multiple (un seul, ou aucun) reste une seule
+/// carte, strictement inchangée.
+///
+/// Nécessite que `product_variants` soit embarqué avec `parfum_id,
+/// parfums(name), concentration_id, concentrations(name)` en plus de
+/// `price_detail, format_id, formats(name)` (voir
+/// `product_catalog_tab.dart`). Chaque carte éclatée reprend :
+/// - le prix le moins cher parmi SES variantes (pas celui du produit
+///   entier, qui mélangerait les parfums) ;
+/// - sa propre photo si une variante de ce parfum en a une (voir
+///   `product_variants.image_url`, phase179), sinon la photo du produit ;
+/// - un repère interne (`_heroTagSuffix`) pour que l'animation Hero ne
+///   rentre pas en collision entre deux cartes du même produit affichées
+///   côte à côte ;
+/// - un repère de présélection (`_preselectParfumId`/
+///   `_preselectConcentrationId`) lu par `ProductDetailClient` pour
+///   ouvrir la fiche directement sur le bon parfum/la bonne
+///   concentration, au lieu du premier variant trouvé.
+List<Map<String, dynamic>> expandProductsByVariantAxis(
+    List<Map<String, dynamic>> products) {
+  final result = <Map<String, dynamic>>[];
+  for (final product in products) {
+    final variantsRaw = product['product_variants'];
+    final variants = variantsRaw is List
+        ? variantsRaw
+            .whereType<Map>()
+            .map((v) => Map<String, dynamic>.from(v))
+            .toList()
+        : <Map<String, dynamic>>[];
+
+    final parfumIds = <String>{};
+    final concentrationIds = <String>{};
+    for (final v in variants) {
+      final parfumId = v['parfum_id'] as String?;
+      if (parfumId != null) parfumIds.add(parfumId);
+      final concentrationId = v['concentration_id'] as String?;
+      if (concentrationId != null) concentrationIds.add(concentrationId);
+    }
+
+    String? axisKey;
+    Set<String>? axisIds;
+    if (parfumIds.length >= 2) {
+      axisKey = 'parfum_id';
+      axisIds = parfumIds;
+    } else if (concentrationIds.length >= 2) {
+      axisKey = 'concentration_id';
+      axisIds = concentrationIds;
+    }
+
+    if (axisKey == null || axisIds == null) {
+      result.add(product);
+      continue;
+    }
+
+    final axisTable = axisKey == 'parfum_id' ? 'parfums' : 'concentrations';
+    for (final axisId in axisIds) {
+      final matching = variants.where((v) => v[axisKey] == axisId).toList();
+      if (matching.isEmpty) continue;
+
+      Map<String, dynamic>? cheapestVariant;
+      num? cheapestPrice;
+      String? variantImage;
+      for (final v in matching) {
+        final price = (v['price_detail'] as num?) ?? 0;
+        if (cheapestPrice == null || price < cheapestPrice) {
+          cheapestPrice = price;
+          cheapestVariant = v;
+        }
+        final img = v['image_url'] as String?;
+        if (variantImage == null && img != null && img.trim().isNotEmpty) {
+          variantImage = img;
+        }
+      }
+
+      final axisRef = cheapestVariant?[axisTable];
+      final axisName = axisRef is Map ? axisRef['name'] as String? : null;
+
+      final entry = Map<String, dynamic>.from(product);
+      entry['product_variants'] = matching;
+      entry['price_detail'] = cheapestPrice ?? product['price_detail'];
+      if (axisName != null && axisName.trim().isNotEmpty) {
+        entry['name'] = '${product['name'] ?? ''} – $axisName';
+      }
+      if (variantImage != null) entry['image_url'] = variantImage;
+      entry['_heroTagSuffix'] = axisId;
+      if (axisKey == 'parfum_id') {
+        entry['_preselectParfumId'] = axisId;
+      } else {
+        entry['_preselectConcentrationId'] = axisId;
+      }
+      result.add(entry);
+    }
+  }
+  return result;
+}

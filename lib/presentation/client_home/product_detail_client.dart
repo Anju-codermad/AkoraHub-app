@@ -145,7 +145,28 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
       setState(() {
         _variants = variants;
         if (variants.isNotEmpty) {
-          final defaultVariant = _defaultVariantInKg(variants) ?? variants.first;
+          // Carte de catalogue ouverte pour un parfum/une concentration
+          // précis (voir `expandProductsByVariantAxis`, 26/10) : ne pas
+          // retomber sur le 1er variant trouvé, mais sur celui qui
+          // correspond réellement à la carte sur laquelle le client a
+          // tapé — sinon la fiche s'ouvrirait sur le mauvais parfum.
+          final preselectParfumId =
+              widget.product['_preselectParfumId'] as String?;
+          final preselectConcentrationId =
+              widget.product['_preselectConcentrationId'] as String?;
+          var candidates = variants;
+          if (preselectParfumId != null) {
+            candidates = variants
+                .where((v) => v['parfum_id'] == preselectParfumId)
+                .toList();
+          } else if (preselectConcentrationId != null) {
+            candidates = variants
+                .where((v) => v['concentration_id'] == preselectConcentrationId)
+                .toList();
+          }
+          if (candidates.isEmpty) candidates = variants;
+          final defaultVariant =
+              _defaultVariantInKg(candidates) ?? candidates.first;
           _selectedFormatId = defaultVariant['format_id'];
           _selectedParfumId = defaultVariant['parfum_id'];
           _selectedConcentrationId = defaultVariant['concentration_id'];

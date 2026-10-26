@@ -13,6 +13,7 @@ import '../../core/notifications/category_subscription_repo.dart';
 import '../../core/providers/cart_provider.dart';
 import '../../core/reference_data/reference_table_cache.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../core/utils/price_unit.dart';
 import 'catalog_tab.dart' show ProductCard;
 import 'favorites_provider.dart';
 import 'product_detail_client.dart';
@@ -252,12 +253,17 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchProductsPage(int page) async {
-    // `product_variants(price_detail, formats(name))` embarqué (26/08) :
-    // permet à ProductCard d'afficher l'unité (kg/L) à côté du prix pour
-    // les produits à variantes, sans requête séparée par carte.
+    // `product_variants(...)` embarqué (26/08, complété 26/10) : permet à
+    // ProductCard d'afficher l'unité (kg/L) à côté du prix, les formats
+    // disponibles, ET (nouveau) d'éclater un produit à plusieurs
+    // parfums/concentrations en plusieurs cartes — voir
+    // `expandProductsByVariantAxis` dans `_reloadProductsPage`/
+    // `_loadMoreProducts` ci-dessous. Sans requête séparée par carte.
     var query = SupabaseConfig.client
         .from('products')
-        .select('*, product_variants(price_detail, formats(name))')
+        .select('*, product_variants(price_detail, formats(name), '
+            'parfum_id, parfums(name), concentration_id, '
+            'concentrations(name), image_url)')
         .eq('visibility', true);
     // Produits reliés au pilier sélectionné via un pilier supplémentaire
     // (voir _extraLinksByProductId) — sinon un produit rattaché en plus
@@ -349,7 +355,10 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
       final rows = await _fetchProductsPage(0);
       if (!mounted) return;
       setState(() {
-        _products = rows;
+        // `_hasMore` reste basé sur le nombre de PRODUITS bruts renvoyés
+        // par la page (la pagination se fait côté produits, pas côté
+        // cartes affichées) — l'éclatement par parfum vient après.
+        _products = expandProductsByVariantAxis(rows);
         _hasMore = rows.length == _pageSize;
         _isLoadingProducts = false;
       });
@@ -366,7 +375,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
       final rows = await _fetchProductsPage(nextPage);
       if (!mounted) return;
       setState(() {
-        _products = [..._products, ...rows];
+        _products = [..._products, ...expandProductsByVariantAxis(rows)];
         _page = nextPage;
         _hasMore = rows.length == _pageSize;
         _isLoadingMore = false;

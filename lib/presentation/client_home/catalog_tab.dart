@@ -302,18 +302,22 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           final topIds = frequentProductIds.take(5).map((e) => e.key).toList();
           final productRows = await SupabaseConfig.client
               .from('products')
-              .select('*, product_variants(price_detail, formats(name))')
+              .select('*, product_variants(price_detail, formats(name), '
+                  'parfum_id, parfums(name), concentration_id, '
+                  'concentrations(name), image_url)')
               .inFilter('id', topIds)
               .eq('visibility', true);
           final productsById = {
             for (final p in List<Map<String, dynamic>>.from(productRows))
               p['id'] as String: p
           };
-          // Conserve l'ordre de fréquence (le plus recommandé en premier).
-          return topIds
+          // Conserve l'ordre de fréquence (le plus recommandé en premier) ;
+          // éclate ensuite par parfum/concentration (26/10), comme le
+          // catalogue principal.
+          return expandProductsByVariantAxis(topIds
               .map((id) => productsById[id])
               .whereType<Map<String, dynamic>>()
-              .toList();
+              .toList());
         } catch (_) {
           return [];
         }
@@ -2030,7 +2034,13 @@ class ProductCard extends ConsumerWidget {
                                 theme: theme,
                                 imageUrl: imageUrl,
                                 enableHero: enableHero,
-                                tag: 'product-image-${product['id']}',
+                                // `_heroTagSuffix` (voir
+                                // `expandProductsByVariantAxis`) évite une
+                                // collision de tag Hero quand plusieurs
+                                // cartes du même produit (un parfum
+                                // chacune) sont affichées côte à côte.
+                                tag: 'product-image-${product['id']}'
+                                    '${product['_heroTagSuffix'] != null ? '-${product['_heroTagSuffix']}' : ''}',
                               ),
                       ),
                     ),
