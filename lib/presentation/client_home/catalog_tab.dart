@@ -869,54 +869,6 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     ),
                   ),
 
-                  // --- Raccourci recherche (04/08) : pas une vraie recherche
-                  // locale (la logique de recherche/pagination vit désormais
-                  // uniquement dans l'onglet Catalogue, voir
-                  // product_catalog_tab.dart, pour ne pas la dupliquer) — un
-                  // tap ouvre directement le Catalogue, comme sur beaucoup
-                  // d'apps e-commerce (barre de recherche "raccourci" sur
-                  // l'accueil). Fond blanc plein : flotte comme un "pill"
-                  // sur le bandeau gris clair. Cadre en forme de pilule
-                  // complète (09/08, sur référence visuelle) : rayon très
-                  // large (999, garantit un arrondi total quelle que soit
-                  // la hauteur réelle) + un contour fin pour bien détacher
-                  // la barre du bandeau, au lieu du rectangle à coins
-                  // légèrement arrondis d'origine. ---
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.h),
-                    child: Material(
-                      color: theme.colorScheme.surface,
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                        side: BorderSide(
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                      ),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(999),
-                        onTap: widget.onOpenCatalog,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 4.w, vertical: 1.6.h),
-                          child: Row(
-                            children: [
-                              Icon(Icons.search, size: 20, color: chipIconColor),
-                              SizedBox(width: 3.w),
-                              Expanded(
-                                child: Text(
-                                  ref.tr('search_hint'),
-                                  style: theme.textTheme.bodyMedium
-                                      ?.copyWith(color: chipIconColor),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
                   const Spacer(),
                   // --- Titre + prix du produit en vedette (slide actuel du
                   // carrousel) + puces de pagination (26/10, fusion du
@@ -1009,6 +961,55 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           // fond blanc par défaut du Scaffold — plus aucun fond coloré
           // ne traîne derrière (le bandeau ci-dessus est maintenant
           // autonome, pas un calque plein écran).
+
+          // --- Raccourci recherche (04/08, déplacé le 26/10 hors du hero
+          // — demande explicite) : pas une vraie recherche locale (la
+          // logique de recherche/pagination vit désormais uniquement
+          // dans l'onglet Catalogue, voir product_catalog_tab.dart, pour
+          // ne pas la dupliquer) — un tap ouvre directement le Catalogue,
+          // comme sur beaucoup d'apps e-commerce. Sorti du hero photo
+          // (où elle flottait sur une image qui change à chaque swipe,
+          // parfois déjà chargée de texte côté produit) pour rester
+          // lisible en toutes circonstances, posée sur le fond blanc.
+          // Cadre en forme de pilule complète (09/08, sur référence
+          // visuelle) : rayon très large (999) + un contour fin pour
+          // bien se détacher du fond.
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 1.5.h, 4.w, 0),
+              child: Material(
+                color: theme.colorScheme.surface,
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: widget.onOpenCatalog,
+                  child: Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.6.h),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search, size: 20, color: chipIconColor),
+                        SizedBox(width: 3.w),
+                        Expanded(
+                          child: Text(
+                            ref.tr('search_hint'),
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: chipIconColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
 
           // --- Flash info (annonce courte de l'Admin, si présente) ---
           if (_flashInfo != null && _flashInfo!.trim().isNotEmpty)
