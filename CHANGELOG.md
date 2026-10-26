@@ -1427,3 +1427,6 @@
 
 ## 2026-10-26 07:25 UTC — Claude
 - Remplace le dégradé du bandeau hero par une vraie photo produit (`3a5010c`)
+
+## 2026-10-26 07:41 UTC — Claude
+- Affiche chaque parfum/concentration comme sa propre carte au catalogue (`6429be2`)
