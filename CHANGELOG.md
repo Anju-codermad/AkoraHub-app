@@ -1439,3 +1439,6 @@
 
 ## 2026-10-26 17:31 UTC — Claude
 - Ajoute le masquage des devis, comme c'était déjà possible pour les commandes (`8ec6198`)
+
+## 2026-10-26 17:34 UTC — Claude
+- Sort la barre de recherche du hero photo, la place sur fond blanc (`9407619`)
