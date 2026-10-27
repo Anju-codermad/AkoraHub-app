@@ -635,11 +635,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
     final onBand = Colors.white; // texte posé directement sur le dégradé
     final onBandMuted =
         Colors.white.withValues(alpha: 0.82); // texte secondaire idem
-    // Icônes à l'intérieur des pastilles BLANCHES (panier, commandes,
-    // messagerie, notifications, recherche) — ces pastilles restent
-    // blanches quel que soit le fond du bandeau, donc leurs icônes
-    // gardent une teinte sombre, indépendamment de onBand/onBandMuted
-    // ci-dessus (sinon : icônes blanches invisibles sur fond blanc).
+    // Icône à l'intérieur de la pastille BLANCHE de la barre de
+    // recherche (26/10, déplacée hors du hero) — reste blanche quel que
+    // soit le fond du bandeau au-dessus, donc son icône garde une teinte
+    // sombre, indépendamment de onBand/onBandMuted ci-dessus (sinon :
+    // icône blanche invisible sur fond blanc). Les icônes
+    // panier/commandes/messagerie/notifications vivent maintenant
+    // directement sur la photo du hero et utilisent onBand (blanc).
     final chipIconColor = theme.colorScheme.onSurfaceVariant;
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -780,85 +782,62 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // Icônes directement sur la photo (26/10,
+                            // demande explicite, sur référence visuelle) :
+                            // contour blanc simple, sans pastille de fond
+                            // — remplace les `Material` blancs utilisés
+                            // tant que ces icônes vivaient sur le bandeau
+                            // gris clair d'origine.
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Material(
-                                  color: theme.colorScheme.surface,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: Badge(
-                                    label: Text('$cartCount'),
-                                    isLabelVisible: cartCount > 0,
-                                    child: IconButton(
-                                      icon: Icon(Icons.shopping_cart_outlined,
-                                          color: chipIconColor),
-                                      tooltip: 'Panier',
-                                      onPressed: widget.onOpenCart,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 2.w),
-                                Material(
-                                  color: theme.colorScheme.surface,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
+                                Badge(
+                                  label: Text('$cartCount'),
+                                  isLabelVisible: cartCount > 0,
                                   child: IconButton(
-                                    icon: Icon(Icons.receipt_long_outlined,
-                                        color: chipIconColor),
-                                    tooltip: 'Commandes',
-                                    // Commandes a quitté la barre du bas (04/08)
-                                    // pour laisser la place à l'onglet Catalogue
-                                    // — accès conservé ici, comme Messagerie.
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) => const OrdersTab()),
-                                    ),
+                                    icon: Icon(Icons.shopping_cart_outlined,
+                                        color: onBand),
+                                    tooltip: 'Panier',
+                                    onPressed: widget.onOpenCart,
                                   ),
                                 ),
-                                SizedBox(width: 2.w),
-                                Material(
-                                  color: theme.colorScheme.surface,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: Badge(
-                                    label: Text('$_unreadMessagesCount'),
-                                    isLabelVisible: _unreadMessagesCount > 0,
-                                    child: IconButton(
-                                      icon: Icon(Icons.chat_bubble_outline,
-                                          color: chipIconColor),
-                                      tooltip: 'Messagerie',
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const ChatScreen()),
-                                        );
-                                      },
-                                    ),
+                                IconButton(
+                                  icon: Icon(Icons.receipt_long_outlined,
+                                      color: onBand),
+                                  tooltip: 'Commandes',
+                                  // Commandes a quitté la barre du bas (04/08)
+                                  // pour laisser la place à l'onglet Catalogue
+                                  // — accès conservé ici, comme Messagerie.
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const OrdersTab()),
                                   ),
                                 ),
-                                SizedBox(width: 2.w),
-                                Material(
-                                  color: theme.colorScheme.surface,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
+                                Badge(
+                                  label: Text('$_unreadMessagesCount'),
+                                  isLabelVisible: _unreadMessagesCount > 0,
+                                  child: IconButton(
+                                    icon: Icon(Icons.chat_bubble_outline,
+                                        color: onBand),
+                                    tooltip: 'Messagerie',
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (_) => const ChatScreen()),
+                                      );
+                                    },
                                   ),
-                                  child: Badge(
-                                    label: Text('$_unreadMessagesCount'),
-                                    isLabelVisible: _unreadMessagesCount > 0,
-                                    child: IconButton(
-                                      icon: Icon(
-                                          Icons.notifications_none_rounded,
-                                          color: chipIconColor),
-                                      tooltip: 'Notifications',
-                                      onPressed: _openNotifications,
-                                    ),
+                                ),
+                                Badge(
+                                  label: Text('$_unreadMessagesCount'),
+                                  isLabelVisible: _unreadMessagesCount > 0,
+                                  child: IconButton(
+                                    icon: Icon(Icons.notifications_none_rounded,
+                                        color: onBand),
+                                    tooltip: 'Notifications',
+                                    onPressed: _openNotifications,
                                   ),
                                 ),
                               ],
