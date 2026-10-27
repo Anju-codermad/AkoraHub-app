@@ -1466,3 +1466,6 @@
 
 ## 2026-10-27 06:21 UTC — Claude
 - Rend les liens cliquables dans les flash infos et permet d'y joindre une photo (`5c9e64f`)
+
+## 2026-10-27 06:25 UTC — Claude
+- Ajoute la mise en forme (gras/italique/barré) dans les flash infos (`a58ecb2`)
