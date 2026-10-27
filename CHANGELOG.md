@@ -1496,3 +1496,6 @@
 
 ## 2026-10-27 12:49 UTC — Claude
 - Importe le catalogue technique de démarrage (PDF fourni par l'utilisatrice) (`31f6bb5`)
+
+## 2026-10-27 13:19 UTC — Claude
+- Ajoute la modification des commandes et notifie le client des commandes manuelles (`c27e489`)
