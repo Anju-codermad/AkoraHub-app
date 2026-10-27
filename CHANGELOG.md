@@ -1451,3 +1451,6 @@
 
 ## 2026-10-27 02:14 UTC — Claude
 - Aligne la courbe du capuchon hero sur le style déjà utilisé côté Profil (`2c44534`)
+
+## 2026-10-27 02:47 UTC — Claude
+- Empêche le contenu du hero de déborder dans la zone de transition (`6a9044b`)
