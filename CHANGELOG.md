@@ -1508,3 +1508,6 @@
 
 ## 2026-10-27 13:31 UTC — Claude
 - Notifie tous les clients pour les services, formations et annonces publiés (`505af63`)
+
+## 2026-10-27 15:09 UTC — Claude
+- fix: un prix Gros non renseigné (0 Ar) pouvait rendre un produit gratuit (`55b77f1`)
