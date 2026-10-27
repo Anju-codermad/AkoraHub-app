@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/storage/r2_photo_uploader.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../core/utils/linkify_text.dart';
 
 /// Gestion des "Flash infos" (annonces courtes) affichées sur l'Accueil
 /// client. Strictement réservé à l'Admin (RLS côté serveur : voir
@@ -119,6 +120,33 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
     }
   }
 
+  /// Entoure le texte sélectionné dans [controller] par [marker] de
+  /// chaque côté (ex. `_wrapSelection(c, '*')` sur "promo" sélectionné ->
+  /// "*promo*") — ou insère une paire de marqueurs vides autour du
+  /// curseur si rien n'est sélectionné, pour continuer à taper dedans.
+  void _wrapSelection(TextEditingController controller, String marker) {
+    final selection = controller.selection;
+    final text = controller.text;
+    final start = selection.isValid ? selection.start : text.length;
+    final end = selection.isValid ? selection.end : text.length;
+    if (start == end) {
+      final newText = text.replaceRange(start, start, '$marker$marker');
+      controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: start + marker.length),
+      );
+    } else {
+      final selectedText = text.substring(start, end);
+      final newText =
+          text.replaceRange(start, end, '$marker$selectedText$marker');
+      controller.value = TextEditingValue(
+        text: newText,
+        selection:
+            TextSelection.collapsed(offset: end + marker.length * 2),
+      );
+    }
+  }
+
   Future<void> _showAddSheet() async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -156,6 +184,31 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                 Text('Nouveau flash info',
                     style: Theme.of(context).textTheme.titleMedium),
                 SizedBox(height: 2.h),
+                // Mise en forme simple façon WhatsApp (27/10, demande
+                // explicite) — sélectionne du texte dans le champ puis
+                // appuie sur un bouton pour l'entourer des symboles
+                // correspondants (voir core/utils/linkify_text.dart pour
+                // le rendu). Sans sélection, les symboles sont insérés
+                // autour du curseur pour continuer à taper dedans.
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Gras (*texte*)',
+                      icon: const Icon(Icons.format_bold),
+                      onPressed: () => _wrapSelection(controller, '*'),
+                    ),
+                    IconButton(
+                      tooltip: 'Italique (_texte_)',
+                      icon: const Icon(Icons.format_italic),
+                      onPressed: () => _wrapSelection(controller, '_'),
+                    ),
+                    IconButton(
+                      tooltip: 'Barré (~texte~)',
+                      icon: const Icon(Icons.strikethrough_s),
+                      onPressed: () => _wrapSelection(controller, '~'),
+                    ),
+                  ],
+                ),
                 TextFormField(
                   controller: controller,
                   maxLines: null,
@@ -164,9 +217,11 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                     hintText: 'Ex : Promo -10% sur les insecticides '
                         'cette semaine !',
                     helperText: 'Astuce : tapez {nom} pour qu\'il soit '
-                        'remplacé par le nom de chaque client '
-                        '(ex : "Tongasoa, {nom} !")',
-                    helperMaxLines: 2,
+                        'remplacé par le nom de chaque client. Mise en '
+                        'forme : sélectionne du texte puis utilise les '
+                        'boutons ci-dessus (ou tape directement *gras*, '
+                        '_italique_, ~barré~).',
+                    helperMaxLines: 4,
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty)
@@ -380,7 +435,10 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                                         ),
                                       )
                                     : null,
-                                title: Text(info['message'] ?? ''),
+                                // Aperçu avec la même mise en forme que
+                                // côté client (gras/italique/barré, liens
+                                // cliquables) — voir linkify_text.dart.
+                                title: LinkifiedText(info['message'] ?? ''),
                                 subtitle: Text([
                                   if (createdAt != null)
                                     'Publié le ${_dateFormat.format(createdAt.toLocal())}',
