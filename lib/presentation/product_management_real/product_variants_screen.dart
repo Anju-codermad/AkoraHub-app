@@ -516,14 +516,23 @@ class _ProductVariantsScreenState
                   );
                   return;
                 }
+                final variantPriceDetail =
+                    double.tryParse(priceDetailCtrl.text) ?? 0;
+                final variantPriceGros =
+                    double.tryParse(priceGrosCtrl.text) ?? 0;
                 final payload = {
                   'product_id': widget.product['id'],
                   'format_id': selectedFormatId,
                   'parfum_id': selectedParfumId,
                   'concentration_id': selectedConcentrationId,
                   'color_id': selectedColorId,
-                  'price_detail': double.tryParse(priceDetailCtrl.text) ?? 0,
-                  'price_gros': double.tryParse(priceGrosCtrl.text) ?? 0,
+                  'price_detail': variantPriceDetail,
+                  // Repli sur le prix détail si laissé vide/à 0 — même
+                  // raison que product_management_real.dart (voir
+                  // supabase/phase273_patch_fix_price_gros_zero_bug.sql).
+                  'price_gros': variantPriceGros > 0
+                      ? variantPriceGros
+                      : variantPriceDetail,
                   'gros_threshold_qty':
                       int.tryParse(grosThresholdCtrl.text) ?? 10,
                   'stock_quantity': double.tryParse(stockCtrl.text) ?? 0,

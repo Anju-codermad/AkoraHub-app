@@ -1254,6 +1254,10 @@ class _ProductManagementRealState
                 if (isSaving) return;
                 setDialogState(() => isSaving = true);
 
+                final priceDetailValue =
+                    double.tryParse(priceDetailCtrl.text) ?? 0;
+                final priceGrosValue =
+                    double.tryParse(priceGrosCtrl.text) ?? 0;
                 final payload = {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
@@ -1265,9 +1269,14 @@ class _ProductManagementRealState
                   'use_cases': selectedUsages.toList(),
                   'visibility': isVisible,
                   'raw_material_id': selectedRawMaterialId,
-                  'price_detail':
-                      double.tryParse(priceDetailCtrl.text) ?? 0,
-                  'price_gros': double.tryParse(priceGrosCtrl.text) ?? 0,
+                  'price_detail': priceDetailValue,
+                  // Si le champ "Prix Gros" est laissé vide, on reprend le
+                  // prix détail plutôt que 0 Ar : un prix Gros à 0 serait
+                  // ensuite utilisé tel quel partout où ce produit est
+                  // commandé dès que la quantité atteint le seuil (voir
+                  // supabase/phase273_patch_fix_price_gros_zero_bug.sql).
+                  'price_gros':
+                      priceGrosValue > 0 ? priceGrosValue : priceDetailValue,
                   'gros_threshold_qty':
                       int.tryParse(grosThresholdCtrl.text) ?? 10,
                   'stock_quantity': double.tryParse(stockCtrl.text) ?? 0,
