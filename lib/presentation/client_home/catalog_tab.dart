@@ -687,7 +687,9 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
             // photo produit elle-même chargée de texte...).
             child: ClipRect(
               child: SizedBox(
-                height: 38.h,
+                // 38.h -> 42.h (27/10, demande explicite) : cadre du hero
+                // un peu plus bas/grand.
+                height: 42.h,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
