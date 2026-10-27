@@ -1469,3 +1469,6 @@
 
 ## 2026-10-27 06:25 UTC — Claude
 - Ajoute la mise en forme (gras/italique/barré) dans les flash infos (`a58ecb2`)
+
+## 2026-10-27 07:19 UTC — Claude
+- Corrige les bandes grises sur les côtés de la carte sous la photo de couverture (`54d3cec`)
