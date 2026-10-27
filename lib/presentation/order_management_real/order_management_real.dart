@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/payment/payment_methods.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'archived_orders_staff_screen.dart';
+import 'create_manual_order_screen.dart';
 
 /// Gestion réelle des commandes : suivi des 4 statuts (Reçue, En préparation,
 /// Expédiée, Livrée), consultable/modifiable par le staff.
@@ -686,6 +687,28 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
           ),
         ],
       ),
+      // Commande WhatsApp/directe enregistrée pour un client qui a déjà
+      // un compte (27/10, demande explicite) — ces ventes-là n'existaient
+      // jusqu'ici nulle part dans l'app, le client ne pouvait donc pas
+      // les suivre comme les commandes passées depuis l'app. Voir
+      // create_manual_order_screen.dart.
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final orderNumber = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const CreateManualOrderScreen()),
+          );
+          if (orderNumber == null) return;
+          _loadOrders();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Commande $orderNumber créée.')),
+          );
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Nouvelle commande'),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -790,6 +813,35 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                             child: Text(
                                                 order['order_number'] ?? ''),
                                           ),
+                                          // Commande WhatsApp/directe
+                                          // saisie manuellement par le
+                                          // staff (27/10) — repère visuel
+                                          // pour la distinguer des
+                                          // commandes passées depuis
+                                          // l'app (voir
+                                          // create_manual_order_screen.dart).
+                                          if (order['created_by_staff'] !=
+                                              null) ...[
+                                            Tooltip(
+                                              message: (order['manual_note']
+                                                          as String?) ??
+                                                      'Commande saisie manuellement par le staff' ,
+                                              child: Padding(
+                                                padding: const EdgeInsets
+                                                    .symmetric(horizontal: 4),
+                                                child: Chip(
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                  label: const Text('Manuel',
+                                                      style: TextStyle(
+                                                          fontSize: 10)),
+                                                  materialTapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                           PopupMenuButton<String>(
                                             icon: const Icon(Icons.more_vert,
                                                 size: 18),
