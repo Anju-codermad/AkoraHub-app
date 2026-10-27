@@ -1,15 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/storage/r2_photo_uploader.dart';
 import '../../core/supabase/supabase_config.dart';
 
 /// Gestion des "Flash infos" (annonces courtes) affichées sur l'Accueil
 /// client. Strictement réservé à l'Admin (RLS côté serveur : voir
-/// supabase/phase26_patch_flash_infos.sql) — texte seul, pas de photo,
-/// pensé pour publier une annonce rapidement (contrairement à la bannière
-/// hero qui demande une image).
+/// supabase/phase26_patch_flash_infos.sql) — texte toujours requis, photo
+/// optionnelle (phase266, demande explicite du 27/10 ; jusqu'ici texte
+/// seul par design pour rester rapide à publier, contrairement à la
+/// bannière hero qui exige une image).
 class FlashInfosManagement extends StatefulWidget {
   const FlashInfosManagement({super.key});
 
@@ -123,6 +128,10 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
     // courtes, ex. tester l'affichage) — une annonce oubliée par l'Admin ne
     // doit jamais rester affichée indéfiniment. 48h par défaut.
     int durationMinutes = 48 * 60;
+    // Photo optionnelle (27/10, demande explicite) — même uploader R2 que
+    // les photos produit (core/storage/r2_photo_uploader.dart), pour ne
+    // pas repasser par Supabase Storage (coût d'egress).
+    XFile? pickedImage;
 
     await showModalBottomSheet(
       context: context,
@@ -188,6 +197,53 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                   },
                 ),
                 SizedBox(height: 1.h),
+                if (pickedImage != null)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 1.h),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(pickedImage!.path),
+                            width: double.infinity,
+                            height: 18.h,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: Colors.black54,
+                            child: IconButton(
+                              icon: const Icon(Icons.close,
+                                  size: 16, color: Colors.white),
+                              onPressed: () =>
+                                  setSheetState(() => pickedImage = null),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final image = await ImagePicker().pickImage(
+                        source: ImageSource.gallery,
+                        maxWidth: 1600,
+                        imageQuality: 85,
+                      );
+                      if (image != null) {
+                        setSheetState(() => pickedImage = image);
+                      }
+                    },
+                    icon: const Icon(Icons.image_outlined),
+                    label: const Text('Ajouter une photo (optionnel)'),
+                  ),
+                SizedBox(height: 1.h),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -200,6 +256,14 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                             }
                             setSheetState(() => isSaving = true);
                             try {
+                              String? imageUrl;
+                              if (pickedImage != null) {
+                                imageUrl = await R2PhotoUploader.upload(
+                                  file: File(pickedImage!.path),
+                                  fileName:
+                                      'flash-infos/${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                );
+                              }
                               final userId = SupabaseConfig
                                   .client.auth.currentUser?.id;
                               await SupabaseConfig.client
@@ -207,6 +271,7 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                                   .insert({
                                 'message': controller.text.trim(),
                                 'created_by': userId,
+                                'image_url': imageUrl,
                                 'expires_at': DateTime.now()
                                     .toUtc()
                                     .add(Duration(minutes: durationMinutes))
@@ -296,8 +361,25 @@ class _FlashInfosManagementState extends State<FlashInfosManagement> {
                                 DateTime.tryParse(info['expires_at'] ?? '');
                             final isExpired = expiresAt != null &&
                                 expiresAt.isBefore(DateTime.now().toUtc());
+                            final imageUrl = info['image_url'] as String?;
                             return Card(
                               child: ListTile(
+                                leading: (imageUrl != null &&
+                                        imageUrl.isNotEmpty)
+                                    ? ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                        child: Image.network(
+                                          imageUrl,
+                                          width: 44,
+                                          height: 44,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(
+                                                  Icons.image_not_supported),
+                                        ),
+                                      )
+                                    : null,
                                 title: Text(info['message'] ?? ''),
                                 subtitle: Text([
                                   if (createdAt != null)

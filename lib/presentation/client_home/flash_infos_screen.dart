@@ -1,8 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import '../../core/utils/linkify_text.dart';
 
 /// Remplace `{nom}` dans un message flash info par le nom du client qui
 /// regarde (voir catalog_tab.dart pour la même logique côté bannière
@@ -110,16 +112,39 @@ class _FlashInfosScreenState extends State<FlashInfosScreen> {
                             final info = _infos[index];
                             final createdAt =
                                 DateTime.tryParse(info['created_at'] ?? '');
+                            final imageUrl = info['image_url'] as String?;
                             return Card(
-                              child: ListTile(
-                                leading: Icon(Icons.campaign_outlined,
-                                    color: theme.colorScheme.primary),
-                                title: Text(_personalize(
-                                    info['message'] ?? '', _clientName)),
-                                subtitle: createdAt != null
-                                    ? Text(_dateFormat.format(
-                                        createdAt.toLocal()))
-                                    : null,
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Photo optionnelle (27/10, demande
+                                  // explicite) — jusqu'ici les flash infos
+                                  // n'étaient que du texte (voir phase26).
+                                  if (imageUrl != null && imageUrl.isNotEmpty)
+                                    CachedNetworkImage(
+                                      imageUrl: imageUrl,
+                                      width: double.infinity,
+                                      height: 20.h,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, __, ___) =>
+                                          const SizedBox.shrink(),
+                                    ),
+                                  ListTile(
+                                    leading: Icon(Icons.campaign_outlined,
+                                        color: theme.colorScheme.primary),
+                                    // Lien cliquable (27/10, demande
+                                    // explicite) : même expression
+                                    // régulière que la messagerie, voir
+                                    // core/utils/linkify_text.dart.
+                                    title: LinkifiedText(_personalize(
+                                        info['message'] ?? '', _clientName)),
+                                    subtitle: createdAt != null
+                                        ? Text(_dateFormat.format(
+                                            createdAt.toLocal()))
+                                        : null,
+                                  ),
+                                ],
                               ),
                             );
                           },
