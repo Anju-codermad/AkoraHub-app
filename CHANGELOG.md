@@ -1490,3 +1490,6 @@
 
 ## 2026-10-27 10:59 UTC — Claude
 - Corrige le prix affiché avec la mauvaise unité (ex. prix au kg avec libellé /100 g) (`519a6c0`)
+
+## 2026-10-27 11:01 UTC — Claude
+- Synchronise automatiquement le prix de base du produit avec sa variante la moins chère (`d3c9245`)
