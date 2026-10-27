@@ -922,20 +922,29 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
 
           // --- "Capuchon" arrondi blanc : transition visuelle entre le
           // hero photo ci-dessus et le contenu (fond blanc standard du
-          // Scaffold) ci-dessous. Rayon agrandi (26/10, demande
-          // explicite, sur référence visuelle) : 24 -> 40, courbe bien
-          // plus marquée sur les deux coins ; hauteur augmentée en
-          // conséquence pour que la courbe ait la place de se lire
-          // clairement (sinon coupée net par la faible hauteur).
+          // Scaffold) ci-dessous. Rayon 28 + ombre portée (26/10, demande
+          // explicite, sur référence visuelle) : reprend exactement le
+          // style déjà utilisé pour la transition photo de couverture ->
+          // contenu de l'écran Profil (voir profile_tab.dart, la feuille
+          // blanche sous la photo de couverture), pour rester cohérent
+          // avec le reste de l'app plutôt que d'inventer une nouvelle
+          // valeur.
           SliverToBoxAdapter(
             child: Container(
               height: 5.h,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(40),
-                  topRight: Radius.circular(40),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, -6),
+                  ),
+                ],
               ),
             ),
           ),
