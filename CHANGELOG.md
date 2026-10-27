@@ -1457,3 +1457,6 @@
 
 ## 2026-10-27 02:55 UTC — Claude
 - Retire le zoom sur l'icône active de la barre de navigation du bas (`564ed56`)
+
+## 2026-10-27 03:01 UTC — Claude
+- Ajoute le masquage (tout le staff) et la suppression définitive (Admin) des commandes (`748ed9b`)
