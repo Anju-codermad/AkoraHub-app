@@ -1487,3 +1487,6 @@
 
 ## 2026-10-27 10:10 UTC — Claude
 - Ajoute la saisie de commandes WhatsApp/directes pour un client existant (`206aac0`)
+
+## 2026-10-27 10:59 UTC — Claude
+- Corrige le prix affiché avec la mauvaise unité (ex. prix au kg avec libellé /100 g) (`519a6c0`)
