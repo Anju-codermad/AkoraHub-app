@@ -1475,3 +1475,6 @@
 
 ## 2026-10-27 07:42 UTC — Claude
 - Agrandit légèrement le cadre du hero de l'Accueil (`33d21c1`)
+
+## 2026-10-27 07:46 UTC — Claude
+- Retire l'ombre portée grise du capuchon Accueil et de la barre de navigation (`0b283ce`)
