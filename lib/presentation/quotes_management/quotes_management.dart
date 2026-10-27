@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
+import 'archived_quotes_staff_screen.dart';
 
 /// Gestion des devis côté staff : liste des demandes reçues, détail des
 /// articles demandés, réponse (prix proposé) et mise à jour du statut.
@@ -18,6 +19,7 @@ class _QuotesManagementState extends State<QuotesManagement> {
   bool _isLoading = true;
   String? _error;
   String _statusFilter = 'toutes';
+  bool _isAdmin = false;
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -33,6 +35,26 @@ class _QuotesManagementState extends State<QuotesManagement> {
   void initState() {
     super.initState();
     _loadQuotes();
+    _loadMyRole();
+  }
+
+  /// Détermine si le membre du staff connecté est Admin (seul rôle
+  /// autorisé à supprimer définitivement un devis) — même pattern que
+  /// order_management_real.dart.
+  Future<void> _loadMyRole() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null || !SupabaseConfig.isConfigured) return;
+    try {
+      final profile = await SupabaseConfig.client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+      if (!mounted) return;
+      setState(() => _isAdmin = profile['role'] == 'admin');
+    } catch (_) {
+      // Pas grave : reste simplement non-Admin (pas d'option Supprimer).
+    }
   }
 
   Future<void> _loadQuotes() async {
@@ -51,6 +73,7 @@ class _QuotesManagementState extends State<QuotesManagement> {
       final data = await SupabaseConfig.client
           .from('quotes')
           .select('*, profiles(full_name, company_name, phone)')
+          .eq('hidden_by_staff', false)
           .order('created_at', ascending: false);
       setState(() {
         _quotes = List<Map<String, dynamic>>.from(data);
@@ -61,6 +84,91 @@ class _QuotesManagementState extends State<QuotesManagement> {
         _isLoading = false;
         _error = 'Impossible de charger les devis.';
       });
+    }
+  }
+
+  /// Masque un devis de cette liste de gestion (jamais une suppression —
+  /// distinct du masquage côté client, `hidden_by_customer`) —
+  /// accessible à tout le staff, voir
+  /// phase271_patch_quote_staff_hide_delete.sql.
+  Future<void> _hideQuote(Map<String, dynamic> quote) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Masquer ce devis'),
+        content: Text(
+            'Le devis ${quote['quote_number'] ?? ''} sera retiré de cette '
+            'liste. Vous pourrez le retrouver dans "Devis archivés" (menu '
+            '⋮ en haut). Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Masquer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client
+          .from('quotes')
+          .update({'hidden_by_staff': true}).eq('id', quote['id']);
+      if (!mounted) return;
+      setState(() => _quotes.removeWhere((q) => q['id'] == quote['id']));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Devis masqué.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de masquer ce devis.')),
+      );
+    }
+  }
+
+  /// Suppression définitive (Admin uniquement) — irréversible, efface
+  /// aussi les lignes/messages du devis (cascade, phase1/phase271).
+  Future<void> _deleteQuotePermanently(Map<String, dynamic> quote) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer définitivement ce devis ?'),
+        content: Text(
+            'Le devis ${quote['quote_number'] ?? ''} et tout son historique '
+            'd\'échanges seront effacés définitivement. Cette action est '
+            'irréversible. ⚠️ Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer définitivement'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client.from('quotes').delete().eq('id', quote['id']);
+      if (!mounted) return;
+      setState(() => _quotes.removeWhere((q) => q['id'] == quote['id']));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Devis supprimé définitivement.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de supprimer ce devis.')),
+      );
     }
   }
 
@@ -99,7 +207,26 @@ class _QuotesManagementState extends State<QuotesManagement> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Devis')),
+      appBar: AppBar(
+        title: const Text('Devis'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'archived') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ArchivedQuotesStaffScreen()),
+                ).then((_) => _loadQuotes());
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                  value: 'archived', child: Text('Devis archivés')),
+            ],
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -158,7 +285,39 @@ class _QuotesManagementState extends State<QuotesManagement> {
                                       : 'Client';
                                   return Card(
                                     child: ListTile(
-                                      title: Text(q['quote_number'] ?? ''),
+                                      title: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                                q['quote_number'] ?? ''),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            icon: const Icon(Icons.more_vert,
+                                                size: 18),
+                                            padding: EdgeInsets.zero,
+                                            onSelected: (value) {
+                                              if (value == 'hide') {
+                                                _hideQuote(q);
+                                              } else if (value == 'delete') {
+                                                _deleteQuotePermanently(q);
+                                              }
+                                            },
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(
+                                                value: 'hide',
+                                                child:
+                                                    Text('Masquer ce devis'),
+                                              ),
+                                              if (_isAdmin)
+                                                const PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text(
+                                                      'Supprimer définitivement'),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                       subtitle: Text(
                                         '$customerName · ${_currency.format(q['total_amount'] ?? 0)}',
                                       ),
