@@ -850,6 +850,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         Padding(
           padding: EdgeInsets.only(top: coverHeight),
           child: Container(
+            // `width: double.infinity` (27/10, correctif signalé par
+            // l'utilisatrice avec référence Facebook) : sans largeur
+            // explicite, ce Container (enfant non positionné du Stack,
+            // donc contraintes "loose") se contentait de la largeur de
+            // `content` (le plus souvent le nom affiché) au lieu de
+            // couvrir tout l'écran — le fond du Scaffold devenait visible
+            // en bandes grises de chaque côté de la carte blanche.
+            width: double.infinity,
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius:

@@ -561,6 +561,14 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         Padding(
           padding: EdgeInsets.only(top: coverHeight),
           child: Container(
+            // `width: double.infinity` (27/10, même correctif que
+            // profile_tab.dart, signalé par l'utilisatrice avec référence
+            // Facebook) : sans largeur explicite, ce Container (enfant
+            // non positionné du Stack, donc contraintes "loose") se
+            // contentait de la largeur de `content` au lieu de couvrir
+            // tout l'écran — le fond du Scaffold devenait visible en
+            // bandes grises de chaque côté de la carte blanche.
+            width: double.infinity,
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius:
