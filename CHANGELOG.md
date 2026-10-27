@@ -1505,3 +1505,6 @@
 
 ## 2026-10-27 13:27 UTC — Claude
 - Ajoute un bouton Réessayer sur les écrans Commandes/Devis en cas d'erreur (`4e029e6`)
+
+## 2026-10-27 13:31 UTC — Claude
+- Notifie tous les clients pour les services, formations et annonces publiés (`505af63`)
