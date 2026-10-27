@@ -249,8 +249,14 @@ class _ClientBottomNav extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Pastille carrée arrondie derrière l'icône active —
-                      // même rayon (14) que les icônes du haut de l'accueil,
-                      // avec un léger zoom pour marquer la sélection.
+                      // même rayon (14) que les icônes du haut de l'accueil.
+                      // Pas de zoom sur l'icône (correctif 26/10, signalé
+                      // par l'utilisatrice avec capture) : l'icône grossie
+                      // (1.15x, via `AnimatedScale`) dépassait visuellement
+                      // de cette pastille au moment de l'animation, celle-ci
+                      // ne grandissant pas en même temps — la pastille
+                      // colorée + le texte en gras suffisent déjà à montrer
+                      // l'onglet actif.
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         curve: Curves.easeOut,
@@ -263,13 +269,8 @@ class _ClientBottomNav extends ConsumerWidget {
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: AnimatedScale(
-                          scale: selected ? 1.15 : 1.0,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          child: Icon(selected ? item.selectedIcon : item.icon,
-                              color: color),
-                        ),
+                        child: Icon(selected ? item.selectedIcon : item.icon,
+                            color: color),
                       ),
                       const SizedBox(height: 2),
                       AnimatedDefaultTextStyle(
