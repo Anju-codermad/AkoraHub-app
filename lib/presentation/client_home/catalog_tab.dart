@@ -996,7 +996,13 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               padding: EdgeInsets.fromLTRB(4.w, 1.5.h, 4.w, 0),
               child: Material(
                 color: theme.colorScheme.surface,
-                elevation: 1,
+                // elevation retirée (27/10, demande explicite) : le
+                // relief automatique de `Material` (elevation: 1) ajoutait
+                // une ombre qui, combinée au contour (`BorderSide`),
+                // donnait l'impression d'un double contour grisâtre autour
+                // de la pilule — même cause que pour le capuchon Accueil
+                // et la barre de navigation. Le contour seul suffit à
+                // détacher la barre du fond blanc.
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999),
                   side: BorderSide(
