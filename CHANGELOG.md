@@ -1493,3 +1493,6 @@
 
 ## 2026-10-27 11:01 UTC — Claude
 - Synchronise automatiquement le prix de base du produit avec sa variante la moins chère (`d3c9245`)
+
+## 2026-10-27 12:49 UTC — Claude
+- Importe le catalogue technique de démarrage (PDF fourni par l'utilisatrice) (`31f6bb5`)
