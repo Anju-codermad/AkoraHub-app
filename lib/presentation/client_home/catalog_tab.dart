@@ -207,10 +207,12 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           final rows = List<Map<String, dynamic>>.from(productRows);
           if (rows.isEmpty) return _defaultPromoSlides;
           return rows.map((p) {
-            final unitLabel =
-                unitLabelFromEmbeddedVariants(p['product_variants']);
-            final unitSuffix = unitLabel != null ? '/$unitLabel' : '';
-            final price = (p['price_detail'] as num?) ?? 0;
+            final priceAndUnit = cheapestVariantPriceAndUnit(
+                p['product_variants'], p['price_detail'] as num?);
+            final unitSuffix = priceAndUnit.unitSuffix != null
+                ? '/${priceAndUnit.unitSuffix}'
+                : '';
+            final price = priceAndUnit.price;
             return _PromoSlide(
               title: (p['name'] ?? '').toString(),
               subtitle: 'Dès ${_currency.format(price)}$unitSuffix',
@@ -1965,9 +1967,12 @@ class ProductCard extends ConsumerWidget {
         stockQty != null &&
         stockThreshold != null &&
         stockQty <= stockThreshold;
-    final unitLabel =
-        unitLabelFromEmbeddedVariants(product['product_variants']);
-    final unitSuffix = unitLabel != null ? '/$unitLabel' : '';
+    // Prix ET unité depuis la même variante la moins chère (27/10,
+    // correctif) : voir cheapestVariantPriceAndUnit, price_unit.dart.
+    final priceAndUnit = cheapestVariantPriceAndUnit(
+        product['product_variants'], product['price_detail'] as num?);
+    final unitSuffix =
+        priceAndUnit.unitSuffix != null ? '/${priceAndUnit.unitSuffix}' : '';
     final formatLabels = availableFormatLabels(product['product_variants']);
 
     return Material(
@@ -2108,7 +2113,7 @@ class ProductCard extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 2),
                 child: Text(
-                  'Dès ${currency.format(product['price_detail'] ?? 0)}$unitSuffix',
+                  'Dès ${currency.format(priceAndUnit.price)}$unitSuffix',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: theme.colorScheme.primary,

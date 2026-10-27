@@ -40,6 +40,44 @@ String? unitLabelFromEmbeddedVariants(dynamic variantsRaw) {
   return unitSuffixFromFormatName(name);
 }
 
+/// Prix ET unité affichés ENSEMBLE, calculés depuis la MÊME variante la
+/// moins chère (27/10, correctif — signalé par l'utilisatrice : certains
+/// produits affichaient le prix pour 1 kg avec un libellé "/100 g" ou
+/// "/100 ml", ou l'inverse). Cause : le prix venait de
+/// `products.price_detail` (colonne du produit, mise à jour une seule
+/// fois lors du backfill phase185) tandis que l'unité venait, elle, de
+/// [unitLabelFromEmbeddedVariants] — recalculée à chaque chargement à
+/// partir des VRAIES variantes actuelles. Si une variante est ajoutée/
+/// repriced après ce backfill (ex. un format 100 g moins cher ajouté à un
+/// produit qui n'avait qu'un 1 kg), `price_detail` du produit devient
+/// périmé : le prix affiché ne correspond plus à l'unité affichée à côté.
+/// En prenant les deux depuis la même variante, elles ne peuvent plus se
+/// désynchroniser. `fallbackPrice` (le `price_detail` du produit) n'est
+/// utilisé que si le produit n'a aucune variante embarquée.
+({num price, String? unitSuffix}) cheapestVariantPriceAndUnit(
+    dynamic variantsRaw, num? fallbackPrice) {
+  if (variantsRaw is! List || variantsRaw.isEmpty) {
+    return (price: fallbackPrice ?? 0, unitSuffix: null);
+  }
+  Map<String, dynamic>? cheapest;
+  num? cheapestPrice;
+  for (final v in variantsRaw) {
+    if (v is! Map) continue;
+    final price = (v['price_detail'] as num?) ?? 0;
+    if (cheapestPrice == null || price < cheapestPrice) {
+      cheapestPrice = price;
+      cheapest = Map<String, dynamic>.from(v);
+    }
+  }
+  if (cheapest == null) return (price: fallbackPrice ?? 0, unitSuffix: null);
+  final formats = cheapest['formats'];
+  final name = formats is Map ? formats['name'] as String? : null;
+  return (
+    price: cheapestPrice ?? 0,
+    unitSuffix: unitSuffixFromFormatName(name),
+  );
+}
+
 /// Liste des formats disponibles pour un produit (ex. ["1 kg", "5 kg",
 /// "25 kg"]) à partir des `product_variants` embarqués par PostgREST —
 /// même source que [unitLabelFromEmbeddedVariants], mais sans se limiter
