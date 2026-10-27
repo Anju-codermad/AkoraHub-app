@@ -1463,3 +1463,6 @@
 
 ## 2026-10-27 05:30 UTC — Claude
 - Transforme le raccourci recherche de l'Accueil en vrai champ de texte (`11ececb`)
+
+## 2026-10-27 06:21 UTC — Claude
+- Rend les liens cliquables dans les flash infos et permet d'y joindre une photo (`5c9e64f`)
