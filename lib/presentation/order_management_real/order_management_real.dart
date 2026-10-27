@@ -729,7 +729,26 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(
+                  // Bouton "Réessayer" (27/10, demande explicite) : avant
+                  // ça, une erreur de chargement bloquait complètement
+                  // l'écran sans aucun moyen d'actualiser sans le quitter.
+                  child: Padding(
+                    padding: EdgeInsets.all(6.w),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!, textAlign: TextAlign.center),
+                        SizedBox(height: 2.h),
+                        OutlinedButton.icon(
+                          onPressed: _loadOrders,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Réessayer'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
               : Column(
                   children: [
                     SingleChildScrollView(

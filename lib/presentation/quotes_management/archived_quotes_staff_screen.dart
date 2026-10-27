@@ -90,7 +90,24 @@ class _ArchivedQuotesStaffScreenState
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(
+                  // Bouton "Réessayer" (27/10, demande explicite).
+                  child: Padding(
+                    padding: EdgeInsets.all(6.w),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!, textAlign: TextAlign.center),
+                        SizedBox(height: 2.h),
+                        OutlinedButton.icon(
+                          onPressed: _load,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Réessayer'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
               : _quotes.isEmpty
                   ? const Center(child: Text('Aucun devis archivé.'))
                   : RefreshIndicator(
