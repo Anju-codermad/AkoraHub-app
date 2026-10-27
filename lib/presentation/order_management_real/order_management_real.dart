@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/payment/payment_methods.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'archived_orders_staff_screen.dart';
 
 /// Gestion réelle des commandes : suivi des 4 statuts (Reçue, En préparation,
 /// Expédiée, Livrée), consultable/modifiable par le staff.
@@ -22,6 +23,7 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   String? _error;
   String _statusFilter = 'toutes';
   bool _onlyPaymentToVerify = false;
+  bool _isAdmin = false;
   final _currency =
       NumberFormat.currency(locale: 'fr_FR', symbol: 'Ar', decimalDigits: 0);
 
@@ -61,7 +63,25 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
   void initState() {
     super.initState();
     _loadOrders();
+    _loadMyRole();
     _scrollController.addListener(_onScroll);
+  }
+
+  /// Détermine si le membre du staff connecté est Admin (seul rôle
+  /// autorisé à supprimer définitivement une commande — voir
+  /// `_deleteOrderPermanently`). Même pattern que `more_menu_screen.dart`.
+  Future<void> _loadMyRole() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null || !SupabaseConfig.isConfigured) return;
+    try {
+      final profile = await SupabaseConfig.client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+      if (!mounted) return;
+      setState(() => _isAdmin = profile['role'] == 'admin');
+    } catch (_) {}
   }
 
   @override
@@ -96,7 +116,8 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     try {
       var query = SupabaseConfig.client
           .from('orders')
-          .select('*, profiles(full_name, company_name)');
+          .select('*, profiles(full_name, company_name)')
+          .eq('hidden_by_staff', false);
       if (_statusFilter != 'toutes') {
         query = query.eq('status', _statusFilter);
       }
@@ -128,7 +149,8 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
       final nextPage = _page + 1;
       var query = SupabaseConfig.client
           .from('orders')
-          .select('*, profiles(full_name, company_name)');
+          .select('*, profiles(full_name, company_name)')
+          .eq('hidden_by_staff', false);
       if (_statusFilter != 'toutes') {
         query = query.eq('status', _statusFilter);
       }
@@ -481,6 +503,90 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     }
   }
 
+  /// Masque une commande de cette liste de gestion (jamais une
+  /// suppression — distinct du masquage côté client,
+  /// `hidden_by_customer`) — accessible à tout le staff, voir
+  /// phase265_patch_order_staff_hide_delete.sql.
+  Future<void> _hideOrder(Map<String, dynamic> order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Masquer cette commande'),
+        content: Text(
+            'La commande ${order['order_number'] ?? ''} sera retirée de '
+            'cette liste. Vous pourrez la retrouver dans "Commandes '
+            'archivées" (menu ⋮ en haut). Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Masquer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client
+          .from('orders')
+          .update({'hidden_by_staff': true}).eq('id', order['id']);
+      if (!mounted) return;
+      setState(() => _orders.removeWhere((o) => o['id'] == order['id']));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de masquer cette commande.')),
+      );
+    }
+  }
+
+  /// Supprime définitivement une commande (et ses lignes, en cascade) —
+  /// réservé au rôle Admin (voir `_isAdmin` et la policy RLS
+  /// `orders_delete_admin`, phase265). Irréversible : pour de vrais cas
+  /// de test/doublon, pas une alternative au masquage ci-dessus.
+  Future<void> _deleteOrderPermanently(Map<String, dynamic> order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer définitivement'),
+        content: Text(
+            'La commande ${order['order_number'] ?? ''} sera effacée '
+            'définitivement de la base, avec toutes ses lignes. '
+            'Impossible à annuler. Continuer ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer définitivement'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client.from('orders').delete().eq('id', order['id']);
+      if (!mounted) return;
+      setState(() => _orders.removeWhere((o) => o['id'] == order['id']));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Commande supprimée définitivement.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de supprimer cette commande.')),
+      );
+    }
+  }
+
   // Le filtre de statut est désormais appliqué côté serveur (_loadOrders) —
   // _orders ne contient déjà que le bon statut. Seul "Paiement à
   // vérifier" reste filtré ici, côté client (voir commentaire plus haut).
@@ -560,7 +666,26 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Commandes')),
+      appBar: AppBar(
+        title: const Text('Commandes'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'archived') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ArchivedOrdersStaffScreen()),
+                ).then((_) => _loadOrders());
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                  value: 'archived', child: Text('Commandes archivées')),
+            ],
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -659,8 +784,40 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                               true;
                                   return Card(
                                     child: ListTile(
-                                      title: Text(
-                                          order['order_number'] ?? ''),
+                                      title: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                                order['order_number'] ?? ''),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            icon: const Icon(Icons.more_vert,
+                                                size: 18),
+                                            padding: EdgeInsets.zero,
+                                            onSelected: (value) {
+                                              if (value == 'hide') {
+                                                _hideOrder(order);
+                                              } else if (value == 'delete') {
+                                                _deleteOrderPermanently(
+                                                    order);
+                                              }
+                                            },
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(
+                                                value: 'hide',
+                                                child:
+                                                    Text('Masquer cette commande'),
+                                              ),
+                                              if (_isAdmin)
+                                                const PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text(
+                                                      'Supprimer définitivement'),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                       subtitle: Row(
                                         children: [
                                           Flexible(
