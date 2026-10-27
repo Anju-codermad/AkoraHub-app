@@ -1472,3 +1472,6 @@
 
 ## 2026-10-27 07:19 UTC — Claude
 - Corrige les bandes grises sur les côtés de la carte sous la photo de couverture (`54d3cec`)
+
+## 2026-10-27 07:42 UTC — Claude
+- Agrandit légèrement le cadre du hero de l'Accueil (`33d21c1`)
