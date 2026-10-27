@@ -659,11 +659,18 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           // pour que `Spacer()` ci-dessous puisse pousser le titre/prix
           // et les puces de pagination vers le bas du hero.
           SliverToBoxAdapter(
-            child: SizedBox(
-              height: 38.h,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
+            // `ClipRect` (26/10, correctif) : empêche tout débordement de
+            // peindre sous le hero (constaté : un reste de légende/texte
+            // visible dans la zone de transition vers le capuchon blanc).
+            // Garantie stricte indépendante de la cause exacte du
+            // débordement (légende trop longue sur certains écrans,
+            // photo produit elle-même chargée de texte...).
+            child: ClipRect(
+              child: SizedBox(
+                height: 38.h,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
                   // Fond : carrousel swipeable des bannières promo (vrais
                   // produits publiés avec photo, voir `loadBanners` dans
                   // `_loadData`). Remplace l'ancienne photo statique (1re
@@ -915,7 +922,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     ),
                 ],
               ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
