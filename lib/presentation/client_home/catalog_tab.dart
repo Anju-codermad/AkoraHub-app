@@ -1018,7 +1018,21 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                       ?.copyWith(color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     isDense: true,
+                    filled: false,
+                    // Les 4 états doivent être désactivés séparément
+                    // (27/10, correctif signalé avec capture) : le thème
+                    // de l'app (app_theme.dart) définit un `focusedBorder`
+                    // vert par défaut pour tous les champs de texte —
+                    // désactiver seulement `border` ne suffisait pas,
+                    // Flutter retombe sur ce vert du thème dès que le
+                    // champ a le focus (clavier ouvert), par-dessus le
+                    // contour de la pilule.
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.6.h),
                     hintText: ref.tr('search_hint'),
