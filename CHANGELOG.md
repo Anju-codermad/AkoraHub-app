@@ -1445,3 +1445,6 @@
 
 ## 2026-10-26 17:41 UTC — Claude
 - Agrandit la courbe du capuchon blanc sous le hero (`71a4e08`)
+
+## 2026-10-27 02:13 UTC — Claude
+- Simplifie les icônes du hero : contour blanc, sans pastille de fond (`5638eeb`)
