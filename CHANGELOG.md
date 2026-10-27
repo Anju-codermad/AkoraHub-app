@@ -1481,3 +1481,6 @@
 
 ## 2026-10-27 08:00 UTC — Claude
 - Retire l'ombre (elevation) de la barre de recherche de l'Accueil (`632c63d`)
+
+## 2026-10-27 08:42 UTC — Claude
+- Corrige la vraie cause du contour vert sur la barre de recherche Accueil (`956d06d`)
