@@ -504,6 +504,23 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     }
   }
 
+  /// Corrige le contenu d'une commande déjà créée (27/10, demande
+  /// explicite) — réutilise create_manual_order_screen.dart en mode
+  /// édition (client fixe, articles rechargés depuis order_items).
+  Future<void> _editOrder(Map<String, dynamic> order) async {
+    final orderNumber = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+          builder: (_) => CreateManualOrderScreen(existingOrder: order)),
+    );
+    if (orderNumber == null) return;
+    _loadOrders();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Commande $orderNumber mise à jour.')),
+    );
+  }
+
   /// Masque une commande de cette liste de gestion (jamais une
   /// suppression — distinct du masquage côté client,
   /// `hidden_by_customer`) — accessible à tout le staff, voir
@@ -847,7 +864,9 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                                 size: 18),
                                             padding: EdgeInsets.zero,
                                             onSelected: (value) {
-                                              if (value == 'hide') {
+                                              if (value == 'edit') {
+                                                _editOrder(order);
+                                              } else if (value == 'hide') {
                                                 _hideOrder(order);
                                               } else if (value == 'delete') {
                                                 _deleteOrderPermanently(
@@ -855,6 +874,15 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                               }
                                             },
                                             itemBuilder: (context) => [
+                                              // Correction d'une commande
+                                              // déjà créée (27/10, demande
+                                              // explicite) — voir
+                                              // create_manual_order_screen.dart,
+                                              // mode édition.
+                                              const PopupMenuItem(
+                                                value: 'edit',
+                                                child: Text('Modifier la commande'),
+                                              ),
                                               const PopupMenuItem(
                                                 value: 'hide',
                                                 child:

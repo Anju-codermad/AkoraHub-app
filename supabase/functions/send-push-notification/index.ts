@@ -324,6 +324,22 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, s, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "orders_manual_created") {
+      // Commande WhatsApp/directe enregistrée par le staff pour un
+      // client existant (27/10, demande explicite) -> notifie CE client,
+      // qui ne saurait sinon pas qu'une commande a été créée en son nom
+      // (contrairement à une commande passée depuis l'app, où il est
+      // déjà sur l'écran de confirmation). Distinct de "orders" ci-dessus
+      // (qui notifie seulement sur expédiée/livrée) : trigger dédié sur
+      // INSERT, voir supabase/phase270_patch_notify_manual_order.sql.
+      category = "commande";
+      const orderNumber = record.order_number ? ` ${record.order_number}` : "";
+      title = "Nouvelle commande enregistrée";
+      body =
+        `Notre équipe a enregistré une commande${orderNumber} pour vous. ` +
+        "Consultez-la dans l'onglet Commandes.";
+      const manualCustomerId = record.customer_id as string | undefined;
+      if (manualCustomerId) recipientIds = [manualCustomerId];
     } else if (payload.table === "quotes") {
       // Le client vient d'accepter/refuser un devis -> notifie toute
       // l'équipe (Admin/Commercial), pas juste le staff qui avait répondu.

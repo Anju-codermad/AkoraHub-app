@@ -44,8 +44,17 @@ class _ManualOrderItem {
 /// `order_items`) et mêmes statuts que order_management_real.dart — une
 /// fois créée, cette commande se comporte exactement comme les autres
 /// (suivi, changement de statut...), voir supabase/phase267_patch_manual_orders.sql.
+///
+/// [existingOrder] (27/10, demande explicite "ajouter de modification
+/// pour la commande ajoutée") : passer une commande existante bascule
+/// l'écran en mode édition — client fixe (pas de changement possible),
+/// articles rechargés depuis `order_items`, soumission = mise à jour au
+/// lieu de création. Disponible pour n'importe quelle commande, pas
+/// seulement celles créées manuellement (voir order_management_real.dart).
 class CreateManualOrderScreen extends StatefulWidget {
-  const CreateManualOrderScreen({super.key});
+  final Map<String, dynamic>? existingOrder;
+
+  const CreateManualOrderScreen({super.key, this.existingOrder});
 
   @override
   State<CreateManualOrderScreen> createState() =>
@@ -72,6 +81,68 @@ class _CreateManualOrderScreenState extends State<CreateManualOrderScreen> {
   final _addressController = TextEditingController();
   PaymentMethod _paymentMethod = PaymentMethod.paiementLivraison;
   bool _isSaving = false;
+  bool _isLoadingExisting = false;
+
+  bool get _isEditing => widget.existingOrder != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingOrder != null) _loadExistingOrder();
+  }
+
+  Future<void> _loadExistingOrder() async {
+    setState(() => _isLoadingExisting = true);
+    final order = widget.existingOrder!;
+    try {
+      final results = await Future.wait<dynamic>([
+        SupabaseConfig.client
+            .from('profiles')
+            .select('id, full_name, company_name, phone, avatar_url')
+            .eq('id', order['customer_id'])
+            .single(),
+        SupabaseConfig.client
+            .from('order_items')
+            .select()
+            .eq('order_id', order['id']),
+      ]);
+      if (!mounted) return;
+      final client = results[0] as Map<String, dynamic>;
+      final items = List<Map<String, dynamic>>.from(results[1] as List);
+      setState(() {
+        _selectedClient = client;
+        _items.addAll(items.map((oi) {
+          // Prix figé tel qu'enregistré (27/10) : en édition, on corrige
+          // des erreurs de saisie (quantité, produit oublié...), pas le
+          // tarif déjà convenu avec le client — contrairement à l'ajout
+          // d'un nouvel article, qui recalcule, lui, le vrai prix Gros/
+          // Détail courant du produit.
+          final unitPrice = (oi['unit_price'] as num?)?.toDouble() ?? 0;
+          return _ManualOrderItem(
+            productId: oi['product_id'],
+            variantId: oi['variant_id'],
+            name: oi['product_name'] ?? '',
+            priceDetail: unitPrice,
+            priceGros: unitPrice,
+            grosThresholdQty: 1,
+            quantity: ((oi['quantity'] as num?) ?? 1).toInt(),
+          );
+        }));
+        _addressController.text = order['delivery_address'] ?? '';
+        _noteController.text = order['manual_note'] ?? '';
+        _paymentMethod =
+            PaymentMethodX.fromId(order['payment_method'] as String?);
+        _isLoadingExisting = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingExisting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Impossible de charger cette commande.')),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -262,33 +333,58 @@ class _CreateManualOrderScreenState extends State<CreateManualOrderScreen> {
     if (_selectedClient == null || _items.isEmpty || _isSaving) return;
     setState(() => _isSaving = true);
     try {
-      final staffId = SupabaseConfig.client.auth.currentUser?.id;
-      final now = DateTime.now();
-      final orderNumber =
-          'CMD-${DateFormat('yyyyMM').format(now)}-${now.millisecondsSinceEpoch.toString().substring(7)}';
+      String orderId;
+      String orderNumber;
 
-      final order = await SupabaseConfig.client
-          .from('orders')
-          .insert({
-            'order_number': orderNumber,
-            'customer_id': _selectedClient!['id'],
-            'total_amount': _total,
-            'delivery_address': _addressController.text.trim().isEmpty
-                ? null
-                : _addressController.text.trim(),
-            'payment_method': _paymentMethod.id,
-            'created_by_staff': staffId,
-            'manual_note': _noteController.text.trim().isEmpty
-                ? null
-                : _noteController.text.trim(),
-          })
-          .select()
-          .single();
+      if (_isEditing) {
+        orderId = widget.existingOrder!['id'];
+        orderNumber = widget.existingOrder!['order_number'];
+        await SupabaseConfig.client.from('orders').update({
+          'delivery_address': _addressController.text.trim().isEmpty
+              ? null
+              : _addressController.text.trim(),
+          'payment_method': _paymentMethod.id,
+          'manual_note': _noteController.text.trim().isEmpty
+              ? null
+              : _noteController.text.trim(),
+        }).eq('id', orderId);
+        // Remplace entièrement les lignes plutôt que de les comparer une
+        // à une (27/10) : plus simple et sûr, et le trigger
+        // recompute_order_total (phase154) recalcule automatiquement
+        // orders.total_amount une fois les nouvelles lignes insérées.
+        await SupabaseConfig.client
+            .from('order_items')
+            .delete()
+            .eq('order_id', orderId);
+      } else {
+        final staffId = SupabaseConfig.client.auth.currentUser?.id;
+        final now = DateTime.now();
+        orderNumber =
+            'CMD-${DateFormat('yyyyMM').format(now)}-${now.millisecondsSinceEpoch.toString().substring(7)}';
+        final order = await SupabaseConfig.client
+            .from('orders')
+            .insert({
+              'order_number': orderNumber,
+              'customer_id': _selectedClient!['id'],
+              'total_amount': _total,
+              'delivery_address': _addressController.text.trim().isEmpty
+                  ? null
+                  : _addressController.text.trim(),
+              'payment_method': _paymentMethod.id,
+              'created_by_staff': staffId,
+              'manual_note': _noteController.text.trim().isEmpty
+                  ? null
+                  : _noteController.text.trim(),
+            })
+            .select()
+            .single();
+        orderId = order['id'];
+      }
 
       await SupabaseConfig.client.from('order_items').insert(
             _items
                 .map((item) => {
-                      'order_id': order['id'],
+                      'order_id': orderId,
                       'product_id': item.productId,
                       'variant_id': item.variantId,
                       'product_name': item.name,
@@ -304,12 +400,20 @@ class _CreateManualOrderScreenState extends State<CreateManualOrderScreen> {
       // une fois `pop` appelé. La confirmation est affichée par l'écran
       // appelant (order_management_real.dart) à la réception de `true`.
       Navigator.pop(context, orderNumber);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
+      // Message d'erreur détaillé (27/10, correctif diagnostic) : un
+      // message générique masquait la vraie cause ("commande créée mais
+      // introuvable" signalé par l'utilisatrice) — affiche désormais
+      // l'erreur réelle (ex. refus RLS, contrainte en base) pour pouvoir
+      // la diagnostiquer immédiatement si ça se reproduit.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Impossible de créer cette commande.')),
+        SnackBar(
+          content: Text(
+              '${_isEditing ? "Échec de la mise à jour" : "Échec de la création"} : $e'),
+          duration: const Duration(seconds: 6),
+        ),
       );
     }
   }
@@ -317,14 +421,23 @@ class _CreateManualOrderScreenState extends State<CreateManualOrderScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (_isLoadingExisting) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Modifier la commande')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouvelle commande (hors app)')),
+      appBar: AppBar(
+          title: Text(_isEditing
+              ? 'Modifier la commande ${widget.existingOrder!['order_number'] ?? ''}'
+              : 'Nouvelle commande (hors app)')),
       body: ListView(
         padding: EdgeInsets.all(4.w),
         children: [
           Text('1. Client', style: theme.textTheme.titleMedium),
           SizedBox(height: 1.h),
-          if (_selectedClient == null) ...[
+          if (_selectedClient == null && !_isEditing) ...[
             TextField(
               controller: _clientSearchController,
               onChanged: _onClientQueryChanged,
@@ -365,14 +478,20 @@ class _CreateManualOrderScreenState extends State<CreateManualOrderScreen> {
                     _selectedClient!['full_name'] ??
                     'Client'),
                 subtitle: Text(_selectedClient!['phone'] ?? ''),
-                trailing: TextButton(
-                  onPressed: () => setState(() {
-                    _selectedClient = null;
-                    _clientResults = [];
-                    _clientSearchController.clear();
-                  }),
-                  child: const Text('Changer'),
-                ),
+                // Changement de client désactivé en édition (27/10) :
+                // modifier le destinataire d'une commande déjà créée est
+                // un cas particulier (qui a payé ? pour qui ?) — on ne
+                // corrige ici que le contenu, pas le client.
+                trailing: _isEditing
+                    ? null
+                    : TextButton(
+                        onPressed: () => setState(() {
+                          _selectedClient = null;
+                          _clientResults = [];
+                          _clientSearchController.clear();
+                        }),
+                        child: const Text('Changer'),
+                      ),
               ),
             ),
           SizedBox(height: 2.5.h),
@@ -495,7 +614,9 @@ class _CreateManualOrderScreenState extends State<CreateManualOrderScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Créer la commande'),
+                  : Text(_isEditing
+                      ? 'Enregistrer les modifications'
+                      : 'Créer la commande'),
             ),
           ),
         ],
