@@ -1454,3 +1454,6 @@
 
 ## 2026-10-27 02:47 UTC — Claude
 - Empêche le contenu du hero de déborder dans la zone de transition (`6a9044b`)
+
+## 2026-10-27 02:55 UTC — Claude
+- Retire le zoom sur l'icône active de la barre de navigation du bas (`564ed56`)
