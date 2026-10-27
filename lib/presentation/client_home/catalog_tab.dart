@@ -960,21 +960,16 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           // avec le reste de l'app plutôt que d'inventer une nouvelle
           // valeur.
           SliverToBoxAdapter(
+            // Ombre portée retirée (27/10, demande explicite — perçue
+            // comme une "bande grise" indésirable autour du capuchon).
             child: Container(
               height: 5.h,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(28),
                   topRight: Radius.circular(28),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, -6),
-                  ),
-                ],
               ),
             ),
           ),

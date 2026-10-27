@@ -226,9 +226,11 @@ class _ClientBottomNav extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final items = _items(locale);
     final theme = Theme.of(context);
-    // Barre "flottante" à coins arrondis + ombre (05/08) — remplace la
-    // fine ligne de séparation, dans le même esprit visuel que la carte
-    // de profil et les icônes carrées arrondies de l'accueil.
+    // Barre "flottante" à coins arrondis (05/08) — remplace la fine ligne
+    // de séparation, dans le même esprit visuel que la carte de profil et
+    // les icônes carrées arrondies de l'accueil. Ombre portée retirée
+    // (27/10, demande explicite — perçue comme une "bande grise"
+    // indésirable autour de la barre).
     return SafeArea(
       top: false,
       child: Container(
@@ -236,13 +238,6 @@ class _ClientBottomNav extends ConsumerWidget {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, -6),
-            ),
-          ],
         ),
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
