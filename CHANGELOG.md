@@ -1499,3 +1499,6 @@
 
 ## 2026-10-27 13:19 UTC — Claude
 - Ajoute la modification des commandes et notifie le client des commandes manuelles (`c27e489`)
+
+## 2026-10-27 13:26 UTC — Claude
+- Ajoute le masquage (tout le staff) et la suppression définitive (Admin) des devis (`54ff295`)
