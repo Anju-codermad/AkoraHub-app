@@ -1448,3 +1448,6 @@
 
 ## 2026-10-27 02:13 UTC — Claude
 - Simplifie les icônes du hero : contour blanc, sans pastille de fond (`5638eeb`)
+
+## 2026-10-27 02:14 UTC — Claude
+- Aligne la courbe du capuchon hero sur le style déjà utilisé côté Profil (`2c44534`)
