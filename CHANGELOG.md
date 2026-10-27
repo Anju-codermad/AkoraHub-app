@@ -1460,3 +1460,6 @@
 
 ## 2026-10-27 03:01 UTC — Claude
 - Ajoute le masquage (tout le staff) et la suppression définitive (Admin) des commandes (`748ed9b`)
+
+## 2026-10-27 05:30 UTC — Claude
+- Transforme le raccourci recherche de l'Accueil en vrai champ de texte (`11ececb`)
