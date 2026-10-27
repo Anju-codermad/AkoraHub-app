@@ -1484,3 +1484,6 @@
 
 ## 2026-10-27 08:42 UTC — Claude
 - Corrige la vraie cause du contour vert sur la barre de recherche Accueil (`956d06d`)
+
+## 2026-10-27 10:10 UTC — Claude
+- Ajoute la saisie de commandes WhatsApp/directes pour un client existant (`206aac0`)
