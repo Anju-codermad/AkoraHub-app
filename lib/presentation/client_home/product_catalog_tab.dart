@@ -28,7 +28,13 @@ import 'product_detail_client.dart';
 /// Commandes a quitté la barre du bas pour une icône dans l'en-tête
 /// d'Accueil (voir client_home.dart) afin de libérer cette place.
 class ProductCatalogTab extends ConsumerStatefulWidget {
-  const ProductCatalogTab({super.key});
+  // Recherche déjà saisie sur l'Accueil et validée là-bas (26/10, demande
+  // explicite : la barre de recherche de l'Accueil ne doit plus ouvrir le
+  // Catalogue vide) — appliquée une fois au démarrage via `_applySearch`,
+  // qui reste la même logique que la recherche locale à cet onglet.
+  final String? initialSearchQuery;
+
+  const ProductCatalogTab({super.key, this.initialSearchQuery});
 
   @override
   ConsumerState<ProductCatalogTab> createState() =>
@@ -156,6 +162,9 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
     _searchFocusNode.addListener(() => setState(() {}));
     _loadRecentSearches();
     _loadTopCategories();
+    if ((widget.initialSearchQuery ?? '').trim().isNotEmpty) {
+      _applySearch(widget.initialSearchQuery!.trim());
+    }
   }
 
   Future<void> _loadTopCategories() async {

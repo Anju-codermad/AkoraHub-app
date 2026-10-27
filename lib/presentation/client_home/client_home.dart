@@ -45,6 +45,11 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
   // 5 = Panier (masqué, pas d'onglet — voir _ClientBottomNav).
   int _currentIndex = 0;
   bool? _wasOnline;
+  // Recherche validée depuis le raccourci de l'Accueil (26/10) — transmise
+  // à l'onglet Catalogue une seule fois à son ouverture (voir
+  // ProductCatalogTab.initialSearchQuery) ; la ValueKey ci-dessous force un
+  // nouvel onglet (donc une nouvelle recherche) seulement quand elle change.
+  String? _catalogSearchQuery;
 
   @override
   void initState() {
@@ -71,9 +76,15 @@ class _ClientHomeState extends ConsumerState<ClientHome> {
       CatalogTab(
         onOpenCart: () => setState(() => _currentIndex = 5),
         onOpenProfile: () => setState(() => _currentIndex = 4),
-        onOpenCatalog: () => setState(() => _currentIndex = 1),
+        onOpenCatalog: ([searchQuery]) => setState(() {
+          _catalogSearchQuery = searchQuery;
+          _currentIndex = 1;
+        }),
       ),
-      const ProductCatalogTab(),
+      ProductCatalogTab(
+        key: ValueKey('catalog-${_catalogSearchQuery ?? ''}'),
+        initialSearchQuery: _catalogSearchQuery,
+      ),
       const FormationHubScreen(),
       const ServiceRequestsTab(),
       const ProfileTab(),

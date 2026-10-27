@@ -29,7 +29,11 @@ import 'wall/wall_tab.dart';
 class CatalogTab extends ConsumerStatefulWidget {
   final VoidCallback onOpenCart;
   final VoidCallback onOpenProfile;
-  final VoidCallback onOpenCatalog;
+  // Paramètre optionnel (26/10, demande explicite : la recherche ne doit
+  // plus faire quitter l'Accueil au premier tap) — passé uniquement quand
+  // le raccourci recherche est validé avec un texte ; le bouton "Voir tout
+  // le catalogue" plus bas continue de l'appeler sans argument.
+  final void Function([String? searchQuery]) onOpenCatalog;
 
   const CatalogTab({
     super.key,
@@ -91,6 +95,20 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   int _bannerIndex = 0;
   Timer? _bannerAutoplayTimer;
 
+  // Vrai champ de texte (26/10, demande explicite) — remplace l'ancien
+  // raccourci qui ouvrait le Catalogue dès le tap. Reste sur l'Accueil
+  // tant qu'on tape ; n'ouvre le Catalogue (avec la recherche déjà
+  // remplie) qu'à la validation (`onSubmitted`), via `widget.onOpenCatalog`.
+  final _homeSearchController = TextEditingController();
+  final _homeSearchFocusNode = FocusNode();
+
+  void _submitHomeSearch() {
+    final query = _homeSearchController.text.trim();
+    if (query.isEmpty) return;
+    _homeSearchFocusNode.unfocus();
+    widget.onOpenCatalog(query);
+  }
+
   // Repli par défaut : utilisé tant qu'aucun produit n'est encore publié
   // au catalogue (voir loadBanners, qui affiche sinon tous les produits
   // publiés en carrousel — remplace l'ancienne bannière hero gérée
@@ -126,6 +144,8 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
   void dispose() {
     _bannerAutoplayTimer?.cancel();
     _bannerController.dispose();
+    _homeSearchController.dispose();
+    _homeSearchFocusNode.dispose();
     super.dispose();
   }
 
@@ -962,18 +982,18 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
           // ne traîne derrière (le bandeau ci-dessus est maintenant
           // autonome, pas un calque plein écran).
 
-          // --- Raccourci recherche (04/08, déplacé le 26/10 hors du hero
-          // — demande explicite) : pas une vraie recherche locale (la
-          // logique de recherche/pagination vit désormais uniquement
-          // dans l'onglet Catalogue, voir product_catalog_tab.dart, pour
-          // ne pas la dupliquer) — un tap ouvre directement le Catalogue,
-          // comme sur beaucoup d'apps e-commerce. Sorti du hero photo
-          // (où elle flottait sur une image qui change à chaque swipe,
-          // parfois déjà chargée de texte côté produit) pour rester
-          // lisible en toutes circonstances, posée sur le fond blanc.
-          // Cadre en forme de pilule complète (09/08, sur référence
-          // visuelle) : rayon très large (999) + un contour fin pour
-          // bien se détacher du fond.
+          // --- Raccourci recherche (04/08, déplacé le 26/10 hors du hero,
+          // puis transformé le 26/10 en vrai champ de texte — demande
+          // explicite : un tap ne doit plus quitter l'Accueil). La
+          // recherche/pagination reste gérée uniquement dans l'onglet
+          // Catalogue (voir product_catalog_tab.dart, pour ne pas la
+          // dupliquer) : on ne quitte l'Accueil qu'à la validation, en lui
+          // transmettant le texte saisi (`widget.onOpenCatalog(query)`).
+          // Sorti du hero photo (où elle flottait sur une image qui change
+          // à chaque swipe) pour rester lisible en toutes circonstances,
+          // posée sur le fond blanc. Cadre en forme de pilule complète
+          // (09/08, sur référence visuelle) : rayon très large (999) + un
+          // contour fin pour bien se détacher du fond.
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(4.w, 1.5.h, 4.w, 0),
@@ -986,24 +1006,32 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                     color: theme.colorScheme.outlineVariant,
                   ),
                 ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: widget.onOpenCatalog,
-                  child: Padding(
-                    padding:
+                child: TextField(
+                  controller: _homeSearchController,
+                  focusNode: _homeSearchFocusNode,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _submitHomeSearch(),
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onSurface),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding:
                         EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.6.h),
-                    child: Row(
-                      children: [
+                    hintText: ref.tr('search_hint'),
+                    hintStyle: theme.textTheme.bodyMedium
+                        ?.copyWith(color: chipIconColor),
+                    prefixIcon:
                         Icon(Icons.search, size: 20, color: chipIconColor),
-                        SizedBox(width: 3.w),
-                        Expanded(
-                          child: Text(
-                            ref.tr('search_hint'),
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: chipIconColor),
-                          ),
-                        ),
-                      ],
+                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _homeSearchController,
+                      builder: (context, value, _) => value.text.isEmpty
+                          ? const SizedBox.shrink()
+                          : IconButton(
+                              icon: Icon(Icons.arrow_forward, size: 20),
+                              color: chipIconColor,
+                              onPressed: _submitHomeSearch,
+                            ),
                     ),
                   ),
                 ),
