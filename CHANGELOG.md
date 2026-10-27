@@ -1478,3 +1478,6 @@
 
 ## 2026-10-27 07:46 UTC — Claude
 - Retire l'ombre portée grise du capuchon Accueil et de la barre de navigation (`0b283ce`)
+
+## 2026-10-27 08:00 UTC — Claude
+- Retire l'ombre (elevation) de la barre de recherche de l'Accueil (`632c63d`)
