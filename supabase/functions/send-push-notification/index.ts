@@ -385,6 +385,64 @@ Deno.serve(async (req) => {
         await sendToProfile(serviceAccount, c, title, body, category);
       }
       return new Response("ok");
+    } else if (payload.table === "service_catalog_items") {
+      // Nouveau service disponible (passage available=false -> true,
+      // voir supabase/phase272_patch_notify_new_content.sql) -> notifie
+      // TOUS les clients, même diffusion large que "products" ci-dessus
+      // (demande explicite 27/10 : "services disponible ou publié").
+      category = "produit";
+      const { data: clients } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .eq("role", "client")
+        .not("fcm_token", "is", null);
+      title = "Nouveau service disponible";
+      body = `${
+        record.name ?? "Un nouveau service"
+      } est maintenant disponible.`;
+      for (const c of clients ?? []) {
+        await sendToProfile(serviceAccount, c, title, body, category);
+      }
+      return new Response("ok");
+    } else if (payload.table === "formation_courses") {
+      // Nouvelle formation disponible (passage status -> 'deja_developpee',
+      // voir supabase/phase272_patch_notify_new_content.sql et
+      // akora_formation_screen.dart où ce statut rend le cours achetable)
+      // -> notifie TOUS les clients (27/10, demande explicite).
+      category = "produit";
+      const { data: clients } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .eq("role", "client")
+        .not("fcm_token", "is", null);
+      title = "Nouvelle formation disponible";
+      body = `${
+        record.title ?? "Une nouvelle formation"
+      } est maintenant disponible dans l'Académie.`;
+      for (const c of clients ?? []) {
+        await sendToProfile(serviceAccount, c, title, body, category);
+      }
+      return new Response("ok");
+    } else if (payload.table === "flash_infos") {
+      // Nouvelle annonce/promo publiée par l'Admin (voir
+      // flash_infos_management.dart, supabase/phase272_patch_notify_new_content.sql)
+      // -> notifie TOUS les clients (27/10, demande explicite : "annonce,
+      // promo"). Seules les annonces actives à la création notifient —
+      // une annonce créée désactivée, ou réactivée plus tard, ne
+      // renvoie pas de notification (cas rare, pas géré ici).
+      category = "produit";
+      const { data: clients } = await supabase
+        .from("profiles")
+        .select(`fcm_token, ${soundColumn(category)}`)
+        .eq("role", "client")
+        .not("fcm_token", "is", null);
+      title = "Nouvelle annonce";
+      body = String(record.message ?? "").slice(0, 100) ||
+        "AkoraHub a une nouvelle annonce pour vous.";
+      for (const c of clients ?? []) {
+        await sendToProfile(serviceAccount, c, title, body, category);
+      }
+      return new Response("ok");
     } else if (payload.table === "product_back_in_stock") {
       // "M'alerter quand disponible" (06/08) — un produit qui repasse en
       // stock (trigger sur stock_quantity, voir
