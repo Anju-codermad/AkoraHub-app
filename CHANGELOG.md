@@ -1541,3 +1541,6 @@
 
 ## 2026-10-28 13:57 UTC — Claude
 - Merge main (changelog auto-update) into feature branch (`9100bde`)
+
+## 2026-10-28 14:22 UTC — Claude
+- Merge main (changelog auto-update) into feature branch (`32c22ed`)
