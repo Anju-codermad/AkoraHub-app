@@ -25,6 +25,7 @@ jobs:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
 
     steps:
       - name: Récupérer le code
@@ -134,6 +135,37 @@ jobs:
         run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+
+      - name: Publier sur Google Play (production, déploiement progressif 20%)
+        # 28/10, demande explicite : automatiser la publication Play Store
+        # à chaque build, pour ne plus avoir à télécharger/uploader le
+        # .aab manuellement. Déploiement à 20% d'abord (pas 100%) : si un
+        # bug passe inaperçu, il touche moins de monde le temps de
+        # surveiller les avis/plantages dans Play Console avant de monter
+        # le pourcentage à 100% manuellement (geste volontairement humain,
+        # pas automatisé — voir discussion du même jour).
+        #
+        # Compte de service dédié `akorahub-play-publish@akorahub-7ee66.iam.gserviceaccount.com`
+        # (Google Cloud -> IAM -> Comptes de service), invité dans Play
+        # Console -> Utilisateurs et autorisations avec la permission
+        # "Mettre les applications à disposition de tous les utilisateurs,
+        # exclure des appareils et utiliser la signature d'application
+        # Play" sur AkoraHub. Sa clé JSON est stockée telle quelle dans le
+        # secret GitHub PLAY_STORE_SERVICE_ACCOUNT_JSON.
+        #
+        # Optionnel : ignoré tant que ce secret n'est pas configuré, ne
+        # bloque jamais le reste du build (pas de `continue-on-error`
+        # nécessaire ici, l'action échoue proprement sans empêcher les
+        # étapes suivantes grâce au `if:` ci-dessous).
+        if: ${{ env.PLAY_STORE_SERVICE_ACCOUNT_JSON != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          packageName: com.akora_fanadiovana.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: production
+          status: inProgress
+          userFraction: 0.2
 
       - name: Compiler la version web (admin) — même code que l'app mobile
         # 25/08, demande explicite : plutôt que de recoder l'admin en HTML/JS
