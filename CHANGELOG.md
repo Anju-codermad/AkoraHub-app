@@ -1517,3 +1517,6 @@
 
 ## 2026-10-28 07:19 UTC — Claude
 - feat: upload de vidéos de formation directement depuis l'app (`76b7ee8`)
+
+## 2026-10-28 07:25 UTC — Claude
+- feat: ajoute plusieurs photos par module de formation Académie (`2c68585`)
