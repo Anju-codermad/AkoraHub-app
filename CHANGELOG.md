@@ -1523,3 +1523,6 @@
 
 ## 2026-10-28 07:42 UTC — Claude
 - feat: téléchargement hors-ligne des vidéos de formation (sandboxé dans l'app) (`ba1a6c1`)
+
+## 2026-10-28 07:53 UTC — Claude
+- feat: lien promo partageable par formation (jamais le contenu payant) (`55f7ffd`)
