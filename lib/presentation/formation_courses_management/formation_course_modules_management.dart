@@ -1,7 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/supabase/supabase_config.dart';
+
+/// Taille max d'une vidéo de formation (bucket public `formation-videos`,
+/// voir supabase/phase275_patch_formation_videos_bucket.sql) — plus
+/// généreuse que les 25 Mo des pièces jointes de messagerie, ces vidéos
+/// étant du contenu pédagogique potentiellement long.
+const int _kMaxVideoSizeBytes = 300 * 1024 * 1024;
 
 /// Gestion Admin des modules (vidéo/document/texte) d'un cours
 /// AkoraFormation — voir supabase/phase50_patch_course_purchases_and_content.sql.
@@ -70,6 +79,7 @@ class _FormationCourseModulesManagementState
     final sortOrderCtrl = TextEditingController(
         text: (module?['sort_order'] ?? _modules.length).toString());
     bool isSaving = false;
+    bool isUploadingVideo = false;
 
     await showDialog(
       context: context,
@@ -90,9 +100,63 @@ class _FormationCourseModulesManagementState
                   controller: videoCtrl,
                   decoration: const InputDecoration(
                     labelText: 'URL vidéo (optionnel)',
-                    helperText: 'Lien direct vers le fichier vidéo hébergé',
+                    helperText: 'Lien direct, ou utilisez le bouton ci-dessous',
                   ),
                 ),
+                const SizedBox(height: 6),
+                if (isUploadingVideo)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await ImagePicker()
+                          .pickVideo(source: ImageSource.gallery);
+                      if (picked == null) return;
+                      final file = File(picked.path);
+                      final sizeBytes = await file.length();
+                      if (sizeBytes > _kMaxVideoSizeBytes) {
+                        if (!context.mounted) return;
+                        final mb =
+                            (_kMaxVideoSizeBytes / (1024 * 1024)).round();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(
+                                  'Vidéo trop volumineuse (max $mb Mo).')),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isUploadingVideo = true);
+                      try {
+                        final ext = picked.path.contains('.')
+                            ? picked.path.split('.').last
+                            : 'mp4';
+                        final path =
+                            '${widget.courseId}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+                        await SupabaseConfig.client.storage
+                            .from('formation-videos')
+                            .upload(path, file);
+                        final url = SupabaseConfig.client.storage
+                            .from('formation-videos')
+                            .getPublicUrl(path);
+                        videoCtrl.text = url;
+                      } catch (_) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('Échec de l\'envoi de la vidéo.')),
+                          );
+                        }
+                      } finally {
+                        setDialogState(() => isUploadingVideo = false);
+                      }
+                    },
+                    icon: const Icon(Icons.upload_outlined, size: 18),
+                    label: const Text('Uploader une vidéo depuis le téléphone'),
+                  ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: documentCtrl,
@@ -123,7 +187,7 @@ class _FormationCourseModulesManagementState
               child: const Text('Annuler'),
             ),
             FilledButton(
-              onPressed: isSaving
+              onPressed: isSaving || isUploadingVideo
                   ? null
                   : () async {
                       if (titleCtrl.text.trim().isEmpty) return;
