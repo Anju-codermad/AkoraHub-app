@@ -22,7 +22,7 @@
 
 with new_course as (
   insert into public.formation_courses (category, title, status, module_count, price)
-  values ('Entretien & Hygiène', 'Savony fanasan-dovia (Malagasy)', 'en_projet', 8, null)
+  values ('Entretien & Hygiène', 'Ranon-tsavony fanasana vilia', 'en_projet', 8, null)
   returning id
 )
 insert into public.formation_course_modules (course_id, title, content_text, sort_order)
