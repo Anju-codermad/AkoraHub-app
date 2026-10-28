@@ -1535,3 +1535,6 @@
 
 ## 2026-10-28 11:53 UTC — Claude
 - fix: erreur de compilation sur l'auto-attribution de l'appareil (`d8a30ad`)
+
+## 2026-10-28 12:53 UTC — Claude
+- feat: publication automatique sur Google Play à chaque build (`0708fac`)
