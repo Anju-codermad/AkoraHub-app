@@ -1526,3 +1526,6 @@
 
 ## 2026-10-28 07:53 UTC — Claude
 - feat: lien promo partageable par formation (jamais le contenu payant) (`55f7ffd`)
+
+## 2026-10-28 08:00 UTC — Claude
+- feat: filigrane et vérification par selfie pour les formations payantes (`4297943`)
