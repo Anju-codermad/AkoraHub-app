@@ -1514,3 +1514,6 @@
 
 ## 2026-10-28 07:16 UTC — Claude
 - data: ajoute la première formation Académie (Liquide vaisselle) (`3af3942`)
+
+## 2026-10-28 07:19 UTC — Claude
+- feat: upload de vidéos de formation directement depuis l'app (`76b7ee8`)
