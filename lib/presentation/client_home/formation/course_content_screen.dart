@@ -129,7 +129,7 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
           // réclame directement, rien à confirmer.
           await SupabaseConfig.client
               .from('profiles')
-              .update({'formation_device_id': localDeviceId}).eq('id', userId);
+              .update({'formation_device_id': localDeviceId}).eq('id', userId!);
         } else if (remoteDeviceId != localDeviceId) {
           setState(() {
             _isLoading = false;
