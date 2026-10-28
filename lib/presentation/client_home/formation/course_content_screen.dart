@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -9,7 +8,9 @@ import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/device/device_id.dart';
 import '../../../core/formation/course_purchases_repo.dart';
+import '../../../core/supabase/private_storage_image.dart';
 import '../../../core/supabase/supabase_config.dart';
 
 /// Contenu réel d'un cours AkoraFormation acheté (vidéo/document/texte par
@@ -31,7 +32,7 @@ import '../../../core/supabase/supabase_config.dart';
 /// apps, donc consultable hors-ligne sans jamais pouvoir être partagée
 /// comme un fichier normal.
 ///
-/// Deux protections supplémentaires (28/10, demandes explicites) :
+/// Trois protections supplémentaires (28/10, demandes explicites) :
 /// - **Vérification par selfie** avant le tout premier accès au contenu
 ///   d'une formation (une seule fois, couvre ensuite toutes les
 ///   formations du client — voir `profiles.selfie_verified_at`,
@@ -39,6 +40,10 @@ import '../../../core/supabase/supabase_config.dart';
 ///   Ponctuelle et visible, PAS une caméra qui tourne en continu : voir
 ///   la discussion du même jour sur les limites légales/techniques
 ///   d'une surveillance continue par caméra.
+/// - **Un seul appareil actif** à la fois pour consulter les formations
+///   (`profiles.formation_device_id`, supabase/phase279_patch_formation_single_device.sql)
+///   — ouvrir ses formations sur un nouvel appareil "éjecte"
+///   automatiquement l'ancien, dissuade le partage de compte.
 /// - **Filigrane** (nom + téléphone du client) superposé sur la vidéo et
 ///   les photos pendant la lecture (`_WatermarkOverlay`) — rend toute
 ///   fuite traçable jusqu'au responsable, y compris en cas de
@@ -64,6 +69,8 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
   String? _error;
   bool _needsSelfieVerification = false;
   bool _isUploadingSelfie = false;
+  bool _needsDeviceConfirmation = false;
+  bool _isClaimingDevice = false;
   String? _watermarkText;
 
   @override
@@ -88,6 +95,7 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
       _isLoading = true;
       _error = null;
       _needsSelfieVerification = false;
+      _needsDeviceConfirmation = false;
     });
     try {
       final userId = SupabaseConfig.client.auth.currentUser?.id;
@@ -95,7 +103,7 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
       if (userId != null) {
         profile = await SupabaseConfig.client
             .from('profiles')
-            .select('full_name, phone, selfie_verified_at')
+            .select('full_name, phone, selfie_verified_at, formation_device_id')
             .eq('id', userId)
             .maybeSingle();
       }
@@ -111,6 +119,25 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
           _watermarkText = watermark.isEmpty ? null : watermark;
         });
         return;
+      }
+
+      if (profile != null) {
+        final remoteDeviceId = profile['formation_device_id'] as String?;
+        final localDeviceId = await DeviceId.get();
+        if (remoteDeviceId == null) {
+          // Premier accès aux formations sur cet appareil : on le
+          // réclame directement, rien à confirmer.
+          await SupabaseConfig.client
+              .from('profiles')
+              .update({'formation_device_id': localDeviceId}).eq('id', userId);
+        } else if (remoteDeviceId != localDeviceId) {
+          setState(() {
+            _isLoading = false;
+            _needsDeviceConfirmation = true;
+            _watermarkText = watermark.isEmpty ? null : watermark;
+          });
+          return;
+        }
       }
 
       final modules =
@@ -129,6 +156,30 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
         _isLoading = false;
         _error = 'Impossible de charger le contenu pour le moment.';
       });
+    }
+  }
+
+  /// "Éjecte" l'autre appareil en reprenant la main ici — voir le
+  /// commentaire de classe. Friction volontaire : chaque transfert
+  /// déconnecte l'appareil précédent, ce qui dissuade un partage de
+  /// compte actif sans bloquer un vrai changement de téléphone.
+  Future<void> _claimThisDevice() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+    setState(() => _isClaimingDevice = true);
+    try {
+      final localDeviceId = await DeviceId.get();
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'formation_device_id': localDeviceId}).eq('id', userId);
+      if (!mounted) return;
+      setState(() => _isClaimingDevice = false);
+      _load();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isClaimingDevice = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Échec — réessayez.')));
     }
   }
 
@@ -208,6 +259,43 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
     );
   }
 
+  Widget _buildDeviceGate() {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(6.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.phonelink_lock_outlined,
+                size: 48, color: theme.colorScheme.primary),
+            SizedBox(height: 2.h),
+            Text('Un seul appareil à la fois',
+                style: theme.textTheme.titleLarge,
+                textAlign: TextAlign.center),
+            SizedBox(height: 1.h),
+            Text(
+              'Vos formations sont actuellement liées à un autre appareil. '
+              'Pour des raisons de sécurité, un seul appareil peut y accéder '
+              'à la fois. Si c\'est un changement de téléphone légitime, '
+              'continuez ici — l\'autre appareil sera déconnecté.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            SizedBox(height: 3.h),
+            _isClaimingDevice
+                ? const CircularProgressIndicator()
+                : FilledButton.icon(
+                    onPressed: _claimThisDevice,
+                    icon: const Icon(Icons.phone_android_outlined),
+                    label: const Text('Continuer sur cet appareil'),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -216,21 +304,24 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _needsSelfieVerification
               ? _buildSelfieGate()
-              : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(6.w),
-                        child: Text(_error!, textAlign: TextAlign.center),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: EdgeInsets.all(4.w),
-                      itemCount: _modules.length,
-                      separatorBuilder: (_, __) => SizedBox(height: 2.h),
-                      itemBuilder: (context, index) => _ModuleCard(
-                        module: _modules[index],
-                        watermarkText: _watermarkText,
-                      ),
+              : _needsDeviceConfirmation
+                  ? _buildDeviceGate()
+                  : _error != null
+                      ? Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(6.w),
+                            child:
+                                Text(_error!, textAlign: TextAlign.center),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: EdgeInsets.all(4.w),
+                          itemCount: _modules.length,
+                          separatorBuilder: (_, __) => SizedBox(height: 2.h),
+                          itemBuilder: (context, index) => _ModuleCard(
+                            module: _modules[index],
+                            watermarkText: _watermarkText,
+                          ),
                     ),
     );
   }
@@ -291,7 +382,6 @@ class _ModuleCardState extends State<_ModuleCard> {
   bool _isVideoInitializing = false;
   File? _localVideoFile;
   bool _isDownloading = false;
-  double _downloadProgress = 0;
 
   String? get _videoUrl => widget.module['video_url'] as String?;
   String? get _documentUrl => widget.module['document_url'] as String?;
@@ -326,23 +416,20 @@ class _ModuleCardState extends State<_ModuleCard> {
     }
   }
 
+  /// Bucket privé (phase275, protection maximale demandée explicitement)
+  /// : `_videoUrl` est un CHEMIN, pas une URL — le téléchargement passe
+  /// par le SDK Supabase authentifié, jamais par un lien direct. Aucun
+  /// "lien" n'existe donc à intercepter ou à partager, à aucun moment,
+  /// ni pendant la lecture ni après.
   Future<void> _downloadVideo() async {
     if (_videoUrl == null) return;
-    setState(() {
-      _isDownloading = true;
-      _downloadProgress = 0;
-    });
+    setState(() => _isDownloading = true);
     final file = await _localVideoPath();
     try {
-      await Dio().download(
-        _videoUrl!,
-        file.path,
-        onReceiveProgress: (received, total) {
-          if (total > 0 && mounted) {
-            setState(() => _downloadProgress = received / total);
-          }
-        },
-      );
+      final bytes = await SupabaseConfig.client.storage
+          .from('formation-videos')
+          .download(_videoUrl!);
+      await file.writeAsBytes(bytes);
       if (!mounted) return;
       setState(() {
         _localVideoFile = file;
@@ -364,12 +451,17 @@ class _ModuleCardState extends State<_ModuleCard> {
     setState(() => _localVideoFile = null);
   }
 
+  /// La lecture nécessite toujours une copie locale (pas de streaming
+  /// direct depuis un bucket privé) — télécharge d'abord si ce n'est pas
+  /// déjà fait, comme "Télécharger (hors-ligne)", puis lit.
   Future<void> _initVideo() async {
     if (_videoUrl == null || _videoController != null) return;
+    if (_localVideoFile == null) {
+      await _downloadVideo();
+      if (_localVideoFile == null) return;
+    }
     setState(() => _isVideoInitializing = true);
-    final controller = _localVideoFile != null
-        ? VideoPlayerController.file(_localVideoFile!)
-        : VideoPlayerController.networkUrl(Uri.parse(_videoUrl!));
+    final controller = VideoPlayerController.file(_localVideoFile!);
     try {
       await controller.initialize();
       if (!mounted) return;
@@ -429,14 +521,18 @@ class _ModuleCardState extends State<_ModuleCard> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     OutlinedButton.icon(
-                      onPressed: _isVideoInitializing ? null : _initVideo,
-                      icon: _isVideoInitializing
+                      onPressed: (_isVideoInitializing || _isDownloading)
+                          ? null
+                          : _initVideo,
+                      icon: (_isVideoInitializing || _isDownloading)
                           ? const SizedBox(
                               height: 16,
                               width: 16,
                               child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.play_circle_outline),
-                      label: const Text('Lire la vidéo'),
+                      label: Text(_isDownloading
+                          ? 'Téléchargement…'
+                          : 'Lire la vidéo'),
                     ),
                     if (_localVideoFile != null)
                       Chip(
@@ -447,16 +543,7 @@ class _ModuleCardState extends State<_ModuleCard> {
                         deleteIcon: const Icon(Icons.delete_outline, size: 16),
                         onDeleted: _removeDownload,
                       )
-                    else if (_isDownloading)
-                      SizedBox(
-                        width: 36.w,
-                        child: LinearProgressIndicator(
-                          value:
-                              _downloadProgress > 0 ? _downloadProgress : null,
-                          minHeight: 6,
-                        ),
-                      )
-                    else
+                    else if (!_isDownloading)
                       OutlinedButton.icon(
                         onPressed: _downloadVideo,
                         icon: const Icon(Icons.download_outlined, size: 18),
@@ -493,7 +580,11 @@ class _ModuleCardState extends State<_ModuleCard> {
                             fit: StackFit.expand,
                             children: [
                               InteractiveViewer(
-                                child: Image.network(url, fit: BoxFit.contain),
+                                child: PrivateStorageImage(
+                                  bucket: 'formation-videos',
+                                  path: url,
+                                  fit: BoxFit.contain,
+                                ),
                               ),
                               _WatermarkOverlay(text: widget.watermarkText),
                             ],
@@ -502,17 +593,12 @@ class _ModuleCardState extends State<_ModuleCard> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          url,
+                        child: PrivateStorageImage(
+                          bucket: 'formation-videos',
+                          path: url,
                           width: 22.w,
                           height: 22.w,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 22.w,
-                            height: 22.w,
-                            color: Colors.black12,
-                            child: const Icon(Icons.broken_image_outlined),
-                          ),
                         ),
                       ),
                     );

@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/supabase/private_storage_image.dart';
 import '../../core/supabase/supabase_config.dart';
 
-/// Taille max d'une vidéo de formation (bucket public `formation-videos`,
+/// Taille max d'une vidéo de formation (bucket privé `formation-videos`,
 /// voir supabase/phase275_patch_formation_videos_bucket.sql) — plus
 /// généreuse que les 25 Mo des pièces jointes de messagerie, ces vidéos
 /// étant du contenu pédagogique potentiellement long.
@@ -102,8 +103,10 @@ class _FormationCourseModulesManagementState
                 TextField(
                   controller: videoCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'URL vidéo (optionnel)',
-                    helperText: 'Lien direct, ou utilisez le bouton ci-dessous',
+                    labelText: 'Vidéo (optionnel)',
+                    helperText: 'Utilisez le bouton ci-dessous — ce champ se '
+                        'remplit automatiquement (bucket privé, pas de lien '
+                        'à coller).',
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -141,10 +144,11 @@ class _FormationCourseModulesManagementState
                         await SupabaseConfig.client.storage
                             .from('formation-videos')
                             .upload(path, file);
-                        final url = SupabaseConfig.client.storage
-                            .from('formation-videos')
-                            .getPublicUrl(path);
-                        videoCtrl.text = url;
+                        // Bucket privé (phase275) : on stocke le CHEMIN,
+                        // pas une URL publique — la lecture passe par le
+                        // SDK authentifié (storage.download()), jamais
+                        // par un lien qui pourrait être copié/partagé.
+                        videoCtrl.text = path;
                       } catch (_) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -181,18 +185,12 @@ class _FormationCourseModulesManagementState
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              url,
+                            child: PrivateStorageImage(
+                              bucket: 'formation-videos',
+                              path: url,
                               width: 64,
                               height: 64,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 64,
-                                height: 64,
-                                color: Colors.black12,
-                                child: const Icon(Icons.broken_image_outlined,
-                                    size: 20),
-                              ),
                             ),
                           ),
                           Positioned(
@@ -240,10 +238,9 @@ class _FormationCourseModulesManagementState
                           await SupabaseConfig.client.storage
                               .from('formation-videos')
                               .upload(path, file);
-                          final url = SupabaseConfig.client.storage
-                              .from('formation-videos')
-                              .getPublicUrl(path);
-                          photoUrls.add(url);
+                          // Bucket privé (phase275) : chemin stocké, pas
+                          // d'URL publique — voir PrivateStorageImage.
+                          photoUrls.add(path);
                         } catch (_) {
                           // Continue avec les photos suivantes de la
                           // sélection même si l'une d'elles échoue.
