@@ -78,8 +78,11 @@ class _FormationCourseModulesManagementState
         TextEditingController(text: module?['content_text'] ?? '');
     final sortOrderCtrl = TextEditingController(
         text: (module?['sort_order'] ?? _modules.length).toString());
+    final photoUrls = List<String>.from(
+        ((module?['photo_urls'] as List?) ?? []).map((e) => e.toString()));
     bool isSaving = false;
     bool isUploadingVideo = false;
+    bool isUploadingPhotos = false;
 
     await showDialog(
       context: context,
@@ -165,6 +168,93 @@ class _FormationCourseModulesManagementState
                     helperText: 'PDF ou autre document hébergé',
                   ),
                 ),
+                const SizedBox(height: 16),
+                const Text('Photos (optionnel)'),
+                const SizedBox(height: 6),
+                if (photoUrls.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: photoUrls.map((url) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              url,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 64,
+                                height: 64,
+                                color: Colors.black12,
+                                child: const Icon(Icons.broken_image_outlined,
+                                    size: 20),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: InkWell(
+                              onTap: () =>
+                                  setDialogState(() => photoUrls.remove(url)),
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close,
+                                    size: 14, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                if (photoUrls.isNotEmpty) const SizedBox(height: 8),
+                if (isUploadingPhotos)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked =
+                          await ImagePicker().pickMultiImage(imageQuality: 85);
+                      if (picked.isEmpty) return;
+                      setDialogState(() => isUploadingPhotos = true);
+                      for (final picture in picked) {
+                        try {
+                          final file = File(picture.path);
+                          final ext = picture.path.contains('.')
+                              ? picture.path.split('.').last
+                              : 'jpg';
+                          final path =
+                              '${widget.courseId}/${DateTime.now().millisecondsSinceEpoch}_${photoUrls.length}.$ext';
+                          await SupabaseConfig.client.storage
+                              .from('formation-videos')
+                              .upload(path, file);
+                          final url = SupabaseConfig.client.storage
+                              .from('formation-videos')
+                              .getPublicUrl(path);
+                          photoUrls.add(url);
+                        } catch (_) {
+                          // Continue avec les photos suivantes de la
+                          // sélection même si l'une d'elles échoue.
+                        }
+                      }
+                      setDialogState(() => isUploadingPhotos = false);
+                    },
+                    icon: const Icon(Icons.add_photo_alternate_outlined,
+                        size: 18),
+                    label: const Text('Ajouter des photos'),
+                  ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: contentCtrl,
@@ -187,7 +277,7 @@ class _FormationCourseModulesManagementState
               child: const Text('Annuler'),
             ),
             FilledButton(
-              onPressed: isSaving || isUploadingVideo
+              onPressed: isSaving || isUploadingVideo || isUploadingPhotos
                   ? null
                   : () async {
                       if (titleCtrl.text.trim().isEmpty) return;
@@ -204,6 +294,7 @@ class _FormationCourseModulesManagementState
                         'content_text': contentCtrl.text.trim().isEmpty
                             ? null
                             : contentCtrl.text.trim(),
+                        'photo_urls': photoUrls,
                         'sort_order':
                             int.tryParse(sortOrderCtrl.text.trim()) ?? 0,
                       };
@@ -318,6 +409,10 @@ class _FormationCourseModulesManagementState
                                   if (m['video_url'] != null) 'Vidéo',
                                   if (m['document_url'] != null) 'Document',
                                   if (m['content_text'] != null) 'Texte',
+                                  if ((m['photo_urls'] as List?)
+                                          ?.isNotEmpty ==
+                                      true)
+                                    '${(m['photo_urls'] as List).length} photo(s)',
                                 ].join(' · ')),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 20),

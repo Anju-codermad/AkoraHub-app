@@ -122,6 +122,8 @@ class _ModuleCardState extends State<_ModuleCard> {
   String? get _videoUrl => widget.module['video_url'] as String?;
   String? get _documentUrl => widget.module['document_url'] as String?;
   String? get _contentText => widget.module['content_text'] as String?;
+  List<String> get _photoUrls => List<String>.from(
+      ((widget.module['photo_urls'] as List?) ?? []).map((e) => e.toString()));
 
   Future<void> _initVideo() async {
     if (_videoUrl == null || _videoController != null) return;
@@ -192,6 +194,46 @@ class _ModuleCardState extends State<_ModuleCard> {
                     mode: LaunchMode.inAppWebView),
                 icon: const Icon(Icons.description_outlined),
                 label: const Text('Ouvrir le document'),
+              ),
+            ],
+            if (_photoUrls.isNotEmpty) ...[
+              SizedBox(height: 1.5.h),
+              SizedBox(
+                height: 22.w,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _photoUrls.length,
+                  separatorBuilder: (_, __) => SizedBox(width: 2.w),
+                  itemBuilder: (context, i) {
+                    final url = _photoUrls[i];
+                    return GestureDetector(
+                      onTap: () => showDialog(
+                        context: context,
+                        builder: (_) => Dialog(
+                          insetPadding: EdgeInsets.all(4.w),
+                          child: InteractiveViewer(
+                            child: Image.network(url, fit: BoxFit.contain),
+                          ),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          url,
+                          width: 22.w,
+                          height: 22.w,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 22.w,
+                            height: 22.w,
+                            color: Colors.black12,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ],
