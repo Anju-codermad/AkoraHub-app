@@ -1529,3 +1529,6 @@
 
 ## 2026-10-28 08:00 UTC — Claude
 - feat: filigrane et vérification par selfie pour les formations payantes (`4297943`)
+
+## 2026-10-28 08:06 UTC — Claude
+- feat: bucket formation privé + un seul appareil actif (protection max) (`6680e65`)
