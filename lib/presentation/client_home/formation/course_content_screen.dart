@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:sizer/sizer.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -16,6 +20,14 @@ import '../../../core/formation/course_purchases_repo.dart';
 /// n'empêche de filmer l'écran avec un second appareil physique (la
 /// "faille analogique") — aucune plateforme au monde ne peut s'en
 /// protéger techniquement.
+///
+/// Téléchargement hors-ligne (28/10, demande explicite "télécharger mais
+/// la vidéo reste dans l'app") : `_ModuleCardState._downloadVideo()`
+/// enregistre la vidéo dans le dossier privé de l'application
+/// (`getApplicationDocumentsDirectory()`), jamais dans la Galerie ni un
+/// dossier Téléchargements partagé — invisible et inaccessible aux autres
+/// apps, donc consultable hors-ligne sans jamais pouvoir être partagée
+/// comme un fichier normal.
 class CourseContentScreen extends StatefulWidget {
   final String courseId;
   final String courseTitle;
@@ -118,17 +130,87 @@ class _ModuleCard extends StatefulWidget {
 class _ModuleCardState extends State<_ModuleCard> {
   VideoPlayerController? _videoController;
   bool _isVideoInitializing = false;
+  File? _localVideoFile;
+  bool _isDownloading = false;
+  double _downloadProgress = 0;
 
   String? get _videoUrl => widget.module['video_url'] as String?;
   String? get _documentUrl => widget.module['document_url'] as String?;
   String? get _contentText => widget.module['content_text'] as String?;
+  String get _moduleId => widget.module['id'].toString();
   List<String> get _photoUrls => List<String>.from(
       ((widget.module['photo_urls'] as List?) ?? []).map((e) => e.toString()));
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLocalFile();
+  }
+
+  /// Téléchargement hors-ligne (28/10, demande explicite) : la vidéo est
+  /// enregistrée dans le dossier privé de l'app (jamais dans la Galerie
+  /// ni un dossier Téléchargements partagé — invisible et inaccessible
+  /// aux autres apps), donc "téléchargeable" sans jamais quitter l'app ni
+  /// pouvoir être partagée comme un fichier normal.
+  Future<File> _localVideoPath() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final folder = Directory('${dir.path}/formation_videos');
+    if (!await folder.exists()) await folder.create(recursive: true);
+    return File('${folder.path}/$_moduleId.mp4');
+  }
+
+  Future<void> _checkLocalFile() async {
+    final file = await _localVideoPath();
+    if (await file.exists() && await file.length() > 0) {
+      if (!mounted) return;
+      setState(() => _localVideoFile = file);
+    }
+  }
+
+  Future<void> _downloadVideo() async {
+    if (_videoUrl == null) return;
+    setState(() {
+      _isDownloading = true;
+      _downloadProgress = 0;
+    });
+    final file = await _localVideoPath();
+    try {
+      await Dio().download(
+        _videoUrl!,
+        file.path,
+        onReceiveProgress: (received, total) {
+          if (total > 0 && mounted) {
+            setState(() => _downloadProgress = received / total);
+          }
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _localVideoFile = file;
+        _isDownloading = false;
+      });
+    } catch (_) {
+      if (await file.exists()) await file.delete();
+      if (!mounted) return;
+      setState(() => _isDownloading = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Échec du téléchargement — réessayez.')));
+    }
+  }
+
+  Future<void> _removeDownload() async {
+    final file = await _localVideoPath();
+    if (await file.exists()) await file.delete();
+    if (!mounted) return;
+    setState(() => _localVideoFile = null);
+  }
 
   Future<void> _initVideo() async {
     if (_videoUrl == null || _videoController != null) return;
     setState(() => _isVideoInitializing = true);
-    final controller = VideoPlayerController.networkUrl(Uri.parse(_videoUrl!));
+    final controller = _localVideoFile != null
+        ? VideoPlayerController.file(_localVideoFile!)
+        : VideoPlayerController.networkUrl(Uri.parse(_videoUrl!));
     try {
       await controller.initialize();
       if (!mounted) return;
@@ -176,15 +258,46 @@ class _ModuleCardState extends State<_ModuleCard> {
                   child: VideoPlayer(_videoController!),
                 )
               else
-                OutlinedButton.icon(
-                  onPressed: _isVideoInitializing ? null : _initVideo,
-                  icon: _isVideoInitializing
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.play_circle_outline),
-                  label: const Text('Lire la vidéo'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _isVideoInitializing ? null : _initVideo,
+                      icon: _isVideoInitializing
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.play_circle_outline),
+                      label: const Text('Lire la vidéo'),
+                    ),
+                    if (_localVideoFile != null)
+                      Chip(
+                        avatar: const Icon(Icons.offline_pin_outlined,
+                            size: 16),
+                        label: const Text('Disponible hors-ligne'),
+                        visualDensity: VisualDensity.compact,
+                        deleteIcon: const Icon(Icons.delete_outline, size: 16),
+                        onDeleted: _removeDownload,
+                      )
+                    else if (_isDownloading)
+                      SizedBox(
+                        width: 36.w,
+                        child: LinearProgressIndicator(
+                          value:
+                              _downloadProgress > 0 ? _downloadProgress : null,
+                          minHeight: 6,
+                        ),
+                      )
+                    else
+                      OutlinedButton.icon(
+                        onPressed: _downloadVideo,
+                        icon: const Icon(Icons.download_outlined, size: 18),
+                        label: const Text('Télécharger (hors-ligne)'),
+                      ),
+                  ],
                 ),
             ],
             if (_documentUrl != null) ...[
