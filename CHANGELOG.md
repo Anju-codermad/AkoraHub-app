@@ -1511,3 +1511,6 @@
 
 ## 2026-10-27 15:09 UTC — Claude
 - fix: un prix Gros non renseigné (0 Ar) pouvait rendre un produit gratuit (`55b77f1`)
+
+## 2026-10-28 07:16 UTC — Claude
+- data: ajoute la première formation Académie (Liquide vaisselle) (`3af3942`)
