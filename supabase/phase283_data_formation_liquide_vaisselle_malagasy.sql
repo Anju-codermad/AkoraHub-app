@@ -61,6 +61,6 @@ from new_course, (values
 - Esory ny fifandraisana amin'ny maso.
 - Asio marika mazava ny bidao misy akora voalohany.
 - Tehirizo lavitra ny hafanana sy ny masoandro mivantana.$$),
-  (6, 'Aiza no mividianana ny akora?', $$Ny akora rehetra ampiasaina amin'ity fiofanana ity (SLES, CAPB, Comperlan, sira, acide citrique, loko, manitra, fitahirizana) dia hita ao amin'ny tahirin-java-mividy an'i Akora Fanadiovana — jereo ny tabilao "Matières premières" ao amin'ny application mba hahitana ny vidiny sy ny fahazoana azy ankehitriny.$$),
+  (6, 'Aiza no hividianana ireo akora', $$Ny akora rehetra ampiasaina amin'ity fiofanana ity (SLES, CAPB, Comperlan, sira, acide citrique, loko, manitra, fitahirizana) dia hita ao amin'ny tahirin-java-mividy an'i Akora Fanadiovana — jereo ny tabilao "Matières premières" ao amin'ny application mba hahitana ny vidiny sy ny fahazoana azy ankehitriny.$$),
   (7, 'Torohevitra momba ny vidin''ny varotra', $$Kajio aloha ny vidin'ny fanamboarana (akora + fonosana + angovo) isaky ny litatra, dia ampio tombom-barotra mety (ohatra 30% ka hatramin'ny 50% arakaraka ny toerana ivarotana). Jereo koa ny vidin'ny vokatra mitovy amin'ny tsena akaiky anao mba hamaritana vidiny mifanaraka amin'ny mpividy, nefa mbola mitondra tombony ho anao.$$)
 ) as modules(sort_order, title, content_text);
