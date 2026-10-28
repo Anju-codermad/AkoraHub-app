@@ -1538,3 +1538,6 @@
 
 ## 2026-10-28 12:53 UTC — Claude
 - feat: publication automatique sur Google Play à chaque build (`0708fac`)
+
+## 2026-10-28 13:57 UTC — Claude
+- Merge main (changelog auto-update) into feature branch (`9100bde`)
