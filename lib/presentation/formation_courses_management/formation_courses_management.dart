@@ -103,6 +103,8 @@ class _FormationCoursesManagementState
         TextEditingController(text: (course?['module_count'] ?? '').toString());
     final priceCtrl =
         TextEditingController(text: (course?['price'] ?? '').toString());
+    final descriptionCtrl =
+        TextEditingController(text: course?['description'] ?? '');
     String status = course?['status'] ?? 'a_creer';
     bool isSaving = false;
 
@@ -171,6 +173,17 @@ class _FormationCoursesManagementState
                         'un prix rend le bouton "Acheter" visible côté client.',
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionCtrl,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (optionnel)',
+                    helperText:
+                        'Affichée sur la page publique partageable du '
+                        'cours (jamais le contenu payant lui-même).',
+                  ),
+                ),
               ],
             ),
           ),
@@ -194,6 +207,9 @@ class _FormationCoursesManagementState
                         'status': status,
                         'module_count': int.tryParse(moduleCountCtrl.text),
                         'price': num.tryParse(priceCtrl.text.trim()),
+                        'description': descriptionCtrl.text.trim().isEmpty
+                            ? null
+                            : descriptionCtrl.text.trim(),
                       };
                       try {
                         if (isEditing) {

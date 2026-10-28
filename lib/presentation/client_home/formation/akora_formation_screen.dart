@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../core/formation/course_purchases_repo.dart';
@@ -313,8 +314,34 @@ class _PosterCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(iconForFormationCategory(course['category'] as String? ?? ''),
-                color: Colors.white, size: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(
+                    iconForFormationCategory(
+                        course['category'] as String? ?? ''),
+                    color: Colors.white,
+                    size: 32),
+                // Lien promo (28/10, demande explicite) : partage
+                // uniquement une page de présentation publique
+                // (formation-detail.html), jamais le contenu payant.
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    final link =
+                        'https://groupe-akora.com/formation-detail.html?id=$courseId';
+                    SharePlus.instance.share(ShareParams(
+                      text: '$title — formation disponible sur AkoraHub\n$link',
+                    ));
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.share_outlined,
+                        color: Colors.white70, size: 18),
+                  ),
+                ),
+              ],
+            ),
             const Spacer(),
             Text(
               title,
