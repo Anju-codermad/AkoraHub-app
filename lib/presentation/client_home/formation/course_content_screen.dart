@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:sizer/sizer.dart';
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/formation/course_purchases_repo.dart';
+import '../../../core/supabase/supabase_config.dart';
 
 /// Contenu réel d'un cours AkoraFormation acheté (vidéo/document/texte par
 /// module, voir supabase/phase50_patch_course_purchases_and_content.sql).
@@ -28,6 +30,20 @@ import '../../../core/formation/course_purchases_repo.dart';
 /// dossier Téléchargements partagé — invisible et inaccessible aux autres
 /// apps, donc consultable hors-ligne sans jamais pouvoir être partagée
 /// comme un fichier normal.
+///
+/// Deux protections supplémentaires (28/10, demandes explicites) :
+/// - **Vérification par selfie** avant le tout premier accès au contenu
+///   d'une formation (une seule fois, couvre ensuite toutes les
+///   formations du client — voir `profiles.selfie_verified_at`,
+///   supabase/phase278_patch_formation_selfie_verification.sql).
+///   Ponctuelle et visible, PAS une caméra qui tourne en continu : voir
+///   la discussion du même jour sur les limites légales/techniques
+///   d'une surveillance continue par caméra.
+/// - **Filigrane** (nom + téléphone du client) superposé sur la vidéo et
+///   les photos pendant la lecture (`_WatermarkOverlay`) — rend toute
+///   fuite traçable jusqu'au responsable, y compris en cas de
+///   re-filmage de l'écran (la "faille analogique" reste indétectable,
+///   mais le filigrane apparaît alors aussi dans ce qui est refilmé).
 class CourseContentScreen extends StatefulWidget {
   final String courseId;
   final String courseTitle;
@@ -46,6 +62,9 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
   List<Map<String, dynamic>> _modules = [];
   bool _isLoading = true;
   String? _error;
+  bool _needsSelfieVerification = false;
+  bool _isUploadingSelfie = false;
+  String? _watermarkText;
 
   @override
   void initState() {
@@ -68,13 +87,38 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _needsSelfieVerification = false;
     });
     try {
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+      Map<String, dynamic>? profile;
+      if (userId != null) {
+        profile = await SupabaseConfig.client
+            .from('profiles')
+            .select('full_name, phone, selfie_verified_at')
+            .eq('id', userId)
+            .maybeSingle();
+      }
+      final watermarkParts = [profile?['full_name'], profile?['phone']]
+          .whereType<String>()
+          .where((s) => s.trim().isNotEmpty);
+      final watermark = watermarkParts.join(' · ');
+
+      if (profile != null && profile['selfie_verified_at'] == null) {
+        setState(() {
+          _isLoading = false;
+          _needsSelfieVerification = true;
+          _watermarkText = watermark.isEmpty ? null : watermark;
+        });
+        return;
+      }
+
       final modules =
           await CoursePurchasesRepo.fetchCourseModules(widget.courseId);
       setState(() {
         _modules = modules;
         _isLoading = false;
+        _watermarkText = watermark.isEmpty ? null : watermark;
         if (modules.isEmpty) {
           _error =
               'Le contenu de ce cours n\'est pas encore disponible — revenez bientôt.';
@@ -88,10 +132,80 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
     }
   }
 
+  /// Vérification ponctuelle (pas de caméra en continu) — voir le
+  /// commentaire de classe. Couvre tout le compte client une fois faite
+  /// (`profiles.selfie_verified_at`), pas seulement ce cours.
+  Future<void> _captureAndUploadSelfie() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    setState(() => _isUploadingSelfie = true);
+    try {
+      final path = '$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await SupabaseConfig.client.storage
+          .from('identity-verification')
+          .upload(path, File(picked.path));
+      await SupabaseConfig.client.from('profiles').update({
+        'selfie_url': path,
+        'selfie_verified_at': DateTime.now().toIso8601String(),
+      }).eq('id', userId);
+      if (!mounted) return;
+      setState(() => _isUploadingSelfie = false);
+      _load();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isUploadingSelfie = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Échec de l\'envoi — réessayez.')));
+    }
+  }
+
   @override
   void dispose() {
     ScreenProtector.preventScreenshotOff();
     super.dispose();
+  }
+
+  Widget _buildSelfieGate() {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(6.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.verified_user_outlined,
+                size: 48, color: theme.colorScheme.primary),
+            SizedBox(height: 2.h),
+            Text('Vérification d\'identité',
+                style: theme.textTheme.titleLarge,
+                textAlign: TextAlign.center),
+            SizedBox(height: 1.h),
+            Text(
+              'Pour protéger nos formations payantes, nous devons confirmer '
+              'que c\'est bien vous qui accédez au contenu. Prenez un selfie '
+              '— une seule fois, pour tous vos cours. Votre photo reste '
+              'privée et sert uniquement à cette vérification.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            SizedBox(height: 3.h),
+            _isUploadingSelfie
+                ? const CircularProgressIndicator()
+                : FilledButton.icon(
+                    onPressed: _captureAndUploadSelfie,
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text('Prendre un selfie'),
+                  ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -100,28 +214,73 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
       appBar: AppBar(title: Text(widget.courseTitle)),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(6.w),
-                    child: Text(_error!, textAlign: TextAlign.center),
-                  ),
-                )
-              : ListView.separated(
-                  padding: EdgeInsets.all(4.w),
-                  itemCount: _modules.length,
-                  separatorBuilder: (_, __) => SizedBox(height: 2.h),
-                  itemBuilder: (context, index) =>
-                      _ModuleCard(module: _modules[index]),
-                ),
+          : _needsSelfieVerification
+              ? _buildSelfieGate()
+              : _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(6.w),
+                        child: Text(_error!, textAlign: TextAlign.center),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: EdgeInsets.all(4.w),
+                      itemCount: _modules.length,
+                      separatorBuilder: (_, __) => SizedBox(height: 2.h),
+                      itemBuilder: (context, index) => _ModuleCard(
+                        module: _modules[index],
+                        watermarkText: _watermarkText,
+                      ),
+                    ),
+    );
+  }
+}
+
+/// Filigrane discret (nom + téléphone du client) superposé sur la vidéo
+/// et les photos pendant la lecture — voir le commentaire de classe de
+/// `CourseContentScreen`.
+class _WatermarkOverlay extends StatelessWidget {
+  final String? text;
+
+  const _WatermarkOverlay({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = text;
+    if (t == null || t.isEmpty) return const SizedBox.shrink();
+    final style = const TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.w700,
+      fontSize: 11,
+      shadows: [Shadow(color: Colors.black45, blurRadius: 2)],
+    );
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: ClipRect(
+          child: Opacity(
+            opacity: 0.45,
+            child: Transform.rotate(
+              angle: -0.35,
+              child: Column(
+                children: [
+                  Expanded(child: Center(child: Text(t, style: style))),
+                  Expanded(child: Center(child: Text(t, style: style))),
+                  Expanded(child: Center(child: Text(t, style: style))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
 
 class _ModuleCard extends StatefulWidget {
   final Map<String, dynamic> module;
+  final String? watermarkText;
 
-  const _ModuleCard({required this.module});
+  const _ModuleCard({required this.module, this.watermarkText});
 
   @override
   State<_ModuleCard> createState() => _ModuleCardState();
@@ -255,7 +414,13 @@ class _ModuleCardState extends State<_ModuleCard> {
                   _videoController!.value.isInitialized)
                 AspectRatio(
                   aspectRatio: _videoController!.value.aspectRatio,
-                  child: VideoPlayer(_videoController!),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      VideoPlayer(_videoController!),
+                      _WatermarkOverlay(text: widget.watermarkText),
+                    ],
+                  ),
                 )
               else
                 Wrap(
@@ -324,8 +489,14 @@ class _ModuleCardState extends State<_ModuleCard> {
                         context: context,
                         builder: (_) => Dialog(
                           insetPadding: EdgeInsets.all(4.w),
-                          child: InteractiveViewer(
-                            child: Image.network(url, fit: BoxFit.contain),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              InteractiveViewer(
+                                child: Image.network(url, fit: BoxFit.contain),
+                              ),
+                              _WatermarkOverlay(text: widget.watermarkText),
+                            ],
                           ),
                         ),
                       ),
