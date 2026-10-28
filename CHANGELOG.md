@@ -1532,3 +1532,6 @@
 
 ## 2026-10-28 08:06 UTC — Claude
 - feat: bucket formation privé + un seul appareil actif (protection max) (`6680e65`)
+
+## 2026-10-28 11:53 UTC — Claude
+- fix: erreur de compilation sur l'auto-attribution de l'appareil (`d8a30ad`)
