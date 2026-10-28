@@ -5,6 +5,20 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
+    # Ignore les changements qui ne touchent pas le code de l'app —
+    # sans ça, chaque script SQL (supabase/*.sql) ou mise à jour du
+    # changelog déclenchait un build COMPLET + un nouvel envoi vers
+    # Google Play. Constaté le 28/10 : 6 builds lancés en moins d'une
+    # heure, chacun annulant/remplaçant la review Google Play du
+    # précédent avant qu'elle n'aboutisse — résultat, la version
+    # réellement visible par les clients sur Play Store ne rattrapait
+    # jamais le code le plus récent, même si chaque build individuel
+    # réussissait. Un vrai changement de code (lib/, android/, etc.)
+    # continue de déclencher normalement.
+    paths-ignore:
+      - 'supabase/**'
+      - 'docs/**'
+      - '**.md'
   workflow_dispatch:
 
 jobs:
