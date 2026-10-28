@@ -1520,3 +1520,6 @@
 
 ## 2026-10-28 07:25 UTC — Claude
 - feat: ajoute plusieurs photos par module de formation Académie (`2c68585`)
+
+## 2026-10-28 07:42 UTC — Claude
+- feat: téléchargement hors-ligne des vidéos de formation (sandboxé dans l'app) (`ba1a6c1`)
