@@ -365,11 +365,71 @@ class _FormationCourseModulesManagementState
     }
   }
 
+  Future<void> _showFilmingGuide() async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Guide de tournage'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('Matériel nécessaire (minimum)',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 6),
+              Text('• Un smartphone récent (suffisant, pas besoin de caméra pro)\n'
+                  '• Un trépied, ou le téléphone calé contre un objet stable\n'
+                  '• Lumière naturelle : filmez près d\'une fenêtre, jamais à '
+                  'contre-jour (lumière derrière vous, pas derrière le sujet)\n'
+                  '• Un fond propre et dégagé derrière le poste de travail'),
+              SizedBox(height: 16),
+              Text('Plan de tournage (à répéter pour chaque module)',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 6),
+              Text('1. Intro (15-20 sec) : vous présentez ce que ce module va montrer\n'
+                  '2. Plan large : tout le poste de travail et le matériel posé, bien visible\n'
+                  '3. Gros plan : pesée/mesure de chaque ingrédient (les quantités doivent se lire)\n'
+                  '4. Plan rapproché : chaque étape du mélange, mains et produit bien dans le cadre\n'
+                  '5. Plan final : le résultat obtenu, avec un petit récap parlé'),
+              SizedBox(height: 16),
+              Text('Conseils pratiques',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 6),
+              Text('• Gardez le même format (vertical ou horizontal) sur tous '
+                  'les modules d\'une formation\n'
+                  '• Visez 2 à 5 minutes par module — pas besoin de faire plus long\n'
+                  '• Parlez clairement ; si un passage n\'est pas clair, refaites '
+                  'la prise plutôt que de couper au montage\n'
+                  '• Une seule prise propre par module suffit, pas besoin de '
+                  'montage compliqué — juste uploader avec le bouton ci-dessous'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Modules — ${widget.courseTitle}')),
+      appBar: AppBar(
+        title: Text('Modules — ${widget.courseTitle}'),
+        actions: [
+          IconButton(
+            tooltip: 'Guide de tournage',
+            icon: const Icon(Icons.videocam_outlined),
+            onPressed: _showFilmingGuide,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showModuleDialog(),
         icon: const Icon(Icons.add),
