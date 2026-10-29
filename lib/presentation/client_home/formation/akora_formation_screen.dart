@@ -288,6 +288,18 @@ class _PosterCard extends StatelessWidget {
     final price = course['price'] as num?;
     final isOwned = state._ownedCourseIds.contains(courseId);
     final isPending = state._pendingCourseIds.contains(courseId);
+    // Photo de couverture (29/10, demande explicite) : remplace le
+    // simple dégradé de couleur quand l'Admin en a ajouté une (voir
+    // supabase/phase299_patch_formation_cover_image.sql) — un dégradé
+    // sombre reste superposé pour que le texte blanc reste lisible.
+    final coverUrl = course['cover_image_url'] as String?;
+    final fallbackGradient = BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [color, color.withValues(alpha: 0.75)],
+      ),
+    );
 
     return GestureDetector(
       onTap: () {
@@ -300,16 +312,34 @@ class _PosterCard extends StatelessWidget {
           openFormationPurchaseWeb(context);
         }
       },
-      child: Container(
-        width: 42.w,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [color, color.withValues(alpha: 0.75)],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SizedBox(
+          width: 42.w,
+          child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (coverUrl != null && coverUrl.isNotEmpty)
+            Image.network(
+              coverUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => DecoratedBox(decoration: fallbackGradient),
+            )
+          else
+            DecoratedBox(decoration: fallbackGradient),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.05),
+                  Colors.black.withValues(alpha: 0.55),
+                ],
+              ),
+            ),
           ),
-        ),
+          Padding(
         padding: EdgeInsets.all(3.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,6 +433,10 @@ class _PosterCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+          ),
+        ],
+          ),
         ),
       ),
     );

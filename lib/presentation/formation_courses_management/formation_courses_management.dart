@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sizer/sizer.dart';
 
@@ -107,6 +110,12 @@ class _FormationCoursesManagementState
         TextEditingController(text: course?['description'] ?? '');
     String status = course?['status'] ?? 'a_creer';
     bool isSaving = false;
+    // Photo de couverture (29/10, demande explicite) — bucket PUBLIC
+    // `formation-covers` (contrairement à `formation-videos`, privé) :
+    // visible par tout le monde dans le catalogue, avant même l'achat.
+    // On stocke directement l'URL publique, pas un chemin à télécharger.
+    String? coverImageUrl = course?['cover_image_url'] as String?;
+    bool isUploadingCover = false;
 
     await showDialog(
       context: context,
@@ -184,6 +193,91 @@ class _FormationCoursesManagementState
                         'cours (jamais le contenu payant lui-même).',
                   ),
                 ),
+                const SizedBox(height: 16),
+                const Text('Photo de couverture (optionnel)'),
+                const SizedBox(height: 6),
+                if (coverImageUrl != null)
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          coverImageUrl!,
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 120,
+                            color: Colors.black12,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: -6,
+                        right: -6,
+                        child: InkWell(
+                          onTap: () =>
+                              setDialogState(() => coverImageUrl = null),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close,
+                                size: 14, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                if (coverImageUrl != null) const SizedBox(height: 8),
+                if (isUploadingCover)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await ImagePicker()
+                          .pickImage(source: ImageSource.gallery, imageQuality: 85);
+                      if (picked == null) return;
+                      setDialogState(() => isUploadingCover = true);
+                      try {
+                        final ext = picked.path.contains('.')
+                            ? picked.path.split('.').last
+                            : 'jpg';
+                        final path =
+                            '${DateTime.now().millisecondsSinceEpoch}.$ext';
+                        await SupabaseConfig.client.storage
+                            .from('formation-covers')
+                            .upload(path, File(picked.path));
+                        final publicUrl = SupabaseConfig.client.storage
+                            .from('formation-covers')
+                            .getPublicUrl(path);
+                        setDialogState(() {
+                          coverImageUrl = publicUrl;
+                          isUploadingCover = false;
+                        });
+                      } catch (_) {
+                        setDialogState(() => isUploadingCover = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Échec de l\'envoi de la photo.')),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.image_outlined, size: 18),
+                    label: Text(coverImageUrl == null
+                        ? 'Ajouter une photo de couverture'
+                        : 'Remplacer la photo'),
+                  ),
               ],
             ),
           ),
@@ -193,7 +287,7 @@ class _FormationCoursesManagementState
               child: const Text('Annuler'),
             ),
             FilledButton(
-              onPressed: isSaving
+              onPressed: isSaving || isUploadingCover
                   ? null
                   : () async {
                       if (categoryCtrl.text.trim().isEmpty ||
@@ -210,6 +304,7 @@ class _FormationCoursesManagementState
                         'description': descriptionCtrl.text.trim().isEmpty
                             ? null
                             : descriptionCtrl.text.trim(),
+                        'cover_image_url': coverImageUrl,
                       };
                       try {
                         if (isEditing) {
