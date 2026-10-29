@@ -294,6 +294,39 @@ class _FormationCoursesManagementState
                           titleCtrl.text.trim().isEmpty) {
                         return;
                       }
+                      // Garde-fou (29/10) : évite de perdre silencieusement
+                      // un prix déjà fixé si le champ est vide au moment
+                      // d'enregistrer (ex. donnée locale pas rafraîchie
+                      // avant d'ouvrir ce dialogue pour juste changer la
+                      // photo de couverture) — bug déjà vécu deux fois sur
+                      // "Liquide Vaisselle".
+                      if (isEditing &&
+                          course['price'] != null &&
+                          priceCtrl.text.trim().isEmpty) {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Supprimer le prix ?'),
+                            content: Text(
+                              'Cette formation avait déjà un prix '
+                              '(${course['price']} Ar). Le champ Prix est '
+                              'vide : enregistrer va rendre la formation '
+                              'non achetable. Continuer ?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Annuler'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Oui, supprimer le prix'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed != true) return;
+                      }
                       setDialogState(() => isSaving = true);
                       final payload = {
                         'category': categoryCtrl.text.trim(),
