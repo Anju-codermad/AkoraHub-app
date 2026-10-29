@@ -349,7 +349,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
         try {
           final rows = await SupabaseConfig.client
               .from('formation_courses')
-              .select('id, title, category, status')
+              .select('id, title, category, status, cover_image_url')
               .eq('status', 'deja_developpee')
               .order('created_at', ascending: false)
               .limit(6);
@@ -1604,6 +1604,17 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                   itemBuilder: (context, index) {
                     final course = _recentFormationCourses[index];
                     final category = (course['category'] ?? '').toString();
+                    final coverUrl = course['cover_image_url'] as String?;
+                    final fallbackGradient = BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.primary.withValues(alpha: 0.75),
+                        ],
+                      ),
+                    );
                     return Padding(
                       padding: EdgeInsets.only(right: 3.w),
                       child: InkWell(
@@ -1615,46 +1626,66 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
                                 AkoraFormationScreen(initialCategory: category),
                           ),
                         ),
-                        child: Container(
-                          width: 45.w,
-                          padding: EdgeInsets.all(3.w),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                theme.colorScheme.primary,
-                                theme.colorScheme.primary
-                                    .withValues(alpha: 0.75),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: SizedBox(
+                            width: 45.w,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (coverUrl != null && coverUrl.isNotEmpty)
+                                  Image.network(
+                                    coverUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        DecoratedBox(decoration: fallbackGradient),
+                                  )
+                                else
+                                  DecoratedBox(decoration: fallbackGradient),
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.black.withValues(alpha: 0.05),
+                                        Colors.black.withValues(alpha: 0.55),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.all(3.w),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(iconForFormationCategory(category),
+                                          color: Colors.white, size: 22),
+                                      const Spacer(),
+                                      Text(
+                                        course['title'] ?? '',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        category,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.85),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(iconForFormationCategory(category),
-                                  color: Colors.white, size: 22),
-                              const Spacer(),
-                              Text(
-                                course['title'] ?? '',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                category,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ),
