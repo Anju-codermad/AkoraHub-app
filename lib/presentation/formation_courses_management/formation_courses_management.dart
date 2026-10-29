@@ -79,8 +79,8 @@ class _FormationCoursesManagementState
       final data = await SupabaseConfig.client
           .from('formation_courses')
           .select()
-          .order('category')
-          .order('sort_order');
+          .order('category', ascending: true)
+          .order('sort_order', ascending: true);
       setState(() {
         _courses = List<Map<String, dynamic>>.from(data);
         _isLoading = false;

@@ -58,7 +58,7 @@ class _FormationCourseModulesManagementState
           .from('formation_course_modules')
           .select()
           .eq('course_id', widget.courseId)
-          .order('sort_order');
+          .order('sort_order', ascending: true);
       setState(() {
         _modules = List<Map<String, dynamic>>.from(data);
         _isLoading = false;

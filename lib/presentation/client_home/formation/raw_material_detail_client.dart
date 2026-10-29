@@ -182,12 +182,12 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
             .from('raw_material_usages')
             .select('*, products(name)')
             .eq('raw_material_id', widget.materialId)
-            .order('sort_order'),
+            .order('sort_order', ascending: true),
         SupabaseConfig.client
             .from('raw_material_packaging')
             .select()
             .eq('raw_material_id', widget.materialId)
-            .order('sort_order'),
+            .order('sort_order', ascending: true),
         SupabaseConfig.client
             .from('raw_material_price_history')
             .select()

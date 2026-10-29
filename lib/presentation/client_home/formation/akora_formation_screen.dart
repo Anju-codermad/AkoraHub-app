@@ -102,8 +102,8 @@ class _AkoraFormationScreenState extends State<AkoraFormationScreen> {
         SupabaseConfig.client
             .from('formation_courses')
             .select()
-            .order('category')
-            .order('sort_order'),
+            .order('category', ascending: true)
+            .order('sort_order', ascending: true),
         CoursePurchasesRepo.fetchMyPurchasedCourseIds(),
         CoursePurchasesRepo.fetchMyPendingCourseIds(),
       ]);

@@ -36,7 +36,7 @@ class NotificationSoundCatalogRepo {
           .select('sound_id, sort_order, enabled')
           .eq('category', category.id)
           .eq('enabled', true)
-          .order('sort_order');
+          .order('sort_order', ascending: true);
       if (rows.isEmpty) return kNotificationSounds;
       final byId = {for (final s in kNotificationSounds) s.id: s};
       return List<Map<String, dynamic>>.from(rows)
@@ -56,7 +56,7 @@ class NotificationSoundCatalogRepo {
         .from('notification_sound_catalog')
         .select('sound_id, sort_order, enabled')
         .eq('category', category.id)
-        .order('sort_order');
+        .order('sort_order', ascending: true);
     return List<Map<String, dynamic>>.from(rows)
         .map((r) => SoundCatalogEntry(
               soundId: r['sound_id'] as String,

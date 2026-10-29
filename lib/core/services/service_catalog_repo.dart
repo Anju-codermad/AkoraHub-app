@@ -18,11 +18,11 @@ class ServiceCatalogRepo {
     final categories = await SupabaseConfig.client
         .from('service_categories')
         .select()
-        .order('sort_order');
+        .order('sort_order', ascending: true);
     final items = await SupabaseConfig.client
         .from('service_catalog_items')
         .select()
-        .order('sort_order');
+        .order('sort_order', ascending: true);
 
     final itemsByCategory = <String, List<Map<String, dynamic>>>{};
     for (final item in List<Map<String, dynamic>>.from(items)) {
