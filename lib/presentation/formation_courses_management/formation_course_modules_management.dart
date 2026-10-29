@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/formation/module_visual_style.dart';
 import '../../core/richtext/rich_text_editor_field.dart';
 import '../../core/supabase/private_storage_image.dart';
 import '../../core/supabase/supabase_config.dart';
@@ -513,38 +514,185 @@ class _FormationCourseModulesManagementState
                             ),
                           ],
                         )
-                      : ListView.builder(
-                          padding: EdgeInsets.all(4.w),
-                          itemCount: _modules.length,
-                          itemBuilder: (context, index) {
-                            final m = _modules[index];
-                            return Card(
-                              child: ListTile(
-                                title: Text(m['title'] ?? ''),
-                                subtitle: Text([
-                                  if (m['video_url'] != null) 'Vidéo',
-                                  if (m['document_url'] != null) 'Document',
-                                  if (m['content_text'] != null) 'Texte',
-                                  if (m['content_text_mg'] != null ||
-                                      m['title_mg'] != null)
-                                    'MG',
-                                  if (m['duree_minutes'] != null)
-                                    '${(m['duree_minutes'] as int) ~/ 60}h${((m['duree_minutes'] as int) % 60).toString().padLeft(2, '0')}',
-                                  if ((m['photo_urls'] as List?)
-                                          ?.isNotEmpty ==
-                                      true)
-                                    '${(m['photo_urls'] as List).length} photo(s)',
-                                ].join(' · ')),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 20),
-                                  onPressed: () => _deleteModule(m),
-                                ),
-                                onTap: () => _showModuleDialog(module: m),
+                      : ListView(
+                          // Enveloppé dans un ListView vertical (même si la
+                          // rangée de modules défile horizontalement) pour
+                          // que le geste "tirer pour rafraîchir" du
+                          // RefreshIndicator ci-dessus fonctionne toujours.
+                          children: [
+                            SizedBox(
+                              height: 34.h,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                padding: EdgeInsets.all(4.w),
+                                itemCount: _modules.length,
+                                separatorBuilder: (_, __) =>
+                                    SizedBox(width: 3.w),
+                                itemBuilder: (context, index) {
+                                  final m = _modules[index];
+                                  return _ModuleThumbnailCard(
+                                    module: m,
+                                    index: index,
+                                    onTap: () => _showModuleDialog(module: m),
+                                    onDelete: () => _deleteModule(m),
+                                  );
+                                },
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
                 ),
+    );
+  }
+}
+
+/// Vignette d'un module dans la rangée horizontale (Admin) — même
+/// apparence que côté client (`_ModuleThumbnail` dans
+/// course_content_screen.dart) pour que ce que la propriétaire voit
+/// ici corresponde à ce que voit le client (29/10, demande explicite).
+class _ModuleThumbnailCard extends StatelessWidget {
+  final Map<String, dynamic> module;
+  final int index;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  const _ModuleThumbnailCard({
+    required this.module,
+    required this.index,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  String? get _dureeLabel {
+    final minutes = module['duree_minutes'] as int?;
+    if (minutes == null || minutes <= 0) return null;
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return '${h}h${m.toString().padLeft(2, '0')}';
+  }
+
+  String? get _firstPhotoUrl {
+    final urls = module['photo_urls'] as List?;
+    if (urls == null || urls.isEmpty) return null;
+    return urls.first.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = moduleColor(index);
+    final photo = _firstPhotoUrl;
+    final tags = [
+      if (module['video_url'] != null) 'Vidéo',
+      if (module['content_text'] != null) 'Texte',
+      if (module['content_text_mg'] != null || module['title_mg'] != null)
+        'MG',
+      if ((module['photo_urls'] as List?)?.isNotEmpty == true)
+        '${(module['photo_urls'] as List).length} photo(s)',
+    ].join(' · ');
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 42.w,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (photo != null)
+                      PrivateStorageImage(
+                        bucket: 'formation-videos',
+                        path: photo,
+                        fit: BoxFit.cover,
+                      )
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [color, color.withValues(alpha: 0.7)],
+                          ),
+                        ),
+                        child: Center(
+                          child: Icon(moduleIcon(index),
+                              size: 36, color: Colors.white),
+                        ),
+                      ),
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text('Module ${index + 1}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: InkWell(
+                        onTap: onDelete,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.delete_outline,
+                              size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    if (_dureeLabel != null)
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(_dureeLabel!,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 11)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 1.h),
+            Text(
+              module['title'] ?? '',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            if (tags.isNotEmpty)
+              Text(tags,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall),
+          ],
+        ),
+      ),
     );
   }
 }

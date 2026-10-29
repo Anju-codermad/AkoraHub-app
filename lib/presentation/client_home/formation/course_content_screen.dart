@@ -1,19 +1,16 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:sizer/sizer.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:video_player/video_player.dart';
 
 import '../../../core/device/device_id.dart';
 import '../../../core/formation/course_purchases_repo.dart';
-import '../../../core/richtext/rich_text_viewer.dart';
+import '../../../core/formation/module_visual_style.dart';
 import '../../../core/supabase/private_storage_image.dart';
 import '../../../core/supabase/supabase_config.dart';
+import 'module_detail_screen.dart';
 
 /// Contenu réel d'un cours AkoraFormation acheté (vidéo/document/texte par
 /// module, voir supabase/phase50_patch_course_purchases_and_content.sql).
@@ -27,12 +24,12 @@ import '../../../core/supabase/supabase_config.dart';
 /// protéger techniquement.
 ///
 /// Téléchargement hors-ligne (28/10, demande explicite "télécharger mais
-/// la vidéo reste dans l'app") : `_ModuleCardState._downloadVideo()`
-/// enregistre la vidéo dans le dossier privé de l'application
-/// (`getApplicationDocumentsDirectory()`), jamais dans la Galerie ni un
-/// dossier Téléchargements partagé — invisible et inaccessible aux autres
-/// apps, donc consultable hors-ligne sans jamais pouvoir être partagée
-/// comme un fichier normal.
+/// la vidéo reste dans l'app") : `_ModuleDetailScreenState._downloadVideo()`
+/// (voir `module_detail_screen.dart`) enregistre la vidéo dans le dossier
+/// privé de l'application (`getApplicationDocumentsDirectory()`), jamais
+/// dans la Galerie ni un dossier Téléchargements partagé — invisible et
+/// inaccessible aux autres apps, donc consultable hors-ligne sans jamais
+/// pouvoir être partagée comme un fichier normal.
 ///
 /// Trois protections supplémentaires (28/10, demandes explicites) :
 /// - **Vérification par selfie** avant le tout premier accès au contenu
@@ -47,10 +44,17 @@ import '../../../core/supabase/supabase_config.dart';
 ///   — ouvrir ses formations sur un nouvel appareil "éjecte"
 ///   automatiquement l'ancien, dissuade le partage de compte.
 /// - **Filigrane** (nom + téléphone du client) superposé sur la vidéo et
-///   les photos pendant la lecture (`_WatermarkOverlay`) — rend toute
-///   fuite traçable jusqu'au responsable, y compris en cas de
-///   re-filmage de l'écran (la "faille analogique" reste indétectable,
-///   mais le filigrane apparaît alors aussi dans ce qui est refilmé).
+///   les photos pendant la lecture (voir `_WatermarkOverlay` dans
+///   `module_detail_screen.dart`) — rend toute fuite traçable jusqu'au
+///   responsable, y compris en cas de re-filmage de l'écran (la "faille
+///   analogique" reste indétectable, mais le filigrane apparaît alors
+///   aussi dans ce qui est refilmé).
+///
+/// Organisation en vignettes (29/10, demande explicite, inspirée d'une
+/// maquette façon JW/"formation af") : chaque module est une vignette
+/// dans une rangée horizontale qui défile (`_ModuleThumbnail`), plutôt
+/// qu'une longue liste verticale — toucher une vignette ouvre
+/// `ModuleDetailScreen` où vit le contenu réel du module.
 class CourseContentScreen extends StatefulWidget {
   final String courseId;
   final String courseTitle;
@@ -77,8 +81,9 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
   // Bouton FR/MG (29/10, demande explicite) : une formation peut avoir du
   // contenu bilingue par module (title_mg/content_text_mg, voir
   // supabase/phase286_patch_formation_liquide_vaisselle_bilingue.sql) — le
-  // client choisit la langue affichée ici, _ModuleCard retombe sur le
-  // texte français si la traduction malgache d'un module est absente.
+  // client choisit la langue affichée ici, la vignette et l'écran détail
+  // retombent sur le texte français si la traduction malgache d'un
+  // module est absente.
   bool _showMalagasy = false;
 
   @override
@@ -345,353 +350,160 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
                                 Text(_error!, textAlign: TextAlign.center),
                           ),
                         )
-                      : ListView.separated(
-                          padding: EdgeInsets.all(4.w),
-                          itemCount: _modules.length,
-                          separatorBuilder: (_, __) => SizedBox(height: 2.h),
-                          itemBuilder: (context, index) => _ModuleCard(
-                            module: _modules[index],
-                            watermarkText: _watermarkText,
-                            showMalagasy: _showMalagasy,
+                      : SizedBox(
+                          height: 30.h,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.all(4.w),
+                            itemCount: _modules.length,
+                            separatorBuilder: (_, __) => SizedBox(width: 3.w),
+                            itemBuilder: (context, index) => _ModuleThumbnail(
+                              module: _modules[index],
+                              index: index,
+                              showMalagasy: _showMalagasy,
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ModuleDetailScreen(
+                                    module: _modules[index],
+                                    watermarkText: _watermarkText,
+                                    showMalagasy: _showMalagasy,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                    ),
+                        ),
     );
   }
 }
 
-/// Filigrane discret (nom + téléphone du client) superposé sur la vidéo
-/// et les photos pendant la lecture — voir le commentaire de classe de
-/// `CourseContentScreen`.
-class _WatermarkOverlay extends StatelessWidget {
-  final String? text;
-
-  const _WatermarkOverlay({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = text;
-    if (t == null || t.isEmpty) return const SizedBox.shrink();
-    final style = const TextStyle(
-      color: Colors.white,
-      fontWeight: FontWeight.w700,
-      fontSize: 11,
-      shadows: [Shadow(color: Colors.black45, blurRadius: 2)],
-    );
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: ClipRect(
-          child: Opacity(
-            opacity: 0.45,
-            child: Transform.rotate(
-              angle: -0.35,
-              child: Column(
-                children: [
-                  Expanded(child: Center(child: Text(t, style: style))),
-                  Expanded(child: Center(child: Text(t, style: style))),
-                  Expanded(child: Center(child: Text(t, style: style))),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ModuleCard extends StatefulWidget {
+/// Vignette d'un module dans la rangée horizontale qui défile — voir
+/// le commentaire de classe de `CourseContentScreen` (29/10, demande
+/// explicite inspirée d'une maquette façon JW/"formation af").
+/// Affiche la première photo du module si disponible, sinon un fond
+/// coloré + icône cycliques (voir `core/formation/module_visual_style.dart`).
+class _ModuleThumbnail extends StatelessWidget {
   final Map<String, dynamic> module;
-  final String? watermarkText;
+  final int index;
   final bool showMalagasy;
+  final VoidCallback onTap;
 
-  const _ModuleCard(
-      {required this.module, this.watermarkText, this.showMalagasy = false});
+  const _ModuleThumbnail({
+    required this.module,
+    required this.index,
+    required this.showMalagasy,
+    required this.onTap,
+  });
 
-  @override
-  State<_ModuleCard> createState() => _ModuleCardState();
-}
-
-class _ModuleCardState extends State<_ModuleCard> {
-  VideoPlayerController? _videoController;
-  bool _isVideoInitializing = false;
-  File? _localVideoFile;
-  bool _isDownloading = false;
-
-  String? get _videoUrl => widget.module['video_url'] as String?;
-  String? get _documentUrl => widget.module['document_url'] as String?;
-  // Repli automatique sur le français si la traduction malgache de ce
-  // module précis est absente (certains modules peuvent ne pas être
-  // encore traduits) — voir le commentaire de classe de CourseContentScreen.
   String get _title {
-    final mg = widget.module['title_mg'] as String?;
-    if (widget.showMalagasy && mg != null && mg.isNotEmpty) return mg;
-    return (widget.module['title'] as String?) ?? '';
+    final mg = module['title_mg'] as String?;
+    if (showMalagasy && mg != null && mg.isNotEmpty) return mg;
+    return (module['title'] as String?) ?? '';
   }
 
-  String? get _contentText {
-    final mg = widget.module['content_text_mg'] as String?;
-    if (widget.showMalagasy && mg != null && mg.isNotEmpty) return mg;
-    return widget.module['content_text'] as String?;
-  }
-
-  /// Texte enrichi (gras, listes, titres...) — voir
-  /// core/richtext/rich_text_viewer.dart et
-  /// supabase/phase298_patch_formation_module_rich_text.sql. Pas
-  /// encore disponible en malgache : on retombe alors sur le texte
-  /// brut `content_text_mg` via `_contentText` ci-dessus.
-  String? get _contentDeltaJson {
-    if (widget.showMalagasy) return null;
-    final delta = widget.module['content_delta'];
-    if (delta == null) return null;
-    return jsonEncode(delta);
-  }
-
-  /// "2h00"/"2h30" plutôt que des minutes brutes — voir
-  /// supabase/phase289_patch_formation_module_duree.sql.
   String? get _dureeLabel {
-    final minutes = widget.module['duree_minutes'] as int?;
+    final minutes = module['duree_minutes'] as int?;
     if (minutes == null || minutes <= 0) return null;
     final h = minutes ~/ 60;
     final m = minutes % 60;
     return '${h}h${m.toString().padLeft(2, '0')}';
   }
-  String get _moduleId => widget.module['id'].toString();
-  List<String> get _photoUrls => List<String>.from(
-      ((widget.module['photo_urls'] as List?) ?? []).map((e) => e.toString()));
 
-  @override
-  void initState() {
-    super.initState();
-    _checkLocalFile();
-  }
-
-  /// Téléchargement hors-ligne (28/10, demande explicite) : la vidéo est
-  /// enregistrée dans le dossier privé de l'app (jamais dans la Galerie
-  /// ni un dossier Téléchargements partagé — invisible et inaccessible
-  /// aux autres apps), donc "téléchargeable" sans jamais quitter l'app ni
-  /// pouvoir être partagée comme un fichier normal.
-  Future<File> _localVideoPath() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final folder = Directory('${dir.path}/formation_videos');
-    if (!await folder.exists()) await folder.create(recursive: true);
-    return File('${folder.path}/$_moduleId.mp4');
-  }
-
-  Future<void> _checkLocalFile() async {
-    final file = await _localVideoPath();
-    if (await file.exists() && await file.length() > 0) {
-      if (!mounted) return;
-      setState(() => _localVideoFile = file);
-    }
-  }
-
-  /// Bucket privé (phase275, protection maximale demandée explicitement)
-  /// : `_videoUrl` est un CHEMIN, pas une URL — le téléchargement passe
-  /// par le SDK Supabase authentifié, jamais par un lien direct. Aucun
-  /// "lien" n'existe donc à intercepter ou à partager, à aucun moment,
-  /// ni pendant la lecture ni après.
-  Future<void> _downloadVideo() async {
-    if (_videoUrl == null) return;
-    setState(() => _isDownloading = true);
-    final file = await _localVideoPath();
-    try {
-      final bytes = await SupabaseConfig.client.storage
-          .from('formation-videos')
-          .download(_videoUrl!);
-      await file.writeAsBytes(bytes);
-      if (!mounted) return;
-      setState(() {
-        _localVideoFile = file;
-        _isDownloading = false;
-      });
-    } catch (_) {
-      if (await file.exists()) await file.delete();
-      if (!mounted) return;
-      setState(() => _isDownloading = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Échec du téléchargement — réessayez.')));
-    }
-  }
-
-  Future<void> _removeDownload() async {
-    final file = await _localVideoPath();
-    if (await file.exists()) await file.delete();
-    if (!mounted) return;
-    setState(() => _localVideoFile = null);
-  }
-
-  /// La lecture nécessite toujours une copie locale (pas de streaming
-  /// direct depuis un bucket privé) — télécharge d'abord si ce n'est pas
-  /// déjà fait, comme "Télécharger (hors-ligne)", puis lit.
-  Future<void> _initVideo() async {
-    if (_videoUrl == null || _videoController != null) return;
-    if (_localVideoFile == null) {
-      await _downloadVideo();
-      if (_localVideoFile == null) return;
-    }
-    setState(() => _isVideoInitializing = true);
-    final controller = VideoPlayerController.file(_localVideoFile!);
-    try {
-      await controller.initialize();
-      if (!mounted) return;
-      setState(() {
-        _videoController = controller;
-        _isVideoInitializing = false;
-      });
-      controller.play();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isVideoInitializing = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Impossible de lire cette vidéo pour le moment.')));
-    }
-  }
-
-  @override
-  void dispose() {
-    _videoController?.dispose();
-    super.dispose();
+  String? get _firstPhotoUrl {
+    final urls = module['photo_urls'] as List?;
+    if (urls == null || urls.isEmpty) return null;
+    return urls.first.toString();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(4.w),
+    final color = moduleColor(index);
+    final photo = _firstPhotoUrl;
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 42.w,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(_title,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                ),
-                if (_dureeLabel != null) ...[
-                  SizedBox(width: 2.w),
-                  Icon(Icons.schedule, size: 14, color: theme.colorScheme.outline),
-                  const SizedBox(width: 2),
-                  Text(_dureeLabel!, style: theme.textTheme.bodySmall),
-                ],
-              ],
-            ),
-            if ((_contentDeltaJson != null) ||
-                (_contentText != null && _contentText!.isNotEmpty)) ...[
-              SizedBox(height: 1.h),
-              RichTextViewer(
-                deltaJson: _contentDeltaJson,
-                plainText: _contentText,
-              ),
-            ],
-            if (_videoUrl != null) ...[
-              SizedBox(height: 1.5.h),
-              if (_videoController != null &&
-                  _videoController!.value.isInitialized)
-                AspectRatio(
-                  aspectRatio: _videoController!.value.aspectRatio,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      VideoPlayer(_videoController!),
-                      _WatermarkOverlay(text: widget.watermarkText),
-                    ],
-                  ),
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: (_isVideoInitializing || _isDownloading)
-                          ? null
-                          : _initVideo,
-                      icon: (_isVideoInitializing || _isDownloading)
-                          ? const SizedBox(
-                              height: 16,
-                              width: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.play_circle_outline),
-                      label: Text(_isDownloading
-                          ? 'Téléchargement…'
-                          : 'Lire la vidéo'),
-                    ),
-                    if (_localVideoFile != null)
-                      Chip(
-                        avatar: const Icon(Icons.offline_pin_outlined,
-                            size: 16),
-                        label: const Text('Disponible hors-ligne'),
-                        visualDensity: VisualDensity.compact,
-                        deleteIcon: const Icon(Icons.delete_outline, size: 16),
-                        onDeleted: _removeDownload,
+                    if (photo != null)
+                      PrivateStorageImage(
+                        bucket: 'formation-videos',
+                        path: photo,
+                        fit: BoxFit.cover,
                       )
-                    else if (!_isDownloading)
-                      OutlinedButton.icon(
-                        onPressed: _downloadVideo,
-                        icon: const Icon(Icons.download_outlined, size: 18),
-                        label: const Text('Télécharger (hors-ligne)'),
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [color, color.withValues(alpha: 0.7)],
+                          ),
+                        ),
+                        child: Center(
+                          child: Icon(moduleIcon(index),
+                              size: 36, color: Colors.white),
+                        ),
+                      ),
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text('Module ${index + 1}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    if (module['video_url'] != null)
+                      const Center(
+                        child: Icon(Icons.play_circle_fill,
+                            size: 40, color: Colors.white70),
+                      ),
+                    if (_dureeLabel != null)
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(_dureeLabel!,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 11)),
+                        ),
                       ),
                   ],
                 ),
-            ],
-            if (_documentUrl != null) ...[
-              SizedBox(height: 1.5.h),
-              OutlinedButton.icon(
-                onPressed: () => launchUrl(Uri.parse(_documentUrl!),
-                    mode: LaunchMode.inAppWebView),
-                icon: const Icon(Icons.description_outlined),
-                label: const Text('Ouvrir le document'),
               ),
-            ],
-            if (_photoUrls.isNotEmpty) ...[
-              SizedBox(height: 1.5.h),
-              SizedBox(
-                height: 22.w,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _photoUrls.length,
-                  separatorBuilder: (_, __) => SizedBox(width: 2.w),
-                  itemBuilder: (context, i) {
-                    final url = _photoUrls[i];
-                    return GestureDetector(
-                      onTap: () => showDialog(
-                        context: context,
-                        builder: (_) => Dialog(
-                          insetPadding: EdgeInsets.all(4.w),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              InteractiveViewer(
-                                child: PrivateStorageImage(
-                                  bucket: 'formation-videos',
-                                  path: url,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                              _WatermarkOverlay(text: widget.watermarkText),
-                            ],
-                          ),
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: PrivateStorageImage(
-                          bucket: 'formation-videos',
-                          path: url,
-                          width: 22.w,
-                          height: 22.w,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+            ),
+            SizedBox(height: 1.h),
+            Text(
+              _title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),
