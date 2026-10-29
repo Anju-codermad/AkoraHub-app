@@ -1634,3 +1634,6 @@
 
 ## 2026-10-29 08:13 UTC — Claude
 - Merge main into feature branch (`a5e7d85`)
+
+## 2026-10-29 08:31 UTC — Claude
+- Merge main into feature branch (`d10ab3b`)
