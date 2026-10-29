@@ -431,6 +431,16 @@ class _ModuleCardState extends State<_ModuleCard> {
     if (widget.showMalagasy && mg != null && mg.isNotEmpty) return mg;
     return widget.module['content_text'] as String?;
   }
+
+  /// "2h00"/"2h30" plutôt que des minutes brutes — voir
+  /// supabase/phase289_patch_formation_module_duree.sql.
+  String? get _dureeLabel {
+    final minutes = widget.module['duree_minutes'] as int?;
+    if (minutes == null || minutes <= 0) return null;
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return '${h}h${m.toString().padLeft(2, '0')}';
+  }
   String get _moduleId => widget.module['id'].toString();
   List<String> get _photoUrls => List<String>.from(
       ((widget.module['photo_urls'] as List?) ?? []).map((e) => e.toString()));
@@ -538,9 +548,22 @@ class _ModuleCardState extends State<_ModuleCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_title,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(_title,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                ),
+                if (_dureeLabel != null) ...[
+                  SizedBox(width: 2.w),
+                  Icon(Icons.schedule, size: 14, color: theme.colorScheme.outline),
+                  const SizedBox(width: 2),
+                  Text(_dureeLabel!, style: theme.textTheme.bodySmall),
+                ],
+              ],
+            ),
             if (_contentText != null && _contentText!.isNotEmpty) ...[
               SizedBox(height: 1.h),
               Text(_contentText!),

@@ -83,6 +83,10 @@ class _FormationCourseModulesManagementState
         TextEditingController(text: module?['content_text_mg'] ?? '');
     final sortOrderCtrl = TextEditingController(
         text: (module?['sort_order'] ?? _modules.length).toString());
+    final dureeCtrl = TextEditingController(
+        text: module?['duree_minutes'] != null
+            ? (module!['duree_minutes'] as int).toString()
+            : '');
     final photoUrls = List<String>.from(
         ((module?['photo_urls'] as List?) ?? []).map((e) => e.toString()));
     bool isSaving = false;
@@ -286,6 +290,15 @@ class _FormationCourseModulesManagementState
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'Ordre d\'affichage'),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: dureeCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Durée estimée (minutes, optionnel)',
+                    helperText: 'Ex. 120 pour 2h00, 150 pour 2h30 — affiché aux clients',
+                  ),
+                ),
               ],
             ),
           ),
@@ -321,6 +334,8 @@ class _FormationCourseModulesManagementState
                         'photo_urls': photoUrls,
                         'sort_order':
                             int.tryParse(sortOrderCtrl.text.trim()) ?? 0,
+                        'duree_minutes':
+                            int.tryParse(dureeCtrl.text.trim()),
                       };
                       try {
                         if (isEditing) {
@@ -496,6 +511,8 @@ class _FormationCourseModulesManagementState
                                   if (m['content_text_mg'] != null ||
                                       m['title_mg'] != null)
                                     'MG',
+                                  if (m['duree_minutes'] != null)
+                                    '${(m['duree_minutes'] as int) ~/ 60}h${((m['duree_minutes'] as int) % 60).toString().padLeft(2, '0')}',
                                   if ((m['photo_urls'] as List?)
                                           ?.isNotEmpty ==
                                       true)
