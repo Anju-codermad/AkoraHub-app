@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sizer/sizer.dart';
 
+import '../../core/richtext/rich_text_editor_field.dart';
 import '../../core/supabase/private_storage_image.dart';
 import '../../core/supabase/supabase_config.dart';
 
@@ -79,6 +81,14 @@ class _FormationCourseModulesManagementState
         TextEditingController(text: module?['document_url'] ?? '');
     final contentCtrl =
         TextEditingController(text: module?['content_text'] ?? '');
+    // Texte enrichi (gras, listes, titres...) — voir
+    // core/richtext/rich_text_editor_field.dart et
+    // supabase/phase298_patch_formation_module_rich_text.sql. Réencodé
+    // en JSON ici car Supabase renvoie déjà la colonne jsonb décodée
+    // (List/Map), pas une String.
+    String? contentDeltaJson = module?['content_delta'] != null
+        ? jsonEncode(module!['content_delta'])
+        : null;
     final contentMgCtrl =
         TextEditingController(text: module?['content_text_mg'] ?? '');
     final sortOrderCtrl = TextEditingController(
@@ -269,11 +279,15 @@ class _FormationCourseModulesManagementState
                     label: const Text('Ajouter des photos'),
                   ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: contentCtrl,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                      labelText: 'Texte du module (optionnel)'),
+                const Text('Texte du module (optionnel)'),
+                const SizedBox(height: 6),
+                RichTextEditorField(
+                  initialDeltaJson: contentDeltaJson,
+                  initialPlainText: contentCtrl.text,
+                  onChanged: (value) {
+                    contentDeltaJson = value.deltaJson;
+                    contentCtrl.text = value.plainText;
+                  },
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -328,6 +342,9 @@ class _FormationCourseModulesManagementState
                         'content_text': contentCtrl.text.trim().isEmpty
                             ? null
                             : contentCtrl.text.trim(),
+                        'content_delta': contentDeltaJson == null
+                            ? null
+                            : jsonDecode(contentDeltaJson!),
                         'content_text_mg': contentMgCtrl.text.trim().isEmpty
                             ? null
                             : contentMgCtrl.text.trim(),

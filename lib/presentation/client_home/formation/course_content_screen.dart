@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../core/device/device_id.dart';
 import '../../../core/formation/course_purchases_repo.dart';
+import '../../../core/richtext/rich_text_viewer.dart';
 import '../../../core/supabase/private_storage_image.dart';
 import '../../../core/supabase/supabase_config.dart';
 
@@ -432,6 +434,18 @@ class _ModuleCardState extends State<_ModuleCard> {
     return widget.module['content_text'] as String?;
   }
 
+  /// Texte enrichi (gras, listes, titres...) — voir
+  /// core/richtext/rich_text_viewer.dart et
+  /// supabase/phase298_patch_formation_module_rich_text.sql. Pas
+  /// encore disponible en malgache : on retombe alors sur le texte
+  /// brut `content_text_mg` via `_contentText` ci-dessus.
+  String? get _contentDeltaJson {
+    if (widget.showMalagasy) return null;
+    final delta = widget.module['content_delta'];
+    if (delta == null) return null;
+    return jsonEncode(delta);
+  }
+
   /// "2h00"/"2h30" plutôt que des minutes brutes — voir
   /// supabase/phase289_patch_formation_module_duree.sql.
   String? get _dureeLabel {
@@ -564,9 +578,13 @@ class _ModuleCardState extends State<_ModuleCard> {
                 ],
               ],
             ),
-            if (_contentText != null && _contentText!.isNotEmpty) ...[
+            if ((_contentDeltaJson != null) ||
+                (_contentText != null && _contentText!.isNotEmpty)) ...[
               SizedBox(height: 1.h),
-              Text(_contentText!),
+              RichTextViewer(
+                deltaJson: _contentDeltaJson,
+                plainText: _contentText,
+              ),
             ],
             if (_videoUrl != null) ...[
               SizedBox(height: 1.5.h),
