@@ -343,6 +343,50 @@ class _FormationCoursesManagementState
     );
   }
 
+  /// Publication rapide (29/10, demande explicite) : évite de rouvrir
+  /// tout le formulaire juste pour faire passer une formation prête
+  /// (contenu + prix déjà en place) de "En projet"/"À créer" à
+  /// "Déjà développée" — c'est ce statut + un prix non vide qui la
+  /// rendent achetable côté client (voir akora_formation_screen.dart,
+  /// `_isAvailable`).
+  Future<void> _publishCourse(Map<String, dynamic> course) async {
+    if (course['price'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Ajoutez d\'abord un prix avant de publier.')));
+      _showCourseDialog(course: course);
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Publier cette formation ?'),
+        content: Text(
+            '"${course['title']}" deviendra visible et achetable par vos clients.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Publier'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await SupabaseConfig.client
+          .from('formation_courses')
+          .update({'status': 'deja_developpee'}).eq('id', course['id']);
+      _loadData();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Erreur lors de la publication.')));
+    }
+  }
+
   Future<void> _deleteCourse(Map<String, dynamic> course) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -444,6 +488,16 @@ class _FormationCoursesManagementState
                                               color: _statusColor(status)),
                                           visualDensity: VisualDensity.compact,
                                         ),
+                                        if (status != 'deja_developpee')
+                                          IconButton(
+                                            icon: const Icon(
+                                                Icons.rocket_launch_outlined,
+                                                size: 20),
+                                            tooltip:
+                                                'Publier (rendre achetable)',
+                                            onPressed: () =>
+                                                _publishCourse(c),
+                                          ),
                                         IconButton(
                                           icon: const Icon(
                                               Icons.video_collection_outlined,
