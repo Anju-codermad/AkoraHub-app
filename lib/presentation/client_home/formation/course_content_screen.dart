@@ -72,6 +72,12 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
   bool _needsDeviceConfirmation = false;
   bool _isClaimingDevice = false;
   String? _watermarkText;
+  // Bouton FR/MG (29/10, demande explicite) : une formation peut avoir du
+  // contenu bilingue par module (title_mg/content_text_mg, voir
+  // supabase/phase286_patch_formation_liquide_vaisselle_bilingue.sql) — le
+  // client choisit la langue affichée ici, _ModuleCard retombe sur le
+  // texte français si la traduction malgache d'un module est absente.
+  bool _showMalagasy = false;
 
   @override
   void initState() {
@@ -296,10 +302,33 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
     );
   }
 
+  bool get _hasMalagasyContent => _modules.any((m) =>
+      (m['title_mg'] as String?)?.isNotEmpty == true ||
+      (m['content_text_mg'] as String?)?.isNotEmpty == true);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.courseTitle)),
+      appBar: AppBar(
+        title: Text(widget.courseTitle),
+        actions: [
+          if (_hasMalagasyContent)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('FR')),
+                    ButtonSegment(value: true, label: Text('MG')),
+                  ],
+                  selected: {_showMalagasy},
+                  onSelectionChanged: (s) =>
+                      setState(() => _showMalagasy = s.first),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _needsSelfieVerification
@@ -321,6 +350,7 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
                           itemBuilder: (context, index) => _ModuleCard(
                             module: _modules[index],
                             watermarkText: _watermarkText,
+                            showMalagasy: _showMalagasy,
                           ),
                     ),
     );
@@ -370,8 +400,10 @@ class _WatermarkOverlay extends StatelessWidget {
 class _ModuleCard extends StatefulWidget {
   final Map<String, dynamic> module;
   final String? watermarkText;
+  final bool showMalagasy;
 
-  const _ModuleCard({required this.module, this.watermarkText});
+  const _ModuleCard(
+      {required this.module, this.watermarkText, this.showMalagasy = false});
 
   @override
   State<_ModuleCard> createState() => _ModuleCardState();
@@ -385,7 +417,20 @@ class _ModuleCardState extends State<_ModuleCard> {
 
   String? get _videoUrl => widget.module['video_url'] as String?;
   String? get _documentUrl => widget.module['document_url'] as String?;
-  String? get _contentText => widget.module['content_text'] as String?;
+  // Repli automatique sur le français si la traduction malgache de ce
+  // module précis est absente (certains modules peuvent ne pas être
+  // encore traduits) — voir le commentaire de classe de CourseContentScreen.
+  String get _title {
+    final mg = widget.module['title_mg'] as String?;
+    if (widget.showMalagasy && mg != null && mg.isNotEmpty) return mg;
+    return (widget.module['title'] as String?) ?? '';
+  }
+
+  String? get _contentText {
+    final mg = widget.module['content_text_mg'] as String?;
+    if (widget.showMalagasy && mg != null && mg.isNotEmpty) return mg;
+    return widget.module['content_text'] as String?;
+  }
   String get _moduleId => widget.module['id'].toString();
   List<String> get _photoUrls => List<String>.from(
       ((widget.module['photo_urls'] as List?) ?? []).map((e) => e.toString()));
@@ -493,7 +538,7 @@ class _ModuleCardState extends State<_ModuleCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.module['title'] ?? '',
+            Text(_title,
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)),
             if (_contentText != null && _contentText!.isNotEmpty) ...[

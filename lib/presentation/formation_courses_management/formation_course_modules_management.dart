@@ -72,11 +72,15 @@ class _FormationCourseModulesManagementState
   Future<void> _showModuleDialog({Map<String, dynamic>? module}) async {
     final isEditing = module != null;
     final titleCtrl = TextEditingController(text: module?['title'] ?? '');
+    final titleMgCtrl =
+        TextEditingController(text: module?['title_mg'] ?? '');
     final videoCtrl = TextEditingController(text: module?['video_url'] ?? '');
     final documentCtrl =
         TextEditingController(text: module?['document_url'] ?? '');
     final contentCtrl =
         TextEditingController(text: module?['content_text'] ?? '');
+    final contentMgCtrl =
+        TextEditingController(text: module?['content_text_mg'] ?? '');
     final sortOrderCtrl = TextEditingController(
         text: (module?['sort_order'] ?? _modules.length).toString());
     final photoUrls = List<String>.from(
@@ -98,6 +102,14 @@ class _FormationCourseModulesManagementState
                 TextField(
                   controller: titleCtrl,
                   decoration: const InputDecoration(labelText: 'Titre du module'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: titleMgCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Titre (malgache, optionnel)',
+                    helperText: 'Affiché quand le client bascule l\'app en malgache',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -259,6 +271,15 @@ class _FormationCourseModulesManagementState
                   decoration: const InputDecoration(
                       labelText: 'Texte du module (optionnel)'),
                 ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: contentMgCtrl,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Texte (malgache, optionnel)',
+                    helperText: 'Affiché quand le client bascule l\'app en malgache',
+                  ),
+                ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: sortOrderCtrl,
@@ -282,6 +303,9 @@ class _FormationCourseModulesManagementState
                       final payload = {
                         'course_id': widget.courseId,
                         'title': titleCtrl.text.trim(),
+                        'title_mg': titleMgCtrl.text.trim().isEmpty
+                            ? null
+                            : titleMgCtrl.text.trim(),
                         'video_url': videoCtrl.text.trim().isEmpty
                             ? null
                             : videoCtrl.text.trim(),
@@ -291,6 +315,9 @@ class _FormationCourseModulesManagementState
                         'content_text': contentCtrl.text.trim().isEmpty
                             ? null
                             : contentCtrl.text.trim(),
+                        'content_text_mg': contentMgCtrl.text.trim().isEmpty
+                            ? null
+                            : contentMgCtrl.text.trim(),
                         'photo_urls': photoUrls,
                         'sort_order':
                             int.tryParse(sortOrderCtrl.text.trim()) ?? 0,
@@ -466,6 +493,9 @@ class _FormationCourseModulesManagementState
                                   if (m['video_url'] != null) 'Vidéo',
                                   if (m['document_url'] != null) 'Document',
                                   if (m['content_text'] != null) 'Texte',
+                                  if (m['content_text_mg'] != null ||
+                                      m['title_mg'] != null)
+                                    'MG',
                                   if ((m['photo_urls'] as List?)
                                           ?.isNotEmpty ==
                                       true)
