@@ -351,8 +351,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               .from('formation_courses')
               .select('id, title, category, status, cover_image_url')
               .eq('status', 'deja_developpee')
-              .order('created_at', ascending: false)
-              .limit(6);
+              .order('created_at', ascending: false);
           return List<Map<String, dynamic>>.from(rows);
         } catch (_) {
           return [];
@@ -1595,104 +1594,129 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               ),
             ),
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: 13.h,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 4.w),
-                  itemCount: _recentFormationCourses.length,
-                  itemBuilder: (context, index) {
-                    final course = _recentFormationCourses[index];
-                    final category = (course['category'] ?? '').toString();
-                    final coverUrl = course['cover_image_url'] as String?;
-                    final fallbackGradient = BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          theme.colorScheme.primary,
-                          theme.colorScheme.primary.withValues(alpha: 0.75),
-                        ],
+              child: Builder(builder: (context) {
+                Widget buildCard(Map<String, dynamic> course) {
+                  final category = (course['category'] ?? '').toString();
+                  final coverUrl = course['cover_image_url'] as String?;
+                  final fallbackGradient = BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.primary.withValues(alpha: 0.75),
+                      ],
+                    ),
+                  );
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            AkoraFormationScreen(initialCategory: category),
                       ),
-                    );
-                    return Padding(
-                      padding: EdgeInsets.only(right: 3.w),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                AkoraFormationScreen(initialCategory: category),
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: SizedBox(
-                            width: 45.w,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                if (coverUrl != null && coverUrl.isNotEmpty)
-                                  Image.network(
-                                    coverUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        DecoratedBox(decoration: fallbackGradient),
-                                  )
-                                else
-                                  DecoratedBox(decoration: fallbackGradient),
-                                DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.black.withValues(alpha: 0.05),
-                                        Colors.black.withValues(alpha: 0.55),
-                                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: SizedBox(
+                        width: 45.w,
+                        height: 13.h,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (coverUrl != null && coverUrl.isNotEmpty)
+                              Image.network(
+                                coverUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    DecoratedBox(decoration: fallbackGradient),
+                              )
+                            else
+                              DecoratedBox(decoration: fallbackGradient),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.05),
+                                    Colors.black.withValues(alpha: 0.55),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.all(3.w),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(iconForFormationCategory(category),
+                                      color: Colors.white, size: 22),
+                                  const Spacer(),
+                                  Text(
+                                    course['title'] ?? '',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.all(3.w),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Icon(iconForFormationCategory(category),
-                                          color: Colors.white, size: 22),
-                                      const Spacer(),
-                                      Text(
-                                        course['title'] ?? '',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        category,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.85),
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
+                                  Text(
+                                    category,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.85),
+                                      fontSize: 11,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
+                    ),
+                  );
+                }
+
+                // Affichage sur 2 lignes (29/10, demande explicite : "ajoute
+                // une deuxième ligne") pour montrer toutes les formations
+                // disponibles sans limiter à une poignée — chaque colonne du
+                // défilement horizontal empile 2 cartes au lieu d'une seule.
+                final columnCount =
+                    (_recentFormationCourses.length / 2).ceil();
+                return SizedBox(
+                  height: 13.h * 2 + 1.5.h,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    itemCount: columnCount,
+                    itemBuilder: (context, columnIndex) {
+                      final topIndex = columnIndex * 2;
+                      final bottomIndex = topIndex + 1;
+                      final top = _recentFormationCourses[topIndex];
+                      final bottom =
+                          bottomIndex < _recentFormationCourses.length
+                              ? _recentFormationCourses[bottomIndex]
+                              : null;
+                      return Padding(
+                        padding: EdgeInsets.only(right: 3.w),
+                        child: Column(
+                          children: [
+                            buildCard(top),
+                            SizedBox(height: 1.5.h),
+                            if (bottom != null) buildCard(bottom),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                );
+              }),
             ),
           ],
 
