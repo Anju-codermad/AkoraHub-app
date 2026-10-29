@@ -302,7 +302,7 @@ class _ProductManagementRealState
           final result = await SupabaseConfig.client
               .from('raw_material_name_suggestions')
               .select()
-              .order('name');
+              .order('name', ascending: true);
           return List<Map<String, dynamic>>.from(result);
         } catch (_) {
           // Table pas encore créée (migration phase33 non exécutée) : le
@@ -504,7 +504,7 @@ class _ProductManagementRealState
             .from('product_images')
             .select()
             .eq('product_id', product['id'])
-            .order('position');
+            .order('position', ascending: true);
         existingPhotos = List<Map<String, dynamic>>.from(result);
       } catch (_) {
         // Table `product_images` pas encore créée (migration phase8 non
@@ -566,7 +566,7 @@ class _ProductManagementRealState
       final rows = await SupabaseConfig.client
           .from('raw_materials')
           .select('id, name, category_name')
-          .order('name');
+          .order('name', ascending: true);
       rawMaterialOptions = List<Map<String, dynamic>>.from(rows);
     } catch (_) {
       // Repli silencieux : le champ de liaison sera juste vide si la

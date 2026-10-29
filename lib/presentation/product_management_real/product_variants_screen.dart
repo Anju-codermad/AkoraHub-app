@@ -48,7 +48,7 @@ class _ProductVariantsScreenState
             .select(
                 '*, formats(name), parfums(name), concentrations(name), colors(name)')
             .eq('product_id', widget.product['id'])
-            .order('created_at'),
+            .order('created_at', ascending: true),
         ref.read(formatsCacheProvider.notifier).refresh(),
         ref.read(parfumsCacheProvider.notifier).refresh(),
         ref.read(concentrationsCacheProvider.notifier).refresh(),

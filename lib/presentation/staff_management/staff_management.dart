@@ -90,7 +90,7 @@ class _StaffManagementState extends State<StaffManagement> {
           .from('profiles')
           .select()
           .neq('role', 'client')
-          .order('created_at');
+          .order('created_at', ascending: true);
       final unitsData =
           await SupabaseConfig.client.from('business_units').select();
 

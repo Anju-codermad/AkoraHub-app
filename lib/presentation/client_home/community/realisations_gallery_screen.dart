@@ -73,7 +73,7 @@ class _RealisationsGalleryScreenState
           .from('business_units')
           .select()
           .eq('active', true)
-          .order('name');
+          .order('name', ascending: true);
       if (!mounted) return;
       setState(() => _businessUnits = List<Map<String, dynamic>>.from(rows));
     } catch (_) {}

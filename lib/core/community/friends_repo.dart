@@ -140,7 +140,7 @@ class FriendsRepo {
     return SupabaseConfig.client
         .from('friend_messages')
         .stream(primaryKey: ['id'])
-        .order('created_at')
+        .order('created_at', ascending: true)
         .map((rows) => rows
             .where((r) =>
                 (r['sender_id'] == uid && r['recipient_id'] == otherUserId) ||

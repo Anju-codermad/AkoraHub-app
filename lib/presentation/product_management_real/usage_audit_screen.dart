@@ -41,7 +41,7 @@ class _UsageAuditScreenState extends State<UsageAuditScreen> {
       final products = await SupabaseConfig.client
           .from('products')
           .select('id, name, category, use_cases, visibility')
-          .order('name');
+          .order('name', ascending: true);
 
       final rawMaterialRows = await SupabaseConfig.client
           .from('raw_materials')

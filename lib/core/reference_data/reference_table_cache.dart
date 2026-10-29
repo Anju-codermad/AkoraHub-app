@@ -52,7 +52,7 @@ class ReferenceTableCache extends StateNotifier<List<Map<String, dynamic>>> {
     if (!SupabaseConfig.isConfigured) return;
     try {
       final rows =
-          await SupabaseConfig.client.from(_table).select().order('name');
+          await SupabaseConfig.client.from(_table).select().order('name', ascending: true);
       final list = List<Map<String, dynamic>>.from(rows);
       state = list;
       _lastFetch = DateTime.now();

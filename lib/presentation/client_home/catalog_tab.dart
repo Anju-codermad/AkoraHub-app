@@ -203,7 +203,7 @@ class _CatalogTabState extends ConsumerState<CatalogTab> {
               .select('id, name, category, image_url, price_detail, '
                   'product_variants(price_detail, formats(name))')
               .eq('visibility', true)
-              .order('name');
+              .order('name', ascending: true);
           final rows = List<Map<String, dynamic>>.from(productRows);
           if (rows.isEmpty) return _defaultPromoSlides;
           return rows.map((p) {

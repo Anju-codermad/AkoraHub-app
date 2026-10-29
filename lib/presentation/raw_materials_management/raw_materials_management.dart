@@ -60,7 +60,7 @@ class _RawMaterialsManagementState extends State<RawMaterialsManagement> {
         SupabaseConfig.client
             .from('raw_materials')
             .select()
-            .order('name'),
+            .order('name', ascending: true),
         SupabaseConfig.client.from('business_units').select(),
       ]);
       // Séparé du Future.wait ci-dessus, avec son propre repli tolérant :

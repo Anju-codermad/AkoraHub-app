@@ -731,7 +731,7 @@ class _AdminConversationThreadState
           .from('messages')
           .select()
           .eq('conversation_id', widget.conversationId)
-          .order('created_at');
+          .order('created_at', ascending: true);
       setState(() {
         _messages = List<Map<String, dynamic>>.from(data);
         _isLoading = false;

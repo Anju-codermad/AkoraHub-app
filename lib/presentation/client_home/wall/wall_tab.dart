@@ -125,7 +125,7 @@ class _WallTabState extends ConsumerState<WallTab> {
           .from('business_units')
           .select()
           .eq('active', true)
-          .order('name');
+          .order('name', ascending: true);
       if (!mounted) return;
       setState(() => _businessUnits = List<Map<String, dynamic>>.from(rows));
     } catch (_) {}
@@ -454,7 +454,7 @@ class _WallTabState extends ConsumerState<WallTab> {
               .from('post_images')
               .select('post_id, image_url, position')
               .inFilter('post_id', postIds)
-              .order('position');
+              .order('position', ascending: true);
           final grouped = <String, List<String>>{};
           for (final row in List<Map<String, dynamic>>.from(rows)) {
             grouped
@@ -613,7 +613,7 @@ class _WallTabState extends ConsumerState<WallTab> {
               .from('post_images')
               .select('post_id, image_url, position')
               .inFilter('post_id', postIds)
-              .order('position');
+              .order('position', ascending: true);
           final grouped = <String, List<String>>{};
           for (final row in List<Map<String, dynamic>>.from(rows)) {
             grouped
@@ -2128,7 +2128,7 @@ class _NewPostSheetState extends State<_NewPostSheet> {
           .from('products')
           .select('id, name, price_detail, image_url')
           .eq('visibility', true)
-          .order('name')
+          .order('name', ascending: true)
           .limit(200);
       if (!mounted) return;
       setState(() => _products = List<Map<String, dynamic>>.from(data));
@@ -2654,7 +2654,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
           .from('post_comments')
           .select()
           .eq('post_id', widget.postId)
-          .order('created_at');
+          .order('created_at', ascending: true);
       final list = List<Map<String, dynamic>>.from(data);
       final authorIds = list
           .map((c) => c['author_id'] as String?)

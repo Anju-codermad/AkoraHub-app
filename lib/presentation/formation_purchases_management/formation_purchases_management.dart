@@ -63,7 +63,7 @@ class _FormationPurchasesManagementState
         SupabaseConfig.client
             .from('formation_pricing_tiers')
             .select()
-            .order('min_quantity'),
+            .order('min_quantity', ascending: true),
       ]);
       setState(() {
         _purchases = List<Map<String, dynamic>>.from(results[0]);

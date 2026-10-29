@@ -338,7 +338,7 @@ class _RawMaterialEditorScreenState
         SupabaseConfig.client
             .from('raw_material_name_suggestions')
             .select()
-            .order('name'),
+            .order('name', ascending: true),
       ]);
       await ref.read(categoriesCacheProvider.notifier).refresh();
 
@@ -349,9 +349,9 @@ class _RawMaterialEditorScreenState
       // publique, indépendante de la matière première éditée.
       try {
         final catalogResults = await Future.wait<dynamic>([
-          SupabaseConfig.client.from('danger_pictograms').select().order('code'),
-          SupabaseConfig.client.from('phrases_h').select().order('code'),
-          SupabaseConfig.client.from('phrases_p').select().order('code'),
+          SupabaseConfig.client.from('danger_pictograms').select().order('code', ascending: true),
+          SupabaseConfig.client.from('phrases_h').select().order('code', ascending: true),
+          SupabaseConfig.client.from('phrases_p').select().order('code', ascending: true),
         ]);
         _allPictograms =
             List<Map<String, dynamic>>.from(catalogResults[0] as List);
@@ -371,7 +371,7 @@ class _RawMaterialEditorScreenState
             .from('raw_material_images')
             .select()
             .eq('raw_material_id', widget.material!['id'])
-            .order('position');
+            .order('position', ascending: true);
         _existingPhotos = List<Map<String, dynamic>>.from(photos);
       }
     } catch (_) {
@@ -467,7 +467,7 @@ class _RawMaterialEditorScreenState
               .from('matieres_premieres_usages')
               .select()
               .eq('academie_id', _academieId as Object)
-              .order('ordre');
+              .order('ordre', ascending: true);
           _academieUsages = List<Map<String, dynamic>>.from(usages).map((u) {
             // dosage_min/dosage_max viennent de Postgres en `num` — les
             // TextFormField des champs structurés ont besoin de String.
@@ -845,7 +845,7 @@ class _RawMaterialEditorScreenState
           .from('matieres_premieres_usages')
           .select()
           .eq('academie_id', sourceAcademieId)
-          .order('ordre');
+          .order('ordre', ascending: true);
       sourceUsages = List<Map<String, dynamic>>.from(rows);
     } catch (_) {
       if (!mounted) return;

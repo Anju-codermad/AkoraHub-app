@@ -117,7 +117,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
           .from('product_images')
           .select('image_url')
           .eq('product_id', widget.product['id'])
-          .order('position');
+          .order('position', ascending: true);
       final urls = List<Map<String, dynamic>>.from(data)
           .map((row) => row['image_url'] as String)
           .toList();

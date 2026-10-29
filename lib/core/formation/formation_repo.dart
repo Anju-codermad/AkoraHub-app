@@ -78,7 +78,7 @@ class FormationRepo {
       final rows = await SupabaseConfig.client
           .from('formation_pricing_tiers')
           .select()
-          .order('min_quantity');
+          .order('min_quantity', ascending: true);
       return List<Map<String, dynamic>>.from(rows);
     } catch (_) {
       return [];

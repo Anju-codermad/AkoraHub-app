@@ -47,7 +47,7 @@ class _BusinessUnitsManagementState extends State<BusinessUnitsManagement> {
       final data = await SupabaseConfig.client
           .from('business_units')
           .select()
-          .order('created_at');
+          .order('created_at', ascending: true);
       setState(() {
         _units = List<Map<String, dynamic>>.from(data);
         _isLoading = false;

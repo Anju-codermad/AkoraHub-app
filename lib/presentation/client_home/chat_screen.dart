@@ -237,7 +237,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             .from('messages')
             .stream(primaryKey: ['id'])
             .eq('conversation_id', conversationId)
-            .order('created_at');
+            .order('created_at', ascending: true);
         _conversationStream = SupabaseConfig.client
             .from('conversations')
             .stream(primaryKey: ['id']).eq('id', conversationId);

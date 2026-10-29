@@ -38,7 +38,7 @@ class AcademieRepo {
           .from('matieres_premieres_usages')
           .select()
           .eq('academie_id', sheet['id'])
-          .order('ordre');
+          .order('ordre', ascending: true);
 
       List<Map<String, dynamic>> pictograms = [];
       List<Map<String, dynamic>> phrasesH = [];

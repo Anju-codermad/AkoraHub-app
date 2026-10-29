@@ -318,7 +318,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
       query = query.ilike('name', '%${_searchQuery.trim()}%');
     }
     final data = await query
-        .order('name')
+        .order('name', ascending: true)
         .range(page * _pageSize, page * _pageSize + _pageSize - 1);
     return List<Map<String, dynamic>>.from(data);
   }
@@ -410,7 +410,7 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
           .from('products')
           .select()
           .eq('visibility', true)
-          .order('name');
+          .order('name', ascending: true);
       if (!mounted) return;
       setState(() {
         _allProductsForReference = List<Map<String, dynamic>>.from(data);

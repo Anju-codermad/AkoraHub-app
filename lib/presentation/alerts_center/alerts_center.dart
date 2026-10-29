@@ -79,7 +79,7 @@ class _AlertsCenterState extends State<AlertsCenter> {
           .select('*, products(name)')
           .not('expiry_date', 'is', null)
           .lte('expiry_date', soon)
-          .order('expiry_date');
+          .order('expiry_date', ascending: true);
 
       // Rupture prévue : vitesse de vente réelle des 30 derniers jours
       // (quantité vendue / produit) comparée au stock actuel. Estimation

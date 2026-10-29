@@ -177,7 +177,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
             .from('raw_material_images')
             .select('image_url')
             .eq('raw_material_id', widget.materialId)
-            .order('position'),
+            .order('position', ascending: true),
         SupabaseConfig.client
             .from('raw_material_usages')
             .select('*, products(name)')
@@ -192,7 +192,7 @@ class _RawMaterialDetailClientState extends State<RawMaterialDetailClient> {
             .from('raw_material_price_history')
             .select()
             .eq('raw_material_id', widget.materialId)
-            .order('recorded_at'),
+            .order('recorded_at', ascending: true),
       ]);
       final material = results[0] as Map<String, dynamic>?;
       if (material == null) {

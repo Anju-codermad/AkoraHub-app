@@ -57,7 +57,7 @@ class _CategoryManagementState extends ConsumerState<CategoryManagement> {
           .from('categories')
           .select()
           .eq('business_unit_id', widget.businessUnitId)
-          .order('name');
+          .order('name', ascending: true);
       setState(() {
         _categories = List<Map<String, dynamic>>.from(data);
         _isLoading = false;

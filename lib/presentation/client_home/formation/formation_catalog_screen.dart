@@ -51,7 +51,7 @@ class _FormationCatalogScreenState extends State<FormationCatalogScreen> {
     });
     try {
       final results = await Future.wait<dynamic>([
-        SupabaseConfig.client.from('raw_materials_preview').select().order('name'),
+        SupabaseConfig.client.from('raw_materials_preview').select().order('name', ascending: true),
         SupabaseConfig.client.from('business_units').select('id, name'),
         FormationRepo.fetchMyPurchasedIds(),
         FormationRepo.fetchMyPendingIds(),

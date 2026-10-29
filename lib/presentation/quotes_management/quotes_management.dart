@@ -424,7 +424,7 @@ class _QuoteThreadScreenState extends State<_QuoteThreadScreen> {
           .from('quote_messages')
           .select()
           .eq('quote_id', widget.quote['id'])
-          .order('created_at');
+          .order('created_at', ascending: true);
       setState(() {
         _items = List<Map<String, dynamic>>.from(items);
         _thread = List<Map<String, dynamic>>.from(thread);
