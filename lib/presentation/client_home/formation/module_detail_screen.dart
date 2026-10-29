@@ -60,7 +60,11 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   }
 
   String? get _contentDeltaJson {
-    if (widget.showMalagasy) return null;
+    if (widget.showMalagasy) {
+      final deltaMg = widget.module['content_delta_mg'];
+      if (deltaMg == null) return null;
+      return jsonEncode(deltaMg);
+    }
     final delta = widget.module['content_delta'];
     if (delta == null) return null;
     return jsonEncode(delta);

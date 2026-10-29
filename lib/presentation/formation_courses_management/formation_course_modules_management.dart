@@ -92,6 +92,9 @@ class _FormationCourseModulesManagementState
         : null;
     final contentMgCtrl =
         TextEditingController(text: module?['content_text_mg'] ?? '');
+    String? contentDeltaMgJson = module?['content_delta_mg'] != null
+        ? jsonEncode(module!['content_delta_mg'])
+        : null;
     final sortOrderCtrl = TextEditingController(
         text: (module?['sort_order'] ?? _modules.length).toString());
     final dureeCtrl = TextEditingController(
@@ -291,13 +294,21 @@ class _FormationCourseModulesManagementState
                   },
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: contentMgCtrl,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Texte (malgache, optionnel)',
-                    helperText: 'Affiché quand le client bascule l\'app en malgache',
-                  ),
+                const Text('Texte (malgache, optionnel)'),
+                const SizedBox(height: 4),
+                const Text(
+                  'Affiché quand le client bascule l\'app en malgache',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 6),
+                RichTextEditorField(
+                  initialDeltaJson: contentDeltaMgJson,
+                  initialPlainText: contentMgCtrl.text,
+                  placeholder: 'Texte du module (malgache)…',
+                  onChanged: (value) {
+                    contentDeltaMgJson = value.deltaJson;
+                    contentMgCtrl.text = value.plainText;
+                  },
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -349,6 +360,9 @@ class _FormationCourseModulesManagementState
                         'content_text_mg': contentMgCtrl.text.trim().isEmpty
                             ? null
                             : contentMgCtrl.text.trim(),
+                        'content_delta_mg': contentDeltaMgJson == null
+                            ? null
+                            : jsonDecode(contentDeltaMgJson!),
                         'photo_urls': photoUrls,
                         'sort_order':
                             int.tryParse(sortOrderCtrl.text.trim()) ?? 0,
