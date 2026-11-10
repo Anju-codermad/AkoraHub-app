@@ -9835,3 +9835,53 @@ ne peux pas créer de bucket R2 ni de jeton API depuis cette session) :
    connecté) plusieurs fois jusqu'à `remaining: 0` pour les photos
    déjà en ligne. Les nouvelles photos passent automatiquement par R2
    dès l'étape 3 terminée, sans action supplémentaire.
+
+## Retrait d'Airtel Money de Papi.mg/FiveOne Pay (10/11) 🔧 CODE PRÊT, DÉPLOIEMENT MANUEL REQUIS
+
+Demande explicite de la propriétaire : Airtel Money ne doit plus passer
+par Papi.mg/FiveOne Pay nulle part, maintenant que l'intégration directe
+(API Collection Airtel, voir `AIRTEL_MONEY_INTEGRATION_GUIDE.md`) est
+certifiée. Mvola et Orange Money restent inchangés (toujours via
+Papi/FiveOne Pay — aucune intégration directe pour ces deux opérateurs
+à ce jour).
+
+- `create-papi-payment-link`/`create-fiveonepay-payment-link`
+  (fonctions à un seul opérateur, déjà dormantes depuis le retrait de
+  Papi/FiveOne Pay de l'app — voir plus haut) : **supprimées**
+  définitivement (plus aucune raison de les garder, la justification
+  "aucun risque à les laisser dormantes" ne tenait que tant qu'on ne
+  touchait pas au reste de Papi/FiveOne Pay).
+- `create-service-request-payment-link` (seul appelant restant de
+  Papi/FiveOne Pay, pour l'acompte diagnostic-eau) : la branche
+  `airtel_money` n'appelle plus Papi/FiveOne Pay — appelle directement
+  l'API Collection Airtel (même logique que
+  `create-airtel-payment-request`, dupliquée ici plutôt que partagée,
+  ce projet n'ayant pas de dossier `_shared`). Retourne
+  `{pending: true, msisdn}` comme `create-airtel-payment-request`
+  plutôt que `{paymentLink}` pour ce cas — `services.html`
+  (dépôt `groupe-akora-site`) mis à jour en conséquence (écran
+  d'attente inline + sondage du statut, même principe que
+  `renderAirtelWaitingScreen` sur `checkout.html`).
+- `airtel-payment-notification` (callback Airtel) : cherche désormais
+  la transaction dans `orders` PUIS, si absente, dans
+  `website_service_requests` — un même `transaction.id` peut
+  maintenant correspondre à l'une ou l'autre table.
+- `phase307_patch_airtel_direct_diagnostic_eau.sql` (nouveau) : ajoute
+  `airtel_transaction_id`/`airtel_money_transaction_ref` à
+  `website_service_requests` (mêmes colonnes qu'`orders` depuis le
+  phase235), avec le même index unique partiel.
+
+⚠️ **Déploiement manuel requis** (comme toujours pour les Edge
+Functions sur ce projet, voir la section R2 ci-dessus) :
+1. Exécuter `phase307_patch_airtel_direct_diagnostic_eau.sql` dans
+   Supabase SQL Editor.
+2. Redéployer `create-service-request-payment-link` et
+   `airtel-payment-notification` (copier/coller le contenu mis à
+   jour dans le Dashboard Supabase).
+3. Supprimer manuellement les fonctions déployées
+   `create-papi-payment-link`/`create-fiveonepay-payment-link` sur le
+   Dashboard si elles y sont encore (le code source est supprimé du
+   dépôt, mais ça ne retire pas une fonction déjà déployée).
+
+**Ce qui n'a PAS changé** : Mvola et Orange Money sur ce même formulaire
+continuent de passer par Papi/FiveOne Pay exactement comme avant.

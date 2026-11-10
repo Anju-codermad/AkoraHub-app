@@ -1,5 +1,7 @@
 // Edge Function : reçoit la confirmation de paiement envoyée par Papi.mg
-// (notificationUrl, voir create-papi-payment-link) — endpoint public
+// (notificationUrl, voir create-service-request-payment-link, seul
+// appelant restant depuis le retrait d'Airtel Money de Papi/FiveOne Pay)
+// — endpoint public
 // appelé directement par les serveurs de Papi, jamais par l'app.
 //
 // Depuis phase217 (05/09) : une référence peut aussi correspondre à
