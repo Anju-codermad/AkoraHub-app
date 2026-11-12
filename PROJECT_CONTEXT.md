@@ -9835,3 +9835,46 @@ ne peux pas créer de bucket R2 ni de jeton API depuis cette session) :
    connecté) plusieurs fois jusqu'à `remaining: 0` pour les photos
    déjà en ligne. Les nouvelles photos passent automatiquement par R2
    dès l'étape 3 terminée, sans action supplémentaire.
+
+## 12/11 — Filigrane sur les photos produit + nom INCI proposé par Akora AI
+
+Demande explicite : les photos produit (site + App) peuvent être vues
+et partagées par lien, mais une copie récupérée doit porter la marque ;
+filigrane DISCRET ("pas beaucoup affiché") : logo + `groupe-akora.com`
+en bas à droite, 20 % de la largeur. Et afficher la référence INCI des
+produits qui en ont une, en laissant Akora AI faire la proposition.
+
+- Filigrane INCRUSTÉ dans le fichier (seule protection qui suit la
+  photo une fois récupérée) : `supabase/functions/watermark-product-photos`
+  (imagescript ; image du filigrane servie par le site :
+  `https://groupe-akora.com/assets/watermark.png`). Écrit une copie sous
+  `wm/` dans le bucket R2, ne supprime jamais l'original, change
+  seulement l'URL en base. Corrige l'orientation EXIF (photos de
+  téléphone) — `Image.rotate(90/270)` d'imagescript 1.3.0 brouille
+  l'image, rotation faite pixel par pixel.
+  - Nouvelles photos : `R2PhotoUploader.upload(watermark: true)`
+    (produits + variantes) ; en cas d'échec, l'URL d'origine est gardée
+    pour ne jamais bloquer l'enregistrement.
+  - Photos existantes : bouton "Ajouter le filigrane" (écran Produits),
+    une photo par appel (limite de temps CPU des Edge Functions).
+  - Les photos WebP ne sont pas lisibles par imagescript : elles
+    apparaissent en échec dans le résumé, à remplacer par un JPEG/PNG.
+- INCI : `supabase/phase308_patch_inci_akora_ai.sql` (`products.inci`
+  validé et affiché ; `inci_suggestion`/`inci_note` = proposition Akora
+  AI, jamais affichée) + `supabase/functions/akora-ai-inci` (Gemini,
+  secret `GEMINI_API_KEY`). Bouton ✨ dans le champ INCI de la fiche
+  produit (staff) + bouton "Akora AI : proposer les noms INCI" (lot).
+  Le staff valide ("Valider cette proposition") puis Enregistrer.
+  Affichage : fiche produit client (App) + `produit.html` (site).
+
+⚠️ Setup propriétaire :
+1. SQL Editor : exécuter `phase308_patch_inci_akora_ai.sql`.
+2. Edge Functions : déployer `watermark-product-photos` et
+   `akora-ai-inci` (copier/coller) ; vérifier le nom réellement déployé.
+3. Secrets : ajouter `GEMINI_API_KEY` (même clé que l'assistant Akora
+   AI). Les secrets R2 existent déjà.
+4. Le site doit être déployé avec `site/assets/watermark.png` AVANT de
+   lancer le filigrane.
+5. Nouvelle version de l'App, puis Produits -> "Ajouter le filigrane",
+   puis "Akora AI : proposer les noms INCI", puis valider produit par
+   produit.

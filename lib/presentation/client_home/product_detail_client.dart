@@ -500,6 +500,22 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
               SizedBox(height: 1.h),
               if ((p['description'] ?? '').toString().isNotEmpty)
                 Text(p['description'], style: theme.textTheme.bodyMedium),
+              // Nom INCI validé par le staff (12/11, voir
+              // phase308_patch_inci_akora_ai.sql) — jamais la proposition
+              // brute d'Akora AI (`inci_suggestion`).
+              if ((p['inci'] ?? '').toString().trim().isNotEmpty) ...[
+                SizedBox(height: 1.h),
+                Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(
+                      text: 'INCI : ',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    TextSpan(text: p['inci'].toString().trim()),
+                  ]),
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
               if (_rawMaterialId != null && _academieSummary != null) ...[
                 SizedBox(height: 1.5.h),
                 _AcademieSummaryCard(
