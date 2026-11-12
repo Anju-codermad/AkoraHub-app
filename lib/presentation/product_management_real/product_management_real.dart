@@ -515,6 +515,14 @@ class _ProductManagementRealState
     final removedExistingIds = <String>{};
     bool isSaving = false;
 
+    // Nom INCI (12/11) : `inci` = validé par le staff, seul affiché aux
+    // clients ; `inci_suggestion`/`inci_note` = proposition d'Akora AI
+    // (Edge Function akora-ai-inci), à vérifier avant de l'utiliser.
+    final inciCtrl = TextEditingController(text: product?['inci'] ?? '');
+    String? inciSuggestion = product?['inci_suggestion'] as String?;
+    String? inciNote = product?['inci_note'] as String?;
+    bool inciLoading = false;
+
     // Piliers SUPPLÉMENTAIRES (04/09/2026, demande explicite : "Je veux
     // qu'il s'affiche dans les deux piliers") — en plus du pilier
     // principal ci-dessus (`selectedUnitId`), qui reste seul à déterminer
@@ -696,6 +704,95 @@ class _ProductManagementRealState
                   maxLines: 2,
                   decoration: const InputDecoration(labelText: 'Description'),
                 ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: inciCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Nom INCI (optionnel)',
+                    helperText:
+                        'Affiché aux clients. Vérifier sur la fiche fournisseur.',
+                    suffixIcon: inciLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.auto_awesome),
+                            tooltip: 'Proposer avec Akora AI',
+                            onPressed: () async {
+                              if (nameCtrl.text.trim().isEmpty) return;
+                              setDialogState(() => inciLoading = true);
+                              try {
+                                final res = await SupabaseConfig
+                                    .client.functions
+                                    .invoke('akora-ai-inci', body: {
+                                  'action': 'suggest',
+                                  if (isEditing) 'productId': product?['id'],
+                                  'name': nameCtrl.text.trim(),
+                                  'category': selectedCategoryName ?? '',
+                                  'description': descCtrl.text.trim(),
+                                });
+                                final data = res.data as Map?;
+                                setDialogState(() {
+                                  inciSuggestion =
+                                      data?['inci'] as String? ?? '';
+                                  inciNote = data?['error'] as String? ??
+                                      'Confiance ${data?['confidence'] ?? '?'}'
+                                          '${(data?['note'] as String?)?.isNotEmpty == true ? ' — ${data!['note']}' : ''}';
+                                });
+                              } catch (e) {
+                                setDialogState(() =>
+                                    inciNote = 'Akora AI indisponible : $e');
+                              } finally {
+                                setDialogState(() => inciLoading = false);
+                              }
+                            },
+                          ),
+                  ),
+                ),
+                if (inciSuggestion != null || inciNote != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (inciSuggestion ?? '').isEmpty
+                              ? 'Akora AI : pas de nom INCI proposé'
+                              : 'Proposition Akora AI : $inciSuggestion',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        if ((inciNote ?? '').isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(inciNote!,
+                                style: Theme.of(context).textTheme.bodySmall),
+                          ),
+                        if ((inciSuggestion ?? '').isNotEmpty &&
+                            inciSuggestion != inciCtrl.text.trim())
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => setDialogState(
+                                  () => inciCtrl.text = inciSuggestion!),
+                              child: const Text('Valider cette proposition'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: barcodeCtrl,
@@ -1258,7 +1355,7 @@ class _ProductManagementRealState
                     double.tryParse(priceDetailCtrl.text) ?? 0;
                 final priceGrosValue =
                     double.tryParse(priceGrosCtrl.text) ?? 0;
-                final payload = {
+                final payload = <String, dynamic>{
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
                   'barcode': barcodeCtrl.text.trim().isEmpty
@@ -1282,6 +1379,15 @@ class _ProductManagementRealState
                   'stock_quantity': double.tryParse(stockCtrl.text) ?? 0,
                   'use_shared_stock': useSharedStock,
                 };
+                // N'envoie `inci` que si la colonne est utilisée (patch
+                // phase308 exécuté) : un produit sans INCI s'enregistre
+                // donc comme avant même si le SQL n'a pas encore été lancé.
+                if (inciCtrl.text.trim().isNotEmpty ||
+                    (product?.containsKey('inci') ?? false)) {
+                  payload['inci'] = inciCtrl.text.trim().isEmpty
+                      ? null
+                      : inciCtrl.text.trim();
+                }
 
                 try {
                   String productId;
@@ -1345,6 +1451,7 @@ class _ProductManagementRealState
                         uploadedUrls.add(await R2PhotoUploader.upload(
                           file: file,
                           fileName: fileName,
+                          watermark: true,
                         ));
                       }
 
@@ -1557,6 +1664,108 @@ class _ProductManagementRealState
     );
   }
 
+  /// Traitement par lots côté serveur, une photo / un produit par appel,
+  /// en boucle jusqu'à ce qu'un appel ne traite plus rien (12/11) :
+  /// - `watermark-product-photos` : incruste le filigrane Groupe Akora sur
+  ///   toutes les photos produit déjà en ligne ;
+  /// - `akora-ai-inci` : Akora AI propose le nom INCI de chaque produit
+  ///   qui n'en a pas (proposition à valider dans la fiche produit).
+  /// Les éléments en échec sont renvoyés à la fonction (`exclude`) pour
+  /// ne pas boucler dessus. Rejouable sans risque.
+  Future<void> _runBatchFunction({
+    required String functionName,
+    required String title,
+    required String explanation,
+    required String Function(int done, int failed) summary,
+  }) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(explanation),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Lancer'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final progress = ValueNotifier<String>('Démarrage...');
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ValueListenableBuilder<String>(
+                valueListenable: progress,
+                builder: (context, value, _) => Text(
+                    '$value\nNe quittez pas cet écran...'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    var done = 0;
+    final exclude = <String>[];
+    String? errorMsg;
+    try {
+      for (var i = 0; i < 1000; i++) {
+        final res = await SupabaseConfig.client.functions.invoke(
+          functionName,
+          body: {'action': 'batch', 'exclude': exclude},
+        );
+        final data = res.data as Map?;
+        if (data == null || data['error'] != null) {
+          errorMsg = data?['error'] as String? ?? 'Réponse inattendue.';
+          break;
+        }
+        final doneNow = (data['done'] as num?)?.toInt() ?? 0;
+        final failedNow = (data['failed'] as List?) ?? const [];
+        done += doneNow;
+        for (final f in failedNow) {
+          final failedRef = (f as Map)['ref'] as String?;
+          if (failedRef != null) exclude.add(failedRef);
+        }
+        final remaining = (data['remaining'] as num?)?.toInt() ?? 0;
+        progress.value = '$done traité(s), ${remaining - exclude.length} restant(s)';
+        if (doneNow == 0 && failedNow.isEmpty) break;
+      }
+    } catch (e) {
+      errorMsg = e.toString();
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context); // ferme le dialogue de progression
+    _loadData();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(errorMsg == null ? 'Terminé' : 'Erreur'),
+        content: Text(errorMsg ?? summary(done, exclude.length)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1569,6 +1778,30 @@ class _ProductManagementRealState
             icon: const Icon(Icons.cloud_upload_outlined),
             tooltip: 'Migrer les photos vers R2',
             onPressed: _migratePhotosToR2,
+          ),
+          IconButton(
+            icon: const Icon(Icons.branding_watermark_outlined),
+            tooltip: 'Ajouter le filigrane aux photos',
+            onPressed: () => _runBatchFunction(
+              functionName: R2PhotoUploader.watermarkFunctionName,
+              title: 'Ajouter le filigrane',
+              explanation:
+                  'Incruste le filigrane Groupe Akora (logo + groupe-akora.com, en bas à droite) sur toutes les photos produit qui ne l\'ont pas encore. Les photos d\'origine sont conservées. Peut prendre plusieurs minutes. Continuer ?',
+              summary: (done, failed) =>
+                  '$done photo(s) filigranée(s).${failed > 0 ? ' $failed photo(s) illisible(s) (format non pris en charge ou lien mort) : à remplacer depuis la fiche produit.' : ''}',
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'Akora AI : proposer les noms INCI',
+            onPressed: () => _runBatchFunction(
+              functionName: 'akora-ai-inci',
+              title: 'Akora AI : noms INCI',
+              explanation:
+                  'Akora AI propose le nom INCI de chaque produit qui n\'en a pas encore. Rien n\'est affiché aux clients tant que vous n\'avez pas validé la proposition dans la fiche du produit. Continuer ?',
+              summary: (done, failed) =>
+                  '$done proposition(s) préparée(s). Ouvrez chaque produit pour vérifier et valider le nom INCI proposé.${failed > 0 ? ' $failed produit(s) en échec.' : ''}',
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.fact_check_outlined),
