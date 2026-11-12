@@ -407,20 +407,20 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Cadre carré (1:1) : les photos produit sont
-                    // générées au format carré, produit centré avec
-                    // marge (voir prompt photo produit). L'ancien cadre
-                    // pleine largeur × 20 % de hauteur d'écran coupait
-                    // le haut et le bas du produit. Plafonné à 45 % de
-                    // la hauteur d'écran pour ne pas envahir la fiche
-                    // sur tablette/web, centré dans ce cas.
+                    // Cadre horizontal 4:3 : les photos produit sont
+                    // générées au format 4:3, produit centré avec marge
+                    // (voir prompt photo produit). L'ancien cadre pleine
+                    // largeur × 20 % de hauteur d'écran coupait le haut
+                    // et le bas du produit. Plafonné à 40 % de la
+                    // hauteur d'écran pour ne pas envahir la fiche sur
+                    // tablette/web, centré dans ce cas.
                     Center(
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: 45.h),
+                        constraints: BoxConstraints(maxHeight: 40.h),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: AspectRatio(
-                            aspectRatio: 1,
+                            aspectRatio: 4 / 3,
                             child: PageView.builder(
                               itemCount: photos.length,
                               onPageChanged: (i) =>
@@ -436,7 +436,7 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                                   tag: i == 0
                                       ? 'product-image-${p['id']}'
                                       : 'product-image-${p['id']}-$i',
-                                  // contain : une ancienne photo non carrée
+                                  // contain : une ancienne photo carrée
                                   // reste visible en entier (bandes de la
                                   // couleur de fond) au lieu d'être rognée.
                                   child: Image.network(
