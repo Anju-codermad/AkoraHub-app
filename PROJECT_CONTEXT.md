@@ -9835,3 +9835,24 @@ ne peux pas créer de bucket R2 ni de jeton API depuis cette session) :
    connecté) plusieurs fois jusqu'à `remaining: 0` pour les photos
    déjà en ligne. Les nouvelles photos passent automatiquement par R2
    dès l'étape 3 terminée, sans action supplémentaire.
+
+## 17/11 — Mise à jour via le Play Store pour les installations Play Store
+
+`lib/core/updates/update_checker.dart` : le bouton "Mettre à jour"
+téléchargeait toujours l'APK (`app_latest_version.download_url`, R2),
+y compris pour les utilisateurs installés depuis le Play Store — contraire
+à la règle Google Play (une app distribuée par le Play Store ne se met à
+jour que par le Play Store). Désormais :
+- `PackageInfo.installerStore == 'com.android.vending'` (installée depuis
+  le Play Store) -> bouton "Mettre à jour sur Google Play" avec le logo
+  officiel (SVG via flutter_svg), ouvre `market://details?id=...`, repli
+  sur la page web du Play Store ;
+- sinon (APK installé depuis le lien direct du site) -> téléchargement de
+  l'APK comme avant (le Play Store ne peut pas mettre à jour une app
+  installée par APK : signature différente avec Play App Signing).
+
+⚠️ `app_latest_version` est mis à jour par la CI dès la fin du build,
+avant la fin de la review Google Play : un utilisateur Play Store peut
+voir la proposition quelques heures avant que la version soit
+disponible sur le Play Store (il y verra alors "Ouvrir" au lieu de
+"Mettre à jour").
