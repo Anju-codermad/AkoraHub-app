@@ -1652,3 +1652,6 @@
 
 ## 2026-11-23 13:30 UTC — Anju-codermad
 - Filigrane sur les photos produit + nom INCI proposé par Akora AI (#24) (`a01cc45`)
+
+## 2026-11-23 13:30 UTC — Anju-codermad
+- Mise à jour : passer par le Play Store pour les installations Play Store (#25) (`918f28c`)
