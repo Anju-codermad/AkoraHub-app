@@ -18,12 +18,12 @@
 // -> "Payments - USSD Push".
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const AIRTEL_BASE_URL = Deno.env.get("AIRTEL_API_BASE_URL") ||
-  "https://openapiuat.airtel.mg";
+const AIRTEL_BASE_URL = ((Deno.env.get("AIRTEL_API_BASE_URL") ?? "").trim() ||
+  "https://openapiuat.airtel.mg").replace(/\/+$/, "");
 
 // Appelée directement par le navigateur (panier.html) — même raison que
-// create-papi-payment-link : sans ces en-têtes, le préflight CORS bloque
-// la requête avant qu'elle n'atteigne cette fonction.
+// create-service-request-payment-link : sans ces en-têtes, le préflight
+// CORS bloque la requête avant qu'elle n'atteigne cette fonction.
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -54,8 +54,8 @@ async function getAirtelAccessToken(): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "*/*" },
     body: JSON.stringify({
-      client_id: Deno.env.get("AIRTEL_CLIENT_ID")!,
-      client_secret: Deno.env.get("AIRTEL_CLIENT_SECRET")!,
+      client_id: (Deno.env.get("AIRTEL_CLIENT_ID") ?? "").trim(),
+      client_secret: (Deno.env.get("AIRTEL_CLIENT_SECRET") ?? "").trim(),
       grant_type: "client_credentials",
     }),
   });
@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       .eq("id", orderId)
       .maybeSingle();
 
-    // Même contrôle que create-papi-payment-link : sans ça, n'importe
+    // Même contrôle que create-service-request-payment-link : sans ça, n'importe
     // quel utilisateur connecté pourrait déclencher un paiement pour la
     // commande de quelqu'un d'autre.
     if (orderError || !order || order.customer_id !== user.id) {

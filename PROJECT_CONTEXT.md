@@ -9856,3 +9856,95 @@ avant la fin de la review Google Play : un utilisateur Play Store peut
 voir la proposition quelques heures avant que la version soit
 disponible sur le Play Store (il y verra alors "Ouvrir" au lieu de
 "Mettre à jour").
+## Retrait d'Airtel Money de Papi.mg/FiveOne Pay (10/11) 🔧 CODE PRÊT, DÉPLOIEMENT MANUEL REQUIS
+
+Demande explicite de la propriétaire : Airtel Money ne doit plus passer
+par Papi.mg/FiveOne Pay nulle part, maintenant que l'intégration directe
+(API Collection Airtel, voir `AIRTEL_MONEY_INTEGRATION_GUIDE.md`) est
+certifiée. Mvola et Orange Money restent inchangés (toujours via
+Papi/FiveOne Pay — aucune intégration directe pour ces deux opérateurs
+à ce jour).
+
+- `create-papi-payment-link`/`create-fiveonepay-payment-link`
+  (fonctions à un seul opérateur, déjà dormantes depuis le retrait de
+  Papi/FiveOne Pay de l'app — voir plus haut) : **supprimées**
+  définitivement (plus aucune raison de les garder, la justification
+  "aucun risque à les laisser dormantes" ne tenait que tant qu'on ne
+  touchait pas au reste de Papi/FiveOne Pay).
+- `create-service-request-payment-link` (seul appelant restant de
+  Papi/FiveOne Pay, pour l'acompte diagnostic-eau) : la branche
+  `airtel_money` n'appelle plus Papi/FiveOne Pay — appelle directement
+  l'API Collection Airtel (même logique que
+  `create-airtel-payment-request`, dupliquée ici plutôt que partagée,
+  ce projet n'ayant pas de dossier `_shared`). Retourne
+  `{pending: true, msisdn}` comme `create-airtel-payment-request`
+  plutôt que `{paymentLink}` pour ce cas — `services.html`
+  (dépôt `groupe-akora-site`) mis à jour en conséquence (écran
+  d'attente inline + sondage du statut, même principe que
+  `renderAirtelWaitingScreen` sur `checkout.html`).
+- `airtel-payment-notification` (callback Airtel) : cherche désormais
+  la transaction dans `orders` PUIS, si absente, dans
+  `website_service_requests` — un même `transaction.id` peut
+  maintenant correspondre à l'une ou l'autre table.
+- `phase307_patch_airtel_direct_diagnostic_eau.sql` (nouveau) : ajoute
+  `airtel_transaction_id`/`airtel_money_transaction_ref` à
+  `website_service_requests` (mêmes colonnes qu'`orders` depuis le
+  phase235), avec le même index unique partiel.
+
+⚠️ **Déploiement manuel requis** (comme toujours pour les Edge
+Functions sur ce projet, voir la section R2 ci-dessus) :
+1. Exécuter `phase307_patch_airtel_direct_diagnostic_eau.sql` dans
+   Supabase SQL Editor.
+2. Redéployer `create-service-request-payment-link` et
+   `airtel-payment-notification` (copier/coller le contenu mis à
+   jour dans le Dashboard Supabase).
+3. Supprimer manuellement les fonctions déployées
+   `create-papi-payment-link`/`create-fiveonepay-payment-link` sur le
+   Dashboard si elles y sont encore (le code source est supprimé du
+   dépôt, mais ça ne retire pas une fonction déjà déployée).
+
+**Ce qui n'a PAS changé** : Mvola et Orange Money sur ce même formulaire
+continuent de passer par Papi/FiveOne Pay exactement comme avant.
+
+## 23/11 — Wallet marchand Airtel (paiement automatique) + paiement manuel activable
+
+Airtel a approuvé l'application en production (18/11, wallet marchand
+communiqué par Airtel). Demandes explicites : garder le paiement manuel
+comme option activable/désactivable PAR MOYEN depuis l'admin, et une page
+de paiement automatique vers le wallet marchand.
+
+- `phase309_patch_airtel_wallet_marchand.sql` :
+  - `payment_method_settings` + `manual_enabled` (défaut true),
+    `manual_instructions` (null = texte par défaut), `online_enabled`
+    (défaut false ; utilisé pour airtel_money).
+  - table `direct_payments` (paiements de la page publique « Payer »),
+    lisible/annotable par le staff uniquement ; RPC
+    `get_direct_payment_status(uuid)` pour la page d'attente du payeur.
+- Edge Function `create-airtel-direct-payment` (nouvelle, sans compte
+  client) : push USSD vers le wallet marchand ; anti-abus (champ piège,
+  3 demandes / numéro / 15 min, 60 / heure), montant 100 – 5 000 000 Ar,
+  numéro Airtel 033 uniquement. Mêmes secrets Airtel que
+  `create-airtel-payment-request`.
+- `airtel-payment-notification` : cherche aussi la transaction dans
+  `direct_payments` (après `orders` et `website_service_requests`).
+- App (client) : `PaymentMethodSettingsRepo.fetchClientSettings()` —
+  un moyen dont le manuel est désactivé n'est plus proposé (l'App n'a
+  que du paiement manuel), coordonnées personnalisées affichées.
+- Site (groupe-akora-site) : `payer.html`, `admin-paiements.html`,
+  `checkout.html` piloté par ces réglages.
+
+⚠️ Déploiement manuel : exécuter le SQL phase309 ; déployer
+`create-airtel-direct-payment` (nouveau) et redéployer
+`airtel-payment-notification`.
+
+### 23/11 — Signature des callbacks Airtel (production) élucidée
+- Airtel Madagascar signe le JSON compact `{"transaction":{...}}` (tout le
+  corps du callback SAUF le champ `hash`) en HMAC-SHA256 Base64, avec la clé
+  de callback telle qu'affichée sur le portail (texte, 32 car.). Ce n'est
+  PAS l'objet `transaction` seul (variante refusée à 14:18/14:24/14:50).
+  Confirmé par le callback de 15:13 (TEST-003, compte d'un tiers) :
+  « Signature Airtel valide : corps sans hash / clé texte ».
+- `airtel-payment-notification` essaie cette variante en premier, puis
+  d'autres ; si aucune ne correspond, le contenu du callback est ignoré et
+  le statut est redemandé à Airtel (Transaction Enquiry). Commun aux
+  commandes, acomptes diagnostic-eau et paiements directs.
