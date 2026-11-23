@@ -116,10 +116,32 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!serviceRequest) {
-      console.error(
-        "Commande/demande introuvable pour la transaction Airtel",
-        transaction.id,
-      );
+      // Ni commande ni acompte : paiement direct depuis la page publique
+      // « Payer Akora Fanadiovana » (create-airtel-direct-payment, voir
+      // phase309_patch_airtel_wallet_marchand.sql — colonne `status`).
+      const { data: directPayment } = await supabaseAdmin
+        .from("direct_payments")
+        .select("id, status")
+        .eq("airtel_transaction_id", transaction.id)
+        .maybeSingle();
+
+      if (!directPayment) {
+        console.error(
+          "Commande/demande/paiement direct introuvable pour la transaction Airtel",
+          transaction.id,
+        );
+        return new Response("ok", { status: 200 });
+      }
+
+      if (directPayment.status !== newStatus) {
+        await supabaseAdmin
+          .from("direct_payments")
+          .update({
+            status: newStatus,
+            airtel_money_transaction_ref: transaction.airtel_money_id ?? null,
+          })
+          .eq("id", directPayment.id);
+      }
       return new Response("ok", { status: 200 });
     }
 

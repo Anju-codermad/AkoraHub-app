@@ -9885,3 +9885,34 @@ Functions sur ce projet, voir la section R2 ci-dessus) :
 
 **Ce qui n'a PAS changé** : Mvola et Orange Money sur ce même formulaire
 continuent de passer par Papi/FiveOne Pay exactement comme avant.
+
+## 23/11 — Wallet marchand Airtel (paiement automatique) + paiement manuel activable
+
+Airtel a approuvé l'application en production (18/11, wallet marchand
+communiqué par Airtel). Demandes explicites : garder le paiement manuel
+comme option activable/désactivable PAR MOYEN depuis l'admin, et une page
+de paiement automatique vers le wallet marchand.
+
+- `phase309_patch_airtel_wallet_marchand.sql` :
+  - `payment_method_settings` + `manual_enabled` (défaut true),
+    `manual_instructions` (null = texte par défaut), `online_enabled`
+    (défaut false ; utilisé pour airtel_money).
+  - table `direct_payments` (paiements de la page publique « Payer »),
+    lisible/annotable par le staff uniquement ; RPC
+    `get_direct_payment_status(uuid)` pour la page d'attente du payeur.
+- Edge Function `create-airtel-direct-payment` (nouvelle, sans compte
+  client) : push USSD vers le wallet marchand ; anti-abus (champ piège,
+  3 demandes / numéro / 15 min, 60 / heure), montant 100 – 5 000 000 Ar,
+  numéro Airtel 033 uniquement. Mêmes secrets Airtel que
+  `create-airtel-payment-request`.
+- `airtel-payment-notification` : cherche aussi la transaction dans
+  `direct_payments` (après `orders` et `website_service_requests`).
+- App (client) : `PaymentMethodSettingsRepo.fetchClientSettings()` —
+  un moyen dont le manuel est désactivé n'est plus proposé (l'App n'a
+  que du paiement manuel), coordonnées personnalisées affichées.
+- Site (groupe-akora-site) : `payer.html`, `admin-paiements.html`,
+  `checkout.html` piloté par ces réglages.
+
+⚠️ Déploiement manuel : exécuter le SQL phase309 ; déployer
+`create-airtel-direct-payment` (nouveau) et redéployer
+`airtel-payment-notification`.
