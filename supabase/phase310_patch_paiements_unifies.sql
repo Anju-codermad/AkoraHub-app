@@ -351,7 +351,13 @@ as $$
     'manual_reference', p.manual_reference,
     'error_message', case when p.status = 'echoue' then left(p.error_message, 200) end,
     'created_at', p.created_at,
-    'paid_at', p.paid_at
+    'paid_at', p.paid_at,
+    -- Lignes de la commande (reçu PDF détaillé, comme une facture).
+    'items', case when p.order_id is not null then
+      coalesce((select jsonb_agg(jsonb_build_object(
+                  'name', i.product_name, 'quantity', i.quantity, 'unit_price', i.unit_price))
+                from public.order_items i where i.order_id = p.order_id), '[]'::jsonb)
+      end
   )
   from public.payments p
   where p.id = p_id;
