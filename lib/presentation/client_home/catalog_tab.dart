@@ -2442,7 +2442,7 @@ class _CatalogSkeleton extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 3.w,
             mainAxisSpacing: 2.h,
-            childAspectRatio: 0.72,
+            childAspectRatio: 0.8,
             children: List.generate(
               4,
               (i) => _ShimmerBox(

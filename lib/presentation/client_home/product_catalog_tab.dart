@@ -1092,7 +1092,10 @@ class _ProductCatalogTabState extends ConsumerState<ProductCatalogTab> {
                       crossAxisCount: 2,
                       crossAxisSpacing: 3.w,
                       mainAxisSpacing: 2.h,
-                      childAspectRatio: 0.72,
+                      // 0.8 (au lieu de 0.72) : la zone photo de la carte
+                      // devient proche du 4:3 des photos produit
+                      // horizontales, donc presque rien n'est rogné.
+                      childAspectRatio: 0.8,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -1178,7 +1181,7 @@ class _ProductCatalogSkeleton extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 3.w,
             mainAxisSpacing: 2.h,
-            childAspectRatio: 0.72,
+            childAspectRatio: 0.8,
             children: List.generate(
               4,
               (i) => Container(

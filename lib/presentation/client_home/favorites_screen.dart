@@ -127,7 +127,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                           crossAxisCount: 2,
                           crossAxisSpacing: 3.w,
                           mainAxisSpacing: 2.h,
-                          childAspectRatio: 0.72,
+                          childAspectRatio: 0.8,
                         ),
                         itemCount: visibleProducts.length,
                         itemBuilder: (context, index) {
