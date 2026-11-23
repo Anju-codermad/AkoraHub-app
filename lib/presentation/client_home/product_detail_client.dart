@@ -407,33 +407,47 @@ class _ProductDetailClientState extends ConsumerState<ProductDetailClient> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        height: 20.h,
-                        width: double.infinity,
-                        child: PageView.builder(
-                          itemCount: photos.length,
-                          onPageChanged: (i) =>
-                              setState(() => _photoIndex = i),
-                          itemBuilder: (context, i) => Container(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            child: Hero(
-                              // Seule la 1ère photo partage le tag de la
-                              // vignette catalogue/favoris (celle qu'on
-                              // voit avant l'ouverture de cette fiche) —
-                              // les suivantes ont un tag unique pour ne
-                              // jamais entrer en conflit dans le PageView.
-                              tag: i == 0
-                                  ? 'product-image-${p['id']}'
-                                  : 'product-image-${p['id']}-$i',
-                              child: Image.network(
-                                photos[i],
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stack) => Icon(
-                                  Icons.inventory_2_outlined,
-                                  size: 56,
-                                  color: theme.colorScheme.outline,
+                    // Cadre horizontal 4:3 : les photos produit sont
+                    // générées au format 4:3, produit centré avec marge
+                    // (voir prompt photo produit). L'ancien cadre pleine
+                    // largeur × 20 % de hauteur d'écran coupait le haut
+                    // et le bas du produit. Plafonné à 40 % de la
+                    // hauteur d'écran pour ne pas envahir la fiche sur
+                    // tablette/web, centré dans ce cas.
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: 40.h),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: AspectRatio(
+                            aspectRatio: 4 / 3,
+                            child: PageView.builder(
+                              itemCount: photos.length,
+                              onPageChanged: (i) =>
+                                  setState(() => _photoIndex = i),
+                              itemBuilder: (context, i) => Container(
+                                color: theme.colorScheme.surfaceContainerHighest,
+                                child: Hero(
+                                  // Seule la 1ère photo partage le tag de la
+                                  // vignette catalogue/favoris (celle qu'on
+                                  // voit avant l'ouverture de cette fiche) —
+                                  // les suivantes ont un tag unique pour ne
+                                  // jamais entrer en conflit dans le PageView.
+                                  tag: i == 0
+                                      ? 'product-image-${p['id']}'
+                                      : 'product-image-${p['id']}-$i',
+                                  // contain : une ancienne photo carrée
+                                  // reste visible en entier (bandes de la
+                                  // couleur de fond) au lieu d'être rognée.
+                                  child: Image.network(
+                                    photos[i],
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stack) => Icon(
+                                      Icons.inventory_2_outlined,
+                                      size: 56,
+                                      color: theme.colorScheme.outline,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
