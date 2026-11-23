@@ -834,7 +834,7 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
                                       ? (customer['company_name'] ??
                                           customer['full_name'] ??
                                           'Client')
-                                      : 'Client';
+                                      : (order['guest_name'] as String? ?? 'Client');
                                   final hasPaymentProof =
                                       order['payment_proof_path'] != null ||
                                           (order['payment_reference']

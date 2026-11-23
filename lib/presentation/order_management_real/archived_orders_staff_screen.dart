@@ -123,7 +123,7 @@ class _ArchivedOrdersStaffScreenState
                               ? (customer['company_name'] ??
                                   customer['full_name'] ??
                                   'Client')
-                              : 'Client';
+                              : (order['guest_name'] as String? ?? 'Client');
                           return Card(
                             child: ListTile(
                               title: Text(order['order_number'] ?? ''),
