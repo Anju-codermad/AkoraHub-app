@@ -1658,3 +1658,6 @@
 
 ## 2026-11-23 20:05 UTC — Anju-codermad
 - Paiements : table unique payments + Edge Function payment-airtel (#27) (`84b35a0`)
+
+## 2026-11-23 20:27 UTC — Anju-codermad
+- App Airtel : nom du payeur et frais inscrits dans payments (#28) (`30d5579`)
