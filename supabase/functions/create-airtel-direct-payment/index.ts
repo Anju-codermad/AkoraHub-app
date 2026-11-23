@@ -20,11 +20,25 @@
 //
 // Secrets : les mêmes que create-airtel-payment-request (AIRTEL_CLIENT_ID,
 // AIRTEL_CLIENT_SECRET, AIRTEL_API_BASE_URL) — rien de nouveau.
-// "Verify JWT" peut rester activé : le site envoie la clé anon.
+// "Verify JWT" désactivé : page publique, protections propres ci-dessous.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const AIRTEL_BASE_URL = Deno.env.get("AIRTEL_API_BASE_URL") ||
-  "https://openapiuat.airtel.mg";
+// Valeurs nettoyées : un espace ou un retour à la ligne invisible collé
+// avec une clé dans le Dashboard Supabase suffit à faire répondre
+// « invalid_client » à Airtel (constaté le 23/11 en production).
+function cleanEnv(name: string): string {
+  return (Deno.env.get(name) ?? "").trim();
+}
+const AIRTEL_BASE_URL = (cleanEnv("AIRTEL_API_BASE_URL") ||
+  "https://openapiuat.airtel.mg").replace(/\/+$/, "");
+const AIRTEL_CLIENT_ID = cleanEnv("AIRTEL_CLIENT_ID");
+const AIRTEL_CLIENT_SECRET = cleanEnv("AIRTEL_CLIENT_SECRET");
+
+// Pour le diagnostic (journal + administration) : jamais la clé en clair.
+function mask(value: string): string {
+  if (value.length <= 8) return `${"•".repeat(value.length)} (${value.length} car.)`;
+  return `${value.slice(0, 4)}…${value.slice(-4)} (${value.length} car.)`;
+}
 
 const MIN_AMOUNT = 100;
 const MAX_AMOUNT = 5_000_000;
@@ -57,18 +71,30 @@ function normalizeMsisdn(raw: string): string | null {
 }
 
 async function getAirtelAccessToken(): Promise<string> {
-  const res = await fetch(`${AIRTEL_BASE_URL}/auth/oauth2/token`, {
+  const url = `${AIRTEL_BASE_URL}/auth/oauth2/token`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "*/*" },
     body: JSON.stringify({
-      client_id: Deno.env.get("AIRTEL_CLIENT_ID")!,
-      client_secret: Deno.env.get("AIRTEL_CLIENT_SECRET")!,
+      client_id: AIRTEL_CLIENT_ID,
+      client_secret: AIRTEL_CLIENT_SECRET,
       grant_type: "client_credentials",
     }),
   });
-  const data = await res.json();
+  const text = await res.text();
+  let data: Record<string, unknown> | null = null;
+  try { data = JSON.parse(text); } catch (_) { /* réponse non JSON */ }
   if (!res.ok || !data?.access_token) {
-    throw new Error("Échec d'authentification Airtel : " + JSON.stringify(data));
+    // Détail complet (sans secret) pour le support Airtel : requête,
+    // statut HTTP, en-têtes utiles et corps de la réponse.
+    const headersOfInterest = ["date", "server", "x-request-id", "x-correlation-id", "via"]
+      .map((h) => res.headers.get(h) ? `${h}=${res.headers.get(h)}` : "")
+      .filter(Boolean).join(", ");
+    throw new Error(
+      `Échec d'authentification Airtel : POST ${url} ` +
+        `{client_id: ${mask(AIRTEL_CLIENT_ID)}, client_secret: ${mask(AIRTEL_CLIENT_SECRET)}, grant_type: client_credentials} ` +
+        `-> HTTP ${res.status}${headersOfInterest ? ` [${headersOfInterest}]` : ""} ${text.slice(0, 300)}`,
+    );
   }
   return data.access_token as string;
 }
@@ -186,7 +212,7 @@ Deno.serve(async (req) => {
       console.error("Échec de la demande de paiement Airtel (direct) :", airtelError);
       await supabaseAdmin
         .from("direct_payments")
-        .update({ status: "echoue", error_message: String(airtelError).slice(0, 500) })
+        .update({ status: "echoue", error_message: String(airtelError).slice(0, 1000) })
         .eq("id", payment.id);
       return json(502, {
         error: "Impossible d'envoyer la demande de paiement Airtel Money. Réessayez.",
