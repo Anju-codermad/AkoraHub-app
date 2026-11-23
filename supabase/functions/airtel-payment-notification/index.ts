@@ -59,7 +59,13 @@ Deno.serve(async (req) => {
       return new Response("ignored", { status: 200 });
     }
 
-    const privateKey = Deno.env.get("AIRTEL_CALLBACK_PRIVATE_KEY")!;
+    // Trace de chaque callback reçu (diagnostic : sans elle, impossible de
+    // savoir si Airtel a appelé ou non).
+    console.log("Callback Airtel reçu :", transaction.id, transaction.status_code);
+
+    // Clé nettoyée : un espace / retour à la ligne collé par erreur dans le
+    // Dashboard rendrait tous les hash invalides (voir 23/11).
+    const privateKey = (Deno.env.get("AIRTEL_CALLBACK_PRIVATE_KEY") ?? "").trim();
     const expectedHash = await computeTransactionHash(transaction, privateKey);
 
     if (!timingSafeEqual(expectedHash, receivedHash)) {

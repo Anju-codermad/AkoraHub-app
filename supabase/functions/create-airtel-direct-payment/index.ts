@@ -99,6 +99,66 @@ async function getAirtelAccessToken(): Promise<string> {
   return data.access_token as string;
 }
 
+// Statuts Airtel : TS = réussi, TF = échoué, TE = expiré ; TIP / TA =
+// en cours ou ambigu (on attend).
+async function checkPaymentStatus(paymentId: string): Promise<{ status: string }> {
+  if (!/^[0-9a-f-]{36}$/i.test(paymentId)) return { status: "inconnu" };
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  const { data: payment } = await supabaseAdmin
+    .from("direct_payments")
+    .select("id, status, airtel_transaction_id, created_at")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment) return { status: "inconnu" };
+  if (payment.status !== "en_attente" || !payment.airtel_transaction_id) {
+    return { status: payment.status };
+  }
+  // Rien à demander pendant les premières secondes, ni après 30 minutes.
+  const ageMs = Date.now() - new Date(payment.created_at).getTime();
+  if (ageMs < 10_000 || ageMs > 30 * 60_000) return { status: payment.status };
+
+  try {
+    const accessToken = await getAirtelAccessToken();
+    const res = await fetch(
+      `${AIRTEL_BASE_URL}/standard/v1/payments/${payment.airtel_transaction_id}`,
+      {
+        method: "GET",
+        headers: {
+          "Accept": "*/*",
+          "X-Country": "MG",
+          "X-Currency": "MGA",
+          "Authorization": `Bearer ${accessToken}`,
+        },
+      },
+    );
+    const data = await res.json().catch(() => null);
+    const tx = data?.data?.transaction;
+    const code = String(tx?.status ?? "").toUpperCase();
+    let newStatus: string | null = null;
+    if (code === "TS") newStatus = "paye";
+    if (code === "TF" || code === "TE") newStatus = "echoue";
+    if (!newStatus) return { status: "en_attente" };
+
+    // Ne met à jour que si le callback n'est pas passé entre-temps.
+    await supabaseAdmin
+      .from("direct_payments")
+      .update({
+        status: newStatus,
+        airtel_money_transaction_ref: tx?.airtel_money_id ?? null,
+        ...(newStatus === "echoue" ? { error_message: `Airtel : ${code} ${tx?.message ?? ""}`.trim() } : {}),
+      })
+      .eq("id", payment.id)
+      .eq("status", "en_attente");
+    return { status: newStatus };
+  } catch (e) {
+    console.error("Vérification Airtel (enquiry) impossible :", e);
+    return { status: "en_attente" };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
@@ -107,6 +167,13 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
+
+    // Vérification du statut auprès d'Airtel (« Transaction Enquiry »),
+    // appelée par la page d'attente : ne dépend plus uniquement du callback
+    // Airtel, qui peut tarder ou ne jamais arriver (constaté le 23/11).
+    if (body.action === "check") {
+      return json(200, await checkPaymentStatus(String(body.paymentId ?? "")));
+    }
 
     // Robot : on répond comme si tout allait bien, sans rien déclencher.
     if (typeof body.website === "string" && body.website.trim() !== "") {
