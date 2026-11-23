@@ -27,13 +27,28 @@ class R2PhotoUploader {
 
   static const _functionName = 'r2-product-photo';
 
+  /// Edge Function qui incruste le filigrane Groupe Akora (12/11, voir
+  /// supabase/functions/watermark-product-photos). Même remarque que
+  /// `_functionName` si le Dashboard la déploie sous un autre nom.
+  static const watermarkFunctionName = 'watermark-product-photos';
+
   /// Upload un fichier local vers R2 et renvoie son URL publique.
   /// [fileName] = chemin relatif dans le bucket (ex.
   /// `$productId/${DateTime.now().millisecondsSinceEpoch}_0.jpg`).
+  ///
+  /// [watermark] = true pour les photos PRODUIT (demande explicite du
+  /// 12/11) : la photo envoyée est ensuite recopiée avec le filigrane
+  /// Groupe Akora incrusté, et c'est l'URL de cette copie qui est
+  /// renvoyée (la photo d'origine reste sur R2, jamais supprimée). Si le
+  /// filigrane échoue (fonction pas encore déployée, format illisible...),
+  /// l'URL d'origine est renvoyée pour ne jamais bloquer l'enregistrement
+  /// du produit — le bouton "Ajouter le filigrane" de l'écran Produits la
+  /// rattrapera ensuite.
   static Future<String> upload({
     required File file,
     required String fileName,
     String contentType = 'image/jpeg',
+    bool watermark = false,
   }) async {
     final presign = await SupabaseConfig.client.functions.invoke(
       _functionName,
@@ -60,7 +75,17 @@ class R2PhotoUploader {
     if (putResponse.statusCode < 200 || putResponse.statusCode >= 300) {
       throw Exception('Échec de l\'envoi vers R2 (${putResponse.statusCode})');
     }
-    return publicUrl;
+    if (!watermark) return publicUrl;
+    try {
+      final wm = await SupabaseConfig.client.functions.invoke(
+        watermarkFunctionName,
+        body: {'action': 'watermark-one', 'imageUrl': publicUrl},
+      );
+      final wmUrl = (wm.data as Map?)?['publicUrl'] as String?;
+      return (wmUrl != null && wmUrl.isNotEmpty) ? wmUrl : publicUrl;
+    } catch (_) {
+      return publicUrl;
+    }
   }
 
   /// Supprime un fichier sur R2 à partir de son URL publique (best-effort
