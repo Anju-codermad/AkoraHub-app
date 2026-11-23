@@ -93,22 +93,44 @@ Deno.serve(async (req) => {
       .eq("airtel_transaction_id", transaction.id)
       .maybeSingle();
 
-    if (!order) {
+    if (order) {
+      if (order.payment_status !== newStatus) {
+        await supabaseAdmin
+          .from("orders")
+          .update({
+            payment_status: newStatus,
+            airtel_money_transaction_ref: transaction.airtel_money_id ?? null,
+          })
+          .eq("id", order.id);
+      }
+      return new Response("ok", { status: 200 });
+    }
+
+    // Pas une commande produit : essaie l'acompte diagnostic-eau (même
+    // transaction.id, table différente — voir create-service-request-
+    // payment-link et phase307_patch_airtel_direct_diagnostic_eau.sql).
+    const { data: serviceRequest } = await supabaseAdmin
+      .from("website_service_requests")
+      .select("id, payment_status")
+      .eq("airtel_transaction_id", transaction.id)
+      .maybeSingle();
+
+    if (!serviceRequest) {
       console.error(
-        "Commande introuvable pour la transaction Airtel",
+        "Commande/demande introuvable pour la transaction Airtel",
         transaction.id,
       );
       return new Response("ok", { status: 200 });
     }
 
-    if (order.payment_status !== newStatus) {
+    if (serviceRequest.payment_status !== newStatus) {
       await supabaseAdmin
-        .from("orders")
+        .from("website_service_requests")
         .update({
           payment_status: newStatus,
           airtel_money_transaction_ref: transaction.airtel_money_id ?? null,
         })
-        .eq("id", order.id);
+        .eq("id", serviceRequest.id);
     }
 
     return new Response("ok", { status: 200 });

@@ -1,5 +1,7 @@
 // Edge Function : reçoit la confirmation de paiement envoyée par
-// FiveOne Pay (callbackUrl, voir create-fiveonepay-payment-link) —
+// FiveOne Pay (callbackUrl, voir create-service-request-payment-link,
+// seul appelant restant depuis le retrait d'Airtel Money de Papi/FiveOne
+// Pay) —
 // endpoint public appelé directement par les serveurs de FiveOne Pay,
 // jamais par l'app.
 //

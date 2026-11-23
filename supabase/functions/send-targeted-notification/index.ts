@@ -8,7 +8,7 @@
 // Les briques Firebase (échange de token OAuth, envoi FCM) sont
 // dupliquées depuis send-push-notification — ce projet n'a pas de
 // dossier `_shared` entre Edge Functions, voir le même choix pour
-// create-fiveonepay-payment-link/create-papi-payment-link.
+// create-service-request-payment-link (Papi/FiveOne Pay/Airtel direct).
 //
 // Secrets nécessaires (déjà définis pour send-push-notification) :
 // - FIREBASE_SERVICE_ACCOUNT
