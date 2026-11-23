@@ -129,6 +129,27 @@ Deno.serve(async (req) => {
     // ("ID de transaction est invalide", statut TF) — même contrainte
     // alphanumérique que pour "reference".
     const airtelTransactionId = crypto.randomUUID().replace(/-/g, "");
+
+    // Table unique des paiements (phase310) : la tentative y est inscrite
+    // avant l'envoi, pour que le callback la retrouve et que l'admin
+    // « Paiements » la voie. Sans la table (script pas encore exécuté),
+    // l'ancien fonctionnement continue (callback sur orders).
+    const { data: paymentRow } = await supabaseAdmin
+      .from("payments")
+      .insert({
+        source: "commande",
+        order_id: order.id,
+        customer_id: user.id,
+        reference: order.order_number,
+        payer_phone: msisdn,
+        method: "airtel_money",
+        mode: "en_ligne",
+        amount: order.total_amount,
+        airtel_transaction_id: airtelTransactionId,
+      })
+      .select("id")
+      .maybeSingle();
+
     const accessToken = await getAirtelAccessToken();
 
     const paymentRes = await fetch(`${AIRTEL_BASE_URL}/merchant/v1/payments/`, {
@@ -162,6 +183,12 @@ Deno.serve(async (req) => {
         "Échec de la demande de paiement Airtel :",
         JSON.stringify(paymentData),
       );
+      if (paymentRow) {
+        await supabaseAdmin
+          .from("payments")
+          .update({ status: "echoue", error_message: JSON.stringify(paymentData).slice(0, 1000) })
+          .eq("id", paymentRow.id);
+      }
       return json(502, { error: "Impossible d'initier le paiement Airtel Money." });
     }
 
