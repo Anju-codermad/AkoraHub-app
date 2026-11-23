@@ -1646,3 +1646,6 @@
 
 ## 2026-11-23 13:29 UTC — Anju-codermad
 - Photos produit au format horizontal 4:3 (#23) (`3248b1c`)
+
+## 2026-11-23 13:30 UTC — Anju-codermad
+- Wallet marchand Airtel : paiement direct + paiement manuel activable (#26) (`7177e43`)
