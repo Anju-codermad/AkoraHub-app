@@ -60,10 +60,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   PaymentMethod _paymentMethod = PaymentMethod.paiementLivraison;
   Set<PaymentMethod> _availableMethods = PaymentMethod.values.toSet();
+  PaymentClientSettings _paymentSettings =
+      PaymentClientSettings(available: PaymentMethod.values.toSet());
   final _paymentReferenceController = TextEditingController();
   File? _paymentProofFile;
 
-  bool get _showManualPaymentFields => _paymentMethod.instructions != null;
+  /// Coordonnées affichées (personnalisables par l'Admin, phase309).
+  String? get _currentInstructions =>
+      _paymentSettings.instructionsFor(_paymentMethod);
+
+  bool get _showManualPaymentFields => _currentInstructions != null;
 
   @override
   void initState() {
@@ -85,9 +91,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   Future<void> _loadAvailablePaymentMethods() async {
-    final available = await PaymentMethodSettingsRepo.fetchEnabled();
+    final settings = await PaymentMethodSettingsRepo.fetchClientSettings();
+    final available = settings.available;
     if (!mounted) return;
     setState(() {
+      _paymentSettings = settings;
       _availableMethods = available;
       if (!available.contains(_paymentMethod) && available.isNotEmpty) {
         _paymentMethod = available.first;
@@ -381,7 +389,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         visualDensity: VisualDensity.compact,
                         onPressed: () {
                           Clipboard.setData(
-                              ClipboardData(text: _paymentMethod.instructions!));
+                              ClipboardData(text: _currentInstructions!));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Coordonnées copiées.'),
@@ -393,7 +401,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ],
                   ),
                   SelectableText(
-                    _paymentMethod.instructions!,
+                    _currentInstructions!,
                     style:
                         theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                   ),

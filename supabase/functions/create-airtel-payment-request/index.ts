@@ -18,8 +18,8 @@
 // -> "Payments - USSD Push".
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const AIRTEL_BASE_URL = Deno.env.get("AIRTEL_API_BASE_URL") ||
-  "https://openapiuat.airtel.mg";
+const AIRTEL_BASE_URL = ((Deno.env.get("AIRTEL_API_BASE_URL") ?? "").trim() ||
+  "https://openapiuat.airtel.mg").replace(/\/+$/, "");
 
 // Appelée directement par le navigateur (panier.html) — même raison que
 // create-service-request-payment-link : sans ces en-têtes, le préflight
@@ -54,8 +54,8 @@ async function getAirtelAccessToken(): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "*/*" },
     body: JSON.stringify({
-      client_id: Deno.env.get("AIRTEL_CLIENT_ID")!,
-      client_secret: Deno.env.get("AIRTEL_CLIENT_SECRET")!,
+      client_id: (Deno.env.get("AIRTEL_CLIENT_ID") ?? "").trim(),
+      client_secret: (Deno.env.get("AIRTEL_CLIENT_SECRET") ?? "").trim(),
       grant_type: "client_credentials",
     }),
   });
