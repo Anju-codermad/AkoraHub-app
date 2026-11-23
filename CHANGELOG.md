@@ -1661,3 +1661,6 @@
 
 ## 2026-11-23 20:27 UTC — Anju-codermad
 - App Airtel : nom du payeur et frais inscrits dans payments (#28) (`30d5579`)
+
+## 2026-11-23 21:00 UTC — Anju-codermad
+- Commande sans compte : phase311 + payment-airtel + nom de l'acheteur côté staff (#29) (`eb0d78e`)
