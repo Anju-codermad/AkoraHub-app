@@ -117,7 +117,7 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
     try {
       var query = SupabaseConfig.client
           .from('orders')
-          .select('*, profiles(full_name, company_name)')
+          .select('*, profiles!customer_id(full_name, company_name)')
           .eq('hidden_by_staff', false);
       if (_statusFilter != 'toutes') {
         query = query.eq('status', _statusFilter);
@@ -150,7 +150,7 @@ class _OrderManagementRealState extends State<OrderManagementReal> {
       final nextPage = _page + 1;
       var query = SupabaseConfig.client
           .from('orders')
-          .select('*, profiles(full_name, company_name)')
+          .select('*, profiles!customer_id(full_name, company_name)')
           .eq('hidden_by_staff', false);
       if (_statusFilter != 'toutes') {
         query = query.eq('status', _statusFilter);

@@ -47,7 +47,7 @@ class _ArchivedOrdersStaffScreenState
     try {
       final orders = await SupabaseConfig.client
           .from('orders')
-          .select('*, profiles(full_name, company_name)')
+          .select('*, profiles!customer_id(full_name, company_name)')
           .eq('hidden_by_staff', true)
           .order('created_at', ascending: false);
       if (!mounted) return;

@@ -43,7 +43,7 @@ class _RecentActivityFeedWidgetState extends State<RecentActivityFeedWidget> {
         SupabaseConfig.client
             .from('orders')
             .select(
-                'id, order_number, created_at, profiles(full_name, company_name)')
+                'id, order_number, created_at, profiles!customer_id(full_name, company_name)')
             .order('created_at', ascending: false)
             .limit(3),
         SupabaseConfig.client

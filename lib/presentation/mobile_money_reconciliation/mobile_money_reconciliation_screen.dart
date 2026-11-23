@@ -110,7 +110,7 @@ class _MobileMoneyReconciliationScreenState
       final rows = await SupabaseConfig.client
           .from('orders')
           .select('id, order_number, total_amount, created_at, '
-              'profiles(full_name, company_name)')
+              'profiles!customer_id(full_name, company_name)')
           .eq('payment_status', 'en_attente')
           .eq('payment_method', operator.id)
           .order('created_at', ascending: false)
