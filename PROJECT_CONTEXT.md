@@ -9990,3 +9990,23 @@ de paiement automatique vers le wallet marchand.
   d'autres ; si aucune ne correspond, le contenu du callback est ignoré et
   le statut est redemandé à Airtel (Transaction Enquiry). Commun aux
   commandes, acomptes diagnostic-eau et paiements directs.
+
+### 23/11 — Phase 310 : table unique des paiements + page de paiement du site
+- `public.payments` (phase310_patch_paiements_unifies.sql) : une ligne par
+  tentative de paiement — source commande / acompte / lien, mode en_ligne
+  (Airtel, push USSD) / manuel (référence + preuve, validé par le staff).
+  Triggers : payments -> orders / website_service_requests (statut, moyen,
+  référence, preuve) ; commande ou acompte marqué payé à la main -> ligne
+  payments créée (ou paiement manuel en attente validé). RPC :
+  get_payment_target, get_payment_receipt (téléphone masqué),
+  submit_manual_payment (anti-abus). Reprise des paiements Airtel existants.
+- Edge Function `payment-airtel` (Verify JWT OFF) : start (commande =
+  client connecté propriétaire ; acompte = UUID ; lien = paiement libre)
+  et check (Transaction Enquiry). Frais Airtel enregistrés (grille
+  « achat commerçant », à la charge du client).
+- airtel-payment-notification cherche d'abord dans payments ;
+  create-airtel-payment-request (App) inscrit aussi sa tentative dans
+  payments.
+- Site : page unique `paiement.html` (récapitulatif, moyens, attente,
+  reçu téléchargeable / partageable) ; checkout, compte, acompte et lien
+  « Payer » y mènent.

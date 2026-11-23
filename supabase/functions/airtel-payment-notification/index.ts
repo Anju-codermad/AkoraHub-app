@@ -169,7 +169,11 @@ async function airtelEnquiry(transactionId: string): Promise<{ code: string; air
 
 // Où se trouve cette transaction chez nous : commande produit, acompte
 // diagnostic-eau ou paiement direct (page « Payer Akora Fanadiovana »).
+// public.payments en premier (table unique depuis la phase 310 : un
+// trigger y reporte le statut sur la commande / l'acompte) ; les autres
+// tables restent pour les paiements lancés avant cette phase.
 const TARGETS = [
+  { table: "payments", statusColumn: "status" },
   { table: "orders", statusColumn: "payment_status" },
   { table: "website_service_requests", statusColumn: "payment_status" },
   { table: "direct_payments", statusColumn: "status" },
@@ -252,7 +256,7 @@ Deno.serve(async (req) => {
       [found.statusColumn]: newStatus,
       airtel_money_transaction_ref: airtelMoneyId,
     };
-    if (found.table === "direct_payments" && newStatus === "echoue") {
+    if ((found.table === "direct_payments" || found.table === "payments") && newStatus === "echoue") {
       update.error_message = `Airtel : ${code} ${airtelMessage}`.trim();
     }
     await supabaseAdmin
