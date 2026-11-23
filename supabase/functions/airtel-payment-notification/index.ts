@@ -27,10 +27,35 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-async function computeTransactionHash(
-  transaction: unknown,
-  privateKey: string,
-): Promise<string> {
+
+// Texte EXACT de l'objet "transaction" tel qu'envoyé par Airtel (espaces et
+// ordre compris) : Airtel signe ce texte-là, pas notre JSON.stringify()
+// reformaté. Repère `"transaction"` puis l'accolade fermante correspondante.
+function rawTransactionText(rawBody: string): string | null {
+  const keyIndex = rawBody.search(/"transaction"\s*:/);
+  if (keyIndex === -1) return null;
+  const start = rawBody.indexOf("{", keyIndex);
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < rawBody.length; i++) {
+    const c = rawBody[i];
+    if (inString) {
+      if (c === "\\") i++;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return rawBody.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+async function hmacBase64(message: string, privateKey: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(privateKey),
@@ -38,11 +63,7 @@ async function computeTransactionHash(
     false,
     ["sign"],
   );
-  const signatureBuffer = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(JSON.stringify(transaction)),
-  );
+  const signatureBuffer = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
   return btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
 }
 
@@ -66,9 +87,21 @@ Deno.serve(async (req) => {
     // Clé nettoyée : un espace / retour à la ligne collé par erreur dans le
     // Dashboard rendrait tous les hash invalides (voir 23/11).
     const privateKey = (Deno.env.get("AIRTEL_CALLBACK_PRIVATE_KEY") ?? "").trim();
-    const expectedHash = await computeTransactionHash(transaction, privateKey);
+    // Signature vérifiée sur plusieurs écritures du même objet : notre
+    // JSON reformaté, le texte exact reçu, et ce texte sans espaces.
+    const rawTx = rawTransactionText(rawBody);
+    const candidates = [JSON.stringify(transaction)];
+    if (rawTx) candidates.push(rawTx, rawTx.replace(/\s+(?=(?:[^"]*"[^"]*")*[^"]*$)/g, ""));
+    let hashOk = false;
+    for (const message of candidates) {
+      if (timingSafeEqual(await hmacBase64(message, privateKey), receivedHash)) {
+        hashOk = true;
+        break;
+      }
+    }
 
-    if (!timingSafeEqual(expectedHash, receivedHash)) {
+    if (!hashOk) {
+      console.error("Corps du callback refusé :", rawBody.slice(0, 600), "| hash reçu :", receivedHash.slice(0, 12) + "…");
       // Ne répond jamais par une erreur ici : un vrai callback Airtel en
       // échec serait réessayé indéfiniment, et une requête forgée ne
       // mérite qu'un journal, pas un indice sur ce qui a cloché (même
