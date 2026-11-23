@@ -135,6 +135,7 @@ async function checkPaymentStatus(paymentId: string): Promise<{ status: string }
       },
     );
     const data = await res.json().catch(() => null);
+    console.log("Vérification Airtel :", payment.airtel_transaction_id, "HTTP", res.status, JSON.stringify(data)?.slice(0, 300));
     const tx = data?.data?.transaction;
     const code = String(tx?.status ?? "").toUpperCase();
     let newStatus: string | null = null;
