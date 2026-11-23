@@ -40,7 +40,7 @@ function mask(value: string): string {
   return `${value.slice(0, 4)}…${value.slice(-4)} (${value.length} car.)`;
 }
 
-const MIN_AMOUNT = 100;
+const MIN_AMOUNT = 300; // Airtel refuse 100 Ar (« inférieur à la limite autorisée », test du 23/11) ; 300 Ar accepté.
 const MAX_AMOUNT = 5_000_000;
 const MAX_PER_NUMBER_15_MIN = 3;
 const MAX_TOTAL_PER_HOUR = 60;
