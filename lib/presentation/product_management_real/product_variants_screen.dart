@@ -505,6 +505,7 @@ class _ProductVariantsScreenState
                     currentImageUrl = await R2PhotoUploader.upload(
                       file: file,
                       fileName: fileName,
+                      watermark: true,
                     );
                   }
                 } catch (_) {
