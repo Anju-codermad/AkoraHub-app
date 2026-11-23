@@ -76,6 +76,8 @@ Deno.serve(async (req) => {
       console.error(
         "Hash de callback Airtel invalide pour la transaction",
         transaction.id,
+        `(clé AIRTEL_CALLBACK_PRIVATE_KEY : ${privateKey.length} car., ` +
+          `commence par « ${privateKey.slice(0, 2)}… »)`,
       );
       return new Response("ignored", { status: 200 });
     }
