@@ -1655,3 +1655,6 @@
 
 ## 2026-11-23 13:30 UTC — Anju-codermad
 - Mise à jour : passer par le Play Store pour les installations Play Store (#25) (`918f28c`)
+
+## 2026-11-23 20:05 UTC — Anju-codermad
+- Paiements : table unique payments + Edge Function payment-airtel (#27) (`84b35a0`)
