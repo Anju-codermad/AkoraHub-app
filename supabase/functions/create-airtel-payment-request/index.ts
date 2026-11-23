@@ -49,6 +49,20 @@ function normalizeMsisdn(raw: string): string | null {
   return local;
 }
 
+// Grille Airtel « Frais d'achat auprès d'un commerçant » (à la charge du
+// client) — même grille que payment-airtel et site/assets/airtel-fees.js.
+const FEES: Array<[number, number]> = [
+  [1000, 100], [5000, 150], [10000, 250], [20000, 350], [25000, 400], [30000, 400],
+  [40000, 500], [50000, 600], [60000, 600], [80000, 800], [100000, 900],
+  [250000, 1500], [500000, 2000], [1000000, 5000], [2000000, 10000],
+  [3000000, 12000], [4000000, 16000], [5000000, 20000],
+];
+function airtelFee(amount: number): number | null {
+  if (amount < 100) return null;
+  for (const [max, fee] of FEES) if (amount <= max) return fee;
+  return null;
+}
+
 async function getAirtelAccessToken(): Promise<string> {
   const res = await fetch(`${AIRTEL_BASE_URL}/auth/oauth2/token`, {
     method: "POST",
@@ -114,7 +128,7 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("phone")
+      .select("phone, full_name")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -141,10 +155,12 @@ Deno.serve(async (req) => {
         order_id: order.id,
         customer_id: user.id,
         reference: order.order_number,
+        payer_name: profile?.full_name ?? null,
         payer_phone: msisdn,
         method: "airtel_money",
         mode: "en_ligne",
         amount: order.total_amount,
+        fee: airtelFee(Number(order.total_amount)),
         airtel_transaction_id: airtelTransactionId,
       })
       .select("id")
