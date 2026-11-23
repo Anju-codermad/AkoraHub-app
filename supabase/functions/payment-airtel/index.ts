@@ -6,7 +6,8 @@
 //
 // Actions (body JSON) :
 //   { action: "start", source: "commande", targetId, phone }
-//       -> client connecté (en-tête Authorization), propriétaire de la commande
+//       -> client connecté (en-tête Authorization), propriétaire de la commande ;
+//          commande sans compte (phase311) : l'identifiant suffit
 //   { action: "start", source: "acompte", targetId, phone }
 //       -> identifiant de la demande (UUID) suffisant, comme le lien envoyé
 //   { action: "start", source: "lien", payerName, reference?, amount, phone, website? }
@@ -162,24 +163,31 @@ async function resolveTarget(req: Request, body: Record<string, unknown>): Promi
   const source = String(body.source ?? "");
 
   if (source === "commande") {
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json(401, { error: "Connectez-vous pour payer cette commande." });
     if (!isUuid(body.targetId)) return json(400, { error: "Commande introuvable." });
     const { data: order } = await db
       .from("orders")
-      .select("id, order_number, customer_id, total_amount, payment_status")
+      .select("id, order_number, customer_id, guest_name, total_amount, payment_status")
       .eq("id", body.targetId)
       .maybeSingle();
-    if (!order || order.customer_id !== user.id) return json(404, { error: "Commande introuvable." });
+    if (!order) return json(404, { error: "Commande introuvable." });
+    let payerName: string | null = order.guest_name ?? null;
+    // Commande d'un client connecté : réservée à ce client. Commande sans
+    // compte (phase311, customer_id vide) : l'identifiant suffit.
+    if (order.customer_id) {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) return json(401, { error: "Connectez-vous pour payer cette commande." });
+      if (order.customer_id !== user.id) return json(404, { error: "Commande introuvable." });
+      const { data: profile } = await db.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+      payerName = profile?.full_name ?? null;
+    }
     if (order.payment_status === "paye") return json(409, { error: "Cette commande est déjà payée." });
-    const { data: profile } = await db.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
     return {
-      source: "commande", orderId: order.id, customerId: user.id, reference: order.order_number,
-      payerName: profile?.full_name ?? null, amount: Math.round(Number(order.total_amount)),
+      source: "commande", orderId: order.id, customerId: order.customer_id ?? null, reference: order.order_number,
+      payerName, amount: Math.round(Number(order.total_amount)),
     };
   }
 
