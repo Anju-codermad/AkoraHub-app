@@ -14,11 +14,13 @@
 //   vérifiée.
 //
 // Authenticité — deux niveaux :
-// 1. Champ `hash` = Base64(HmacSHA256(transaction, clé privée)) (doc
-//    Airtel "Callback Encryption"). Plusieurs écritures du message et de
-//    la clé sont essayées : la doc Airtel ne précise pas l'encodage exact
-//    et, en production (23/11), la variante « JSON de transaction / clé
-//    texte » était refusée alors que le paiement était bien réel.
+// 1. Champ `hash` = Base64(HmacSHA256(message, clé privée)). Constaté en
+//    production le 23/11 (callback de 15:13, « corps sans hash / clé
+//    texte ») : Airtel Madagascar signe le JSON compact
+//    {"transaction":{...}} — tout le corps SAUF le champ hash — avec la clé
+//    telle qu'affichée (texte), et non l'objet transaction seul comme le
+//    laisse entendre la doc. Les autres variantes restent essayées par
+//    prudence (au cas où Airtel change de format).
 // 2. Si aucune variante ne correspond : on NE fait PAS confiance au
 //    contenu du callback, mais on redemande le statut directement à Airtel
 //    (Transaction Enquiry, appel authentifié par nos identifiants). Seul ce
@@ -108,11 +110,14 @@ async function verifyHash(
   privateKey: string,
 ): Promise<string | null> {
   if (!privateKey) return null;
-  const messages: Array<[string, string]> = [["JSON transaction", JSON.stringify(transaction)]];
+  // En premier : la variante confirmée en production (23/11).
+  const messages: Array<[string, string]> = [
+    ["corps sans hash", JSON.stringify({ transaction })],
+    ["JSON transaction", JSON.stringify(transaction)],
+  ];
   const rawTx = rawObjectText(rawBody, "transaction");
   if (rawTx) messages.push(["texte transaction reçu", rawTx]);
   messages.push(["transaction triée", sortedJson(transaction)]);
-  messages.push(["corps sans hash", JSON.stringify({ transaction })]);
   const { hash: _ignored, ...bodyWithoutHash } = JSON.parse(rawBody);
   messages.push(["corps reçu sans hash", JSON.stringify(bodyWithoutHash)]);
   for (const field of ["id", "airtel_money_id"]) {

@@ -9916,3 +9916,15 @@ de paiement automatique vers le wallet marchand.
 ⚠️ Déploiement manuel : exécuter le SQL phase309 ; déployer
 `create-airtel-direct-payment` (nouveau) et redéployer
 `airtel-payment-notification`.
+
+### 23/11 — Signature des callbacks Airtel (production) élucidée
+- Airtel Madagascar signe le JSON compact `{"transaction":{...}}` (tout le
+  corps du callback SAUF le champ `hash`) en HMAC-SHA256 Base64, avec la clé
+  de callback telle qu'affichée sur le portail (texte, 32 car.). Ce n'est
+  PAS l'objet `transaction` seul (variante refusée à 14:18/14:24/14:50).
+  Confirmé par le callback de 15:13 (TEST-003, compte d'un tiers) :
+  « Signature Airtel valide : corps sans hash / clé texte ».
+- `airtel-payment-notification` essaie cette variante en premier, puis
+  d'autres ; si aucune ne correspond, le contenu du callback est ignoré et
+  le statut est redemandé à Airtel (Transaction Enquiry). Commun aux
+  commandes, acomptes diagnostic-eau et paiements directs.
