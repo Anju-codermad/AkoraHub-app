@@ -59,14 +59,14 @@ function json(status: number, body: Record<string, unknown>) {
 }
 
 // MSISDN sans indicatif (règle Airtel, comme create-airtel-payment-request),
-// et uniquement un numéro Airtel Madagascar (033…) : un push USSD Airtel
+// et uniquement un numéro Airtel Madagascar (033… ou 035…) : un push USSD Airtel
 // envoyé vers un numéro Orange/Telma ne peut pas aboutir.
 function normalizeMsisdn(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
   let local = digits;
   if (local.startsWith("261")) local = local.slice(3);
   if (local.startsWith("0")) local = local.slice(1);
-  if (!/^33\d{7}$/.test(local)) return null;
+  if (!/^3[35]\d{7}$/.test(local)) return null;
   return local;
 }
 
@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
       });
     }
     if (!msisdn) {
-      return json(400, { error: "Numéro Airtel Money invalide : il doit commencer par 033 (ex. 033 12 345 67)." });
+      return json(400, { error: "Numéro Airtel Money invalide : il doit commencer par 033 ou 035 (ex. 033 12 345 67)." });
     }
 
     const supabaseAdmin = createClient(

@@ -66,12 +66,12 @@ function json(status: number, body: Record<string, unknown>) {
   });
 }
 
-// MSISDN sans indicatif, numéro Airtel Madagascar (033) uniquement.
+// MSISDN sans indicatif, numéro Airtel Madagascar (033 ou 035) uniquement.
 function normalizeMsisdn(raw: string): string | null {
   let local = raw.replace(/\D/g, "");
   if (local.startsWith("261")) local = local.slice(3);
   if (local.startsWith("0")) local = local.slice(1);
-  return /^33\d{7}$/.test(local) ? local : null;
+  return /^3[35]\d{7}$/.test(local) ? local : null;
 }
 
 function isUuid(v: unknown): v is string {
@@ -225,7 +225,7 @@ async function startPayment(req: Request, body: Record<string, unknown>): Promis
   }
   const msisdn = normalizeMsisdn(String(body.phone ?? ""));
   if (!msisdn) {
-    return json(400, { error: "Numéro Airtel Money invalide : il doit commencer par 033 (ex. 033 12 345 67)." });
+    return json(400, { error: "Numéro Airtel Money invalide : il doit commencer par 033 ou 035 (ex. 033 12 345 67)." });
   }
 
   const target = await resolveTarget(req, body);
