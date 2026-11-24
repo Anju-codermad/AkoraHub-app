@@ -78,7 +78,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   /// Valide un numéro malgache : doit commencer par un préfixe d'opérateur
-  /// réel (Telma 034/038, Orange 032, Yas ex-Airtel 033), avec ou sans le
+  /// réel (Yas ex-Telma 034/036/038, Orange 032/037, Airtel 033/035), avec ou sans le
   /// +261, et contenir le bon nombre de chiffres. Pour tout autre pays
   /// choisi dans le menu déroulant, on applique juste une validation
   /// générique par longueur.
@@ -93,7 +93,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       final local = digitsOnly.startsWith('261')
           ? '0${digitsOnly.substring(3)}'
           : digitsOnly;
-      const validPrefixes = ['032', '033', '034', '038'];
+      const validPrefixes = ['032', '033', '034', '035', '036', '037', '038'];
       final isValidMalagasy =
           validPrefixes.any((p) => local.startsWith(p)) && local.length == 10;
       if (!isValidMalagasy) {
