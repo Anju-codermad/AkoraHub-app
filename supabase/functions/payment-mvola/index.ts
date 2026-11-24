@@ -52,12 +52,13 @@ function json(status: number, body: Record<string, unknown>) {
   });
 }
 
-// Numéro MVola (Telma) : 034 ou 038, au format local 0341234567.
+// Numéro MVola (Yas, ex-Telma) : 034, 036 ou 038, au format local 0341234567
+// (036 : numéros Yas récents, dont le compte MVola Entreprise d'Akora).
 function normalizeMvolaMsisdn(raw: string): string | null {
   let local = raw.replace(/\D/g, "");
   if (local.startsWith("261")) local = local.slice(3);
   if (local.startsWith("0")) local = local.slice(1);
-  return /^3[48]\d{7}$/.test(local) ? `0${local}` : null;
+  return /^3[468]\d{7}$/.test(local) ? `0${local}` : null;
 }
 
 function isUuid(v: unknown): v is string {
@@ -245,7 +246,7 @@ async function startPayment(req: Request, body: Record<string, unknown>): Promis
   }
   const msisdn = normalizeMvolaMsisdn(String(body.phone ?? ""));
   if (!msisdn) {
-    return json(400, { error: "Numéro MVola invalide : il doit commencer par 034 ou 038 (ex. 034 12 345 67)." });
+    return json(400, { error: "Numéro MVola invalide : il doit commencer par 034, 036 ou 038 (ex. 034 12 345 67)." });
   }
 
   const target = await resolveTarget(req, body);
